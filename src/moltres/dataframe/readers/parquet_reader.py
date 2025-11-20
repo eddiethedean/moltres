@@ -101,7 +101,7 @@ def read_parquet_stream(
         RuntimeError: If pyarrow is not installed
     """
     try:
-        import pyarrow.parquet as pq
+        import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
     except ImportError as exc:
         raise RuntimeError(
             "Parquet format requires pyarrow. Install with: pip install pyarrow"
@@ -111,7 +111,7 @@ def read_parquet_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 
-    parquet_file = pq.ParquetFile(str(path_obj))
+    parquet_file = pq.ParquetFile(str(path_obj))  # type: ignore[attr-defined]
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
         for i in range(parquet_file.num_row_groups):
