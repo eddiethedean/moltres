@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from moltres import col, connect
-from moltres.utils.exceptions import ValidationError
+from moltres import connect
 
 
 def test_limit_zero(tmp_path):

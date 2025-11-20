@@ -32,7 +32,6 @@ def test_sql_injection_column_name(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     from moltres.table.schema import column
-    from moltres.sql.builders import quote_identifier
 
     db.create_table(
         "test",

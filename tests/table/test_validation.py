@@ -31,8 +31,6 @@ def test_create_table_empty_columns(tmp_path):
     db_path = tmp_path / "test.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    from moltres.table.schema import ColumnDef
-
     with pytest.raises(ValidationError, match="no columns"):
         db.create_table("empty_table", [])
 
