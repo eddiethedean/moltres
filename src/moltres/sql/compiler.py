@@ -99,7 +99,10 @@ class SQLCompiler:
             alias = f"{left_state.alias}_{right_state.alias}"
             return CompilationState(source=source, alias=alias)
 
-        raise CompilationError(f"Unsupported logical plan node: {type(plan).__name__}")
+        raise CompilationError(
+            f"Unsupported logical plan node: {type(plan).__name__}. "
+            f"Supported nodes: TableScan, Project, Filter, Limit, Sort, Aggregate, Join"
+        )
 
     # ---------------------------------------------------------------- formatters
     def _format_projection(self, expr: Column) -> str:
@@ -151,7 +154,10 @@ class SQLCompiler:
             return " AND ".join(clauses)
         if plan.condition is not None:
             return self._expr.emit(plan.condition)
-        raise CompilationError("Join requires either equality keys or an explicit condition")
+        raise CompilationError(
+            "Join requires either equality keys (via 'on' parameter) or an explicit condition. "
+            f"Join type: {plan.how}, left alias: {left_alias}, right alias: {right_alias}"
+        )
 
 
 class ExpressionCompiler:
@@ -264,4 +270,7 @@ class ExpressionCompiler:
             args = comma_separated(self.emit(arg) for arg in expression.args)
             return f"COUNT(DISTINCT {args})"
 
-        raise CompilationError(f"Unsupported expression operation '{op}'")
+        raise CompilationError(
+            f"Unsupported expression operation '{op}'. "
+            "This may indicate a missing function implementation or an invalid expression."
+        )

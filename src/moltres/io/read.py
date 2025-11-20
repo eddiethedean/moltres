@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from ..table.table import Database
 
 
-def read_table(db: Database, table_name: str, columns: Optional[Iterable[str]] = None):
+def read_table(
+    db: Database, table_name: str, columns: Optional[Iterable[str]] = None
+) -> Union[List[Dict[str, Any]], Any]:
+    """Read a table from the database.
+
+    Args:
+        db: Database connection
+        table_name: Name of the table to read
+        columns: Optional list of column names to select. If None, selects all columns.
+
+    Returns:
+        Query results in the format specified by the database's fetch_format
+        (list of dicts, pandas DataFrame, or polars DataFrame)
+    """
     handle = db.table(table_name)
     df = handle.select()
     if columns:
@@ -15,5 +28,21 @@ def read_table(db: Database, table_name: str, columns: Optional[Iterable[str]] =
     return df.collect()
 
 
-def read_sql(db: Database, sql: str, params: Optional[Dict[str, object]] = None):
+def read_sql(
+    db: Database, sql: str, params: Optional[Dict[str, object]] = None
+) -> Union[List[Dict[str, Any]], Any]:
+    """Execute a raw SQL query and return results.
+
+    Args:
+        db: Database connection
+        sql: SQL query string
+        params: Optional parameter dictionary for parameterized queries
+
+    Returns:
+        Query results in the format specified by the database's fetch_format
+        (list of dicts, pandas DataFrame, or polars DataFrame)
+
+    Raises:
+        ExecutionError: If SQL execution fails
+    """
     return db.execute_sql(sql, params=params).rows

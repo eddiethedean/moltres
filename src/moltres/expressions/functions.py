@@ -24,6 +24,19 @@ __all__ = [
 
 
 def lit(value: Union[bool, int, float, str, None]) -> Column:
+    """Create a literal column expression from a Python value.
+
+    Args:
+        value: The literal value (bool, int, float, str, or None)
+
+    Returns:
+        Column expression representing the literal value
+
+    Example:
+        >>> from moltres.expressions.functions import lit
+        >>> col = lit(42)
+        >>> col = lit("hello")
+    """
     return literal(value)
 
 
@@ -32,6 +45,19 @@ def _aggregate(op: str, column: ColumnLike) -> Column:
 
 
 def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
+    """Compute the sum of a column.
+
+    Args:
+        column: Column expression or literal value
+
+    Returns:
+        Column expression for the sum aggregate
+
+    Example:
+        >>> from moltres import col
+        >>> from moltres.expressions.functions import sum
+        >>> df.group_by("category").agg(sum(col("amount")))
+    """
     return _aggregate("agg_sum", column)
 
 
@@ -48,6 +74,20 @@ def max(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
 
 
 def count(column: Union[ColumnLike, str] = "*") -> Column:
+    """Count the number of rows or non-null values.
+
+    Args:
+        column: Column expression, literal value, or "*" for counting all rows
+
+    Returns:
+        Column expression for the count aggregate
+
+    Example:
+        >>> from moltres import col
+        >>> from moltres.expressions.functions import count
+        >>> df.group_by("category").agg(count("*"))
+        >>> df.group_by("category").agg(count(col("id")))
+    """
     if isinstance(column, str) and column == "*":
         return Column(op="agg_count_star", args=())
     return _aggregate("agg_count", column)

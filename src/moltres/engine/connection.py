@@ -22,6 +22,14 @@ class ConnectionManager:
         kwargs: Dict[str, object] = {"echo": self.config.echo, "future": self.config.future}
         if self.config.pool_size is not None:
             kwargs["pool_size"] = self.config.pool_size
+        if self.config.max_overflow is not None:
+            kwargs["max_overflow"] = self.config.max_overflow
+        if self.config.pool_timeout is not None:
+            kwargs["pool_timeout"] = self.config.pool_timeout
+        if self.config.pool_recycle is not None:
+            kwargs["pool_recycle"] = self.config.pool_recycle
+        if self.config.pool_pre_ping:
+            kwargs["pool_pre_ping"] = self.config.pool_pre_ping
         return create_engine(self.config.dsn, **kwargs)
 
     @property

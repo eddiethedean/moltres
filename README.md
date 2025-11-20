@@ -1,12 +1,15 @@
 # Moltres
 
 [![CI](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 > A PySpark-inspired DataFrame API that compiles to SQL and runs on your existing database.
 
-Moltres provides a familiar DataFrame API similar to PySpark, but instead of running on a Spark cluster, it compiles your operations into ANSI SQL and executes them directly against your database through SQLAlchemy. Compose column expressions, joins, aggregates, and mutations with the same ergonomics you'd expect from Spark—all while leveraging your existing SQL infrastructure.
+**Moltres** provides a familiar DataFrame API similar to PySpark, but instead of running on a Spark cluster, it compiles your operations into ANSI SQL and executes them directly against your database through SQLAlchemy. Compose column expressions, joins, aggregates, and mutations with the same ergonomics you'd expect from Spark—all while leveraging your existing SQL infrastructure.
 
-## Features
+## ✨ Features
 
 - 🚀 **PySpark-like API** - Familiar DataFrame operations (select, filter, join, groupBy, etc.)
 - 🗄️ **SQL Compilation** - All operations compile to ANSI SQL and run on your database
@@ -14,14 +17,26 @@ Moltres provides a familiar DataFrame API similar to PySpark, but instead of run
 - 🌊 **Streaming Support** - Handle datasets larger than memory with chunked processing
 - 🔧 **Type Safe** - Full type hints and mypy support
 - 🎯 **Zero Dependencies** - Works with just SQLAlchemy (pandas/polars optional)
+- 🔒 **Security First** - Built-in SQL injection prevention and validation
+- ⚡ **Performance Monitoring** - Optional hooks for query performance tracking
+- 🌍 **Environment Config** - Configure via environment variables for 12-factor apps
 
-## Requirements
+## 🆕 What's New in 0.2.0
+
+- **Environment Variable Support** - Configure Moltres via `MOLTRES_DSN`, `MOLTRES_POOL_SIZE`, etc.
+- **Performance Monitoring Hooks** - Track query execution time with `register_performance_hook()`
+- **Enhanced Security** - Comprehensive SQL injection prevention and security documentation
+- **Modular Architecture** - Refactored file readers into organized, maintainable modules
+- **Comprehensive Testing** - 113 test cases covering edge cases, security, and error handling
+- **Better Documentation** - Security guide, troubleshooting, and examples documentation
+
+## 📋 Requirements
 
 - Python 3.9+
 - SQLAlchemy 2.0+ (for database connectivity)
 - A supported SQLAlchemy driver (SQLite, PostgreSQL, MySQL, etc.)
 
-## Installation
+## 📦 Installation
 
 ```bash
 pip install moltres
@@ -40,7 +55,7 @@ pip install moltres[polars]
 pip install moltres[pandas,polars]
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
 ```python
 from moltres import col, connect
@@ -63,7 +78,18 @@ df = (
 results = df.collect()  # Returns list of dicts by default
 ```
 
-## Core Concepts
+## 💡 Why Moltres?
+
+**Moltres** bridges the gap between PySpark's elegant DataFrame API and traditional SQL databases:
+
+- ✅ **No Spark Cluster Required** - Run on your existing SQL database
+- ✅ **Familiar API** - PySpark developers feel at home immediately
+- ✅ **Type Safe** - Full type hints for better IDE support and fewer bugs
+- ✅ **Production Ready** - Environment variables, connection pooling, monitoring hooks
+- ✅ **Secure by Default** - SQL injection prevention built-in
+- ✅ **Flexible** - Works with SQLite, PostgreSQL, MySQL, and more
+
+## 📖 Core Concepts
 
 ### Lazy Evaluation
 
@@ -101,7 +127,7 @@ df = (
 )
 ```
 
-## Reading Data
+## 📥 Reading Data
 
 ### From Database Tables
 
@@ -160,7 +186,7 @@ df = db.read.schema(schema).csv("data.csv")
 
 > **Note:** File-based readers materialize data into memory (not lazy) since files aren't in the SQL database.
 
-## Writing Data
+## 📤 Writing Data
 
 ### To Database Tables
 
@@ -212,7 +238,7 @@ df.write.partitionBy("country", "year").csv("partitioned_data")
 - **JSONL**: One JSON object per line
 - **Parquet**: Columnar format (requires `pandas` and `pyarrow`, options: `compression`)
 
-## Streaming for Large Datasets
+## 🌊 Streaming for Large Datasets
 
 Moltres supports streaming operations for datasets larger than available memory:
 
@@ -249,7 +275,7 @@ for chunk in df.collect(stream=True):
 - Incremental processing pipelines
 - Large data transformations
 
-## Table Management
+## 🗄️ Table Management
 
 ### Creating Tables
 
@@ -286,7 +312,7 @@ The `column()` helper accepts:
 - `default`: Default value for the column (optional)
 - `primary_key`: Whether this is a primary key column (default: False)
 
-## Data Mutations
+## ✏️ Data Mutations
 
 Insert, update, and delete operations run eagerly:
 
@@ -295,7 +321,7 @@ from moltres import col
 
 customers = db.table("customers")
 
-# Insert rows
+# Insert rows (batch optimized)
 customers.insert([
     {"id": 1, "name": "Alice", "active": 1},
     {"id": 2, "name": "Bob", "active": 0},
@@ -308,7 +334,7 @@ customers.update(where=col("id") == 2, set={"active": 1})
 customers.delete(where=col("active") == 0)
 ```
 
-## Result Formats
+## 📊 Result Formats
 
 By default, `collect()` returns a list of dictionaries (`fetch_format="records"`), so Moltres works even when pandas/polars are unavailable. You can configure the result format when connecting:
 
@@ -326,7 +352,93 @@ db = connect("sqlite:///example.db", fetch_format="polars")
 results = df.collect()  # polars.DataFrame
 ```
 
-## Advanced Examples
+## ⚙️ Configuration
+
+### Programmatic Configuration
+
+```python
+db = connect(
+    "postgresql://user:pass@host/dbname",
+    echo=True,  # Enable SQL logging
+    fetch_format="pandas",
+    pool_size=10,
+    max_overflow=5,
+    pool_timeout=30,
+    pool_recycle=3600,
+    pool_pre_ping=True,  # Connection health checks
+)
+```
+
+### Environment Variables
+
+Moltres supports configuration via environment variables for easier deployment (12-factor app friendly):
+
+```bash
+export MOLTRES_DSN="postgresql://user:pass@host/dbname"
+export MOLTRES_POOL_SIZE=10
+export MOLTRES_POOL_PRE_PING=true
+export MOLTRES_FETCH_FORMAT="pandas"
+```
+
+Then in your code:
+```python
+from moltres import connect
+
+# Uses MOLTRES_DSN from environment
+db = connect()
+```
+
+**Supported environment variables:**
+- `MOLTRES_DSN`: Database connection string
+- `MOLTRES_ECHO`: Enable SQL logging (true/false)
+- `MOLTRES_FETCH_FORMAT`: "records", "pandas", or "polars"
+- `MOLTRES_DIALECT`: Override SQL dialect
+- `MOLTRES_POOL_SIZE`: Connection pool size
+- `MOLTRES_MAX_OVERFLOW`: Maximum pool overflow
+- `MOLTRES_POOL_TIMEOUT`: Pool timeout in seconds
+- `MOLTRES_POOL_RECYCLE`: Connection recycle time
+- `MOLTRES_POOL_PRE_PING`: Enable connection health checks (true/false)
+
+**Configuration Precedence:** Programmatic arguments > Environment variables > Defaults
+
+## 📈 Performance Monitoring
+
+Moltres provides optional performance monitoring hooks for tracking query execution:
+
+```python
+from moltres.engine import register_performance_hook
+
+def log_slow_queries(sql: str, elapsed: float, metadata: dict):
+    if elapsed > 1.0:
+        print(f"Slow query ({elapsed:.2f}s): {sql[:100]}")
+        print(f"  Rows affected: {metadata.get('rowcount', 'N/A')}")
+
+register_performance_hook("query_end", log_slow_queries)
+
+# Now all queries will be monitored
+db = connect("sqlite:///example.db")
+df.collect()  # Slow queries will be logged
+
+# Unregister when done
+from moltres.engine import unregister_performance_hook
+unregister_performance_hook("query_end", log_slow_queries)
+```
+
+**Available Events:**
+- `query_start`: Fired when a query begins execution
+- `query_end`: Fired when a query completes (includes elapsed time and metadata)
+
+## 🔒 Security
+
+Moltres includes built-in security features to prevent SQL injection:
+
+- **SQL Identifier Validation** - All table and column names are validated
+- **Parameterized Queries** - All user data is passed as parameters, never string concatenation
+- **Input Sanitization** - Comprehensive validation of identifiers and inputs
+
+See [`docs/SECURITY.md`](docs/SECURITY.md) for security best practices and guidelines.
+
+## 📚 Advanced Examples
 
 ### Complex Joins and Aggregations
 
@@ -354,7 +466,7 @@ df = (
 results = df.collect()
 ```
 
-### Window Functions and Subqueries
+### Window Functions
 
 ```python
 # Complex expressions with window functions
@@ -370,7 +482,7 @@ df = (
 )
 ```
 
-### Data Pipeline Example
+### Complete ETL Pipeline
 
 ```python
 # Complete ETL pipeline
@@ -397,7 +509,7 @@ cleaned = (
 cleaned.write.mode("overwrite").save_as_table("daily_sales_summary")
 ```
 
-## Supported Operations
+## 🛠️ Supported Operations
 
 ### DataFrame Operations
 - `select()` - Project columns
@@ -409,25 +521,44 @@ cleaned.write.mode("overwrite").save_as_table("daily_sales_summary")
 - `limit()` - Limit number of rows
 
 ### Column Expressions
-- Arithmetic: `+`, `-`, `*`, `/`, `%`
-- Comparisons: `==`, `!=`, `<`, `>`, `<=`, `>=`
-- Boolean: `&`, `|`, `~`
-- Functions: `sum()`, `avg()`, `count()`, `concat()`, `coalesce()`, `upper()`, `lower()`, etc.
+- **Arithmetic**: `+`, `-`, `*`, `/`, `%`
+- **Comparisons**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- **Boolean**: `&`, `|`, `~`
+- **Functions**: `sum()`, `avg()`, `count()`, `concat()`, `coalesce()`, `upper()`, `lower()`, etc.
 
 ### Supported SQL Dialects
-- SQLite
-- PostgreSQL
-- MySQL (basic support)
-- Other SQLAlchemy-supported databases (with ANSI SQL fallback)
+- ✅ SQLite
+- ✅ PostgreSQL
+- ✅ MySQL (basic support)
+- ✅ Other SQLAlchemy-supported databases (with ANSI SQL fallback)
 
-## Development
+## 🧪 Development
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/eddiethedean/moltres.git
+cd moltres
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Install pre-commit hooks
+pre-commit install
+```
 
 ### Running Tests
 
-Third-party pytest plugins can interfere with the runtime, so disable auto-loading:
-
 ```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest
+# Run all tests
+pytest
+
+# Run tests in parallel
+pytest -n 9
+
+# Run with coverage
+pytest --cov=src/moltres --cov-report=html
 ```
 
 ### Code Quality
@@ -443,29 +574,42 @@ ruff format .
 mypy src
 ```
 
-## Documentation
+## 📖 Documentation
 
-Additional design notes and architecture details are available in the `docs/` directory. The high-level architecture follows the plan in `moltres_plan.md`, covering:
+Additional documentation is available in the `docs/` directory:
 
-- Expression builder
-- Logical planner
-- SQL compiler
-- Execution engine
-- Mutation layer
-- Read/Write layers
-- Streaming support
+- **[Security Guide](docs/SECURITY.md)** - Security best practices and SQL injection prevention
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Examples](docs/EXAMPLES.md)** - Common patterns and usage examples
+- **[Design Notes](docs/moltres_plan.md)** - High-level architecture and design decisions
 
-## License
+## 🤝 Contributing
 
-MIT
+Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
 
-## Author
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 👤 Author
 
 **Odos Matthews**
 
 - GitHub: [@eddiethedean](https://github.com/eddiethedean)
 - Email: odosmatthews@gmail.com
 
-## Contributing
+## 🙏 Acknowledgments
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- Inspired by PySpark's DataFrame API
+- Built on SQLAlchemy for database connectivity
+- Thanks to all contributors and users
+
+---
+
+**Made with ❤️ for the Python data community**

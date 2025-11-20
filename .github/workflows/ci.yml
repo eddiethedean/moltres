@@ -2,83 +2,48 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main]
   pull_request:
-    branches: [main, master, develop]
+    branches: [main]
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install ruff
-      - name: Run ruff check
-        run: ruff check .
-      - name: Run ruff format check
-        run: ruff format --check .
-
-  type-check:
-    name: Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install mypy
-      - name: Run mypy
-        run: mypy src --ignore-missing-imports --no-strict-optional
-
   test:
-    name: Test (Python ${{ matrix.python-version }}${{ matrix.extras-label }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        include:
-          - python-version: "3.9"
-            extras: ""
-            extras-label: ""
-          - python-version: "3.10"
-            extras: ""
-            extras-label: ""
-          - python-version: "3.11"
-            extras: ""
-            extras-label: ""
-          - python-version: "3.12"
-            extras: ""
-            extras-label: ""
-          - python-version: "3.11"
-            extras: "[pandas]"
-            extras-label: " + pandas"
-          - python-version: "3.11"
-            extras: "[polars]"
-            extras-label: " + polars"
-          - python-version: "3.11"
-            extras: "[pandas,polars]"
-            extras-label: " + pandas + polars"
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .${{ matrix.extras }}
-          pip install pytest pytest-cov
+          pip install -e ".[dev]"
+
+      - name: Run linting
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Run type checking
+        run: |
+          mypy src
+
       - name: Run tests
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: 1
-        run: pytest --tb=short -v
+        run: |
+          pytest --cov=src/moltres --cov-report=xml --cov-report=term
 
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false

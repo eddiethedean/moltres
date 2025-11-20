@@ -66,6 +66,24 @@ class Database:
         return self._executor
 
     def table(self, name: str) -> TableHandle:
+        """Get a handle to a table in the database.
+
+        Args:
+            name: Name of the table
+
+        Returns:
+            TableHandle for the specified table
+
+        Raises:
+            ValidationError: If table name is invalid
+        """
+        from ..utils.exceptions import ValidationError
+        from ..sql.builders import quote_identifier
+
+        if not name:
+            raise ValidationError("Table name cannot be empty")
+        # Validate table name format
+        quote_identifier(name, self._dialect.quote_char)
         return TableHandle(name=name, database=self)
 
     @property
@@ -84,7 +102,26 @@ class Database:
         if_not_exists: bool = True,
         temporary: bool = False,
     ) -> TableHandle:
-        """Create a new table with the specified schema."""
+        """Create a new table with the specified schema.
+
+        Args:
+            name: Name of the table to create
+            columns: Sequence of ColumnDef objects defining the table schema
+            if_not_exists: If True, don't error if table already exists (default: True)
+            temporary: If True, create a temporary table (default: False)
+
+        Returns:
+            TableHandle for the newly created table
+
+        Raises:
+            ValidationError: If table name or columns are invalid
+            ExecutionError: If table creation fails
+        """
+        from ..utils.exceptions import ValidationError
+
+        if not columns:
+            raise ValidationError(f"Cannot create table '{name}' with no columns")
+
         schema = TableSchema(
             name=name,
             columns=columns,
@@ -96,7 +133,16 @@ class Database:
         return self.table(name)
 
     def drop_table(self, name: str, *, if_exists: bool = True) -> None:
-        """Drop a table by name."""
+        """Drop a table by name.
+
+        Args:
+            name: Name of the table to drop
+            if_exists: If True, don't error if table doesn't exist (default: True)
+
+        Raises:
+            ValidationError: If table name is invalid
+            ExecutionError: If table dropping fails (when if_exists=False and table doesn't exist)
+        """
         sql = compile_drop_table(name, self._dialect, if_exists=if_exists)
         self._executor.execute(sql)
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 from ..expressions.column import Column, col
 from ..logical import operators
@@ -48,6 +48,18 @@ class DataFrame:
     filter = where
 
     def limit(self, count: int) -> "DataFrame":
+        """Limit the number of rows returned by the query.
+
+        Args:
+            count: Maximum number of rows to return. Must be non-negative.
+                  If 0, returns an empty result set.
+
+        Returns:
+            New DataFrame with the limit applied
+
+        Raises:
+            ValueError: If count is negative
+        """
         if count < 0:
             raise ValueError("limit count must be non-negative")
         return self._with_plan(operators.limit(self.plan, count))
@@ -89,7 +101,9 @@ class DataFrame:
             return self.database.compile_plan(self.plan)
         return compile_plan(self.plan)
 
-    def collect(self, stream: bool = False) -> object:
+    def collect(
+        self, stream: bool = False
+    ) -> Union[List[Dict[str, object]], Iterator[List[Dict[str, object]]]]:
         """Collect DataFrame results.
 
         Args:
@@ -97,7 +111,11 @@ class DataFrame:
                    materialize all rows into a list (backward compatible).
 
         Returns:
-            List of dicts if stream=False, iterator of row chunks if stream=True.
+            If stream=False: List of dictionaries representing rows.
+            If stream=True: Iterator of row chunks (each chunk is a list of dicts).
+
+        Raises:
+            RuntimeError: If DataFrame is not bound to a Database and has no materialized data
         """
         # Check if DataFrame has streaming generator
         if self._stream_generator is not None:

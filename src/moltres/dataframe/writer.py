@@ -379,15 +379,15 @@ class DataFrameWriter:
     def _save_parquet(self, path: str) -> None:
         """Save DataFrame as Parquet file."""
         try:
-            import pandas as pd
+            import pandas as pd  # type: ignore[import-untyped]
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"
             ) from exc
 
         try:
-            import pyarrow as pa
-            import pyarrow.parquet as pq
+            import pyarrow as pa  # type: ignore[import-untyped]
+            import pyarrow.parquet as pq  # type: ignore[import-untyped]
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
