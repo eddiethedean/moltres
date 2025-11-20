@@ -41,7 +41,7 @@ def read_parquet(
         ) from exc
 
     try:
-        import pyarrow.parquet as pq  # type: ignore[import-untyped]
+        import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
     except ImportError as exc:
         raise RuntimeError(
             "Parquet format requires pyarrow. Install with: pip install pyarrow"
