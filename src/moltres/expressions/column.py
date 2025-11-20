@@ -1,4 +1,5 @@
 """Column helper similar to PySpark's ``Column``."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace

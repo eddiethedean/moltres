@@ -12,10 +12,12 @@ def test_insert_update_delete(tmp_path):
         )
 
     table = db.table("customers")
-    inserted = table.insert([
-        {"id": 1, "name": "Alice", "active": 1},
-        {"id": 2, "name": "Bob", "active": 0},
-    ])
+    inserted = table.insert(
+        [
+            {"id": 1, "name": "Alice", "active": 1},
+            {"id": 2, "name": "Bob", "active": 0},
+        ]
+    )
     assert inserted == 2
 
     updated = table.update(where=col("id") == 2, set={"name": "Bobby", "active": 1})

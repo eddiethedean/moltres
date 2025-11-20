@@ -1,8 +1,9 @@
 """Execution helpers for running compiled SQL."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Iterator, List, Optional, Sequence
 
 from sqlalchemy import text
 
@@ -36,6 +37,28 @@ class QueryExecutor:
             result = conn.execute(text(sql), params or {})
             return QueryResult(rows=None, rowcount=result.rowcount)
 
+    def fetch_stream(
+        self, sql: str, params: Optional[Dict[str, Any]] = None, chunk_size: int = 10000
+    ) -> Iterator[List[Dict[str, Any]]]:
+        """Fetch query results in streaming chunks."""
+        with self._connections.connect() as conn:
+            result = conn.execute(text(sql), params or {})
+            columns = list(result.keys())
+
+            while True:
+                rows = result.fetchmany(chunk_size)
+                if not rows:
+                    break
+                # Format rows according to fetch_format
+                if self._config.fetch_format == "records":
+                    chunk = [dict(zip(columns, row)) for row in rows]
+                    yield chunk
+                else:
+                    # For pandas/polars, we'd need to yield DataFrames
+                    # For now, convert to records format
+                    chunk = [dict(zip(columns, row)) for row in rows]
+                    yield chunk
+
     def _format_rows(self, rows: Sequence[Sequence[Any]], columns: Sequence[str]) -> Any:
         fmt = self._config.fetch_format
         if fmt == "records":
@@ -45,7 +68,7 @@ class QueryExecutor:
                 import pandas as pd  # type: ignore
             except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
-            return pd.DataFrame(rows, columns=columns)
+            return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
                 import polars as pl  # type: ignore

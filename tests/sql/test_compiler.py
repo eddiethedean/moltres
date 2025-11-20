@@ -38,7 +38,7 @@ def test_compile_join_on_columns():
     proj = operators.project(joined, (col("orders.id").alias("order_id"), col("customers.name")))
     sql = compile_plan(proj)
 
-    assert 'JOIN' in sql
+    assert "JOIN" in sql
     assert 'ON ("orders"."customer_id" = "customers"."id")' in sql
     assert '"orders"."id" AS "order_id"' in sql
 

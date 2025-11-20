@@ -1,8 +1,9 @@
 """Compile logical plans into SQL."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Iterable, Optional, Sequence, Tuple, Union
+from typing import Optional, Union
 
 from ..engine.dialects import DialectSpec, get_dialect
 from ..expressions.column import Column
@@ -74,7 +75,9 @@ class SQLCompiler:
 
         if isinstance(plan, Limit):
             child_state = self._analyze(plan.child)
-            new_limit = plan.count if child_state.limit is None else min(child_state.limit, plan.count)
+            new_limit = (
+                plan.count if child_state.limit is None else min(child_state.limit, plan.count)
+            )
             return replace(child_state, limit=new_limit)
 
         if isinstance(plan, Sort):

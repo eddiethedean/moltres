@@ -1,4 +1,5 @@
 """Typing helpers shared across the project."""
+
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable

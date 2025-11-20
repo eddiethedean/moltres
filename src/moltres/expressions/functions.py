@@ -1,7 +1,8 @@
 """Expression helper functions."""
+
 from __future__ import annotations
 
-from typing import Iterable, Union
+from typing import Union
 
 from .column import Column, ColumnLike, ensure_column, literal
 
@@ -22,7 +23,7 @@ __all__ = [
 ]
 
 
-def lit(value: object) -> Column:
+def lit(value: Union[bool, int, float, str, None]) -> Column:
     return literal(value)
 
 

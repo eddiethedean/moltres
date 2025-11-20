@@ -1,23 +1,35 @@
 """Lazy DataFrame representation."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Iterator, List, Optional, Sequence, Tuple, Union
 
 from ..expressions.column import Column, col
 from ..logical import operators
 from ..logical.plan import LogicalPlan, SortOrder
 from ..sql.compiler import compile_plan
 
+if TYPE_CHECKING:
+    from ..table.schema import ColumnDef
+    from ..table.table import Database, TableHandle
+    from .groupby import GroupedDataFrame
+    from .writer import DataFrameWriter
+
 
 @dataclass(frozen=True)
 class DataFrame:
     plan: LogicalPlan
     database: Optional["Database"] = None
+    _materialized_data: Optional[List[dict[str, object]]] = None
+    _stream_generator: Optional[Callable[[], Iterator[List[dict[str, object]]]]] = None
+    _stream_schema: Optional[Sequence["ColumnDef"]] = None
 
     # ------------------------------------------------------------------ builders
     @classmethod
-    def from_table(cls, table_handle: "TableHandle", columns: Optional[Sequence[str]] = None) -> "DataFrame":
+    def from_table(
+        cls, table_handle: "TableHandle", columns: Optional[Sequence[str]] = None
+    ) -> "DataFrame":
         plan = operators.scan(table_handle.name)
         df = cls(plan=plan, database=table_handle.database)
         if columns:
@@ -77,15 +89,60 @@ class DataFrame:
             return self.database.compile_plan(self.plan)
         return compile_plan(self.plan)
 
-    def collect(self) -> object:
+    def collect(self, stream: bool = False) -> object:
+        """Collect DataFrame results.
+
+        Args:
+            stream: If True, return an iterator of row chunks. If False (default),
+                   materialize all rows into a list (backward compatible).
+
+        Returns:
+            List of dicts if stream=False, iterator of row chunks if stream=True.
+        """
+        # Check if DataFrame has streaming generator
+        if self._stream_generator is not None:
+            if stream:
+                return self._stream_generator()
+            else:
+                # Materialize all chunks for backward compatibility
+                all_rows = []
+                for chunk in self._stream_generator():
+                    all_rows.extend(chunk)
+                return all_rows
+
+        # Check if DataFrame has materialized data (from file readers)
+        if self._materialized_data is not None:
+            if stream:
+                # Return iterator with single chunk
+                return iter([self._materialized_data])
+            return self._materialized_data
+
         if self.database is None:
             raise RuntimeError("Cannot collect a plan without an attached Database")
+
+        if stream:
+            # For SQL queries, use streaming execution
+            return self.database.execute_plan_stream(self.plan)
+
         result = self.database.execute_plan(self.plan)
         return result.rows
 
+    @property
+    def write(self) -> "DataFrameWriter":
+        """Return a DataFrameWriter for writing this DataFrame to a table."""
+        from .writer import DataFrameWriter
+
+        return DataFrameWriter(self)
+
     # ---------------------------------------------------------------- utilities
     def _with_plan(self, plan: LogicalPlan) -> "DataFrame":
-        return DataFrame(plan=plan, database=self.database)
+        return DataFrame(
+            plan=plan,
+            database=self.database,
+            _materialized_data=self._materialized_data,
+            _stream_generator=self._stream_generator,
+            _stream_schema=self._stream_schema,
+        )
 
     def _normalize_projection(self, expr: Union[Column, str]) -> Column:
         if isinstance(expr, Column):

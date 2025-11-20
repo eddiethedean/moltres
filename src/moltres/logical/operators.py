@@ -1,4 +1,5 @@
 """Factory helpers for logical plan nodes."""
+
 from __future__ import annotations
 
 from typing import Iterable, Optional, Sequence, Tuple
@@ -41,7 +42,9 @@ def sort_order(expression: Column, descending: bool = False) -> SortOrder:
     return SortOrder(expression=expression, descending=descending)
 
 
-def aggregate(child: LogicalPlan, keys: Sequence[Column], aggregates: Sequence[Column]) -> Aggregate:
+def aggregate(
+    child: LogicalPlan, keys: Sequence[Column], aggregates: Sequence[Column]
+) -> Aggregate:
     return Aggregate(child=child, grouping=tuple(keys), aggregates=tuple(aggregates))
 
 
@@ -53,4 +56,6 @@ def join(
     on: Optional[Sequence[Tuple[str, str]]] = None,
     condition: Optional[Column] = None,
 ) -> Join:
-    return Join(left=left, right=right, how=how, on=None if on is None else tuple(on), condition=condition)
+    return Join(
+        left=left, right=right, how=how, on=None if on is None else tuple(on), condition=condition
+    )

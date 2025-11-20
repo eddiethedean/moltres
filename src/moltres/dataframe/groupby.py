@@ -1,4 +1,5 @@
 """Grouped DataFrame helper."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,5 +26,7 @@ class GroupedDataFrame:
     @staticmethod
     def _validate_aggregation(expr: Column) -> Column:
         if not expr.op.startswith("agg_"):
-            raise ValueError("Aggregation expressions must be created with moltres aggregate helpers")
+            raise ValueError(
+                "Aggregation expressions must be created with moltres aggregate helpers"
+            )
         return expr

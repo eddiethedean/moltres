@@ -60,7 +60,8 @@ def test_join_and_groupby_flow(tmp_path):
     ]
 
     totals = (
-        db.table("orders").select()
+        db.table("orders")
+        .select()
         .group_by("customer_id")
         .agg(sum_(col("amount")).alias("total_amount"))
         .order_by(col("customer_id"))

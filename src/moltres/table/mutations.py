@@ -1,4 +1,5 @@
 """Table mutation helpers."""
+
 from __future__ import annotations
 
 from typing import Dict, Mapping, Sequence
@@ -17,13 +18,15 @@ def insert_rows(handle: TableHandle, rows: Sequence[Mapping[str, object]]) -> in
         raise ValueError("insert requires column values")
     _validate_row_shapes(rows, columns)
     table_sql = quote_identifier(handle.name, handle.database.dialect.quote_char)
-    column_sql = comma_separated(quote_identifier(col, handle.database.dialect.quote_char) for col in columns)
+    column_sql = comma_separated(
+        quote_identifier(col, handle.database.dialect.quote_char) for col in columns
+    )
     placeholder_sql = comma_separated(f":{col}" for col in columns)
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     affected = 0
     for row in rows:
-        result = handle.database.executor.execute(sql, params=row)
+        result = handle.database.executor.execute(sql, params=dict(row))  # type: ignore[arg-type]
         affected += result.rowcount or 0
     return affected
 

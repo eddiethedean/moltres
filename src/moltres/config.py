@@ -1,4 +1,5 @@
 """Runtime configuration objects for Moltres."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,7 +33,9 @@ class MoltresConfig:
 def create_config(dsn: str, **kwargs: object) -> MoltresConfig:
     """Convenience helper used by ``moltres.connect``."""
 
-    engine_kwargs = {k: kwargs.pop(k) for k in list(kwargs) if k in EngineConfig.__dataclass_fields__}
+    engine_kwargs = {
+        k: kwargs.pop(k) for k in list(kwargs) if k in EngineConfig.__dataclass_fields__
+    }
     engine = EngineConfig(dsn=dsn, **engine_kwargs)  # type: ignore[arg-type]
     return MoltresConfig(engine=engine, options=kwargs)
 

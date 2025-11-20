@@ -1,4 +1,5 @@
 """Base expression definitions used across Moltres."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace

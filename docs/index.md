@@ -11,16 +11,49 @@
 3. **SQL Compiler** – `moltres.sql.compiler` converts the plan into ANSI SQL with basic dialect
    awareness (SQLite and PostgreSQL quoting, case sensitivity, etc.).
 4. **Execution Engine** – `moltres.engine` manages SQLAlchemy connections and materializes results as
-   lists of dicts, pandas DataFrames, or polars DataFrames depending on configuration.
-5. **Mutation Layer** – `moltres.table.mutations` provides eager `insert`, `update`, and `delete`
+   lists of dicts, pandas DataFrames, or polars DataFrames depending on configuration. Supports
+   streaming execution via `fetch_stream()` for cursor-based pagination of large result sets.
+5. **DDL Layer** – `moltres.sql.ddl` and `moltres.table.schema` provide table creation and schema
+   definition utilities that compile to CREATE TABLE and DROP TABLE statements.
+6. **Read Layer** – `moltres.dataframe.reader` provides data source readers with:
+   - Table reads: `read.table()` for database tables
+   - File formats: `read.csv()`, `read.json()`, `read.jsonl()`, `read.parquet()`, `read.text()`
+   - Generic format: `read.format(format_name).load(path)`
+   - Schema inference: automatic type detection from data
+   - Explicit schemas: `.schema([ColumnDef(...), ...])` for type control
+   - Format options: `.option(key, value)` for format-specific settings
+   - Streaming: `.stream()` for chunked reading of large files (configurable chunk_size)
+7. **Write Layer** – `moltres.dataframe.writer` provides DataFrame persistence with:
+   - Table writes: `save_as_table()` with schema inference and automatic table creation
+   - Existing table inserts: `insertInto()` for appending to pre-existing tables
+   - File formats: `csv()`, `json()`, `jsonl()`, `parquet()` with format-specific options
+   - Partitioning: `partitionBy()` for directory-based data partitioning
+   - Multiple write modes: append, overwrite, error_if_exists
+   - Streaming: `.stream()` for chunked writing without materializing entire DataFrame
+8. **Mutation Layer** – `moltres.table.mutations` provides eager `insert`, `update`, and `delete`
    helpers that share the same connection stack as queries.
 
 ## Workflows
 
+- Create tables programmatically using `db.create_table(name, columns, ...)` with schema definitions
+  built from `column()` helpers. Drop tables with `db.drop_table(name)`.
+- Read data using `db.read.table("name")` for database tables, or `db.read.csv(path)`,
+  `db.read.json(path)`, `db.read.parquet(path)`, etc. for file formats. Use `.schema([...])` for
+  explicit schemas and `.option(key, value)` for format-specific settings.
 - Use `db.table("name").select(...)` to construct lazy DataFrames.
 - Compose joins via `df.join(other_df, on=[("left_col", "right_col")])` and aggregations via
   `df.group_by("country").agg(sum(col("amount")).alias("total"))`.
-- Call `collect()` to execute a plan; Moltres compiles SQL at that point.
+- Call `collect()` to execute a plan; Moltres compiles SQL at that point. Use `collect(stream=True)` to
+  get an iterator of row chunks for large datasets, or enable streaming mode with `.stream()` on readers/writers.
+- Write DataFrames to tables using `df.write.save_as_table(name)` with automatic schema inference
+  and table creation, or `df.write.insertInto(name)` for existing tables. Control behavior with
+  `.mode("append|overwrite|error_if_exists")` and `.schema([ColumnDef(...), ...])` for explicit schemas.
+- Write DataFrames to files using `df.write.csv(path)`, `df.write.json(path)`, `df.write.parquet(path)`,
+  or the generic `df.write.save(path, format="...")`. Use `.partitionBy("col1", "col2")` for
+  directory-based partitioning and `.option(key, value)` for format-specific settings.
+- Enable streaming for large datasets: `df.read.stream().option("chunk_size", 10000).csv("large.csv")`
+  reads in chunks, and `df.write.stream().save_as_table("large_table")` writes without materializing.
+  Use `collect(stream=True)` to process chunks incrementally.
 - Perform table mutations through the `TableHandle` (`db.table("orders").insert([...])`).
 
 ## Testing & Tooling

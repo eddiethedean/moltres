@@ -1,16 +1,23 @@
 """Table access primitives."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence
 
 from ..config import MoltresConfig
+
+if TYPE_CHECKING:
+    from ..dataframe.dataframe import DataFrame
+    from ..dataframe.reader import DataFrameReader
 from ..engine.connection import ConnectionManager
 from ..engine.dialects import DialectSpec, get_dialect
 from ..engine.execution import QueryExecutor, QueryResult
 from ..expressions.column import Column
 from ..logical.plan import LogicalPlan
 from ..sql.compiler import compile_plan
+from ..sql.ddl import compile_create_table, compile_drop_table
+from .schema import ColumnDef, TableSchema
 
 
 @dataclass
@@ -61,6 +68,38 @@ class Database:
     def table(self, name: str) -> TableHandle:
         return TableHandle(name=name, database=self)
 
+    @property
+    def read(self) -> "DataFrameReader":
+        """Return a DataFrameReader for reading from tables and files."""
+        from ..dataframe.reader import DataFrameReader
+
+        return DataFrameReader(self)
+
+    # -------------------------------------------------------------- DDL operations
+    def create_table(
+        self,
+        name: str,
+        columns: Sequence[ColumnDef],
+        *,
+        if_not_exists: bool = True,
+        temporary: bool = False,
+    ) -> TableHandle:
+        """Create a new table with the specified schema."""
+        schema = TableSchema(
+            name=name,
+            columns=columns,
+            if_not_exists=if_not_exists,
+            temporary=temporary,
+        )
+        sql = compile_create_table(schema, self._dialect)
+        self._executor.execute(sql)
+        return self.table(name)
+
+    def drop_table(self, name: str, *, if_exists: bool = True) -> None:
+        """Drop a table by name."""
+        sql = compile_drop_table(name, self._dialect, if_exists=if_exists)
+        self._executor.execute(sql)
+
     # -------------------------------------------------------------- query utils
     def compile_plan(self, plan: LogicalPlan) -> str:
         return compile_plan(plan, dialect=self._dialect)
@@ -68,6 +107,11 @@ class Database:
     def execute_plan(self, plan: LogicalPlan) -> QueryResult:
         sql = self.compile_plan(plan)
         return self._executor.fetch(sql)
+
+    def execute_plan_stream(self, plan: LogicalPlan) -> Iterator[List[Dict[str, object]]]:
+        """Execute a plan and return an iterator of row chunks."""
+        sql = self.compile_plan(plan)
+        return self._executor.fetch_stream(sql)
 
     def execute_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
         return self._executor.fetch(sql, params=params)
