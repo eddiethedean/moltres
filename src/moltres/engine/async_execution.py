@@ -196,7 +196,7 @@ class AsyncQueryExecutor:
             return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
-                import polars as pl  # type: ignore[import-untyped]
+                import polars as pl  # type: ignore[import-not-found,import-untyped]
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Polars support requested but polars is not installed") from exc
             return pl.DataFrame(rows, schema=columns)
