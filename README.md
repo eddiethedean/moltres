@@ -20,8 +20,17 @@
 - 🔒 **Security First** - Built-in SQL injection prevention and validation
 - ⚡ **Performance Monitoring** - Optional hooks for query performance tracking
 - 🌍 **Environment Config** - Configure via environment variables for 12-factor apps
+- ⚡ **Async Support** - Full async/await support for all operations (optional dependency)
 
-## 🆕 What's New in 0.2.0
+## 🆕 What's New in 0.3.0
+
+- **Full Async/Await Support** - Complete async API for all database operations, file I/O, and DataFrame operations
+- **Async Database Operations** - Use `async_connect()` for async database connections with SQLAlchemy async engines
+- **Async File Operations** - Async reading and writing of CSV, JSON, JSONL, Parquet, and text files
+- **Optional Async Dependencies** - Install async support with `pip install moltres[async,async-postgresql]` (or async-mysql, async-sqlite)
+- **Async Streaming** - Process large datasets asynchronously with async iterators
+
+## What's New in 0.2.0
 
 - **Environment Variable Support** - Configure Moltres via `MOLTRES_DSN`, `MOLTRES_POOL_SIZE`, etc.
 - **Performance Monitoring Hooks** - Track query execution time with `register_performance_hook()`
@@ -51,7 +60,13 @@ pip install moltres[pandas]
 # For polars support
 pip install moltres[polars]
 
-# For both
+# For async support (requires async database drivers)
+pip install moltres[async]  # Core async support (aiofiles)
+pip install moltres[async,async-postgresql]  # PostgreSQL async (asyncpg)
+pip install moltres[async,async-mysql]  # MySQL async (aiomysql)
+pip install moltres[async,async-sqlite]  # SQLite async (aiosqlite)
+
+# For both pandas and polars
 pip install moltres[pandas,polars]
 ```
 
@@ -77,6 +92,36 @@ df = (
 # Execute and get results
 results = df.collect()  # Returns list of dicts by default
 ```
+
+### Async Support
+
+Moltres also supports async/await for all database operations:
+
+```python
+import asyncio
+from moltres import async_connect, col
+
+async def main():
+    # Connect asynchronously
+    db = async_connect("postgresql+asyncpg://user:pass@localhost/db")
+    
+    # All operations are async
+    df = await db.read.table("orders")
+    results = await df.collect()
+    
+    # Streaming support
+    async for chunk in await df.collect(stream=True):
+        process_chunk(chunk)
+    
+    await db.close()
+
+asyncio.run(main())
+```
+
+**Note:** Async support requires async database drivers. Install with:
+- `pip install moltres[async,async-postgresql]` for PostgreSQL
+- `pip install moltres[async,async-mysql]` for MySQL
+- `pip install moltres[async,async-sqlite]` for SQLite
 
 ## 💡 Why Moltres?
 

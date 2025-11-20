@@ -2,6 +2,81 @@
 
 This document provides examples of common patterns when using Moltres.
 
+## Async Examples
+
+### Basic Async Query
+
+```python
+import asyncio
+from moltres import async_connect, col
+
+async def main():
+    db = async_connect("sqlite+aiosqlite:///example.db")
+    
+    # Read from table
+    df = await db.read.table("users")
+    results = await df.collect()
+    
+    print(results)
+    await db.close()
+
+asyncio.run(main())
+```
+
+### Async File Reading
+
+```python
+import asyncio
+from moltres import async_connect
+
+async def main():
+    db = async_connect("sqlite+aiosqlite:///example.db")
+    
+    # Read CSV asynchronously
+    df = await db.read.csv("data.csv")
+    results = await df.collect()
+    
+    # Stream large files
+    df_stream = await db.read.stream(True).csv("large_file.csv")
+    async for chunk in await df_stream.collect(stream=True):
+        process_chunk(chunk)
+    
+    await db.close()
+
+asyncio.run(main())
+```
+
+### Async Mutations
+
+```python
+import asyncio
+from moltres import async_connect, col
+
+async def main():
+    db = async_connect("sqlite+aiosqlite:///example.db")
+    
+    table = await db.table("users")
+    
+    # Insert rows
+    await table.insert([
+        {"name": "Alice", "age": 30},
+        {"name": "Bob", "age": 25},
+    ])
+    
+    # Update rows
+    await table.update(
+        where=col("age") < 30,
+        set={"status": "young"},
+    )
+    
+    # Delete rows
+    await table.delete(where=col("age") > 100)
+    
+    await db.close()
+
+asyncio.run(main())
+```
+
 ## Basic Query Patterns
 
 ### Simple Select and Filter

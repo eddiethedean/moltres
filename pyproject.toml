@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.2.0"
+version = "0.3.0"
 description = "PySpark-like DataFrame API that compiles to SQL"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -23,6 +23,10 @@ Issues = "https://github.com/eddiethedean/moltres/issues"
 [project.optional-dependencies]
 polars = ["polars>=1.0"]
 pandas = ["pandas>=2.1"]
+async = ["aiofiles>=23.0"]
+async-postgresql = ["asyncpg>=0.29.0"]
+async-mysql = ["aiomysql>=0.2.0"]
+async-sqlite = ["aiosqlite>=0.19.0"]
 
 dev = [
     "pytest>=8.0",

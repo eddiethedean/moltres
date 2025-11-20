@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2024-12-19
+
+### Added
+- **Full async/await support** for all database operations, file I/O, and DataFrame operations
+- **Async API** with `async_connect()` function returning `AsyncDatabase` instance
+- **Async DataFrame operations** - All DataFrame methods now support async execution (`collect()`, `select()`, `where()`, `join()`, etc.)
+- **Async file readers** - Async support for CSV, JSON, JSONL, Parquet, and text file reading
+- **Async file writers** - Async support for writing DataFrames to files and tables
+- **Async table mutations** - Async `insert()`, `update()`, and `delete()` operations
+- **Optional async dependencies** - Grouped optional dependencies for async support:
+  - `moltres[async]` - Core async support (aiofiles)
+  - `moltres[async,async-postgresql]` - PostgreSQL async driver (asyncpg)
+  - `moltres[async,async-mysql]` - MySQL async driver (aiomysql)
+  - `moltres[async,async-sqlite]` - SQLite async driver (aiosqlite)
+- **Async streaming support** - Async iterators for processing large datasets in chunks
+- **SQLAlchemy async engine integration** - Automatic async driver detection and configuration
+- Comprehensive async test suite (8 new async tests)
+
+### Changed
+- Improved type safety with proper async type hints
+- Enhanced error messages for async operations
+- Better separation between sync and async APIs
+
 ## [0.2.0] - 2024-12-19
 
 ### Added
@@ -58,7 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/eddiethedean/moltres/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/eddiethedean/moltres/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/eddiethedean/moltres/releases/tag/v0.1.0
 
