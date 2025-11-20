@@ -37,8 +37,8 @@ def test_performance_hook_registration(tmp_path):
 
     # Execute query
     df = table.select()
-    results = df.collect()
-
+    df.collect()  # Execute to trigger hooks
+    
     # Verify hooks were called
     assert start_hook.called
     assert end_hook.called
