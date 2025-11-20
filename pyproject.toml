@@ -8,13 +8,17 @@ version = "0.1.0"
 description = "PySpark-like DataFrame API that compiles to SQL"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
-license = {text = "MIT"}
-repository = "https://github.com/eddiethedean/moltres"
+license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
   "SQLAlchemy>=2.0",
   "typing-extensions>=4.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/eddiethedean/moltres"
+Repository = "https://github.com/eddiethedean/moltres"
+Issues = "https://github.com/eddiethedean/moltres/issues"
 
 [project.optional-dependencies]
 polars = ["polars>=1.0"]
@@ -30,6 +34,12 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.setuptools]
+packages = {find = {where = ["src"], exclude = ["tests*", "*.tests", "*.tests.*"]}}
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.moltres]
 default_dialect = "ansi"
