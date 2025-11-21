@@ -101,10 +101,14 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = [
     "moltres.dataframe.async_writer",
-    "moltres.dataframe.readers.async_*",
+    "moltres.dataframe.readers.async_text_reader",
+    "moltres.dataframe.readers.async_parquet_reader",
+    "moltres.dataframe.readers.async_json_reader",
+    "moltres.dataframe.readers.async_csv_reader",
     "moltres.dataframe.writer",
     "moltres.dataframe.readers.parquet_reader",
     "moltres.engine.async_execution",
+    "moltres.__init__",
 ]
 warn_unused_ignores = false
 

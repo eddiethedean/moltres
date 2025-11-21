@@ -190,7 +190,7 @@ class AsyncQueryExecutor:
                 import pandas as pd
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
-            return pd.DataFrame(rows, columns=columns)
+            return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
                 import polars as pl

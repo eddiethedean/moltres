@@ -196,5 +196,5 @@ class AsyncDataFrame:
         if isinstance(on, (list, tuple)) and on and isinstance(on[0], str):
             return [(key, key) for key in on]
         if isinstance(on, (list, tuple)) and on and isinstance(on[0], (list, tuple)):
-            return [tuple(pair) for pair in on]
+            return [tuple(pair) for pair in on]  # type: ignore[misc]
         raise ValueError(f"Invalid join keys: {on}")
