@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, cast
 
 from ..expressions.column import Column, col
 from ..logical import operators
@@ -221,7 +221,7 @@ class DataFrame:
             return self.database.execute_plan_stream(self.plan)
 
         result = self.database.execute_plan(self.plan)
-        return result.rows
+        return cast("list[dict[str, object]]", result.rows)
 
     @property
     def write(self) -> DataFrameWriter:

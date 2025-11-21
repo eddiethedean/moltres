@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from ..table.schema import ColumnDef
 from .async_dataframe import AsyncDataFrame
@@ -117,9 +117,9 @@ class AsyncDataFrameReader:
         stream = self._options.get("stream", False)
         if stream:
             result = await read_parquet_stream(path, self._database, self._schema, self._options)
-            return result  # type: ignore[return-value]
+            return cast(AsyncDataFrame, result)
         result = await read_parquet(path, self._database, self._schema, self._options)
-        return result  # type: ignore[return-value]
+        return cast(AsyncDataFrame, result)
 
     async def text(self, path: str, column_name: str = "value") -> AsyncDataFrame:
         """Read a text file as a single column (one line per row) asynchronously.

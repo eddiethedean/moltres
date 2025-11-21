@@ -217,11 +217,11 @@ class DataFrameWriter:
                 sql = "SELECT tablename FROM pg_tables WHERE tablename=:name"
                 result = db.execute_sql(sql, params={"name": table_name})
                 return len(result.rows) > 0
-            # Generic approach: try to select from the table with LIMIT 0
-            quote = db.dialect.quote_char
-            sql = f"SELECT * FROM {quote}{table_name}{quote} LIMIT 0"
-            db.execute_sql(sql)
-            return True
+                # Generic approach: try to select from the table with LIMIT 0
+                quote = db.dialect.quote_char
+                sql = f"SELECT * FROM {quote}{table_name}{quote} LIMIT 0"
+                db.execute_sql(sql)
+                return True
         except (ExecutionError, SQLAlchemyError) as exc:
             logger.debug("Table existence check failed for '%s': %s", table_name, exc)
             return False
@@ -302,8 +302,8 @@ class DataFrameWriter:
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        header = self._options.get("header", True)
-        delimiter = self._options.get("delimiter", ",")
+        header = cast("bool", self._options.get("header", True))
+        delimiter = cast("str", self._options.get("delimiter", ","))
 
         chunk_iter = cast("Iterator[list[dict[str, object]]]", self._df.collect(stream=True))
         first_chunk: list[dict[str, object]] = []
@@ -389,8 +389,8 @@ class DataFrameWriter:
             ) from exc
 
         try:
-            import pyarrow as pa  # type: ignore[import-not-found,import-untyped]
-            import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
+            import pyarrow as pa  # type: ignore[import-not-found]
+            import pyarrow.parquet as pq  # type: ignore[import-not-found]
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
