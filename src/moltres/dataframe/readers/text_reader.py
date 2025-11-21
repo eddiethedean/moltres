@@ -100,8 +100,7 @@ def read_text_stream(
 
     def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
         yield first_chunk
-        for chunk in first_chunk_gen:
-            yield chunk
+        yield from first_chunk_gen
 
     return _create_dataframe_from_stream(database, _typed_chunk_generator, schema)
 
