@@ -51,27 +51,27 @@ class ExampleExecutor:
         )
 
         # Replace file paths (common patterns)
-        # Path objects handle platform-specific separators automatically
+        # Use lambda to properly escape backslashes in Windows paths for regex replacement
         prepared = re.sub(
             r'"data\.csv"',
-            f'"{self.temp_file_dir / "data.csv"}"',
+            lambda _: f'"{self.temp_file_dir / "data.csv"}"'.replace("\\", "\\\\"),
             prepared,
         )
         prepared = re.sub(
             r'"data\.json"',
-            f'"{self.temp_file_dir / "data.json"}"',
+            lambda _: f'"{self.temp_file_dir / "data.json"}"'.replace("\\", "\\\\"),
             prepared,
         )
         prepared = re.sub(
             r'"large_file\.csv"',
-            f'"{self.temp_file_dir / "large_file.csv"}"',
+            lambda _: f'"{self.temp_file_dir / "large_file.csv"}"'.replace("\\", "\\\\"),
             prepared,
         )
 
         # Handle relative paths in quotes
         prepared = re.sub(
             r'"([^"]+\.(csv|json|jsonl|parquet|txt))"',
-            lambda m: f'"{self.temp_file_dir / m.group(1)}"',
+            lambda m: f'"{self.temp_file_dir / m.group(1)}"'.replace("\\", "\\\\"),
             prepared,
         )
 
