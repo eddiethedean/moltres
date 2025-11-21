@@ -40,7 +40,7 @@ jobs:
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: 1
         run: |
-          pytest
+          pytest --asyncio-mode=auto
 
       - name: Validate documentation examples
         run: |
