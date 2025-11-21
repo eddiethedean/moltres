@@ -55,7 +55,7 @@ async def read_parquet(
     def _read_parquet_sync() -> list[dict[str, object]]:
         table = pq.read_table(str(path_obj))
         try:
-            import pandas as pd  # noqa: F401
+            import pandas as pd  # type: ignore[import-untyped,import-not-found]  # noqa: F401
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"

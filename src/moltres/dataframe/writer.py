@@ -384,7 +384,7 @@ class DataFrameWriter:
     def _save_parquet(self, path: str) -> None:
         """Save DataFrame as Parquet file."""
         try:
-            import pandas as pd
+            import pandas as pd  # type: ignore[import-untyped,import-not-found]
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"
