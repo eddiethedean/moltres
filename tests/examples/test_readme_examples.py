@@ -58,7 +58,8 @@ customers_table.insert([
 ])
 """
     # Replace temp_db_path in setup
-    setup_code = setup_code.replace("{temp_db_path}", str(temp_db_path))
+    # Use as_posix() to convert Windows paths to forward slashes (required for SQLite URLs)
+    setup_code = setup_code.replace("{temp_db_path}", temp_db_path.as_posix())
 
     success, output, exc = executor.execute_with_setup(quick_start.code, setup_code)
     assert success, f"Example failed: {exc}\nOutput: {output}"
