@@ -26,7 +26,7 @@ def test_readme_quick_start_example(temp_db_path, temp_file_dir):
     if quick_start.skip:
         pytest.skip("Example marked to skip")
 
-    # Setup: Create tables
+    # Setup: Create tables matching the README example schema
     executor = ExampleExecutor(temp_db_path, temp_file_dir)
     setup_code = """
 from moltres.table.schema import ColumnDef
@@ -48,13 +48,16 @@ customers_table = db.create_table(
     "customers",
     [
         ColumnDef(name="id", type_name="INTEGER"),
-        ColumnDef(name="active", type_name="BOOLEAN"),
+        ColumnDef(name="name", type_name="TEXT"),
+        ColumnDef(name="email", type_name="TEXT"),
+        ColumnDef(name="active", type_name="INTEGER"),
         ColumnDef(name="country", type_name="TEXT"),
+        ColumnDef(name="updated_at", type_name="TEXT"),
     ],
 )
 customers_table.insert([
-    {"id": 1, "active": True, "country": "US"},
-    {"id": 2, "active": True, "country": "UK"},
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1, "country": "US"},
+    {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 1, "country": "UK"},
 ])
 """
     # Replace temp_db_path in setup

@@ -114,3 +114,34 @@ class Union(LogicalPlan):
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.left, self.right)
+
+
+@dataclass(frozen=True)
+class Intersect(LogicalPlan):
+    left: LogicalPlan
+    right: LogicalPlan
+    distinct: bool = True  # True for INTERSECT, False for INTERSECT ALL
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.left, self.right)
+
+
+@dataclass(frozen=True)
+class Except(LogicalPlan):
+    left: LogicalPlan
+    right: LogicalPlan
+    distinct: bool = True  # True for EXCEPT, False for EXCEPT ALL
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.left, self.right)
+
+
+@dataclass(frozen=True)
+class CTE(LogicalPlan):
+    """Common Table Expression (CTE) - a named subquery that can be referenced later."""
+
+    name: str
+    child: LogicalPlan
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.child,)

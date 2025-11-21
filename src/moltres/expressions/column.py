@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, Iterable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence, Union
 from typing_extensions import TypeAlias
 
 from .expr import Expression
+
+if TYPE_CHECKING:
+    from ..dataframe.dataframe import DataFrame
 
 LiteralValue = Union[bool, int, float, str, None]
 ColumnLike: TypeAlias = Union["Column", LiteralValue]
@@ -109,7 +112,24 @@ class Column(Expression):
     def __invert__(self) -> "Column":
         return self._unary("not")
 
-    def isin(self, values: Iterable[ColumnLike]) -> "Column":
+    def isin(self, values: Union[Iterable[ColumnLike], "DataFrame"]) -> "Column":
+        """Check if column value is in a list of values or a subquery.
+
+        Args:
+            values: Either an iterable of values or a DataFrame (for subquery)
+
+        Returns:
+            Column expression for IN clause
+
+        Example:
+            >>> col("id").isin([1, 2, 3])  # IN (1, 2, 3)
+            >>> col("id").isin(df.select("customer_id"))  # IN (SELECT customer_id FROM ...)
+        """
+        # Check if values is a DataFrame (subquery)
+        if hasattr(values, "plan") and hasattr(values, "database"):
+            # It's a DataFrame - store the plan for subquery compilation
+            return Column(op="in_subquery", args=(self, values.plan))
+        # Otherwise, it's an iterable of values
         expr_values = tuple(ensure_column(value) for value in values)
         return Column(op="in", args=(self, expr_values))
 

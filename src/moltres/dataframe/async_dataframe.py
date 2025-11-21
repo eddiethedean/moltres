@@ -60,16 +60,35 @@ class AsyncDataFrame:
     def join(
         self,
         other: "AsyncDataFrame",
-        on: Union[str, Sequence[str], Sequence[Tuple[str, str]]],
+        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
         how: str = "inner",
     ) -> "AsyncDataFrame":
         """Join with another DataFrame."""
-        if how not in ("inner", "left", "right", "outer"):
-            raise ValueError(f"Unsupported join type: {how}")
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before joining")
+        if self.database is not other.database:
+            raise ValueError("Cannot join DataFrames from different AsyncDatabase instances")
+        
+        # Cross joins don't require an 'on' clause
+        if how.lower() == "cross":
+            normalized_on = None
+        else:
+            normalized_on = self._normalize_join_keys(on)
+        return self._with_plan(operators.join(self.plan, other.plan, how=how.lower(), on=normalized_on))
 
-        # Normalize join keys
-        join_keys = self._normalize_join_keys(on)
-        return self._with_plan(operators.join(self.plan, other.plan, how=how, on=join_keys))
+    def crossJoin(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+        """Perform a cross join (Cartesian product) with another DataFrame.
+
+        Args:
+            other: Another DataFrame to cross join with
+
+        Returns:
+            New DataFrame containing the Cartesian product of rows
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same AsyncDatabase
+        """
+        return self.join(other, how="cross")
 
     def group_by(self, *columns: Union[Column, str]) -> "AsyncGroupedDataFrame":
         """Group by the specified columns."""
@@ -112,6 +131,36 @@ class AsyncDataFrame:
         if self.database is not other.database:
             raise ValueError("Cannot union DataFrames from different AsyncDatabase instances")
         plan = operators.union(self.plan, other.plan, distinct=False)
+        return AsyncDataFrame(plan=plan, database=self.database)
+
+    def intersect(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+        """Intersect this DataFrame with another DataFrame (distinct rows only)."""
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before intersect")
+        if self.database is not other.database:
+            raise ValueError("Cannot intersect DataFrames from different AsyncDatabase instances")
+        plan = operators.intersect(self.plan, other.plan, distinct=True)
+        return AsyncDataFrame(plan=plan, database=self.database)
+
+    def except_(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+        """Return rows in this DataFrame that are not in another DataFrame (distinct rows only)."""
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before except")
+        if self.database is not other.database:
+            raise ValueError("Cannot except DataFrames from different AsyncDatabase instances")
+        plan = operators.except_(self.plan, other.plan, distinct=True)
+        return AsyncDataFrame(plan=plan, database=self.database)
+
+    def cte(self, name: str) -> "AsyncDataFrame":
+        """Create a Common Table Expression (CTE) from this DataFrame.
+
+        Args:
+            name: Name for the CTE
+
+        Returns:
+            New AsyncDataFrame representing the CTE
+        """
+        plan = operators.cte(self.plan, name)
         return AsyncDataFrame(plan=plan, database=self.database)
 
     def distinct(self) -> "AsyncDataFrame":

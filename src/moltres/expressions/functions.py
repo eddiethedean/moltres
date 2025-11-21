@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from .column import Column, ColumnLike, ensure_column, literal
+
+if TYPE_CHECKING:
+    from ..dataframe.dataframe import DataFrame
 
 __all__ = [
     "lit",
@@ -23,6 +26,10 @@ __all__ = [
     "row_number",
     "rank",
     "dense_rank",
+    "percent_rank",
+    "cume_dist",
+    "nth_value",
+    "ntile",
     "lag",
     "lead",
     "substring",
@@ -63,6 +70,11 @@ __all__ = [
     "when",
     "isnan",
     "isinf",
+    "exists",
+    "stddev",
+    "variance",
+    "corr",
+    "covar",
 ]
 
 
@@ -212,6 +224,65 @@ def dense_rank() -> Column:
         >>> df.select(col("id"), dense_rank().over(partition_by=col("category"), order_by=col("score")))
     """
     return Column(op="window_dense_rank", args=())
+
+
+def percent_rank() -> Column:
+    """Compute the percent rank of rows within a window.
+
+    Returns:
+        Column expression for percent_rank() window function
+
+    Example:
+        >>> from moltres.expressions.functions import percent_rank
+        >>> df.select(col("id"), percent_rank().over(partition_by=col("category"), order_by=col("score")))
+    """
+    return Column(op="window_percent_rank", args=())
+
+
+def cume_dist() -> Column:
+    """Compute the cumulative distribution of rows within a window.
+
+    Returns:
+        Column expression for cume_dist() window function
+
+    Example:
+        >>> from moltres.expressions.functions import cume_dist
+        >>> df.select(col("id"), cume_dist().over(partition_by=col("category"), order_by=col("score")))
+    """
+    return Column(op="window_cume_dist", args=())
+
+
+def nth_value(column: ColumnLike, n: int) -> Column:
+    """Get the nth value in a window.
+
+    Args:
+        column: Column expression to get the value from
+        n: The position (1-based) of the value to retrieve
+
+    Returns:
+        Column expression for nth_value() window function
+
+    Example:
+        >>> from moltres.expressions.functions import nth_value
+        >>> df.select(col("id"), nth_value(col("amount"), 2).over(partition_by=col("category"), order_by=col("date")))
+    """
+    return Column(op="window_nth_value", args=(ensure_column(column), n))
+
+
+def ntile(n: int) -> Column:
+    """Divide rows into n roughly equal groups.
+
+    Args:
+        n: Number of groups to divide rows into
+
+    Returns:
+        Column expression for ntile() window function
+
+    Example:
+        >>> from moltres.expressions.functions import ntile
+        >>> df.select(col("id"), ntile(4).over(order_by=col("score")))
+    """
+    return Column(op="window_ntile", args=(n,))
 
 
 def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = None) -> Column:
@@ -754,3 +825,88 @@ def isinf(column: ColumnLike) -> Column:
         Column expression for isinf
     """
     return Column(op="isinf", args=(ensure_column(column),))
+
+
+def exists(subquery: "DataFrame") -> Column:
+    """Check if a subquery returns any rows (EXISTS clause).
+
+    Args:
+        subquery: DataFrame representing the subquery to check
+
+    Returns:
+        Column expression for EXISTS clause
+
+    Example:
+        >>> from moltres.expressions.functions import exists
+        >>> active_orders = db.table("orders").select().where(col("status") == "active")
+        >>> customers_with_orders = db.table("customers").select().where(exists(active_orders))
+    """
+    if not hasattr(subquery, "plan"):
+        raise TypeError("exists() requires a DataFrame (subquery)")
+    return Column(op="exists", args=(subquery.plan,))
+
+
+def stddev(column: ColumnLike) -> Column:
+    """Compute the standard deviation of a column.
+
+    Args:
+        column: Column expression or literal value
+
+    Returns:
+        Column expression for the standard deviation aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import stddev
+        >>> df.group_by("category").agg(stddev(col("amount")))
+    """
+    return _aggregate("agg_stddev", column)
+
+
+def variance(column: ColumnLike) -> Column:
+    """Compute the variance of a column.
+
+    Args:
+        column: Column expression or literal value
+
+    Returns:
+        Column expression for the variance aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import variance
+        >>> df.group_by("category").agg(variance(col("amount")))
+    """
+    return _aggregate("agg_variance", column)
+
+
+def corr(column1: ColumnLike, column2: ColumnLike) -> Column:
+    """Compute the correlation coefficient between two columns.
+
+    Args:
+        column1: First column expression
+        column2: Second column expression
+
+    Returns:
+        Column expression for the correlation aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import corr
+        >>> df.agg(corr(col("x"), col("y")))
+    """
+    return Column(op="agg_corr", args=(ensure_column(column1), ensure_column(column2)))
+
+
+def covar(column1: ColumnLike, column2: ColumnLike) -> Column:
+    """Compute the covariance between two columns.
+
+    Args:
+        column1: First column expression
+        column2: Second column expression
+
+    Returns:
+        Column expression for the covariance aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import covar
+        >>> df.agg(covar(col("x"), col("y")))
+    """
+    return Column(op="agg_covar", args=(ensure_column(column1), ensure_column(column2)))

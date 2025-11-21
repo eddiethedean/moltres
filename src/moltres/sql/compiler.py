@@ -12,8 +12,11 @@ from ..engine.dialects import DialectSpec, get_dialect
 from ..expressions.column import Column
 from ..logical.plan import (
     Aggregate,
+    CTE,
     Distinct,
+    Except,
     Filter,
+    Intersect,
     Join,
     Limit,
     LogicalPlan,
@@ -59,7 +62,7 @@ class SQLCompiler:
 
     def __init__(self, dialect: DialectSpec):
         self.dialect = dialect
-        self._expr = ExpressionCompiler(dialect)
+        self._expr = ExpressionCompiler(dialect, plan_compiler=self)
 
     def compile(self, plan: LogicalPlan) -> Select:
         """Compile a logical plan to a SQLAlchemy Select statement."""
@@ -78,6 +81,15 @@ class SQLCompiler:
 
     def _compile_plan(self, plan: LogicalPlan) -> Select:
         """Compile a logical plan to a SQLAlchemy Select statement."""
+        if isinstance(plan, CTE):
+            # Compile the child plan and convert it to a CTE
+            child_stmt = self._compile_plan(plan.child)
+            cte_obj = child_stmt.cte(plan.name)
+            # Return a select from the CTE
+            from sqlalchemy import literal_column
+
+            return select(literal_column("*")).select_from(cte_obj)
+
         if isinstance(plan, TableScan):
             sa_table = table(plan.table)
             if plan.alias:
@@ -217,13 +229,19 @@ class SQLCompiler:
                 join_condition = and_(*conditions) if len(conditions) > 1 else conditions[0]
             elif plan.condition:
                 join_condition = self._expr.compile_expr(plan.condition)
+            elif plan.how == "cross":
+                # Cross joins don't require a condition - handled separately
+                join_condition = None
             else:
-                raise CompilationError("Join requires either 'on' keys or a 'condition'")
+                raise CompilationError("Join requires either 'on' keys or a 'condition' (except for cross joins)")
 
             # Build join - use SELECT * to get all columns from both sides
             from sqlalchemy import literal_column
 
-            if plan.how == "inner":
+            if plan.how == "cross":
+                # Cross join doesn't need a condition
+                stmt = select(literal_column("*")).select_from(left_subq, right_subq)
+            elif plan.how == "inner":
                 stmt = select(literal_column("*")).select_from(
                     left_subq.join(right_subq, join_condition)
                 )
@@ -239,8 +257,6 @@ class SQLCompiler:
                 stmt = select(literal_column("*")).select_from(
                     left_subq.join(right_subq, join_condition, full=True)
                 )
-            elif plan.how == "cross":
-                stmt = select(literal_column("*")).select_from(left_subq, right_subq)
             else:
                 raise CompilationError(f"Unsupported join type: {plan.how}")
 
@@ -250,12 +266,56 @@ class SQLCompiler:
             left_stmt = self._compile_plan(plan.left)
             right_stmt = self._compile_plan(plan.right)
 
+            from sqlalchemy import literal_column
+
             if plan.distinct:
                 # UNION (distinct)
-                stmt = select().select_from(left_stmt.union(right_stmt).subquery())
+                stmt = select(literal_column("*")).select_from(
+                    left_stmt.union(right_stmt).subquery()
+                )
             else:
                 # UNION ALL
-                stmt = select().select_from(left_stmt.union_all(right_stmt).subquery())
+                stmt = select(literal_column("*")).select_from(
+                    left_stmt.union_all(right_stmt).subquery()
+                )
+
+            return stmt
+
+        if isinstance(plan, Intersect):
+            left_stmt = self._compile_plan(plan.left)
+            right_stmt = self._compile_plan(plan.right)
+
+            from sqlalchemy import literal_column
+
+            if plan.distinct:
+                # INTERSECT (distinct)
+                stmt = select(literal_column("*")).select_from(
+                    left_stmt.intersect(right_stmt).subquery()
+                )
+            else:
+                # INTERSECT ALL
+                stmt = select(literal_column("*")).select_from(
+                    left_stmt.intersect_all(right_stmt).subquery()
+                )
+
+            return stmt
+
+        if isinstance(plan, Except):
+            left_stmt = self._compile_plan(plan.left)
+            right_stmt = self._compile_plan(plan.right)
+
+            from sqlalchemy import literal_column
+
+            if plan.distinct:
+                # EXCEPT (distinct)
+                stmt = select(literal_column("*")).select_from(
+                    left_stmt.except_(right_stmt).subquery()
+                )
+            else:
+                # EXCEPT ALL
+                stmt = select(literal_column("*")).select_from(
+                    left_stmt.except_all(right_stmt).subquery()
+                )
 
             return stmt
 
@@ -266,18 +326,19 @@ class SQLCompiler:
 
         raise CompilationError(
             f"Unsupported logical plan node: {type(plan).__name__}. "
-            f"Supported nodes: TableScan, Project, Filter, Limit, Sort, Aggregate, Join, LogicalUnion, Distinct"
+            f"Supported nodes: TableScan, Project, Filter, Limit, Sort, Aggregate, Join, LogicalUnion, Intersect, Except, CTE, Distinct"
         )
 
 
 class ExpressionCompiler:
     """Compile expression trees into SQLAlchemy column expressions."""
 
-    def __init__(self, dialect: DialectSpec):
+    def __init__(self, dialect: DialectSpec, plan_compiler: Optional["SQLCompiler"] = None):
         self.dialect = dialect
         self._table_cache: dict[str, Any] = {}
         self._current_subq: Any = None
         self._join_info: Optional[dict[str, str]] = None
+        self._plan_compiler = plan_compiler
 
     def compile_expr(self, expression: Column) -> ColumnElement:
         """Compile a Column expression to a SQLAlchemy column expression."""
@@ -568,6 +629,26 @@ class ExpressionCompiler:
             value, options = expression.args
             option_values = [self._compile(opt) for opt in options]
             return self._compile(value).in_(option_values)
+        if op == "in_subquery":
+            # IN with subquery: col("id").isin(df.select("id"))
+            value, subquery_plan = expression.args
+            if self._plan_compiler is None:
+                raise CompilationError("Subquery compilation requires plan compiler")
+            subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
+            return self._compile(value).in_(subquery_stmt)
+        if op == "exists":
+            # EXISTS subquery: exists(df.select())
+            subquery_plan, = expression.args
+            if self._plan_compiler is None:
+                raise CompilationError("Subquery compilation requires plan compiler")
+            subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
+            # SQLAlchemy's exists() function
+            from sqlalchemy import exists as sa_exists
+
+            result = sa_exists(subquery_stmt)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "like":
             left, pattern = expression.args
             return self._compile(left).like(self._compile(pattern))
@@ -792,6 +873,32 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
+        if op == "agg_stddev":
+            # Use stddev_pop or stddev_samp - SQLAlchemy uses stddev_samp by default
+            result = func.stddev(self._compile(expression.args[0]))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "agg_variance":
+            # Use var_pop or var_samp - SQLAlchemy uses var_samp by default
+            result = func.variance(self._compile(expression.args[0]))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "agg_corr":
+            # Correlation between two columns
+            col1, col2 = expression.args
+            result = func.corr(self._compile(col1), self._compile(col2))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "agg_covar":
+            # Covariance between two columns
+            col1, col2 = expression.args
+            result = func.covar_pop(self._compile(col1), self._compile(col2))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "agg_count_star":
             result = func.count()
             if expression._alias:
@@ -839,6 +946,29 @@ class ExpressionCompiler:
                 result = func.lead(column, offset, default)
             else:
                 result = func.lead(column, offset)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "window_percent_rank":
+            result = func.percent_rank()
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "window_cume_dist":
+            result = func.cume_dist()
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "window_nth_value":
+            column = self._compile(expression.args[0])
+            n = expression.args[1]
+            result = func.nth_value(column, n)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "window_ntile":
+            n = expression.args[0]
+            result = func.ntile(n)
             if expression._alias:
                 result = result.label(expression._alias)
             return result

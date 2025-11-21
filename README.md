@@ -5,22 +5,49 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-> A PySpark-inspired DataFrame API that compiles to SQL and runs on your existing database.
+> The Missing DataFrame Layer for SQL in Python — DataFrame API with SQL pushdown execution and real SQL CRUD.
 
-**Moltres** provides a familiar DataFrame API similar to PySpark, but instead of running on a Spark cluster, it compiles your operations into ANSI SQL and executes them directly against your database through SQLAlchemy. Compose column expressions, joins, aggregates, and mutations with the same ergonomics you'd expect from Spark—all while leveraging your existing SQL infrastructure.
+**Moltres** fills a major gap in the Python data ecosystem: it's the **only** library that combines a **DataFrame API** (like Pandas/Polars), **SQL pushdown execution** (no data loading into memory), and **real SQL CRUD operations** (INSERT, UPDATE, DELETE) in one unified interface.
+
+Transform millions of rows using familiar DataFrame operations—all executed directly in SQL without materializing data. Update, insert, and delete with column-aware, type-safe operations. No juggling between Pandas, SQLAlchemy, and raw SQL. Just one library that does it all.
 
 ## ✨ Features
 
-- 🚀 **PySpark-like API** - Familiar DataFrame operations (select, filter, join, groupBy, etc.)
-- 🗄️ **SQL Compilation** - All operations compile to ANSI SQL and run on your database
-- 📊 **Multiple Formats** - Read/write CSV, JSON, JSONL, Parquet, and more
+- ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE operations with DataFrame-style syntax
+- 🚀 **DataFrame API** - Familiar operations (select, filter, join, groupBy, etc.) like Pandas/Polars
+- 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—no data loading into memory
+- 📊 **Operates Directly on SQL Tables** - Transform tables without materialization
 - 🌊 **Streaming Support** - Handle datasets larger than memory with chunked processing
+- 📊 **Multiple Formats** - Read/write CSV, JSON, JSONL, Parquet, and more
 - 🔧 **Type Safe** - Full type hints with strict mypy checking and custom type stubs for dependencies
 - 🎯 **Zero Dependencies** - Works with just SQLAlchemy (pandas/polars optional)
 - 🔒 **Security First** - Built-in SQL injection prevention and validation
 - ⚡ **Performance Monitoring** - Optional hooks for query performance tracking
 - 🌍 **Environment Config** - Configure via environment variables for 12-factor apps
 - ⚡ **Async Support** - Full async/await support for all operations (optional dependency)
+
+## 🔥 What Makes Moltres Unique
+
+Moltres is the **only** Python library that provides:
+
+| Feature | Pandas/Polars | Ibis | SQLAlchemy | SQLModel | **Moltres** |
+|--------|----------------|------|-------------|-----------|-------------|
+| DataFrame API | ✔ | ✔ | ❌ | ❌ | **✔** |
+| SQL Pushdown Execution | ❌ | ✔ | ✔ | ✔ | **✔** |
+| **Row-Level INSERT/UPDATE/DELETE** | ❌ | ❌ | ✔ | ✔ | **✔** |
+| Lazy query building | ✔ (Polars) | ✔ | ⚠️ | ⚠️ | **✔** |
+| Operates directly on SQL tables | ⚠️ limited | ✔ | ✔ | ✔ | **✔** |
+| Column-oriented transformations | ✔ | ✔ | ❌ | ❌ | **✔** |
+
+**The combination of DataFrame API + SQL pushdown + CRUD does not exist anywhere else in Python.**
+
+### Key Differentiators
+
+- **Only library with DataFrame API + SQL pushdown + CRUD** - No other Python library offers this combination
+- **No data loading into memory for transformations** - All DataFrame operations execute directly in SQL
+- **Works with existing SQL infrastructure** - No cluster required, works with SQLite, PostgreSQL, MySQL, and more
+- **Type-safe CRUD operations** - Validated, column-aware INSERT, UPDATE, DELETE with DataFrame-style syntax
+- **SQL-first design** - Focuses on providing full SQL feature support through a DataFrame API, not replicating every PySpark feature. Features are included only if they map to SQL/SQLAlchemy capabilities and align with SQL pushdown execution.
 
 ## 🆕 What's New in 0.4.0
 
@@ -89,7 +116,7 @@ from moltres.expressions.functions import sum
 # Connect to your database
 db = connect("sqlite:///example.db")
 
-# Compose queries lazily
+# DataFrame operations with SQL pushdown (no data loading into memory)
 df = (
     db.table("orders")
     .select()
@@ -99,8 +126,26 @@ df = (
     .agg(sum(col("orders.amount")).alias("total_amount"))
 )
 
-# Execute and get results
+# Execute and get results (SQL is compiled and executed here)
 results = df.collect()  # Returns list of dicts by default
+
+# CRUD operations with DataFrame-style syntax
+customers = db.table("customers")
+
+# Insert rows (batch optimized)
+customers.insert([
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1},
+    {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 0},
+])
+
+# Update rows (executes UPDATE SQL directly)
+customers.update(
+    where=col("active") == 0,
+    set={"active": 1, "updated_at": "2024-01-01"}
+)
+
+# Delete rows (executes DELETE SQL directly)
+customers.delete(where=col("email").is_null())
 ```
 
 ### Async Support
@@ -136,20 +181,39 @@ asyncio.run(main())
 
 ## 💡 Why Moltres?
 
-**Moltres** bridges the gap between PySpark's elegant DataFrame API and traditional SQL databases:
+### The Gap in Python's Ecosystem
 
-- ✅ **No Spark Cluster Required** - Run on your existing SQL database
-- ✅ **Familiar API** - PySpark developers feel at home immediately
+Python has powerful DataFrame tools (Pandas, Polars) and powerful SQL tools (SQLAlchemy, SQLModel), but **no library connects them in a unified, ergonomic way**.
+
+**The problem:** Developers must juggle:
+- Pandas or Polars for DataFrame transformations (but data must be loaded into memory)
+- SQLAlchemy/ORMs for persistence (but not DataFrame-style)
+- Raw SQL for updates/deletes (but not type-safe or composable)
+
+**Moltres fixes this** by providing:
+- ✅ **DataFrame API** - Transform data with familiar operations (select, filter, join, groupBy)
+- ✅ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—**no data loading into memory**
+- ✅ **Real SQL CRUD** - INSERT, UPDATE, DELETE with DataFrame-style syntax
+- ✅ **Works with Existing SQL Infrastructure** - No cluster required, works with SQLite, PostgreSQL, MySQL, and more
 - ✅ **Type Safe** - Full type hints for better IDE support and fewer bugs
 - ✅ **Production Ready** - Environment variables, connection pooling, monitoring hooks
 - ✅ **Secure by Default** - SQL injection prevention built-in
-- ✅ **Flexible** - Works with SQLite, PostgreSQL, MySQL, and more
+
+### Who Needs Moltres?
+
+- **Data Engineers** - Avoid loading millions of rows into memory just to update a subset
+- **Backend Developers** - Replace many ORM operations with cleaner, column-aware DataFrame syntax
+- **Analytics Engineers / dbt Users** - Express SQL models in Python code with DataFrame chaining
+- **Product Engineers** - Validated, type-safe CRUD without hand-writing SQL
+- **Teams migrating off Spark** - Familiar DataFrame API style for traditional SQL databases—no cluster required. Note: Moltres focuses on SQL features, not PySpark feature parity. Features are included only if they map to SQL capabilities.
 
 ## 📖 Core Concepts
 
+> **Design Philosophy:** Moltres provides a DataFrame API that compiles to SQL. We focus on supporting SQL features (standard SQL and common dialect extensions) rather than replicating every PySpark feature. If a feature doesn't map to SQL/SQLAlchemy or doesn't align with SQL pushdown execution, it's not included.
+
 ### Lazy Evaluation
 
-All DataFrame operations are lazy—they build a logical plan that only executes when you call `collect()`:
+All DataFrame operations are lazy—they build a logical plan that only executes when you call `collect()`. The plan is compiled to SQL and executed on your database:
 
 ```python
 # This doesn't execute any SQL yet
@@ -656,10 +720,12 @@ mypy src
 
 Additional documentation is available in the `docs/` directory:
 
+- **[Why Moltres?](docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills and who needs it
+- **[Examples](docs/EXAMPLES.md)** - Common patterns, use cases, and examples for each audience
 - **[Security Guide](docs/SECURITY.md)** - Security best practices and SQL injection prevention
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Examples](docs/EXAMPLES.md)** - Common patterns and usage examples
 - **[Design Notes](docs/moltres_plan.md)** - High-level architecture and design decisions
+- **[Advocacy Document](docs/moltres_advocacy.md)** - Detailed positioning and comparison with alternatives
 
 ## 🤝 Contributing
 
@@ -684,8 +750,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Inspired by PySpark's DataFrame API
-- Built on SQLAlchemy for database connectivity
+- Inspired by PySpark's DataFrame API style, but focused on SQL feature support rather than PySpark feature parity
+- Built on SQLAlchemy for database connectivity and SQL compilation
 - Thanks to all contributors and users
 
 ---

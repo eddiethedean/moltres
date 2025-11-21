@@ -77,9 +77,27 @@ class DataFrame:
             raise RuntimeError("Both DataFrames must be bound to a Database before joining")
         if self.database is not other.database:
             raise ValueError("Cannot join DataFrames from different Database instances")
-        normalized_on = self._normalize_join_keys(on)
+        # Cross joins don't require an 'on' clause
+        if how.lower() == "cross":
+            normalized_on = None
+        else:
+            normalized_on = self._normalize_join_keys(on)
         plan = operators.join(self.plan, other.plan, how=how.lower(), on=normalized_on)
         return DataFrame(plan=plan, database=self.database)
+
+    def crossJoin(self, other: "DataFrame") -> "DataFrame":
+        """Perform a cross join (Cartesian product) with another DataFrame.
+
+        Args:
+            other: Another DataFrame to cross join with
+
+        Returns:
+            New DataFrame containing the Cartesian product of rows
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same Database
+        """
+        return self.join(other, how="cross")
 
     def group_by(self, *columns: Union[Column, str]) -> "GroupedDataFrame":
         if not columns:
@@ -127,6 +145,60 @@ class DataFrame:
         if self.database is not other.database:
             raise ValueError("Cannot union DataFrames from different Database instances")
         plan = operators.union(self.plan, other.plan, distinct=False)
+        return DataFrame(plan=plan, database=self.database)
+
+    def intersect(self, other: "DataFrame") -> "DataFrame":
+        """Intersect this DataFrame with another DataFrame (distinct rows only).
+
+        Args:
+            other: Another DataFrame to intersect with
+
+        Returns:
+            New DataFrame containing the intersection of rows
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same Database
+        """
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to a Database before intersect")
+        if self.database is not other.database:
+            raise ValueError("Cannot intersect DataFrames from different Database instances")
+        plan = operators.intersect(self.plan, other.plan, distinct=True)
+        return DataFrame(plan=plan, database=self.database)
+
+    def except_(self, other: "DataFrame") -> "DataFrame":
+        """Return rows in this DataFrame that are not in another DataFrame (distinct rows only).
+
+        Args:
+            other: Another DataFrame to exclude from
+
+        Returns:
+            New DataFrame containing rows in this DataFrame but not in other
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same Database
+        """
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to a Database before except")
+        if self.database is not other.database:
+            raise ValueError("Cannot except DataFrames from different Database instances")
+        plan = operators.except_(self.plan, other.plan, distinct=True)
+        return DataFrame(plan=plan, database=self.database)
+
+    def cte(self, name: str) -> "DataFrame":
+        """Create a Common Table Expression (CTE) from this DataFrame.
+
+        Args:
+            name: Name for the CTE
+
+        Returns:
+            New DataFrame representing the CTE
+
+        Example:
+            >>> cte_df = db.table("orders").select().where(col("amount") > 100).cte("high_value_orders")
+            >>> result = cte_df.select().collect()  # Query the CTE
+        """
+        plan = operators.cte(self.plan, name)
         return DataFrame(plan=plan, database=self.database)
 
     def distinct(self) -> "DataFrame":

@@ -7,8 +7,11 @@ from collections.abc import Iterable, Sequence
 from ..expressions.column import Column
 from .plan import (
     Aggregate,
+    CTE,
     Distinct,
+    Except,
     Filter,
+    Intersect,
     Join,
     Limit,
     LogicalPlan,
@@ -99,6 +102,34 @@ def union(left: LogicalPlan, right: LogicalPlan, distinct: bool = True) -> Union
     return Union(left=left, right=right, distinct=distinct)
 
 
+def intersect(left: LogicalPlan, right: LogicalPlan, distinct: bool = True) -> Intersect:
+    """Create an Intersect logical plan node.
+
+    Args:
+        left: Left logical plan
+        right: Right logical plan
+        distinct: If True, use INTERSECT (distinct), if False use INTERSECT ALL
+
+    Returns:
+        Intersect logical plan node
+    """
+    return Intersect(left=left, right=right, distinct=distinct)
+
+
+def except_(left: LogicalPlan, right: LogicalPlan, distinct: bool = True) -> Except:
+    """Create an Except logical plan node.
+
+    Args:
+        left: Left logical plan
+        right: Right logical plan
+        distinct: If True, use EXCEPT (distinct), if False use EXCEPT ALL
+
+    Returns:
+        Except logical plan node
+    """
+    return Except(left=left, right=right, distinct=distinct)
+
+
 def order_by(child: LogicalPlan, orders: Iterable[SortOrder]) -> Sort:
     """Create a Sort logical plan node.
 
@@ -167,3 +198,16 @@ def join(
     return Join(
         left=left, right=right, how=how, on=None if on is None else tuple(on), condition=condition
     )
+
+
+def cte(plan: LogicalPlan, name: str) -> CTE:
+    """Create a CTE (Common Table Expression) logical plan node.
+
+    Args:
+        plan: Logical plan to wrap as a CTE
+        name: Name for the CTE
+
+    Returns:
+        CTE logical plan node
+    """
+    return CTE(name=name, child=plan)
