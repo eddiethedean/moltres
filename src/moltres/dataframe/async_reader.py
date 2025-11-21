@@ -37,8 +37,8 @@ class AsyncDataFrameReader:
 
     def __init__(self, database: AsyncDatabase):
         self._database = database
-        self._schema: Optional[Sequence[ColumnDef]] = None
-        self._options: Dict[str, object] = {}
+        self._schema: Sequence[ColumnDef] | None = None
+        self._options: dict[str, object] = {}
 
     def stream(self, enabled: bool = True) -> AsyncDataFrameReader:
         """Enable or disable streaming mode (chunked reading for large files)."""

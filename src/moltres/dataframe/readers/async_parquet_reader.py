@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 async def read_parquet(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read Parquet file asynchronously and return AsyncDataFrame.
 
@@ -52,7 +52,7 @@ async def read_parquet(
     # Note: pyarrow doesn't have native async support, so we use asyncio.to_thread
     import asyncio
 
-    def _read_parquet_sync() -> List[Dict[str, object]]:
+    def _read_parquet_sync() -> list[dict[str, object]]:
         table = pq.read_table(str(path_obj))
         try:
             import pandas as pd  # noqa: F401
@@ -61,7 +61,7 @@ async def read_parquet(
                 "Parquet format requires pandas. Install with: pip install pandas"
             ) from exc
         df = table.to_pandas()
-        return cast(List[Dict[str, object]], df.to_dict("records"))
+        return cast(list[dict[str, object]], df.to_dict("records"))
 
     rows = await asyncio.to_thread(_read_parquet_sync)
 
@@ -89,8 +89,8 @@ async def read_parquet(
 async def read_parquet_stream(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read Parquet file asynchronously in streaming mode (row group by row group).
 
@@ -118,17 +118,17 @@ async def read_parquet_stream(
 
     parquet_file = await asyncio.to_thread(_get_parquet_file)
 
-    async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         for i in range(parquet_file.num_row_groups):
 
-            def _read_row_group(idx: int) -> List[Dict[str, object]]:
+            def _read_row_group(idx: int) -> list[dict[str, object]]:
                 row_group = parquet_file.read_row_group(idx)
                 try:
                     import pandas as pd  # noqa: F401
                 except ImportError:
                     raise RuntimeError("Parquet requires pandas") from None
                 df = row_group.to_pandas()
-                return cast(List[Dict[str, object]], df.to_dict("records"))
+                return cast(list[dict[str, object]], df.to_dict("records"))
 
             rows = await asyncio.to_thread(_read_row_group, i)
             if rows:
@@ -153,7 +153,7 @@ async def read_parquet_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _typed_chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         async for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
@@ -162,7 +162,7 @@ async def read_parquet_stream(
 
 
 def _create_async_dataframe_from_data(
-    database: AsyncDatabase, rows: List[Dict[str, object]]
+    database: AsyncDatabase, rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from materialized data."""
     from ...logical.plan import TableScan
@@ -173,7 +173,7 @@ def _create_async_dataframe_from_data(
 
 
 def _create_async_dataframe_from_schema(
-    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame with explicit schema but no data."""
     return _create_async_dataframe_from_data(database, rows)
@@ -181,7 +181,7 @@ def _create_async_dataframe_from_schema(
 
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
-    chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""

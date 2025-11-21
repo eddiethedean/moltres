@@ -21,7 +21,7 @@ from .plan import (
 )
 
 
-def scan(table: str, alias: Optional[str] = None) -> TableScan:
+def scan(table: str, alias: str | None = None) -> TableScan:
     """Create a TableScan logical plan node.
 
     Args:
@@ -147,8 +147,8 @@ def join(
     right: LogicalPlan,
     *,
     how: str,
-    on: Optional[Sequence[Tuple[str, str]]] = None,
-    condition: Optional[Column] = None,
+    on: Sequence[tuple[str, str]] | None = None,
+    condition: Column | None = None,
 ) -> Join:
     """Create a Join logical plan node.
 

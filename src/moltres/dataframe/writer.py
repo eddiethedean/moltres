@@ -27,10 +27,10 @@ class DataFrameWriter:
     def __init__(self, df: DataFrame):
         self._df = df
         self._mode: str = "append"
-        self._table_name: Optional[str] = None
-        self._schema: Optional[Sequence[ColumnDef]] = None
-        self._options: Dict[str, object] = {}
-        self._partition_by: Optional[Sequence[str]] = None
+        self._table_name: str | None = None
+        self._schema: Sequence[ColumnDef] | None = None
+        self._options: dict[str, object] = {}
+        self._partition_by: Sequence[str] | None = None
         self._stream: bool = False
 
     def mode(self, mode: str) -> DataFrameWriter:
@@ -86,19 +86,19 @@ class DataFrameWriter:
         if self._stream:
             # Stream inserts in batches
             table = db.table(table_name)
-            chunk_iter = cast("Iterator[List[Dict[str, object]]]", self._df.collect(stream=True))
+            chunk_iter = cast("Iterator[list[dict[str, object]]]", self._df.collect(stream=True))
             for chunk in chunk_iter:
                 if chunk:
                     table.insert(chunk)
         else:
-            rows = cast("List[Dict[str, object]]", self._df.collect())
+            rows = cast("list[dict[str, object]]", self._df.collect())
             if rows:
                 table = db.table(table_name)
                 table.insert(rows)
 
     insert_into = insertInto
 
-    def save(self, path: str, format: Optional[str] = None) -> None:
+    def save(self, path: str, format: str | None = None) -> None:
         """Save DataFrame to a file or directory in the specified format."""
         if format is None:
             # Infer format from file extension
@@ -156,17 +156,17 @@ class DataFrameWriter:
             raise ValueError(f"Table '{table_name}' already exists and mode is 'error_if_exists'")
 
         # Collect data from DataFrame (we'll use this for both schema inference and insertion)
-        chunk_iter: Optional[Iterator[List[Dict[str, object]]]] = None
+        chunk_iter: Iterator[list[dict[str, object]]] | None = None
         if self._stream:
             # For streaming, we need to peek at first chunk for schema inference
-            chunk_iter = cast("Iterator[List[Dict[str, object]]]", self._df.collect(stream=True))
+            chunk_iter = cast("Iterator[list[dict[str, object]]]", self._df.collect(stream=True))
             try:
                 first_chunk = next(chunk_iter)
                 rows = first_chunk
             except StopIteration:
                 rows = []
         else:
-            rows = cast("List[Dict[str, object]]", self._df.collect())
+            rows = cast("list[dict[str, object]]", self._df.collect())
 
         # Infer or get schema (uses rows if needed, but allows empty if schema is explicit)
         try:
@@ -226,7 +226,7 @@ class DataFrameWriter:
             logger.debug("Table existence check failed for '%s': %s", table_name, exc)
             return False
 
-    def _infer_or_get_schema(self, rows: List[dict[str, object]]) -> Sequence[ColumnDef]:
+    def _infer_or_get_schema(self, rows: list[dict[str, object]]) -> Sequence[ColumnDef]:
         """Infer schema from DataFrame plan or use provided schema."""
         if self._schema is not None:
             return self._schema
@@ -239,7 +239,7 @@ class DataFrameWriter:
 
         # Use first row to infer types, but check all rows for None values
         sample = rows[0]
-        columns: List[ColumnDef] = []
+        columns: list[ColumnDef] = []
 
         for key, value in sample.items():
             # Check if any row has None for this column
@@ -269,7 +269,7 @@ class DataFrameWriter:
             self._save_csv_stream(path)
             return
 
-        rows = cast("List[Dict[str, object]]", self._df.collect())
+        rows = cast("list[dict[str, object]]", self._df.collect())
         if not rows:
             # Create empty file with headers if we have schema
             if self._schema:
@@ -305,8 +305,8 @@ class DataFrameWriter:
         header = self._options.get("header", True)
         delimiter = self._options.get("delimiter", ",")
 
-        chunk_iter = cast("Iterator[List[Dict[str, object]]]", self._df.collect(stream=True))
-        first_chunk: List[Dict[str, object]] = []
+        chunk_iter = cast("Iterator[list[dict[str, object]]]", self._df.collect(stream=True))
+        first_chunk: list[dict[str, object]] = []
         try:
             first_chunk = next(chunk_iter)
         except StopIteration:
@@ -328,11 +328,11 @@ class DataFrameWriter:
                 writer.writerows(first_chunk)
             for chunk in chunk_iter:
                 if chunk:
-                    writer.writerows(cast("List[Dict[str, object]]", chunk))
+                    writer.writerows(cast("list[dict[str, object]]", chunk))
 
     def _save_json(self, path: str) -> None:
         """Save DataFrame as JSON file (array of objects)."""
-        rows = cast("List[Dict[str, object]]", self._df.collect())
+        rows = cast("list[dict[str, object]]", self._df.collect())
 
         # Handle partitioning
         if self._partition_by:
@@ -344,7 +344,7 @@ class DataFrameWriter:
 
         with open(path_obj, "w", encoding="utf-8") as f:
             indent_val = self._options.get("indent", None)
-            indent: Optional[Union[int, str]] = cast("Optional[Union[int, str]]", indent_val)
+            indent: int | str | None = cast("Optional[Union[int, str]]", indent_val)
             json.dump(rows, f, indent=indent, ensure_ascii=False)
 
     def _save_jsonl(self, path: str) -> None:
@@ -353,7 +353,7 @@ class DataFrameWriter:
             self._save_jsonl_stream(path)
             return
 
-        rows = cast("List[Dict[str, object]]", self._df.collect())
+        rows = cast("list[dict[str, object]]", self._df.collect())
 
         # Handle partitioning
         if self._partition_by:
@@ -363,7 +363,7 @@ class DataFrameWriter:
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        rows_list = cast("List[Dict[str, object]]", rows)
+        rows_list = cast("list[dict[str, object]]", rows)
         with open(path_obj, "w", encoding="utf-8") as f:
             for row in rows_list:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -374,7 +374,7 @@ class DataFrameWriter:
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         with open(path_obj, "w", encoding="utf-8") as f:
-            chunk_iter = cast("Iterator[List[Dict[str, object]]]", self._df.collect(stream=True))
+            chunk_iter = cast("Iterator[list[dict[str, object]]]", self._df.collect(stream=True))
             for chunk in chunk_iter:
                 for row in chunk:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -396,7 +396,7 @@ class DataFrameWriter:
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
             ) from exc
 
-        rows = cast("List[Dict[str, object]]", self._df.collect())
+        rows = cast("list[dict[str, object]]", self._df.collect())
 
         # Handle partitioning
         if self._partition_by:
@@ -420,15 +420,15 @@ class DataFrameWriter:
         self,
         base_path: str,
         format: str,
-        rows: List[dict[str, object]],
-        headers: Optional[List[str]],
+        rows: list[dict[str, object]],
+        headers: list[str] | None,
     ) -> None:
         """Save data partitioned by specified columns."""
         if not rows:
             return
 
         # Group rows by partition columns
-        partitions: Dict[tuple, List[dict[str, object]]] = {}
+        partitions: dict[tuple, list[dict[str, object]]] = {}
         partition_cols = self._partition_by or []
         for row in rows:
             partition_key = tuple(str(row.get(col, "")) for col in partition_cols)
@@ -463,7 +463,7 @@ class DataFrameWriter:
                 self._write_parquet_file(filename, partition_rows)
 
     def _write_csv_file(
-        self, path: Path, rows: List[dict[str, object]], headers: Optional[List[str]]
+        self, path: Path, rows: list[dict[str, object]], headers: list[str] | None
     ) -> None:
         """Helper to write CSV file."""
         if not rows and headers:
@@ -482,20 +482,20 @@ class DataFrameWriter:
                 writer.writeheader()
             writer.writerows(rows)
 
-    def _write_json_file(self, path: Path, rows: List[dict[str, object]]) -> None:
+    def _write_json_file(self, path: Path, rows: list[dict[str, object]]) -> None:
         """Helper to write JSON file."""
         with open(path, "w", encoding="utf-8") as f:
             indent_val = self._options.get("indent", None)
-            indent: Optional[Union[int, str]] = cast("Optional[Union[int, str]]", indent_val)
+            indent: int | str | None = cast("Optional[Union[int, str]]", indent_val)
             json.dump(rows, f, indent=indent, ensure_ascii=False)
 
-    def _write_jsonl_file(self, path: Path, rows: List[dict[str, object]]) -> None:
+    def _write_jsonl_file(self, path: Path, rows: list[dict[str, object]]) -> None:
         """Helper to write JSONL file."""
         with open(path, "w", encoding="utf-8") as f:
             for row in rows:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    def _write_parquet_file(self, path: Path, rows: List[dict[str, object]]) -> None:
+    def _write_parquet_file(self, path: Path, rows: list[dict[str, object]]) -> None:
         """Helper to write Parquet file."""
         import pandas as pd
         import pyarrow as pa

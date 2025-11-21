@@ -64,6 +64,8 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by line-length)
+    "UP045",  # Use X | None - requires Python 3.10+, we support 3.9+
+    "UP007",  # Use X | Y - requires Python 3.10+, we support 3.9+
 ]
 
 [tool.setuptools]

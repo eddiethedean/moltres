@@ -14,7 +14,7 @@ class ColumnDef:
     name: str
     type_name: str
     nullable: bool = True
-    default: Optional[object] = None
+    default: object | None = None
     primary_key: bool = False
 
 
@@ -32,7 +32,7 @@ def column(
     name: str,
     type_name: str,
     nullable: bool = True,
-    default: Optional[object] = None,
+    default: object | None = None,
     primary_key: bool = False,
 ) -> ColumnDef:
     """Convenience helper for creating column definitions."""

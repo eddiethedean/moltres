@@ -33,10 +33,10 @@ class AsyncDataFrameWriter:
     def __init__(self, df: AsyncDataFrame):
         self._df = df
         self._mode: str = "append"
-        self._table_name: Optional[str] = None
-        self._schema: Optional[Sequence[ColumnDef]] = None
-        self._options: Dict[str, object] = {}
-        self._partition_by: Optional[Sequence[str]] = None
+        self._table_name: str | None = None
+        self._schema: Sequence[ColumnDef] | None = None
+        self._options: dict[str, object] = {}
+        self._partition_by: Sequence[str] | None = None
         self._stream: bool = False
 
     def mode(self, mode: str) -> AsyncDataFrameWriter:
@@ -93,20 +93,20 @@ class AsyncDataFrameWriter:
             # Stream inserts in batches
             table = await db.table(table_name)
             chunk_iter = cast(
-                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
+                "AsyncIterator[list[dict[str, object]]]", await self._df.collect(stream=True)
             )
             async for chunk in chunk_iter:
                 if chunk:
                     await table.insert(chunk)
         else:
-            rows = cast("List[Dict[str, object]]", await self._df.collect())
+            rows = cast("list[dict[str, object]]", await self._df.collect())
             if rows:
                 table = await db.table(table_name)
                 await table.insert(rows)
 
     insert_into = insertInto
 
-    async def save(self, path: str, format: Optional[str] = None) -> None:
+    async def save(self, path: str, format: str | None = None) -> None:
         """Save AsyncDataFrame to a file or directory in the specified format."""
         if format is None:
             # Infer format from file extension
@@ -166,10 +166,10 @@ class AsyncDataFrameWriter:
             raise ValueError(f"Table '{table_name}' already exists and mode is 'error_if_exists'")
 
         # Collect data from AsyncDataFrame
-        chunk_iter: Optional[AsyncIterator[List[Dict[str, object]]]] = None
+        chunk_iter: AsyncIterator[list[dict[str, object]]] | None = None
         if self._stream:
             chunk_iter = cast(
-                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
+                "AsyncIterator[list[dict[str, object]]]", await self._df.collect(stream=True)
             )
             try:
                 first_chunk = await chunk_iter.__anext__()
@@ -177,7 +177,7 @@ class AsyncDataFrameWriter:
             except StopAsyncIteration:
                 rows = []
         else:
-            rows = cast("List[Dict[str, object]]", await self._df.collect())
+            rows = cast("list[dict[str, object]]", await self._df.collect())
 
         # Infer or get schema
         try:
@@ -238,7 +238,7 @@ class AsyncDataFrameWriter:
             logger.debug("Table existence check failed for '%s': %s", table_name, exc)
             return False
 
-    def _infer_or_get_schema(self, rows: List[Dict[str, object]]) -> Sequence[ColumnDef]:
+    def _infer_or_get_schema(self, rows: list[dict[str, object]]) -> Sequence[ColumnDef]:
         """Infer schema from rows or use explicit schema."""
         if self._schema:
             return self._schema
@@ -256,7 +256,7 @@ class AsyncDataFrameWriter:
         # Collect data
         if self._stream:
             chunk_iter = cast(
-                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
+                "AsyncIterator[list[dict[str, object]]]", await self._df.collect(stream=True)
             )
             first_chunk = True
             async with aiofiles.open(path, "w", encoding="utf-8", newline="") as f:
@@ -273,7 +273,7 @@ class AsyncDataFrameWriter:
                         values = [str(row.get(col, "")) for col in chunk[0].keys()]
                         await f.write(delimiter.join(values) + "\n")
         else:
-            rows = cast("List[Dict[str, object]]", await self._df.collect())
+            rows = cast("list[dict[str, object]]", await self._df.collect())
             if not rows:
                 return
             async with aiofiles.open(path, "w", encoding="utf-8", newline="") as f:
@@ -289,14 +289,14 @@ class AsyncDataFrameWriter:
         indent = cast("Optional[int]", self._options.get("indent"))
         if self._stream:
             chunk_iter = cast(
-                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
+                "AsyncIterator[list[dict[str, object]]]", await self._df.collect(stream=True)
             )
             all_rows = []
             async for chunk in chunk_iter:
                 all_rows.extend(chunk)
             rows = all_rows
         else:
-            rows = cast("List[Dict[str, object]]", await self._df.collect())
+            rows = cast("list[dict[str, object]]", await self._df.collect())
 
         content = json.dumps(rows, indent=indent, default=str)
         async with aiofiles.open(path, "w", encoding="utf-8") as f:
@@ -306,14 +306,14 @@ class AsyncDataFrameWriter:
         """Save AsyncDataFrame as JSONL file (one JSON object per line)."""
         if self._stream:
             chunk_iter = cast(
-                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
+                "AsyncIterator[list[dict[str, object]]]", await self._df.collect(stream=True)
             )
             async with aiofiles.open(path, "w", encoding="utf-8") as f:
                 async for chunk in chunk_iter:
                     for row in chunk:
                         await f.write(json.dumps(row, default=str) + "\n")
         else:
-            rows = cast("List[Dict[str, object]]", await self._df.collect())
+            rows = cast("list[dict[str, object]]", await self._df.collect())
             async with aiofiles.open(path, "w", encoding="utf-8") as f:
                 for row in rows:
                     await f.write(json.dumps(row, default=str) + "\n")
@@ -338,14 +338,14 @@ class AsyncDataFrameWriter:
         # Collect data
         if self._stream:
             chunk_iter = cast(
-                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
+                "AsyncIterator[list[dict[str, object]]]", await self._df.collect(stream=True)
             )
             all_rows = []
             async for chunk in chunk_iter:
                 all_rows.extend(chunk)
             rows = all_rows
         else:
-            rows = cast("List[Dict[str, object]]", await self._df.collect())
+            rows = cast("list[dict[str, object]]", await self._df.collect())
 
         if not rows:
             return

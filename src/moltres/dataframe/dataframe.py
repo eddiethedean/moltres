@@ -21,15 +21,15 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class DataFrame:
     plan: LogicalPlan
-    database: Optional[Database] = None
-    _materialized_data: Optional[List[dict[str, object]]] = None
-    _stream_generator: Optional[Callable[[], Iterator[List[dict[str, object]]]]] = None
-    _stream_schema: Optional[Sequence[ColumnDef]] = None
+    database: Database | None = None
+    _materialized_data: list[dict[str, object]] | None = None
+    _stream_generator: Callable[[], Iterator[list[dict[str, object]]]] | None = None
+    _stream_schema: Sequence[ColumnDef] | None = None
 
     # ------------------------------------------------------------------ builders
     @classmethod
     def from_table(
-        cls, table_handle: TableHandle, columns: Optional[Sequence[str]] = None
+        cls, table_handle: TableHandle, columns: Sequence[str] | None = None
     ) -> DataFrame:
         plan = operators.scan(table_handle.name)
         df = cls(plan=plan, database=table_handle.database)
@@ -37,7 +37,7 @@ class DataFrame:
             df = df.select(*columns)
         return df
 
-    def select(self, *columns: Union[Column, str]) -> DataFrame:
+    def select(self, *columns: Column | str) -> DataFrame:
         if not columns:
             return self
         normalized = tuple(self._normalize_projection(column) for column in columns)
@@ -104,7 +104,7 @@ class DataFrame:
         self,
         other: DataFrame,
         *,
-        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+        on: str | Sequence[str] | Sequence[tuple[str, str]] | None = None,
         how: str = "inner",
     ) -> DataFrame:
         if self.database is None or other.database is None:
@@ -115,7 +115,7 @@ class DataFrame:
         plan = operators.join(self.plan, other.plan, how=how.lower(), on=normalized_on)
         return DataFrame(plan=plan, database=self.database)
 
-    def group_by(self, *columns: Union[Column, str]) -> GroupedDataFrame:
+    def group_by(self, *columns: Column | str) -> GroupedDataFrame:
         if not columns:
             raise ValueError("group_by requires at least one grouping column")
         from .groupby import GroupedDataFrame
@@ -181,7 +181,7 @@ class DataFrame:
 
     def collect(
         self, stream: bool = False
-    ) -> Union[List[Dict[str, object]], Iterator[List[Dict[str, object]]]]:
+    ) -> list[dict[str, object]] | Iterator[list[dict[str, object]]]:
         """Collect DataFrame results.
 
         Args:
@@ -230,7 +230,7 @@ class DataFrame:
         return DataFrameWriter(self)
 
     @property
-    def columns(self) -> List[str]:
+    def columns(self) -> list[str]:
         """Get the column names of this DataFrame.
 
         Returns:
@@ -286,7 +286,7 @@ class DataFrame:
         )
 
     @property
-    def schema(self) -> List[Dict[str, str]]:
+    def schema(self) -> list[dict[str, str]]:
         """Get the schema of this DataFrame as a list of column info dictionaries.
 
         Returns:
@@ -359,7 +359,7 @@ class DataFrame:
             _stream_schema=self._stream_schema,
         )
 
-    def _normalize_projection(self, expr: Union[Column, str]) -> Column:
+    def _normalize_projection(self, expr: Column | str) -> Column:
         if isinstance(expr, Column):
             return expr
         return col(expr)
@@ -372,13 +372,13 @@ class DataFrame:
         return operators.sort_order(expr, descending=False)
 
     def _normalize_join_keys(
-        self, on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]]
-    ) -> Sequence[Tuple[str, str]]:
+        self, on: str | Sequence[str] | Sequence[tuple[str, str]] | None
+    ) -> Sequence[tuple[str, str]]:
         if on is None:
             raise ValueError("join requires an `on` argument for equality joins")
         if isinstance(on, str):
             return [(on, on)]
-        normalized: List[Tuple[str, str]] = []
+        normalized: list[tuple[str, str]] = []
         for entry in on:
             if isinstance(entry, tuple):
                 if len(entry) != 2:
@@ -445,7 +445,7 @@ class DataFrame:
         """
         return self.rename({old_name: new_name})
 
-    def rename(self, columns: Dict[str, str]) -> DataFrame:
+    def rename(self, columns: dict[str, str]) -> DataFrame:
         """Rename columns using a mapping.
 
         Args:

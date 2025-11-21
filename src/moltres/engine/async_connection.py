@@ -23,7 +23,7 @@ class AsyncConnectionManager:
 
     def __init__(self, config: EngineConfig):
         self.config = config
-        self._engine: Optional[AsyncEngine] = None
+        self._engine: AsyncEngine | None = None
 
     def _create_engine(self) -> AsyncEngine:
         """Create an async SQLAlchemy engine.
@@ -61,7 +61,7 @@ class AsyncConnectionManager:
                     "Use format like 'postgresql+asyncpg://...' or 'mysql+aiomysql://...'"
                 )
 
-        kwargs: Dict[str, object] = {"echo": self.config.echo}
+        kwargs: dict[str, object] = {"echo": self.config.echo}
         if self.config.pool_size is not None:
             kwargs["pool_size"] = self.config.pool_size
         if self.config.max_overflow is not None:

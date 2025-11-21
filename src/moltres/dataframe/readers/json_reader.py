@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 def read_json(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read JSON file (array of objects) and return DataFrame.
 
@@ -83,8 +83,8 @@ def read_json(
 def read_jsonl(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read JSONL file (one JSON object per line) and return DataFrame.
 
@@ -136,8 +136,8 @@ def read_jsonl(
 def read_json_stream(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read JSON file in streaming mode (chunked).
 
@@ -161,7 +161,7 @@ def read_json_stream(
 
     multiline = cast("bool", options.get("multiline", False))
 
-    def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _chunk_generator() -> Iterator[list[dict[str, object]]]:
         with open(path_obj, encoding="utf-8") as f:
             if multiline:
                 chunk = []
@@ -205,7 +205,7 @@ def read_json_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
@@ -216,8 +216,8 @@ def read_json_stream(
 def read_jsonl_stream(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read JSONL file in streaming mode (chunked).
 
@@ -239,7 +239,7 @@ def read_jsonl_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
-    def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _chunk_generator() -> Iterator[list[dict[str, object]]]:
         chunk = []
         with open(path_obj, encoding="utf-8") as f:
             for line in f:
@@ -271,7 +271,7 @@ def read_jsonl_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
@@ -279,7 +279,7 @@ def read_jsonl_stream(
     return _create_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: list[dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -287,7 +287,7 @@ def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]
 
 
 def _create_dataframe_from_schema(
-    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
@@ -295,7 +295,7 @@ def _create_dataframe_from_schema(
 
 def _create_dataframe_from_stream(
     database: Database,
-    chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:
     """Create DataFrame from streaming generator.

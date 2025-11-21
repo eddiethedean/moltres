@@ -31,8 +31,8 @@ if TYPE_CHECKING:
 async def read_json(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read JSON file (array of objects) asynchronously and return AsyncDataFrame.
 
@@ -99,8 +99,8 @@ async def read_json(
 async def read_jsonl(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read JSONL file (one JSON object per line) asynchronously and return AsyncDataFrame.
 
@@ -152,8 +152,8 @@ async def read_jsonl(
 async def read_json_stream(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read JSON file asynchronously in streaming mode (chunked).
 
@@ -177,7 +177,7 @@ async def read_json_stream(
 
     multiline = cast("bool", options.get("multiline", False))
 
-    async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         async with aiofiles.open(path_obj, encoding="utf-8") as f:
             if multiline:
                 chunk = []
@@ -222,7 +222,7 @@ async def read_json_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _typed_chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         async for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
@@ -233,8 +233,8 @@ async def read_json_stream(
 async def read_jsonl_stream(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read JSONL file asynchronously in streaming mode (chunked).
 
@@ -256,7 +256,7 @@ async def read_jsonl_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
-    async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         chunk = []
         async with aiofiles.open(path_obj, encoding="utf-8") as f:
             async for line in f:
@@ -288,7 +288,7 @@ async def read_jsonl_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _typed_chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         async for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
@@ -297,7 +297,7 @@ async def read_jsonl_stream(
 
 
 def _create_async_dataframe_from_data(
-    database: AsyncDatabase, rows: List[Dict[str, object]]
+    database: AsyncDatabase, rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from materialized data."""
     from ...logical.plan import TableScan
@@ -308,7 +308,7 @@ def _create_async_dataframe_from_data(
 
 
 def _create_async_dataframe_from_schema(
-    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame with explicit schema but no data."""
     return _create_async_dataframe_from_data(database, rows)
@@ -316,7 +316,7 @@ def _create_async_dataframe_from_schema(
 
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
-    chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""

@@ -33,8 +33,8 @@ if TYPE_CHECKING:
 async def read_csv(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read CSV file asynchronously and return AsyncDataFrame.
 
@@ -59,7 +59,7 @@ async def read_csv(
     delimiter = cast("str", options.get("delimiter", ","))
     infer_schema = cast("bool", options.get("inferSchema", True))
 
-    rows: List[Dict[str, object]] = []
+    rows: list[dict[str, object]] = []
 
     async with aiofiles.open(path_obj, encoding="utf-8") as f:
         content = await f.read()
@@ -127,8 +127,8 @@ async def read_csv(
 async def read_csv_stream(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> AsyncDataFrame:
     """Read CSV file asynchronously in streaming mode (chunked).
 
@@ -154,7 +154,7 @@ async def read_csv_stream(
     delimiter = cast("str", options.get("delimiter", ","))
     infer_schema = cast("bool", options.get("inferSchema", True))
 
-    async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         async with aiofiles.open(path_obj, encoding="utf-8") as f:
             # Read file in chunks for streaming
             content = await f.read()
@@ -180,7 +180,7 @@ async def read_csv_stream(
                     for row_data in reader_obj:
                         if not row_data:
                             continue
-                        row_dict: Dict[str, object] = {}
+                        row_dict: dict[str, object] = {}
                         for i, col_def in enumerate(schema):
                             value = row_data[i] if i < len(row_data) else None
                             row_dict[col_def.name] = None if value == "" else value
@@ -220,7 +220,7 @@ async def read_csv_stream(
     # Create generator that applies schema and yields chunks
     from .schema_inference import apply_schema_to_rows
 
-    async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _typed_chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         # Yield first chunk (already read)
         yield apply_schema_to_rows(first_chunk, final_schema)
         # Yield remaining chunks
@@ -231,7 +231,7 @@ async def read_csv_stream(
 
 
 def _create_async_dataframe_from_data(
-    database: AsyncDatabase, rows: List[Dict[str, object]]
+    database: AsyncDatabase, rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from materialized data."""
     from ...logical.plan import TableScan
@@ -242,7 +242,7 @@ def _create_async_dataframe_from_data(
 
 
 def _create_async_dataframe_from_schema(
-    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame with explicit schema but no data."""
     return _create_async_dataframe_from_data(database, rows)
@@ -250,7 +250,7 @@ def _create_async_dataframe_from_schema(
 
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
-    chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""

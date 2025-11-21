@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 def read_csv(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read CSV file and return DataFrame.
 
@@ -43,7 +43,7 @@ def read_csv(
     delimiter = cast("str", options.get("delimiter", ","))
     infer_schema = cast("bool", options.get("inferSchema", True))
 
-    rows: List[Dict[str, object]] = []
+    rows: list[dict[str, object]] = []
 
     with open(path_obj, encoding="utf-8") as f:
         if header and not schema:
@@ -107,8 +107,8 @@ def read_csv(
 def read_csv_stream(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read CSV file in streaming mode (chunked).
 
@@ -134,7 +134,7 @@ def read_csv_stream(
     delimiter = cast("str", options.get("delimiter", ","))
     infer_schema = cast("bool", options.get("inferSchema", True))
 
-    def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _chunk_generator() -> Iterator[list[dict[str, object]]]:
         with open(path_obj, encoding="utf-8") as f:
             if header and not schema:
                 reader = csv.DictReader(f, delimiter=delimiter)
@@ -156,7 +156,7 @@ def read_csv_stream(
                     for row_data in reader_obj:
                         if not row_data:
                             continue
-                        row_dict: Dict[str, object] = {}
+                        row_dict: dict[str, object] = {}
                         for i, col_def in enumerate(schema):
                             value = row_data[i] if i < len(row_data) else None
                             row_dict[col_def.name] = None if value == "" else value
@@ -196,7 +196,7 @@ def read_csv_stream(
     # Create generator that applies schema and yields chunks
     from .schema_inference import apply_schema_to_rows
 
-    def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
         # Yield first chunk (already read)
         yield apply_schema_to_rows(first_chunk, final_schema)
         # Yield remaining chunks
@@ -206,7 +206,7 @@ def read_csv_stream(
     return _create_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: list[dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -214,7 +214,7 @@ def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]
 
 
 def _create_dataframe_from_schema(
-    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
@@ -222,7 +222,7 @@ def _create_dataframe_from_schema(
 
 def _create_dataframe_from_stream(
     database: Database,
-    chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:
     """Create DataFrame from streaming generator.

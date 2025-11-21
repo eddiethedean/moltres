@@ -21,8 +21,8 @@ ColumnLike: TypeAlias = Union["Column", LiteralValue]
 class Column(Expression):
     """User-facing wrapper around expressions with rich operators."""
 
-    source: Optional[str] = None
-    _window: Optional["WindowSpec"] = None
+    source: str | None = None
+    _window: WindowSpec | None = None
 
     # ------------------------------------------------------------------ helpers
     def alias(self, alias: str) -> Column:
@@ -74,7 +74,7 @@ class Column(Expression):
     def __mod__(self, other: ColumnLike) -> Column:
         return self._binary("mod", other)
 
-    def __pow__(self, power: ColumnLike, modulo: Optional[ColumnLike] = None) -> Column:
+    def __pow__(self, power: ColumnLike, modulo: ColumnLike | None = None) -> Column:
         args: tuple[Any, ...]
         if modulo is None:
             args = (self, ensure_column(power))

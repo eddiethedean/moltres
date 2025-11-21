@@ -32,15 +32,15 @@ class AsyncDataFrame:
     """Async lazy DataFrame representation."""
 
     plan: LogicalPlan
-    database: Optional[AsyncDatabase] = None
-    _materialized_data: Optional[List[dict[str, object]]] = None
-    _stream_generator: Optional[Callable[[], AsyncIterator[List[dict[str, object]]]]] = None
-    _stream_schema: Optional[Sequence[ColumnDef]] = None
+    database: AsyncDatabase | None = None
+    _materialized_data: list[dict[str, object]] | None = None
+    _stream_generator: Callable[[], AsyncIterator[list[dict[str, object]]]] | None = None
+    _stream_schema: Sequence[ColumnDef] | None = None
 
     # ------------------------------------------------------------------ builders
     @classmethod
     def from_table(
-        cls, table_handle: AsyncTableHandle, columns: Optional[Sequence[str]] = None
+        cls, table_handle: AsyncTableHandle, columns: Sequence[str] | None = None
     ) -> AsyncDataFrame:
         """Create an AsyncDataFrame from a table handle."""
         plan = operators.scan(table_handle.name)
@@ -49,7 +49,7 @@ class AsyncDataFrame:
             df = df.select(*columns)
         return df
 
-    def select(self, *columns: Union[Column, str]) -> AsyncDataFrame:
+    def select(self, *columns: Column | str) -> AsyncDataFrame:
         """Select columns from the DataFrame."""
         if not columns:
             return self
@@ -65,7 +65,7 @@ class AsyncDataFrame:
     def join(
         self,
         other: AsyncDataFrame,
-        on: Union[str, Sequence[str], Sequence[Tuple[str, str]]],
+        on: str | Sequence[str] | Sequence[tuple[str, str]],
         how: str = "inner",
     ) -> AsyncDataFrame:
         """Join with another DataFrame."""
@@ -76,7 +76,7 @@ class AsyncDataFrame:
         join_keys = self._normalize_join_keys(on)
         return self._with_plan(operators.join(self.plan, other.plan, how=how, on=join_keys))
 
-    def group_by(self, *columns: Union[Column, str]) -> AsyncGroupedDataFrame:
+    def group_by(self, *columns: Column | str) -> AsyncGroupedDataFrame:
         """Group by the specified columns."""
         from .async_groupby import AsyncGroupedDataFrame
 
@@ -88,7 +88,7 @@ class AsyncDataFrame:
 
     groupBy = group_by
 
-    def order_by(self, *columns: Union[Column, str]) -> AsyncDataFrame:
+    def order_by(self, *columns: Column | str) -> AsyncDataFrame:
         """Sort by the specified columns."""
         sort_orders = tuple(
             self._normalize_sort_expression(self._normalize_projection(col)) for col in columns
@@ -112,7 +112,7 @@ class AsyncDataFrame:
 
     async def collect(
         self, stream: bool = False
-    ) -> Union[List[Dict[str, object]], AsyncIterator[List[Dict[str, object]]]]:
+    ) -> list[dict[str, object]] | AsyncIterator[list[dict[str, object]]]:
         """Collect DataFrame results asynchronously.
 
         Args:
@@ -132,7 +132,7 @@ class AsyncDataFrame:
                 # _stream_generator is already an async generator function
                 return self._stream_generator()
             # Materialize all chunks
-            all_rows: List[Dict[str, object]] = []
+            all_rows: list[dict[str, object]] = []
             async for chunk in self._stream_generator():
                 all_rows.extend(chunk)
             return all_rows
@@ -141,7 +141,7 @@ class AsyncDataFrame:
         if self._materialized_data is not None:
             if stream:
                 # Return async iterator with single chunk
-                async def single_chunk() -> AsyncIterator[List[Dict[str, object]]]:
+                async def single_chunk() -> AsyncIterator[list[dict[str, object]]]:
                     yield self._materialized_data  # type: ignore[misc]
 
                 return single_chunk()
@@ -153,7 +153,7 @@ class AsyncDataFrame:
 
         if stream:
             # For SQL queries, use streaming execution
-            async def stream_gen() -> AsyncIterator[List[Dict[str, object]]]:
+            async def stream_gen() -> AsyncIterator[list[dict[str, object]]]:
                 assert self.database is not None  # Type narrowing
                 async for chunk in self.database.execute_plan_stream(self.plan):
                     yield chunk
@@ -162,7 +162,7 @@ class AsyncDataFrame:
 
         assert self.database is not None  # Type narrowing
         result = await self.database.execute_plan(self.plan)
-        return cast(List[Dict[str, object]], result.rows)
+        return cast(list[dict[str, object]], result.rows)
 
     @property
     def write(self) -> AsyncDataFrameWriter:
@@ -182,7 +182,7 @@ class AsyncDataFrame:
             _stream_schema=self._stream_schema,
         )
 
-    def _normalize_projection(self, expr: Union[Column, str]) -> Column:
+    def _normalize_projection(self, expr: Column | str) -> Column:
         """Normalize a projection expression to a Column."""
         if isinstance(expr, Column):
             return expr
@@ -197,8 +197,8 @@ class AsyncDataFrame:
         return operators.sort_order(expr, descending=False)
 
     def _normalize_join_keys(
-        self, on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]]
-    ) -> Sequence[Tuple[str, str]]:
+        self, on: str | Sequence[str] | Sequence[tuple[str, str]] | None
+    ) -> Sequence[tuple[str, str]]:
         """Normalize join keys to a sequence of (left, right) column pairs."""
         if isinstance(on, str):
             return [(on, on)]

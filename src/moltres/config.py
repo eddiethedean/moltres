@@ -16,11 +16,11 @@ class EngineConfig:
     dsn: str
     echo: bool = False
     fetch_format: FetchFormat = "records"
-    dialect: Optional[str] = None
-    pool_size: Optional[int] = None
-    max_overflow: Optional[int] = None
-    pool_timeout: Optional[int] = None
-    pool_recycle: Optional[int] = None
+    dialect: str | None = None
+    pool_size: int | None = None
+    max_overflow: int | None = None
+    pool_timeout: int | None = None
+    pool_recycle: int | None = None
     pool_pre_ping: bool = False
     future: bool = True
 
@@ -30,7 +30,7 @@ class MoltresConfig:
     """Container for all runtime configuration knobs."""
 
     engine: EngineConfig
-    default_schema: Optional[str] = None
+    default_schema: str | None = None
     include_metadata: bool = False
     options: dict[str, object] = field(default_factory=dict)
 

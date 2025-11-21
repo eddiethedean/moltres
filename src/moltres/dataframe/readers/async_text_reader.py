@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 async def read_text(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
     column_name: str = "value",
 ) -> AsyncDataFrame:
     """Read text file line-by-line asynchronously and return AsyncDataFrame.
@@ -53,7 +53,7 @@ async def read_text(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    rows: List[Dict[str, object]] = []
+    rows: list[dict[str, object]] = []
     async with aiofiles.open(path_obj, encoding="utf-8") as f:
         async for line in f:
             rows.append({column_name: line.rstrip("\n\r")})
@@ -67,8 +67,8 @@ async def read_text(
 async def read_text_stream(
     path: str,
     database: AsyncDatabase,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
     column_name: str = "value",
 ) -> AsyncDataFrame:
     """Read text file asynchronously in streaming mode (chunked).
@@ -91,8 +91,8 @@ async def read_text_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
-        chunk: List[Dict[str, object]] = []
+    async def _chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
+        chunk: list[dict[str, object]] = []
         async with aiofiles.open(path_obj, encoding="utf-8") as f:
             async for line in f:
                 chunk.append({column_name: line.rstrip("\n\r")})
@@ -112,7 +112,7 @@ async def read_text_stream(
 
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
 
-    async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+    async def _typed_chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
         yield first_chunk
         async for chunk in first_chunk_gen:
             yield chunk
@@ -121,7 +121,7 @@ async def read_text_stream(
 
 
 def _create_async_dataframe_from_data(
-    database: AsyncDatabase, rows: List[Dict[str, object]]
+    database: AsyncDatabase, rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from materialized data."""
     from ...logical.plan import TableScan
@@ -132,7 +132,7 @@ def _create_async_dataframe_from_data(
 
 
 def _create_async_dataframe_from_schema(
-    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame with explicit schema but no data."""
     return _create_async_dataframe_from_data(database, rows)
@@ -140,7 +140,7 @@ def _create_async_dataframe_from_schema(
 
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
-    chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""

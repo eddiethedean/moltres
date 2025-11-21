@@ -31,7 +31,7 @@ class AsyncQueryResult:
     """Result from an async query execution."""
 
     rows: Any
-    rowcount: Optional[int]
+    rowcount: int | None
 
 
 class AsyncQueryExecutor:
@@ -41,7 +41,7 @@ class AsyncQueryExecutor:
         self._connections = connection_manager
         self._config = config
 
-    async def fetch(self, sql: str, params: Optional[Dict[str, Any]] = None) -> AsyncQueryResult:
+    async def fetch(self, sql: str, params: dict[str, Any] | None = None) -> AsyncQueryResult:
         """Execute a SELECT query and return results.
 
         Args:
@@ -86,7 +86,7 @@ class AsyncQueryExecutor:
             )
             raise ExecutionError(f"Failed to execute async query: {exc}") from exc
 
-    async def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> AsyncQueryResult:
+    async def execute(self, sql: str, params: dict[str, Any] | None = None) -> AsyncQueryResult:
         """Execute a non-SELECT SQL statement (INSERT, UPDATE, DELETE, etc.).
 
         Args:
@@ -111,7 +111,7 @@ class AsyncQueryExecutor:
             raise ExecutionError(f"Failed to execute async statement: {exc}") from exc
 
     async def execute_many(
-        self, sql: str, params_list: Sequence[Dict[str, Any]]
+        self, sql: str, params_list: Sequence[dict[str, Any]]
     ) -> AsyncQueryResult:
         """Execute a SQL statement multiple times with different parameter sets.
 
@@ -149,8 +149,8 @@ class AsyncQueryExecutor:
             raise ExecutionError(f"Failed to execute async batch statement: {exc}") from exc
 
     async def fetch_stream(
-        self, sql: str, params: Optional[Dict[str, Any]] = None, chunk_size: int = 10000
-    ) -> AsyncIterator[List[Dict[str, Any]]]:
+        self, sql: str, params: dict[str, Any] | None = None, chunk_size: int = 10000
+    ) -> AsyncIterator[list[dict[str, Any]]]:
         """Fetch query results in streaming chunks.
 
         Args:
@@ -163,8 +163,8 @@ class AsyncQueryExecutor:
         """
         async with self._connections.connect() as conn:
             result = await conn.stream(text(sql), params or {})
-            columns: Optional[List[str]] = None
-            chunk: List[Dict[str, Any]] = []
+            columns: list[str] | None = None
+            chunk: list[dict[str, Any]] = []
 
             async for row in result:
                 if columns is None:

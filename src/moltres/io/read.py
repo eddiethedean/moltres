@@ -9,8 +9,8 @@ from ..table.table import Database
 
 
 def read_table(
-    db: Database, table_name: str, columns: Optional[Iterable[str]] = None
-) -> Union[List[Dict[str, Any]], Any]:
+    db: Database, table_name: str, columns: Iterable[str] | None = None
+) -> list[dict[str, Any]] | Any:
     """Read a table from the database.
 
     Args:
@@ -30,8 +30,8 @@ def read_table(
 
 
 def read_sql(
-    db: Database, sql: str, params: Optional[Dict[str, object]] = None
-) -> Union[List[Dict[str, Any]], Any]:
+    db: Database, sql: str, params: dict[str, object] | None = None
+) -> list[dict[str, Any]] | Any:
     """Execute a raw SQL query and return results.
 
     Args:

@@ -39,7 +39,7 @@ async def insert_rows_async(handle: AsyncTableHandle, rows: Sequence[Mapping[str
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     # Use batch insert for better performance
-    params_list: list[Dict[str, object]] = [dict(row) for row in rows]
+    params_list: list[dict[str, object]] = [dict(row) for row in rows]
     result = await handle.database.executor.execute_many(sql, params_list)
     return result.rowcount or 0
 
@@ -65,7 +65,7 @@ async def update_rows_async(
             f"update requires at least one value in `set` for table '{handle.name}'"
         )
     assignments = []
-    params: Dict[str, object] = {}
+    params: dict[str, object] = {}
     quote = handle.database.dialect.quote_char
     for idx, (column, value) in enumerate(values.items()):
         param_name = f"val_{idx}"

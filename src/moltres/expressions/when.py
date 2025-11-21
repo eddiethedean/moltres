@@ -12,7 +12,7 @@ class WhenBuilder:
 
     def __init__(self, condition: Column, value: ColumnLike):
         self._conditions: list[tuple[Column, Column]] = [(condition, ensure_column(value))]
-        self._otherwise: Optional[Column] = None
+        self._otherwise: Column | None = None
 
     def when(self, condition: Column, value: ColumnLike) -> WhenBuilder:
         """Add another WHEN clause.

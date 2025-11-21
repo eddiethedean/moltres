@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 def read_text(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
     column_name: str = "value",
 ) -> DataFrame:
     """Read text file line-by-line and return DataFrame.
@@ -39,7 +39,7 @@ def read_text(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    rows: List[Dict[str, object]] = []
+    rows: list[dict[str, object]] = []
     with open(path_obj, encoding="utf-8") as f:
         for line in f:
             rows.append({column_name: line.rstrip("\n\r")})
@@ -53,8 +53,8 @@ def read_text(
 def read_text_stream(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
     column_name: str = "value",
 ) -> DataFrame:
     """Read text file in streaming mode (chunked).
@@ -77,8 +77,8 @@ def read_text_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
-        chunk: List[Dict[str, object]] = []
+    def _chunk_generator() -> Iterator[list[dict[str, object]]]:
+        chunk: list[dict[str, object]] = []
         with open(path_obj, encoding="utf-8") as f:
             for line in f:
                 chunk.append({column_name: line.rstrip("\n\r")})
@@ -98,15 +98,15 @@ def read_text_stream(
 
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
 
-    def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
-        yield cast("List[Dict[str, object]]", first_chunk)
+    def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
+        yield cast("list[dict[str, object]]", first_chunk)
         for chunk in first_chunk_gen:
-            yield cast("List[Dict[str, object]]", chunk)
+            yield cast("list[dict[str, object]]", chunk)
 
     return _create_dataframe_from_stream(database, _typed_chunk_generator, schema)
 
 
-def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: list[dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -114,7 +114,7 @@ def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]
 
 
 def _create_dataframe_from_schema(
-    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
@@ -122,7 +122,7 @@ def _create_dataframe_from_schema(
 
 def _create_dataframe_from_stream(
     database: Database,
-    chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:
     """Create DataFrame from streaming generator.

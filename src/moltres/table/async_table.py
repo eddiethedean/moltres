@@ -159,14 +159,14 @@ class AsyncDatabase:
 
     async def execute_plan_stream(
         self, plan: LogicalPlan
-    ) -> AsyncIterator[List[Dict[str, object]]]:
+    ) -> AsyncIterator[list[dict[str, object]]]:
         """Execute a plan and return an async iterator of row chunks."""
         sql = self.compile_plan(plan)
         async for chunk in self._executor.fetch_stream(sql):
             yield chunk
 
     async def execute_sql(
-        self, sql: str, params: Optional[Dict[str, Any]] = None
+        self, sql: str, params: dict[str, Any] | None = None
     ) -> AsyncQueryResult:
         """Execute raw SQL and return results."""
         return await self._executor.fetch(sql, params=params)

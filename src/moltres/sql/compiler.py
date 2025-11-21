@@ -29,7 +29,7 @@ from ..utils.exceptions import CompilationError
 from .builders import comma_separated, format_literal, quote_identifier
 
 
-def compile_plan(plan: LogicalPlan, dialect: Union[str, DialectSpec] = "ansi") -> str:
+def compile_plan(plan: LogicalPlan, dialect: str | DialectSpec = "ansi") -> str:
     spec = get_dialect(dialect) if isinstance(dialect, str) else dialect
     compiler = SQLCompiler(spec)
     return compiler.compile(plan)
@@ -39,11 +39,11 @@ def compile_plan(plan: LogicalPlan, dialect: Union[str, DialectSpec] = "ansi") -
 class CompilationState:
     source: str
     alias: str
-    select: Optional[tuple[Column, ...]] = None
-    predicate: Optional[Column] = None
+    select: tuple[Column, ...] | None = None
+    predicate: Column | None = None
     group_by: tuple[Column, ...] = ()
     orders: tuple[SortOrder, ...] = ()
-    limit: Optional[int] = None
+    limit: int | None = None
     offset: int = 0
     distinct: bool = False
 
@@ -139,7 +139,7 @@ class SQLCompiler:
             return f"{sql} AS {alias_sql}"
         return sql
 
-    def _compile_window(self, window: "WindowSpec") -> str:
+    def _compile_window(self, window: WindowSpec) -> str:
         """Compile a window specification to SQL."""
         parts = []
         if window.partition_by:
@@ -160,7 +160,7 @@ class SQLCompiler:
                 parts.append(frame)
         return " ".join(parts)
 
-    def _compile_frame(self, start: Optional[int], end: Optional[int], frame_type: str) -> str:
+    def _compile_frame(self, start: int | None, end: int | None, frame_type: str) -> str:
         """Compile a window frame specification."""
         if start is None and end is None:
             return ""
@@ -168,7 +168,7 @@ class SQLCompiler:
         end_sql = self._frame_bound(end, "FOLLOWING")
         return f"{frame_type} BETWEEN {start_sql} AND {end_sql}"
 
-    def _frame_bound(self, bound: Optional[int], direction: str) -> str:
+    def _frame_bound(self, bound: int | None, direction: str) -> str:
         """Compile a window frame bound."""
         if bound is None:
             return f"UNBOUNDED {direction}"

@@ -155,12 +155,12 @@ class Database:
         sql = self.compile_plan(plan)
         return self._executor.fetch(sql)
 
-    def execute_plan_stream(self, plan: LogicalPlan) -> Iterator[List[Dict[str, object]]]:
+    def execute_plan_stream(self, plan: LogicalPlan) -> Iterator[list[dict[str, object]]]:
         """Execute a plan and return an iterator of row chunks."""
         sql = self.compile_plan(plan)
         return self._executor.fetch_stream(sql)
 
-    def execute_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
+    def execute_sql(self, sql: str, params: dict[str, Any] | None = None) -> QueryResult:
         return self._executor.fetch(sql, params=params)
 
     @property

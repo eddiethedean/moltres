@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 def read_parquet(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read Parquet file and return DataFrame.
 
@@ -83,8 +83,8 @@ def read_parquet(
 def read_parquet_stream(
     path: str,
     database: Database,
-    schema: Optional[Sequence[ColumnDef]],
-    options: Dict[str, object],
+    schema: Sequence[ColumnDef] | None,
+    options: dict[str, object],
 ) -> DataFrame:
     """Read Parquet file in streaming mode (row group by row group).
 
@@ -114,7 +114,7 @@ def read_parquet_stream(
 
     parquet_file = pq.ParquetFile(str(path_obj))  # type: ignore[attr-defined]
 
-    def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _chunk_generator() -> Iterator[list[dict[str, object]]]:
         for i in range(parquet_file.num_row_groups):
             row_group = parquet_file.read_row_group(i)
             df = row_group.to_pandas()
@@ -141,7 +141,7 @@ def read_parquet_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
+    def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
@@ -149,7 +149,7 @@ def read_parquet_stream(
     return _create_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: list[dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -157,7 +157,7 @@ def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]
 
 
 def _create_dataframe_from_schema(
-    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
@@ -165,7 +165,7 @@ def _create_dataframe_from_schema(
 
 def _create_dataframe_from_stream(
     database: Database,
-    chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
+    chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:
     """Create DataFrame from streaming generator.

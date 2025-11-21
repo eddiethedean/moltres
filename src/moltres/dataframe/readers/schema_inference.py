@@ -8,7 +8,7 @@ from typing import Any, Dict, List, cast
 from ...table.schema import ColumnDef
 
 
-def infer_schema_from_rows(rows: List[Dict[str, object]]) -> Sequence[ColumnDef]:
+def infer_schema_from_rows(rows: list[dict[str, object]]) -> Sequence[ColumnDef]:
     """Infer schema from sample rows.
 
     Args:
@@ -24,7 +24,7 @@ def infer_schema_from_rows(rows: List[Dict[str, object]]) -> Sequence[ColumnDef]
         raise ValueError("Cannot infer schema from empty data")
 
     sample = rows[0]
-    columns: List[ColumnDef] = []
+    columns: list[ColumnDef] = []
 
     for key, value in sample.items():
         # Check if any row has None for this column
@@ -37,7 +37,7 @@ def infer_schema_from_rows(rows: List[Dict[str, object]]) -> Sequence[ColumnDef]
     return columns
 
 
-def _infer_type_from_values(sample_values: List[object], first_value: object) -> str:
+def _infer_type_from_values(sample_values: list[object], first_value: object) -> str:
     """Infer SQL type from sample values, trying to parse strings as numbers.
 
     Args:
@@ -92,8 +92,8 @@ def _infer_type_from_values(sample_values: List[object], first_value: object) ->
 
 
 def apply_schema_to_rows(
-    rows: List[Dict[str, object]], schema: Sequence[ColumnDef]
-) -> List[Dict[str, object]]:
+    rows: list[dict[str, object]], schema: Sequence[ColumnDef]
+) -> list[dict[str, object]]:
     """Apply schema type conversions to rows.
 
     Args:
@@ -106,7 +106,7 @@ def apply_schema_to_rows(
     typed_rows = []
 
     for row in rows:
-        typed_row: Dict[str, object] = {}
+        typed_row: dict[str, object] = {}
         for col_def in schema:
             value = row.get(col_def.name)
             if value is None:

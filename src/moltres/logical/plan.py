@@ -20,7 +20,7 @@ class LogicalPlan:
 @dataclass(frozen=True)
 class TableScan(LogicalPlan):
     table: str
-    alias: Optional[str] = None
+    alias: str | None = None
 
 
 @dataclass(frozen=True)
@@ -81,8 +81,8 @@ class Join(LogicalPlan):
     left: LogicalPlan
     right: LogicalPlan
     how: str
-    on: Optional[Tuple[Tuple[str, str], ...]] = None
-    condition: Optional[Column] = None
+    on: tuple[tuple[str, str], ...] | None = None
+    condition: Column | None = None
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.left, self.right)

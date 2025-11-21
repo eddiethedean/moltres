@@ -53,7 +53,7 @@ __all__ = [
 ]
 
 
-def lit(value: Union[bool, int, float, str, None]) -> Column:
+def lit(value: bool | int | float | str | None) -> Column:
     """Create a literal column expression from a Python value.
 
     Args:
@@ -103,7 +103,7 @@ def max(column: ColumnLike) -> Column:
     return _aggregate("agg_max", column)
 
 
-def count(column: Union[ColumnLike, str] = "*") -> Column:
+def count(column: ColumnLike | str = "*") -> Column:
     """Count the number of rows or non-null values.
 
     Args:
@@ -162,7 +162,7 @@ def least(*columns: ColumnLike) -> Column:
     return Column(op="least", args=tuple(ensure_column(c) for c in columns))
 
 
-def substring(column: ColumnLike, start: int, length: Optional[int] = None) -> Column:
+def substring(column: ColumnLike, start: int, length: int | None = None) -> Column:
     """Extract a substring from a column.
 
     Args:
@@ -179,7 +179,7 @@ def substring(column: ColumnLike, start: int, length: Optional[int] = None) -> C
     return Column(op="substring", args=(col_expr, start))
 
 
-def substr(column: ColumnLike, start: int, length: Optional[int] = None) -> Column:
+def substr(column: ColumnLike, start: int, length: int | None = None) -> Column:
     """Alias for substring."""
     return substring(column, start, length)
 
@@ -327,7 +327,7 @@ def sqrt(column: ColumnLike) -> Column:
     return Column(op="sqrt", args=(ensure_column(column),))
 
 
-def pow(column: ColumnLike, power: Union[ColumnLike, int, float]) -> Column:
+def pow(column: ColumnLike, power: ColumnLike | int | float) -> Column:
     """Raise a column to a power.
 
     Args:
@@ -340,7 +340,7 @@ def pow(column: ColumnLike, power: Union[ColumnLike, int, float]) -> Column:
     return Column(op="pow", args=(ensure_column(column), ensure_column(power)))
 
 
-def power(column: ColumnLike, power: Union[ColumnLike, int, float]) -> Column:
+def power(column: ColumnLike, power: ColumnLike | int | float) -> Column:
     """Alias for pow."""
     return pow(column, power)
 

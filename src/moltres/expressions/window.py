@@ -14,8 +14,8 @@ class WindowSpec:
 
     partition_by: tuple[Column, ...] = ()
     order_by: tuple[Column, ...] = ()
-    rows_between: Optional[tuple[Optional[int], Optional[int]]] = None  # (start, end)
-    range_between: Optional[tuple[Optional[int], Optional[int]]] = None  # (start, end)
+    rows_between: tuple[int | None, int | None] | None = None  # (start, end)
+    range_between: tuple[int | None, int | None] | None = None  # (start, end)
 
     def partitionBy(self, *columns: ColumnLike) -> WindowSpec:
         """Partition the window by the given columns.
@@ -39,7 +39,7 @@ class WindowSpec:
         """
         return replace(self, order_by=tuple(ensure_column(c) for c in columns))
 
-    def rowsBetween(self, start: Optional[int], end: Optional[int]) -> WindowSpec:
+    def rowsBetween(self, start: int | None, end: int | None) -> WindowSpec:
         """Specify the frame using ROWS BETWEEN.
 
         Args:
@@ -51,7 +51,7 @@ class WindowSpec:
         """
         return replace(self, rows_between=(start, end))
 
-    def rangeBetween(self, start: Optional[int], end: Optional[int]) -> WindowSpec:
+    def rangeBetween(self, start: int | None, end: int | None) -> WindowSpec:
         """Specify the frame using RANGE BETWEEN.
 
         Args:
@@ -92,7 +92,7 @@ class Window:
         return WindowSpec(order_by=tuple(ensure_column(c) for c in columns))
 
     @staticmethod
-    def rowsBetween(start: Optional[int], end: Optional[int]) -> WindowSpec:
+    def rowsBetween(start: int | None, end: int | None) -> WindowSpec:
         """Create a window specification with ROWS BETWEEN frame.
 
         Args:
@@ -105,7 +105,7 @@ class Window:
         return WindowSpec(rows_between=(start, end))
 
     @staticmethod
-    def rangeBetween(start: Optional[int], end: Optional[int]) -> WindowSpec:
+    def rangeBetween(start: int | None, end: int | None) -> WindowSpec:
         """Create a window specification with RANGE BETWEEN frame.
 
         Args:
@@ -146,7 +146,7 @@ def dense_rank() -> Column:
     return Column(op="window_dense_rank", args=())
 
 
-def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = None) -> Column:
+def lag(column: ColumnLike, offset: int = 1, default: ColumnLike | None = None) -> Column:
     """Get the value from a previous row in the window.
 
     Args:
@@ -163,7 +163,7 @@ def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = Non
     return Column(op="window_lag", args=tuple(args))
 
 
-def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = None) -> Column:
+def lead(column: ColumnLike, offset: int = 1, default: ColumnLike | None = None) -> Column:
     """Get the value from a following row in the window.
 
     Args:

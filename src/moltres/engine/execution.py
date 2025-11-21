@@ -27,7 +27,7 @@ _perf_hooks: dict[str, list[Callable[[str, float, dict[str, Any]], None]]] = {
 @dataclass
 class QueryResult:
     rows: Any
-    rowcount: Optional[int]
+    rowcount: int | None
 
 
 class QueryExecutor:
@@ -37,7 +37,7 @@ class QueryExecutor:
         self._connections = connection_manager
         self._config = config
 
-    def fetch(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
+    def fetch(self, sql: str, params: dict[str, Any] | None = None) -> QueryResult:
         """Execute a SELECT query and return results.
 
         Args:
@@ -80,7 +80,7 @@ class QueryExecutor:
             logger.error("SQL execution failed after %.3f seconds: %s", elapsed, exc, exc_info=True)
             raise ExecutionError(f"Failed to execute query: {exc}") from exc
 
-    def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
+    def execute(self, sql: str, params: dict[str, Any] | None = None) -> QueryResult:
         """Execute a non-SELECT SQL statement (INSERT, UPDATE, DELETE, etc.).
 
         Args:
@@ -104,7 +104,7 @@ class QueryExecutor:
             logger.error("SQL execution failed: %s", exc, exc_info=True)
             raise ExecutionError(f"Failed to execute statement: {exc}") from exc
 
-    def execute_many(self, sql: str, params_list: Sequence[Dict[str, Any]]) -> QueryResult:
+    def execute_many(self, sql: str, params_list: Sequence[dict[str, Any]]) -> QueryResult:
         """Execute a SQL statement multiple times with different parameter sets.
 
         This is more efficient than calling execute() in a loop for batch inserts.
@@ -140,8 +140,8 @@ class QueryExecutor:
             raise ExecutionError(f"Failed to execute batch statement: {exc}") from exc
 
     def fetch_stream(
-        self, sql: str, params: Optional[Dict[str, Any]] = None, chunk_size: int = 10000
-    ) -> Iterator[List[Dict[str, Any]]]:
+        self, sql: str, params: dict[str, Any] | None = None, chunk_size: int = 10000
+    ) -> Iterator[list[dict[str, Any]]]:
         """Fetch query results in streaming chunks."""
         with self._connections.connect() as conn:
             result = conn.execute(text(sql), params or {})

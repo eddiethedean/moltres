@@ -13,18 +13,17 @@ class Expression:
 
     op: str
     args: tuple[Any, ...]
-    _alias: Optional[str] = None
+    _alias: str | None = None
 
     def with_alias(self, alias: str) -> Expression:
         return replace(self, _alias=alias)
 
     @property
-    def alias_name(self) -> Optional[str]:
+    def alias_name(self) -> str | None:
         return self._alias
 
     def children(self) -> Iterator[Any]:
-        for arg in self.args:
-            yield arg
+        yield from self.args
 
     def walk(self) -> Iterator[Expression]:
         """Depth-first traversal generator."""
