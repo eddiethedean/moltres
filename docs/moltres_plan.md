@@ -19,7 +19,7 @@ Provide a **PySpark DataFrame API** that executes lazily on **real SQL databases
 
 ## 4. Package Directory Structure
 
-```
+```text
 moltres/
     __init__.py
     config.py

@@ -10,34 +10,34 @@ Common issues and solutions when using Moltres.
 
 **Solutions**:
 1. **Check connection string format**:
-   ```python
-   # ✅ Correct formats
-   db = connect("sqlite:///path/to/db.db")
-   db = connect("postgresql://user:pass@host:5432/dbname")
-   db = connect("mysql://user:pass@host:3306/dbname")
-   ```
+```python
+# ✅ Correct formats
+db = connect("sqlite:///path/to/db.db")
+db = connect("postgresql://user:pass@host:5432/dbname")
+db = connect("mysql://user:pass@host:3306/dbname")
+```
 
 2. **Verify database is accessible**:
-   ```python
-   import sqlalchemy
-   engine = sqlalchemy.create_engine("your_connection_string")
-   with engine.connect() as conn:
-       print("Connection successful!")
-   ```
+```python
+import sqlalchemy
+engine = sqlalchemy.create_engine("your_connection_string")
+with engine.connect() as conn:
+    print("Connection successful!")
+```
 
 3. **Check network/firewall settings** for remote databases
 
 4. **Verify credentials** are correct
 
 5. **Enable connection pooling** for better reliability:
-   ```python
-   db = connect(
-       "postgresql://...",
-       pool_size=5,
-       max_overflow=10,
-       pool_pre_ping=True  # Verify connections before use
-   )
-   ```
+```python
+db = connect(
+    "postgresql://...",
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True  # Verify connections before use
+)
+```
 
 ### "Cannot collect a plan without an attached Database"
 
@@ -70,22 +70,22 @@ results = df.collect()  # Will fail
    - Window functions: Limited support
 
 2. **Verify column expressions**:
-   ```python
-   # ✅ Correct
-   df.where(col("age") > 18)
-   
-   # ❌ Incorrect
-   df.where("age > 18")  # Must use Column expressions
-   ```
+```python
+# ✅ Correct
+df.where(col("age") > 18)
+
+# ❌ Incorrect
+df.where("age > 18")  # Must use Column expressions
+```
 
 3. **Check join syntax**:
-   ```python
-   # ✅ Correct
-   df1.join(df2, on=[("left_col", "right_col")])
-   
-   # ❌ Incorrect
-   df1.join(df2, on="column")  # Must be list of tuples for multi-column joins
-   ```
+```python
+# ✅ Correct
+df1.join(df2, on=[("left_col", "right_col")])
+
+# ❌ Incorrect
+df1.join(df2, on="column")  # Must be list of tuples for multi-column joins
+```
 
 ### "Join requires either equality keys or an explicit condition"
 
@@ -108,22 +108,22 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Check filter conditions**:
-   ```python
-   # Verify the condition
-   print(df.to_sql())  # See the generated SQL
-   ```
+```python
+# Verify the condition
+print(df.to_sql())  # See the generated SQL
+```
 
 2. **Verify table has data**:
-   ```python
-   count = len(db.table("users").select().collect())
-   print(f"Table has {count} rows")
-   ```
+```python
+count = len(db.table("users").select().collect())
+print(f"Table has {count} rows")
+```
 
 3. **Check data types**:
-   ```python
-   # String comparison
-   df.where(col("status") == "active")  # Not col("status") == active (missing quotes)
-   ```
+```python
+# String comparison
+df.where(col("status") == "active")  # Not col("status") == active (missing quotes)
+```
 
 ## File Reading Issues
 
@@ -133,20 +133,20 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Use absolute paths**:
-   ```python
-   from pathlib import Path
-   file_path = Path("data.csv").resolve()
-   records = db.load.csv(str(file_path))
-   ```
+```python
+from pathlib import Path
+file_path = Path("data.csv").resolve()
+records = db.load.csv(str(file_path))
+```
 
 2. **Check file permissions**
 
 3. **Verify file exists**:
-   ```python
-   import os
-   if not os.path.exists("data.csv"):
-       print("File not found!")
-   ```
+```python
+import os
+if not os.path.exists("data.csv"):
+    print("File not found!")
+```
 
 ### Schema Inference Issues
 
@@ -154,21 +154,21 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Provide explicit schema**:
-   ```python
-   from moltres.table.schema import ColumnDef
-   
-   schema = [
-       ColumnDef(name="id", type_name="INTEGER"),
-       ColumnDef(name="name", type_name="TEXT"),
-       ColumnDef(name="price", type_name="REAL"),
-   ]
-   records = db.load.schema(schema).csv("data.csv")
-   ```
+```python
+from moltres.table.schema import ColumnDef
+
+schema = [
+    ColumnDef(name="id", type_name="INTEGER"),
+    ColumnDef(name="name", type_name="TEXT"),
+    ColumnDef(name="price", type_name="REAL"),
+]
+records = db.load.schema(schema).csv("data.csv")
+```
 
 2. **Disable schema inference**:
-   ```python
-   records = db.load.option("inferSchema", False).csv("data.csv")
-   ```
+```python
+records = db.load.option("inferSchema", False).csv("data.csv")
+```
 
 ## Performance Issues
 
@@ -178,33 +178,33 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Use streaming for large datasets**:
-   ```python
-   records = db.load.stream().csv("large_file.csv")
-   for row in records:
-       process(row)
-   ```
+```python
+records = db.load.stream().csv("large_file.csv")
+for row in records:
+    process(row)
+```
 
 2. **Add indexes** to database tables (at database level)
 
 3. **Use batch inserts** (already implemented automatically):
-   ```python
-   # Automatically uses batch inserts
-   table.insert([row1, row2, ..., row1000])
-   ```
+```python
+# Automatically uses batch inserts
+table.insert([row1, row2, ..., row1000])
+```
 
 4. **Limit results** when possible:
-   ```python
-   df.limit(100).collect()
-   ```
+```python
+df.limit(100).collect()
+```
 
 5. **Check connection pooling**:
-   ```python
-   db = connect(
-       "postgresql://...",
-       pool_size=10,
-       max_overflow=20
-   )
-   ```
+```python
+db = connect(
+    "postgresql://...",
+    pool_size=10,
+    max_overflow=20
+)
+```
 
 ### Memory Issues
 
@@ -212,19 +212,19 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Use streaming mode**:
-   ```python
-   records = db.load.stream().option("chunk_size", 10000).csv("large.csv")
-   for row in records:
-       process(row)
-   ```
+```python
+records = db.load.stream().option("chunk_size", 10000).csv("large.csv")
+for row in records:
+    process(row)
+```
 
 2. **Process in batches**:
-   ```python
-   # Process 1000 rows at a time
-   for i in range(0, total_rows, 1000):
-       batch = df.limit(1000).offset(i).collect()
-       process_batch(batch)
-   ```
+```python
+# Process 1000 rows at a time
+for i in range(0, total_rows, 1000):
+    batch = df.limit(1000).offset(i).collect()
+    process_batch(batch)
+```
 
 ## Type and Format Issues
 
@@ -240,9 +240,9 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
    ```
 
 2. **Use records format** (default, no dependencies needed):
-   ```python
-   db = connect("sqlite:///example.db")  # Default: fetch_format="records"
-   ```
+```python
+db = connect("sqlite:///example.db")  # Default: fetch_format="records"
+```
 
 ### Type Errors with Mypy
 
@@ -250,17 +250,17 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Use type hints properly**:
-   ```python
-   from typing import List, Dict, Any
-   
-   results: List[Dict[str, Any]] = df.collect()
-   ```
+```python
+from typing import List, Dict, Any
+
+results: List[Dict[str, Any]] = df.collect()
+```
 
 2. **Cast when necessary**:
-   ```python
-   from typing import cast
-   pandas_df = cast(pd.DataFrame, df.collect())
-   ```
+```python
+from typing import cast
+pandas_df = cast(pd.DataFrame, df.collect())
+```
 
 ## Validation Errors
 
@@ -270,25 +270,25 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Check identifier names**:
-   ```python
-   # ✅ Valid
-   db.table("users")
-   db.table("user_profiles")
-   
-   # ❌ Invalid
-   db.table("")  # Empty
-   db.table("users; DROP")  # Contains invalid characters
-   ```
+```python
+# ✅ Valid
+db.table("users")
+db.table("user_profiles")
+
+# ❌ Invalid
+db.table("")  # Empty
+db.table("users; DROP")  # Contains invalid characters
+```
 
 2. **Validate user input** before using as identifiers:
-   ```python
-   import re
-   
-   table_name = get_user_input()
-   if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
-       raise ValueError("Invalid table name")
-   db.table(table_name)
-   ```
+```python
+import re
+
+table_name = get_user_input()
+if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
+    raise ValueError("Invalid table name")
+db.table(table_name)
+```
 
 ### "Row does not match expected columns"
 
@@ -296,19 +296,19 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 
 **Solutions**:
 1. **Ensure all rows have same columns**:
-   ```python
-   # ✅ Correct
-   table.insert([
-       {"id": 1, "name": "Alice"},
-       {"id": 2, "name": "Bob"},
-   ])
-   
-   # ❌ Incorrect
-   table.insert([
-       {"id": 1, "name": "Alice"},
-       {"id": 2},  # Missing "name"
-   ])
-   ```
+```python
+# ✅ Correct
+table.insert([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+])
+
+# ❌ Incorrect
+table.insert([
+    {"id": 1, "name": "Alice"},
+    {"id": 2},  # Missing "name"
+])
+```
 
 2. **Check column names match table schema**
 
@@ -317,16 +317,16 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 If you're still experiencing issues:
 
 1. **Check the generated SQL**:
-   ```python
-   print(df.to_sql())
-   ```
+```python
+print(df.to_sql())
+```
 
 2. **Enable logging**:
-   ```python
-   import logging
-   logging.basicConfig(level=logging.DEBUG)
-   db = connect("sqlite:///example.db", echo=True)
-   ```
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+db = connect("sqlite:///example.db", echo=True)
+```
 
 3. **Check GitHub Issues**: https://github.com/eddiethedean/moltres/issues
 
