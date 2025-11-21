@@ -217,11 +217,11 @@ class DataFrameWriter:
                 sql = "SELECT tablename FROM pg_tables WHERE tablename=:name"
                 result = db.execute_sql(sql, params={"name": table_name})
                 return len(result.rows) > 0
-                # Generic approach: try to select from the table with LIMIT 0
-                quote = db.dialect.quote_char
-                sql = f"SELECT * FROM {quote}{table_name}{quote} LIMIT 0"
-                db.execute_sql(sql)
-                return True
+            # Generic approach: try to select from the table with LIMIT 0
+            quote = db.dialect.quote_char
+            sql = f"SELECT * FROM {quote}{table_name}{quote} LIMIT 0"
+            db.execute_sql(sql)
+            return True
         except (ExecutionError, SQLAlchemyError) as exc:
             logger.debug("Table existence check failed for '%s': %s", table_name, exc)
             return False

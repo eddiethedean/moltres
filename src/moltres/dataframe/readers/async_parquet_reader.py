@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, cast
 
 try:
-    import pyarrow.parquet as pq  # type: ignore[import-untyped]
+    import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
 except ImportError as exc:
     raise ImportError(
         "Async Parquet reading requires pyarrow. Install with: pip install pyarrow"
