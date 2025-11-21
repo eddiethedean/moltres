@@ -24,17 +24,11 @@
 
 ## 🆕 What's New in 0.4.0
 
-- **Distinct and Union Operations** - `distinct()`, `union()`, and `unionAll()` methods for combining DataFrames
-- **Offset Support** - `offset()` method for pagination and skipping rows
-- **Column Manipulation** - `drop()`, `rename()`, `withColumnRenamed()`, and `withColumn()` methods
-- **Schema Inspection** - `columns`, `schema`, and `printSchema()` for examining DataFrame structure
-- **Extended Function Library** - New string, math, and date/time functions:
-  - String: `substring()`, `trim()`, `ltrim()`, `rtrim()`, `replace()`, `length()`
-  - Math: `abs()`, `round()`, `floor()`, `ceil()`, `trunc()`, `sqrt()`, `pow()`, `exp()`, `log()`, `log10()`
-  - Date/Time: `current_date()`, `current_timestamp()`, `date_add()`, `date_sub()`, `datediff()`, `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`
-- **Conditional Expressions** - `when()` and `otherwise()` for CASE WHEN statements
-- **Window Functions** - `row_number()`, `rank()`, `dense_rank()`, `lag()`, `lead()`, `first_value()`, `last_value()` with `over()` support
-- **Code Quality Improvements** - Enhanced type safety, improved error handling, and comprehensive linting fixes
+- **Strict Type Checking** - Full mypy strict mode compliance with comprehensive type annotations across the entire codebase
+- **Type Stubs for PyArrow** - Custom type stubs (`stubs/pyarrow/`) to provide type information for pyarrow library
+- **PEP 561 Compliance** - Added `py.typed` marker file to signal that the package is fully typed
+- **Enhanced Type Safety** - All functions and methods now have complete type annotations with improved type inference
+- **Code Quality Improvements** - Removed all unused type ignore comments and fixed type inference issues
 
 ## What's New in 0.3.0
 
@@ -45,7 +39,6 @@
 - **Async File Operations** - Async reading and writing of CSV, JSON, JSONL, Parquet, and text files
 - **Optional Async Dependencies** - Install async support with `pip install moltres[async-postgresql]` (or async-mysql, async-sqlite)
 - **Async Streaming** - Process large datasets asynchronously with async iterators
-- **Strict Type Checking** - Full mypy strict mode compliance with custom type stubs for pyarrow and comprehensive type annotations throughout the codebase
 
 ## What's New in 0.2.0
 

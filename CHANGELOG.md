@@ -7,22 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-01-21
+
 ### Added
-- **Records and AsyncRecords classes** - New data containers for file reads that clearly separate materialized file data from SQL operations
-- **DataLoader and AsyncDataLoader** - Renamed from `DataFrameReader` to better reflect that file loads return `Records`, not `DataFrame`
-- **Records.insert_into()** - Convenience method to insert Records directly into tables
-- **Records Sequence protocol** - Records implement `Sequence[Mapping[str, object]]` for direct use with `table.insert()`
 - **Strict Type Checking** - Enabled mypy strict mode with comprehensive type annotations across the entire codebase
 - **Type Stubs for PyArrow** - Custom type stubs (`stubs/pyarrow/`) to provide type information for pyarrow library
 - **PEP 561 Compliance** - Added `py.typed` marker file to signal that the package is fully typed
 - **Mypy Configuration** - Comprehensive mypy configuration in `pyproject.toml` with strict checking enabled
 
 ### Changed
-- **Breaking:** `db.read` → `db.load` - File loading API renamed for clarity
-- **Breaking:** File readers (`db.load.csv()`, `db.load.json()`, etc.) now return `Records` instead of `DataFrame`
-- **Breaking:** `db.load.table()` returns `Records` (materialized). For SQL operations, use `db.table(name).select()` instead
-- **Breaking:** Removed materialized data support from `DataFrame` - DataFrames now only work with SQL queries (lazy evaluation)
-- Clear separation between file operations (materialized `Records`) and SQL operations (lazy `DataFrame`)
 - **Type Safety:** All functions and methods now have complete type annotations
 - **Type Safety:** Removed all unused type ignore comments and fixed type inference issues
 - **Type Safety:** Improved type hints for async operations and Records classes
@@ -31,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `AsyncRecords` import issue in `async_mutations.py` for proper runtime type checking
 - Fixed missing pytest fixtures for example tests by creating `conftest.py`
 - Fixed all mypy type errors to achieve strict mode compliance
+- Fixed duplicate class and function definitions in `logical/plan.py` and `logical/operators.py`
+- Fixed missing function imports in `expressions/__init__.py` (removed non-existent `date_add`, `date_sub`, `len`, `substr`, `pow`, `power`, `trunc`)
 
 ## [0.3.0] - 2024-12-19
 
@@ -106,7 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/eddiethedean/moltres/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/eddiethedean/moltres/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/eddiethedean/moltres/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/eddiethedean/moltres/releases/tag/v0.1.0

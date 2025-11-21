@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Optional
 
 from ..expressions.column import Column
 
@@ -113,21 +114,3 @@ class Union(LogicalPlan):
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.left, self.right)
-
-
-@dataclass(frozen=True)
-class Union(LogicalPlan):
-    left: LogicalPlan
-    right: LogicalPlan
-    distinct: bool = True  # True for UNION, False for UNION ALL
-
-    def children(self) -> Sequence[LogicalPlan]:
-        return (self.left, self.right)
-
-
-@dataclass(frozen=True)
-class Distinct(LogicalPlan):
-    child: LogicalPlan
-
-    def children(self) -> Sequence[LogicalPlan]:
-        return (self.child,)
