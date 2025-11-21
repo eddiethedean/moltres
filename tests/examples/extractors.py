@@ -29,7 +29,7 @@ def extract_code_blocks(markdown_path: Path) -> list[CodeExample]:
         List of CodeExample objects
     """
     examples = []
-    content = markdown_path.read_text()
+    content = markdown_path.read_text(encoding="utf-8")
 
     # Pattern to match code blocks: ```language ... ```
     pattern = r"```(\w+)?\n(.*?)```"
