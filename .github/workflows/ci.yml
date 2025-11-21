@@ -38,7 +38,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest
+          pytest -p pytest_asyncio
 
       - name: Validate documentation examples
         run: |
