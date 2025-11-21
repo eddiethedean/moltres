@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Dict, Optional
 
 from ..table.schema import ColumnDef
 from .dataframe import DataFrame
@@ -26,22 +27,22 @@ if TYPE_CHECKING:
 class DataFrameReader:
     """Builder for reading DataFrames from tables and files."""
 
-    def __init__(self, database: "Database"):
+    def __init__(self, database: Database):
         self._database = database
         self._schema: Optional[Sequence[ColumnDef]] = None
         self._options: Dict[str, object] = {}
 
-    def stream(self, enabled: bool = True) -> "DataFrameReader":
+    def stream(self, enabled: bool = True) -> DataFrameReader:
         """Enable or disable streaming mode (chunked reading for large files)."""
         self._options["stream"] = enabled
         return self
 
-    def schema(self, schema: Sequence[ColumnDef]) -> "DataFrameReader":
+    def schema(self, schema: Sequence[ColumnDef]) -> DataFrameReader:
         """Set an explicit schema for the data source."""
         self._schema = schema
         return self
 
-    def option(self, key: str, value: object) -> "DataFrameReader":
+    def option(self, key: str, value: object) -> DataFrameReader:
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
         self._options[key] = value
         return self
@@ -124,7 +125,7 @@ class DataFrameReader:
             return read_text_stream(path, self._database, self._schema, self._options, column_name)
         return read_text(path, self._database, self._schema, self._options, column_name)
 
-    def format(self, source: str) -> "FormatReader":
+    def format(self, source: str) -> FormatReader:
         """Specify the data source format.
 
         Args:
@@ -157,13 +158,12 @@ class FormatReader:
         """
         if self._source == "csv":
             return self._reader.csv(path)
-        elif self._source == "json":
+        if self._source == "json":
             return self._reader.json(path)
-        elif self._source == "jsonl":
+        if self._source == "jsonl":
             return self._reader.jsonl(path)
-        elif self._source == "parquet":
+        if self._source == "parquet":
             return self._reader.parquet(path)
-        elif self._source == "text":
+        if self._source == "text":
             return self._reader.text(path)
-        else:
-            raise ValueError(f"Unsupported format: {self._source}")
+        raise ValueError(f"Unsupported format: {self._source}")

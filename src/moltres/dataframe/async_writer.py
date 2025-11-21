@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import logging
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Dict, List, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, cast
 
 try:
     import aiofiles  # type: ignore[import-untyped]
@@ -13,11 +15,16 @@ except ImportError as exc:
         "Async writing requires aiofiles. Install with: pip install moltres[async]"
     ) from exc
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from ..table.schema import ColumnDef
+from ..utils.exceptions import ExecutionError
 from .async_dataframe import AsyncDataFrame
 
 if TYPE_CHECKING:
     from ..table.async_table import AsyncDatabase
+
+logger = logging.getLogger(__name__)
 
 
 class AsyncDataFrameWriter:
@@ -32,7 +39,7 @@ class AsyncDataFrameWriter:
         self._partition_by: Optional[Sequence[str]] = None
         self._stream: bool = False
 
-    def mode(self, mode: str) -> "AsyncDataFrameWriter":
+    def mode(self, mode: str) -> AsyncDataFrameWriter:
         """Set the write mode: 'append', 'overwrite', or 'error_if_exists'."""
         if mode not in ("append", "overwrite", "error_if_exists"):
             raise ValueError(
@@ -41,24 +48,24 @@ class AsyncDataFrameWriter:
         self._mode = mode
         return self
 
-    def option(self, key: str, value: object) -> "AsyncDataFrameWriter":
+    def option(self, key: str, value: object) -> AsyncDataFrameWriter:
         """Set a write option (e.g., header=True for CSV, compression='gzip' for Parquet)."""
         self._options[key] = value
         return self
 
-    def stream(self, enabled: bool = True) -> "AsyncDataFrameWriter":
+    def stream(self, enabled: bool = True) -> AsyncDataFrameWriter:
         """Enable or disable streaming mode (chunked writing for large DataFrames)."""
         self._stream = enabled
         return self
 
-    def partitionBy(self, *columns: str) -> "AsyncDataFrameWriter":
+    def partitionBy(self, *columns: str) -> AsyncDataFrameWriter:
         """Partition data by the given columns when writing to files."""
         self._partition_by = columns if columns else None
         return self
 
     partition_by = partitionBy
 
-    def schema(self, schema: Sequence[ColumnDef]) -> "AsyncDataFrameWriter":
+    def schema(self, schema: Sequence[ColumnDef]) -> AsyncDataFrameWriter:
         """Set an explicit schema for the target table."""
         self._schema = schema
         return self
@@ -86,13 +93,13 @@ class AsyncDataFrameWriter:
             # Stream inserts in batches
             table = await db.table(table_name)
             chunk_iter = cast(
-                AsyncIterator[List[Dict[str, object]]], await self._df.collect(stream=True)
+                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
             )
             async for chunk in chunk_iter:
                 if chunk:
                     await table.insert(chunk)
         else:
-            rows = cast(List[Dict[str, object]], await self._df.collect())
+            rows = cast("List[Dict[str, object]]", await self._df.collect())
             if rows:
                 table = await db.table(table_name)
                 await table.insert(rows)
@@ -110,12 +117,10 @@ class AsyncDataFrameWriter:
                 ".jsonl": "jsonl",
                 ".parquet": "parquet",
             }
-            format = format_map.get(ext, "csv")
-            if format is None:
-                raise ValueError(
-                    f"Cannot infer format from path '{path}'. Specify format explicitly."
-                )
+            format = format_map.get(ext, "csv")  # Default to csv for unknown extensions
 
+        if format is None:
+            format = "csv"  # Fallback default
         format = format.lower()
         if format == "csv":
             await self._save_csv(path)
@@ -164,7 +169,7 @@ class AsyncDataFrameWriter:
         chunk_iter: Optional[AsyncIterator[List[Dict[str, object]]]] = None
         if self._stream:
             chunk_iter = cast(
-                AsyncIterator[List[Dict[str, object]]], await self._df.collect(stream=True)
+                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
             )
             try:
                 first_chunk = await chunk_iter.__anext__()
@@ -172,7 +177,7 @@ class AsyncDataFrameWriter:
             except StopAsyncIteration:
                 rows = []
         else:
-            rows = cast(List[Dict[str, object]], await self._df.collect())
+            rows = cast("List[Dict[str, object]]", await self._df.collect())
 
         # Infer or get schema
         try:
@@ -191,8 +196,10 @@ class AsyncDataFrameWriter:
             # Drop and recreate table
             try:
                 await db.drop_table(table_name, if_exists=True)
-            except Exception:
-                pass  # Ignore errors if table doesn't exist
+            except (ExecutionError, SQLAlchemyError) as exc:
+                # Log but ignore errors when dropping with if_exists=True
+                # This can happen if table doesn't exist or other transient errors
+                logger.debug("Error dropping table '%s' (if_exists=True): %s", table_name, exc)
 
         # Create table if needed
         if not table_exists or self._mode == "overwrite":
@@ -207,24 +214,28 @@ class AsyncDataFrameWriter:
             async for chunk in chunk_iter:
                 if chunk:
                     await table.insert(chunk)
-        else:
-            if rows:
-                await table.insert(rows)
+        elif rows:
+            await table.insert(rows)
 
-    async def _table_exists(self, db: "AsyncDatabase", table_name: str) -> bool:
+    async def _table_exists(self, db: AsyncDatabase, table_name: str) -> bool:
         """Check if a table exists in the database."""
-        # Try to query the table - if it doesn't exist, we'll get an error
         try:
-            await db.table(table_name)
-            # Try to compile a simple query to verify table exists
-            from ..logical import operators
-
-            plan = operators.scan(table_name)
-            db.compile_plan(plan)
-            # Just compile, don't execute - if table doesn't exist, compilation might fail
-            # For now, we'll try a simple approach
-            return True  # Simplified - in production, query information_schema
-        except Exception:
+            # Use a simple query that should work across dialects
+            if db.dialect.name == "sqlite":
+                sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=:name"
+                result = await db.execute_sql(sql, params={"name": table_name})
+                return len(result.rows) > 0
+            if db.dialect.name == "postgresql":
+                sql = "SELECT tablename FROM pg_tables WHERE tablename=:name"
+                result = await db.execute_sql(sql, params={"name": table_name})
+                return len(result.rows) > 0
+            # Generic approach: try to select from the table with LIMIT 0
+            quote = db.dialect.quote_char
+            sql = f"SELECT * FROM {quote}{table_name}{quote} LIMIT 0"
+            await db.execute_sql(sql)
+            return True
+        except (ExecutionError, SQLAlchemyError) as exc:
+            logger.debug("Table existence check failed for '%s': %s", table_name, exc)
             return False
 
     def _infer_or_get_schema(self, rows: List[Dict[str, object]]) -> Sequence[ColumnDef]:
@@ -239,13 +250,13 @@ class AsyncDataFrameWriter:
 
     async def _save_csv(self, path: str) -> None:
         """Save AsyncDataFrame as CSV file."""
-        header = cast(bool, self._options.get("header", True))
-        delimiter = cast(str, self._options.get("delimiter", ","))
+        header = cast("bool", self._options.get("header", True))
+        delimiter = cast("str", self._options.get("delimiter", ","))
 
         # Collect data
         if self._stream:
             chunk_iter = cast(
-                AsyncIterator[List[Dict[str, object]]], await self._df.collect(stream=True)
+                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
             )
             first_chunk = True
             async with aiofiles.open(path, "w", encoding="utf-8", newline="") as f:
@@ -262,7 +273,7 @@ class AsyncDataFrameWriter:
                         values = [str(row.get(col, "")) for col in chunk[0].keys()]
                         await f.write(delimiter.join(values) + "\n")
         else:
-            rows = cast(List[Dict[str, object]], await self._df.collect())
+            rows = cast("List[Dict[str, object]]", await self._df.collect())
             if not rows:
                 return
             async with aiofiles.open(path, "w", encoding="utf-8", newline="") as f:
@@ -275,17 +286,17 @@ class AsyncDataFrameWriter:
 
     async def _save_json(self, path: str) -> None:
         """Save AsyncDataFrame as JSON file (array of objects)."""
-        indent = cast(Optional[int], self._options.get("indent"))
+        indent = cast("Optional[int]", self._options.get("indent"))
         if self._stream:
             chunk_iter = cast(
-                AsyncIterator[List[Dict[str, object]]], await self._df.collect(stream=True)
+                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
             )
             all_rows = []
             async for chunk in chunk_iter:
                 all_rows.extend(chunk)
             rows = all_rows
         else:
-            rows = cast(List[Dict[str, object]], await self._df.collect())
+            rows = cast("List[Dict[str, object]]", await self._df.collect())
 
         content = json.dumps(rows, indent=indent, default=str)
         async with aiofiles.open(path, "w", encoding="utf-8") as f:
@@ -295,14 +306,14 @@ class AsyncDataFrameWriter:
         """Save AsyncDataFrame as JSONL file (one JSON object per line)."""
         if self._stream:
             chunk_iter = cast(
-                AsyncIterator[List[Dict[str, object]]], await self._df.collect(stream=True)
+                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
             )
             async with aiofiles.open(path, "w", encoding="utf-8") as f:
                 async for chunk in chunk_iter:
                     for row in chunk:
                         await f.write(json.dumps(row, default=str) + "\n")
         else:
-            rows = cast(List[Dict[str, object]], await self._df.collect())
+            rows = cast("List[Dict[str, object]]", await self._df.collect())
             async with aiofiles.open(path, "w", encoding="utf-8") as f:
                 for row in rows:
                     await f.write(json.dumps(row, default=str) + "\n")
@@ -310,15 +321,15 @@ class AsyncDataFrameWriter:
     async def _save_parquet(self, path: str) -> None:
         """Save AsyncDataFrame as Parquet file."""
         try:
-            import pandas as pd  # type: ignore[import-untyped]
+            import pandas as pd
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"
             ) from exc
 
         try:
-            import pyarrow as pa  # type: ignore[import-not-found,import-untyped]
-            import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
+            import pyarrow as pa  # type: ignore[import-untyped]
+            import pyarrow.parquet as pq  # type: ignore[import-untyped]
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
@@ -327,14 +338,14 @@ class AsyncDataFrameWriter:
         # Collect data
         if self._stream:
             chunk_iter = cast(
-                AsyncIterator[List[Dict[str, object]]], await self._df.collect(stream=True)
+                "AsyncIterator[List[Dict[str, object]]]", await self._df.collect(stream=True)
             )
             all_rows = []
             async for chunk in chunk_iter:
                 all_rows.extend(chunk)
             rows = all_rows
         else:
-            rows = cast(List[Dict[str, object]], await self._df.collect())
+            rows = cast("List[Dict[str, object]]", await self._df.collect())
 
         if not rows:
             return

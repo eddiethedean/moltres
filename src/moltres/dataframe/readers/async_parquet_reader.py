@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, cast
 
 try:
-    import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
+    import pyarrow.parquet as pq  # type: ignore[import-untyped]
 except ImportError as exc:
     raise ImportError(
         "Async Parquet reading requires pyarrow. Install with: pip install pyarrow"
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 
 async def read_parquet(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> AsyncDataFrame:
@@ -54,13 +55,13 @@ async def read_parquet(
     def _read_parquet_sync() -> List[Dict[str, object]]:
         table = pq.read_table(str(path_obj))
         try:
-            import pandas as pd  # type: ignore[import-untyped]  # noqa: F401
+            import pandas as pd  # noqa: F401
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"
             ) from exc
         df = table.to_pandas()
-        return df.to_dict("records")
+        return cast(List[Dict[str, object]], df.to_dict("records"))
 
     rows = await asyncio.to_thread(_read_parquet_sync)
 
@@ -87,7 +88,7 @@ async def read_parquet(
 
 async def read_parquet_stream(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> AsyncDataFrame:
@@ -123,11 +124,11 @@ async def read_parquet_stream(
             def _read_row_group(idx: int) -> List[Dict[str, object]]:
                 row_group = parquet_file.read_row_group(idx)
                 try:
-                    import pandas as pd  # type: ignore[import-untyped]  # noqa: F401
+                    import pandas as pd  # noqa: F401
                 except ImportError:
                     raise RuntimeError("Parquet requires pandas") from None
                 df = row_group.to_pandas()
-                return df.to_dict("records")
+                return cast(List[Dict[str, object]], df.to_dict("records"))
 
             rows = await asyncio.to_thread(_read_row_group, i)
             if rows:
@@ -161,7 +162,7 @@ async def read_parquet_stream(
 
 
 def _create_async_dataframe_from_data(
-    database: "AsyncDatabase", rows: List[Dict[str, object]]
+    database: AsyncDatabase, rows: List[Dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from materialized data."""
     from ...logical.plan import TableScan
@@ -172,14 +173,14 @@ def _create_async_dataframe_from_data(
 
 
 def _create_async_dataframe_from_schema(
-    database: "AsyncDatabase", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame with explicit schema but no data."""
     return _create_async_dataframe_from_data(database, rows)
 
 
 def _create_async_dataframe_from_stream(
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncDataFrame:

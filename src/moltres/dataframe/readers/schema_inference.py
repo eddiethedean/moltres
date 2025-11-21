@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence, cast
+from collections.abc import Sequence
+from typing import Any, Dict, List, cast
 
 from ...table.schema import ColumnDef
 
@@ -112,12 +113,12 @@ def apply_schema_to_rows(
                 typed_row[col_def.name] = None
             elif col_def.type_name == "INTEGER":
                 try:
-                    typed_row[col_def.name] = int(cast(Any, value))
+                    typed_row[col_def.name] = int(cast("Any", value))
                 except (ValueError, TypeError):
                     typed_row[col_def.name] = value
             elif col_def.type_name == "REAL":
                 try:
-                    typed_row[col_def.name] = float(cast(Any, value))
+                    typed_row[col_def.name] = float(cast("Any", value))
                 except (ValueError, TypeError):
                     typed_row[col_def.name] = value
             else:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .config import MoltresConfig, create_config
 from .expressions import col, lit
 from .table.schema import column
@@ -10,22 +12,25 @@ from .table.table import Database
 __version__ = "0.3.0"
 
 __all__ = [
-    "connect",
-    "async_connect",
-    "Database",
     "AsyncDatabase",
+    "Database",
     "MoltresConfig",
-    "col",
-    "lit",
-    "column",
     "__version__",
+    "async_connect",
+    "col",
+    "column",
+    "connect",
+    "lit",
 ]
 
 # Async imports - only available if async dependencies are installed
-try:
+if TYPE_CHECKING:
     from .table.async_table import AsyncDatabase
-except ImportError:
-    AsyncDatabase = None  # type: ignore[assignment, misc]
+else:
+    try:
+        from .table.async_table import AsyncDatabase
+    except ImportError:
+        AsyncDatabase = None  # type: ignore[assignment, misc]
 
 
 def connect(dsn: str | None = None, **options: object) -> Database:
@@ -71,7 +76,7 @@ def connect(dsn: str | None = None, **options: object) -> Database:
     return Database(config=config)
 
 
-def async_connect(dsn: str | None = None, **options: object) -> "AsyncDatabase":
+def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
     """Connect to a SQL database asynchronously and return an ``AsyncDatabase`` handle.
 
     This function requires async dependencies. Install with:

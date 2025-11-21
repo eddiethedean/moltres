@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-12-19
+
+### Added
+- **Distinct operation** - `distinct()` method to remove duplicate rows
+- **Union operations** - `union()` and `unionAll()` methods for combining DataFrames
+- **Offset support** - `offset()` method for pagination and skipping rows
+- **Column manipulation methods**:
+  - `drop()` - Remove columns from DataFrame
+  - `rename()` - Rename columns using a mapping
+  - `withColumnRenamed()` - Rename a single column
+  - `withColumn()` - Add or replace a column
+- **Schema inspection**:
+  - `columns` property - Get list of column names
+  - `schema` property - Get DataFrame schema as ColumnDef sequence
+  - `printSchema()` method - Print schema in a readable format
+- **Extended string functions**:
+  - `substring()` / `substr()` - Extract substring from string
+  - `trim()`, `ltrim()`, `rtrim()` - Remove whitespace
+  - `replace()` - Replace substring in string
+  - `length()` / `len()` - Get string length
+- **Math functions**:
+  - `abs()` - Absolute value
+  - `round()` - Round to specified decimal places
+  - `floor()`, `ceil()`, `trunc()` - Rounding functions
+  - `sqrt()` - Square root
+  - `pow()` / `power()` - Exponentiation
+  - `exp()` - Exponential function
+  - `log()` - Natural logarithm
+  - `log10()` - Base-10 logarithm
+- **Date/time functions**:
+  - `current_date()`, `current_timestamp()` - Current date/time
+  - `date_add()`, `date_sub()` - Add/subtract days
+  - `datediff()` - Difference between dates
+  - `year()`, `month()`, `day()` - Extract date components
+  - `hour()`, `minute()`, `second()` - Extract time components
+- **Conditional expressions** - `when()` and `otherwise()` builders for CASE WHEN statements
+- **Window functions**:
+  - `row_number()`, `rank()`, `dense_rank()` - Ranking functions
+  - `lag()`, `lead()` - Access previous/next row values
+  - `first_value()`, `last_value()` - First/last values in window
+  - `over()` method on Column for window specifications
+  - `Window` class for creating window specifications with `partitionBy()` and `orderBy()`
+
+### Changed
+- Improved type annotations throughout the codebase
+- Enhanced error handling with specific exception types
+- Better type safety for optional dependencies
+
+### Fixed
+- Fixed unreachable `None` check in format detection for DataFrame writers
+- Replaced bare `except Exception` blocks with specific exception types
+- Improved async table existence checking with dialect-specific queries
+- Enhanced type annotations for optional async imports using `TYPE_CHECKING`
+- Fixed linting errors (line length, unused imports, unused variables)
+- Improved mypy type checking with proper type casts and annotations
+
 ## [0.3.0] - 2024-12-19
 
 ### Added
@@ -81,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/eddiethedean/moltres/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/eddiethedean/moltres/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/eddiethedean/moltres/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/eddiethedean/moltres/releases/tag/v0.1.0

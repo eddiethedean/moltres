@@ -61,7 +61,7 @@ def compile_drop_table(
     return " ".join(parts)
 
 
-def _compile_column_def(col_def: "ColumnDef", quote_char: str) -> str:
+def _compile_column_def(col_def: ColumnDef, quote_char: str) -> str:
     """Compile a single column definition."""
     name = quote_identifier(col_def.name, quote_char)
     type_sql = col_def.type_name.upper()

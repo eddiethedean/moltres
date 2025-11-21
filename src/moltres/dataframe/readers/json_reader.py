@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, cast
 
 from ...table.schema import ColumnDef
 from ..dataframe import DataFrame
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 
 def read_json(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -38,9 +39,9 @@ def read_json(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSON file not found: {path}")
 
-    multiline = cast(bool, options.get("multiline", False))
+    multiline = cast("bool", options.get("multiline", False))
 
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open(path_obj, encoding="utf-8") as f:
         if multiline:
             # Read as JSONL (one object per line)
             rows = []
@@ -81,7 +82,7 @@ def read_json(
 
 def read_jsonl(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -105,7 +106,7 @@ def read_jsonl(
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
     rows = []
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open(path_obj, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
@@ -134,7 +135,7 @@ def read_jsonl(
 
 def read_json_stream(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -153,15 +154,15 @@ def read_json_stream(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty or invalid
     """
-    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
+    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSON file not found: {path}")
 
-    multiline = cast(bool, options.get("multiline", False))
+    multiline = cast("bool", options.get("multiline", False))
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open(path_obj, encoding="utf-8") as f:
             if multiline:
                 chunk = []
                 for line in f:
@@ -214,7 +215,7 @@ def read_json_stream(
 
 def read_jsonl_stream(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -233,14 +234,14 @@ def read_jsonl_stream(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty
     """
-    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
+    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
         chunk = []
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open(path_obj, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -278,7 +279,7 @@ def read_jsonl_stream(
     return _create_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -286,14 +287,14 @@ def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, objec
 
 
 def _create_dataframe_from_schema(
-    database: "Database", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
 
 
 def _create_dataframe_from_stream(
-    database: "Database",
+    database: Database,
     chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, replace
-from typing import Any, Iterable, Iterator, Optional
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
@@ -14,7 +15,7 @@ class Expression:
     args: tuple[Any, ...]
     _alias: Optional[str] = None
 
-    def with_alias(self, alias: str) -> "Expression":
+    def with_alias(self, alias: str) -> Expression:
         return replace(self, _alias=alias)
 
     @property
@@ -25,7 +26,7 @@ class Expression:
         for arg in self.args:
             yield arg
 
-    def walk(self) -> Iterator["Expression"]:
+    def walk(self) -> Iterator[Expression]:
         """Depth-first traversal generator."""
 
         yield self

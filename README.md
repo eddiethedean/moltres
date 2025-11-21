@@ -22,7 +22,21 @@
 - 🌍 **Environment Config** - Configure via environment variables for 12-factor apps
 - ⚡ **Async Support** - Full async/await support for all operations (optional dependency)
 
-## 🆕 What's New in 0.3.0
+## 🆕 What's New in 0.4.0
+
+- **Distinct and Union Operations** - `distinct()`, `union()`, and `unionAll()` methods for combining DataFrames
+- **Offset Support** - `offset()` method for pagination and skipping rows
+- **Column Manipulation** - `drop()`, `rename()`, `withColumnRenamed()`, and `withColumn()` methods
+- **Schema Inspection** - `columns`, `schema`, and `printSchema()` for examining DataFrame structure
+- **Extended Function Library** - New string, math, and date/time functions:
+  - String: `substring()`, `trim()`, `ltrim()`, `rtrim()`, `replace()`, `length()`
+  - Math: `abs()`, `round()`, `floor()`, `ceil()`, `trunc()`, `sqrt()`, `pow()`, `exp()`, `log()`, `log10()`
+  - Date/Time: `current_date()`, `current_timestamp()`, `date_add()`, `date_sub()`, `datediff()`, `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`
+- **Conditional Expressions** - `when()` and `otherwise()` for CASE WHEN statements
+- **Window Functions** - `row_number()`, `rank()`, `dense_rank()`, `lag()`, `lead()`, `first_value()`, `last_value()` with `over()` support
+- **Code Quality Improvements** - Enhanced type safety, improved error handling, and comprehensive linting fixes
+
+## What's New in 0.3.0
 
 - **Full Async/Await Support** - Complete async API for all database operations, file I/O, and DataFrame operations
 - **Async Database Operations** - Use `async_connect()` for async database connections with SQLAlchemy async engines

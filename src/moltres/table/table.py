@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..config import MoltresConfig
 
@@ -25,9 +26,9 @@ class TableHandle:
     """Lightweight handle representing a table reference."""
 
     name: str
-    database: "Database"
+    database: Database
 
-    def select(self, *columns: str) -> "DataFrame":
+    def select(self, *columns: str) -> DataFrame:
         from ..dataframe.dataframe import DataFrame
 
         return DataFrame.from_table(self, columns=list(columns))
@@ -77,8 +78,8 @@ class Database:
         Raises:
             ValidationError: If table name is invalid
         """
-        from ..utils.exceptions import ValidationError
         from ..sql.builders import quote_identifier
+        from ..utils.exceptions import ValidationError
 
         if not name:
             raise ValidationError("Table name cannot be empty")
@@ -87,7 +88,7 @@ class Database:
         return TableHandle(name=name, database=self)
 
     @property
-    def read(self) -> "DataFrameReader":
+    def read(self) -> DataFrameReader:
         """Return a DataFrameReader for reading from tables and files."""
         from ..dataframe.reader import DataFrameReader
 

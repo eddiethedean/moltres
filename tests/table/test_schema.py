@@ -1,9 +1,9 @@
 """Tests for table schema creation and DDL operations."""
 
 from moltres import column, connect
-from moltres.table.schema import TableSchema
-from moltres.sql.ddl import compile_create_table, compile_drop_table
 from moltres.engine.dialects import get_dialect
+from moltres.sql.ddl import compile_create_table, compile_drop_table
+from moltres.table.schema import TableSchema
 
 
 def test_column_def_creation():

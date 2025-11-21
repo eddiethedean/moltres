@@ -76,7 +76,7 @@ def test_save_csv(tmp_path):
 
     # Verify CSV file
     assert csv_path.exists()
-    with open(csv_path, "r") as f:
+    with open(csv_path) as f:
         lines = f.readlines()
         assert len(lines) == 3  # header + 2 data rows
         assert "id,name,score" in lines[0]
@@ -96,7 +96,7 @@ def test_save_csv_with_options(tmp_path):
     df.write.option("header", False).option("delimiter", "|").csv(str(csv_path))
 
     # Verify CSV file
-    with open(csv_path, "r") as f:
+    with open(csv_path) as f:
         content = f.read()
         assert "|" in content
         assert "id" not in content  # No header
@@ -116,7 +116,7 @@ def test_save_json(tmp_path):
 
     # Verify JSON file
     assert json_path.exists()
-    with open(json_path, "r") as f:
+    with open(json_path) as f:
         data = json.load(f)
         assert len(data) == 2
         assert data[0]["name"] == "Alice"
@@ -137,7 +137,7 @@ def test_save_jsonl(tmp_path):
 
     # Verify JSONL file
     assert jsonl_path.exists()
-    with open(jsonl_path, "r") as f:
+    with open(jsonl_path) as f:
         lines = f.readlines()
         assert len(lines) == 1
         data = json.loads(lines[0])
@@ -209,10 +209,10 @@ def test_save_partitioned_csv(tmp_path):
     assert (uk_dir / "data.csv").exists()
 
     # Verify data in partitions
-    with open(us_dir / "data.csv", "r") as f:
+    with open(us_dir / "data.csv") as f:
         lines = f.readlines()
         assert len(lines) == 3  # header + 2 rows
-    with open(uk_dir / "data.csv", "r") as f:
+    with open(uk_dir / "data.csv") as f:
         lines = f.readlines()
         assert len(lines) == 2  # header + 1 row
 

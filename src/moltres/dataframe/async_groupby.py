@@ -19,7 +19,7 @@ class AsyncGroupedDataFrame:
     def __init__(
         self,
         plan: LogicalPlan,
-        database: Optional["AsyncDatabase"] = None,
+        database: Optional[AsyncDatabase] = None,
         _materialized_data: Optional[List[dict[str, object]]] = None,
     ):
         self.plan = plan

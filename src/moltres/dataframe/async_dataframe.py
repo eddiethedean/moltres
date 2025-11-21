@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    AsyncIterator,
     Callable,
     Dict,
     List,
     Optional,
-    Sequence,
     Tuple,
     Union,
+    cast,
 )
 
 from ..expressions.column import Column, col
@@ -21,8 +21,8 @@ from ..logical.plan import LogicalPlan, SortOrder
 from ..sql.compiler import compile_plan
 
 if TYPE_CHECKING:
-    from ..table.schema import ColumnDef
     from ..table.async_table import AsyncDatabase, AsyncTableHandle
+    from ..table.schema import ColumnDef
     from .async_groupby import AsyncGroupedDataFrame
     from .async_writer import AsyncDataFrameWriter
 
@@ -32,16 +32,16 @@ class AsyncDataFrame:
     """Async lazy DataFrame representation."""
 
     plan: LogicalPlan
-    database: Optional["AsyncDatabase"] = None
+    database: Optional[AsyncDatabase] = None
     _materialized_data: Optional[List[dict[str, object]]] = None
     _stream_generator: Optional[Callable[[], AsyncIterator[List[dict[str, object]]]]] = None
-    _stream_schema: Optional[Sequence["ColumnDef"]] = None
+    _stream_schema: Optional[Sequence[ColumnDef]] = None
 
     # ------------------------------------------------------------------ builders
     @classmethod
     def from_table(
-        cls, table_handle: "AsyncTableHandle", columns: Optional[Sequence[str]] = None
-    ) -> "AsyncDataFrame":
+        cls, table_handle: AsyncTableHandle, columns: Optional[Sequence[str]] = None
+    ) -> AsyncDataFrame:
         """Create an AsyncDataFrame from a table handle."""
         plan = operators.scan(table_handle.name)
         df = cls(plan=plan, database=table_handle.database)
@@ -49,14 +49,14 @@ class AsyncDataFrame:
             df = df.select(*columns)
         return df
 
-    def select(self, *columns: Union[Column, str]) -> "AsyncDataFrame":
+    def select(self, *columns: Union[Column, str]) -> AsyncDataFrame:
         """Select columns from the DataFrame."""
         if not columns:
             return self
         normalized = tuple(self._normalize_projection(column) for column in columns)
         return self._with_plan(operators.project(self.plan, normalized))
 
-    def where(self, predicate: Column) -> "AsyncDataFrame":
+    def where(self, predicate: Column) -> AsyncDataFrame:
         """Filter rows based on a predicate."""
         return self._with_plan(operators.filter(self.plan, predicate))
 
@@ -64,10 +64,10 @@ class AsyncDataFrame:
 
     def join(
         self,
-        other: "AsyncDataFrame",
+        other: AsyncDataFrame,
         on: Union[str, Sequence[str], Sequence[Tuple[str, str]]],
         how: str = "inner",
-    ) -> "AsyncDataFrame":
+    ) -> AsyncDataFrame:
         """Join with another DataFrame."""
         if how not in ("inner", "left", "right", "outer"):
             raise ValueError(f"Unsupported join type: {how}")
@@ -76,7 +76,7 @@ class AsyncDataFrame:
         join_keys = self._normalize_join_keys(on)
         return self._with_plan(operators.join(self.plan, other.plan, how=how, on=join_keys))
 
-    def group_by(self, *columns: Union[Column, str]) -> "AsyncGroupedDataFrame":
+    def group_by(self, *columns: Union[Column, str]) -> AsyncGroupedDataFrame:
         """Group by the specified columns."""
         from .async_groupby import AsyncGroupedDataFrame
 
@@ -88,7 +88,7 @@ class AsyncDataFrame:
 
     groupBy = group_by
 
-    def order_by(self, *columns: Union[Column, str]) -> "AsyncDataFrame":
+    def order_by(self, *columns: Union[Column, str]) -> AsyncDataFrame:
         """Sort by the specified columns."""
         sort_orders = tuple(
             self._normalize_sort_expression(self._normalize_projection(col)) for col in columns
@@ -97,7 +97,7 @@ class AsyncDataFrame:
 
     orderBy = order_by
 
-    def limit(self, count: int) -> "AsyncDataFrame":
+    def limit(self, count: int) -> AsyncDataFrame:
         """Limit the number of rows returned."""
         if count < 0:
             raise ValueError("limit() requires a non-negative integer")
@@ -131,21 +131,21 @@ class AsyncDataFrame:
             if stream:
                 # _stream_generator is already an async generator function
                 return self._stream_generator()
-            else:
-                # Materialize all chunks
-                all_rows = []
-                async for chunk in self._stream_generator():
-                    all_rows.extend(chunk)
-                return all_rows
+            # Materialize all chunks
+            all_rows: List[Dict[str, object]] = []
+            async for chunk in self._stream_generator():
+                all_rows.extend(chunk)
+            return all_rows
 
         # Check if DataFrame has materialized data (from file readers)
         if self._materialized_data is not None:
             if stream:
                 # Return async iterator with single chunk
-                async def single_chunk():
-                    yield self._materialized_data
+                async def single_chunk() -> AsyncIterator[List[Dict[str, object]]]:
+                    yield self._materialized_data  # type: ignore[misc]
 
                 return single_chunk()
+            # _materialized_data is already List[Dict[str, object]] when not None
             return self._materialized_data
 
         if self.database is None:
@@ -153,24 +153,26 @@ class AsyncDataFrame:
 
         if stream:
             # For SQL queries, use streaming execution
-            async def stream_gen():
+            async def stream_gen() -> AsyncIterator[List[Dict[str, object]]]:
+                assert self.database is not None  # Type narrowing
                 async for chunk in self.database.execute_plan_stream(self.plan):
                     yield chunk
 
             return stream_gen()
 
+        assert self.database is not None  # Type narrowing
         result = await self.database.execute_plan(self.plan)
-        return result.rows
+        return cast(List[Dict[str, object]], result.rows)
 
     @property
-    def write(self) -> "AsyncDataFrameWriter":
+    def write(self) -> AsyncDataFrameWriter:
         """Return an AsyncDataFrameWriter for writing this DataFrame to a table."""
         from .async_writer import AsyncDataFrameWriter
 
         return AsyncDataFrameWriter(self)
 
     # ---------------------------------------------------------------- utilities
-    def _with_plan(self, plan: LogicalPlan) -> "AsyncDataFrame":
+    def _with_plan(self, plan: LogicalPlan) -> AsyncDataFrame:
         """Create a new AsyncDataFrame with a different plan."""
         return AsyncDataFrame(
             plan=plan,
@@ -203,5 +205,5 @@ class AsyncDataFrame:
         if isinstance(on, (list, tuple)) and on and isinstance(on[0], str):
             return [(key, key) for key in on]
         if isinstance(on, (list, tuple)) and on and isinstance(on[0], (list, tuple)):
-            return [tuple(pair) for pair in on]  # type: ignore[arg-type]
+            return [tuple(pair) for pair in on]  # type: ignore[misc]
         raise ValueError(f"Invalid join keys: {on}")

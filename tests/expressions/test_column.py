@@ -1,5 +1,5 @@
-from moltres.expressions import col, lit
 import moltres.expressions.functions as F
+from moltres.expressions import col, lit
 
 
 def test_column_arithmetic_chain():

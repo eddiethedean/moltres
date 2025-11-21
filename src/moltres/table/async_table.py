@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..config import MoltresConfig
 
@@ -25,9 +26,9 @@ class AsyncTableHandle:
     """Lightweight handle representing a table reference for async operations."""
 
     name: str
-    database: "AsyncDatabase"
+    database: AsyncDatabase
 
-    def select(self, *columns: str) -> "AsyncDataFrame":
+    def select(self, *columns: str) -> AsyncDataFrame:
         from ..dataframe.async_dataframe import AsyncDataFrame
 
         return AsyncDataFrame.from_table(self, columns=list(columns))
@@ -77,8 +78,8 @@ class AsyncDatabase:
         Raises:
             ValidationError: If table name is invalid
         """
-        from ..utils.exceptions import ValidationError
         from ..sql.builders import quote_identifier
+        from ..utils.exceptions import ValidationError
 
         if not name:
             raise ValidationError("Table name cannot be empty")
@@ -87,7 +88,7 @@ class AsyncDatabase:
         return AsyncTableHandle(name=name, database=self)
 
     @property
-    def read(self) -> "AsyncDataFrameReader":
+    def read(self) -> AsyncDataFrameReader:
         """Return an AsyncDataFrameReader for reading from tables and files."""
         from ..dataframe.async_reader import AsyncDataFrameReader
 

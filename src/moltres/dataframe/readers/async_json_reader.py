@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    AsyncIterator,
     Callable,
     Dict,
     List,
     Optional,
-    Sequence,
     cast,
 )
 
@@ -31,7 +30,7 @@ if TYPE_CHECKING:
 
 async def read_json(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> AsyncDataFrame:
@@ -54,9 +53,9 @@ async def read_json(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSON file not found: {path}")
 
-    multiline = cast(bool, options.get("multiline", False))
+    multiline = cast("bool", options.get("multiline", False))
 
-    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
+    async with aiofiles.open(path_obj, encoding="utf-8") as f:
         content = await f.read()
 
         if multiline:
@@ -99,7 +98,7 @@ async def read_json(
 
 async def read_jsonl(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> AsyncDataFrame:
@@ -123,7 +122,7 @@ async def read_jsonl(
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
     rows = []
-    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
+    async with aiofiles.open(path_obj, encoding="utf-8") as f:
         async for line in f:
             line = line.strip()
             if line:
@@ -152,7 +151,7 @@ async def read_jsonl(
 
 async def read_json_stream(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> AsyncDataFrame:
@@ -171,15 +170,15 @@ async def read_json_stream(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty or invalid
     """
-    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
+    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSON file not found: {path}")
 
-    multiline = cast(bool, options.get("multiline", False))
+    multiline = cast("bool", options.get("multiline", False))
 
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
-        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
+        async with aiofiles.open(path_obj, encoding="utf-8") as f:
             if multiline:
                 chunk = []
                 async for line in f:
@@ -233,7 +232,7 @@ async def read_json_stream(
 
 async def read_jsonl_stream(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> AsyncDataFrame:
@@ -252,14 +251,14 @@ async def read_jsonl_stream(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty
     """
-    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
+    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
         chunk = []
-        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
+        async with aiofiles.open(path_obj, encoding="utf-8") as f:
             async for line in f:
                 line = line.strip()
                 if line:
@@ -298,7 +297,7 @@ async def read_jsonl_stream(
 
 
 def _create_async_dataframe_from_data(
-    database: "AsyncDatabase", rows: List[Dict[str, object]]
+    database: AsyncDatabase, rows: List[Dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from materialized data."""
     from ...logical.plan import TableScan
@@ -309,14 +308,14 @@ def _create_async_dataframe_from_data(
 
 
 def _create_async_dataframe_from_schema(
-    database: "AsyncDatabase", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame with explicit schema but no data."""
     return _create_async_dataframe_from_data(database, rows)
 
 
 def _create_async_dataframe_from_stream(
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncDataFrame:

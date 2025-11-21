@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Dict, Optional
 
 from ..table.schema import ColumnDef
 from .async_dataframe import AsyncDataFrame
@@ -34,22 +35,22 @@ if TYPE_CHECKING:
 class AsyncDataFrameReader:
     """Builder for reading AsyncDataFrames from tables and files."""
 
-    def __init__(self, database: "AsyncDatabase"):
+    def __init__(self, database: AsyncDatabase):
         self._database = database
         self._schema: Optional[Sequence[ColumnDef]] = None
         self._options: Dict[str, object] = {}
 
-    def stream(self, enabled: bool = True) -> "AsyncDataFrameReader":
+    def stream(self, enabled: bool = True) -> AsyncDataFrameReader:
         """Enable or disable streaming mode (chunked reading for large files)."""
         self._options["stream"] = enabled
         return self
 
-    def schema(self, schema: Sequence[ColumnDef]) -> "AsyncDataFrameReader":
+    def schema(self, schema: Sequence[ColumnDef]) -> AsyncDataFrameReader:
         """Set an explicit schema for the data source."""
         self._schema = schema
         return self
 
-    def option(self, key: str, value: object) -> "AsyncDataFrameReader":
+    def option(self, key: str, value: object) -> AsyncDataFrameReader:
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
         self._options[key] = value
         return self
@@ -120,8 +121,10 @@ class AsyncDataFrameReader:
             raise ImportError("Parquet support requires pyarrow. Install with: pip install pyarrow")
         stream = self._options.get("stream", False)
         if stream:
-            return await read_parquet_stream(path, self._database, self._schema, self._options)
-        return await read_parquet(path, self._database, self._schema, self._options)
+            result = await read_parquet_stream(path, self._database, self._schema, self._options)
+            return result  # type: ignore[return-value]
+        result = await read_parquet(path, self._database, self._schema, self._options)
+        return result  # type: ignore[return-value]
 
     async def text(self, path: str, column_name: str = "value") -> AsyncDataFrame:
         """Read a text file as a single column (one line per row) asynchronously.
@@ -140,7 +143,7 @@ class AsyncDataFrameReader:
             )
         return await read_text(path, self._database, self._schema, self._options, column_name)
 
-    async def format(self, source: str) -> "AsyncFormatReader":
+    async def format(self, source: str) -> AsyncFormatReader:
         """Specify the data source format.
 
         Args:
@@ -173,18 +176,17 @@ class AsyncFormatReader:
         """
         if self._source == "csv":
             return await self._reader.csv(path)
-        elif self._source == "json":
+        if self._source == "json":
             return await self._reader.json(path)
-        elif self._source == "jsonl":
+        if self._source == "jsonl":
             return await self._reader.jsonl(path)
-        elif self._source == "parquet":
+        if self._source == "parquet":
             read_parquet, _ = _get_parquet_readers()
             if read_parquet is None:
                 raise ImportError(
                     "Parquet support requires pyarrow. Install with: pip install pyarrow"
                 )
             return await self._reader.parquet(path)
-        elif self._source == "text":
+        if self._source == "text":
             return await self._reader.text(path)
-        else:
-            raise ValueError(f"Unsupported format: {self._source}")
+        raise ValueError(f"Unsupported format: {self._source}")

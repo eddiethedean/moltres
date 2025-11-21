@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from ...table.schema import ColumnDef
 from ..dataframe import DataFrame
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
 def read_parquet(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -81,7 +82,7 @@ def read_parquet(
 
 def read_parquet_stream(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -148,7 +149,7 @@ def read_parquet_stream(
     return _create_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -156,14 +157,14 @@ def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, objec
 
 
 def _create_dataframe_from_schema(
-    database: "Database", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
 
 
 def _create_dataframe_from_stream(
-    database: "Database",
+    database: Database,
     chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:

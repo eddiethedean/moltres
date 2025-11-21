@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, cast
 
 from ...table.schema import ColumnDef
 from ..dataframe import DataFrame
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
 def read_text(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
     column_name: str = "value",
@@ -39,7 +40,7 @@ def read_text(
         raise FileNotFoundError(f"Text file not found: {path}")
 
     rows: List[Dict[str, object]] = []
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open(path_obj, encoding="utf-8") as f:
         for line in f:
             rows.append({column_name: line.rstrip("\n\r")})
 
@@ -51,7 +52,7 @@ def read_text(
 
 def read_text_stream(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
     column_name: str = "value",
@@ -71,14 +72,14 @@ def read_text_stream(
     Raises:
         FileNotFoundError: If file doesn't exist
     """
-    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
+    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
         chunk: List[Dict[str, object]] = []
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open(path_obj, encoding="utf-8") as f:
             for line in f:
                 chunk.append({column_name: line.rstrip("\n\r")})
                 if len(chunk) >= chunk_size:
@@ -98,14 +99,14 @@ def read_text_stream(
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
 
     def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
-        yield cast(List[Dict[str, object]], first_chunk)
+        yield cast("List[Dict[str, object]]", first_chunk)
         for chunk in first_chunk_gen:
-            yield cast(List[Dict[str, object]], chunk)
+            yield cast("List[Dict[str, object]]", chunk)
 
     return _create_dataframe_from_stream(database, _typed_chunk_generator, schema)
 
 
-def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -113,14 +114,14 @@ def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, objec
 
 
 def _create_dataframe_from_schema(
-    database: "Database", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
 
 
 def _create_dataframe_from_stream(
-    database: "Database",
+    database: Database,
     chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:

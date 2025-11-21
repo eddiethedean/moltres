@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -166,13 +167,13 @@ class QueryExecutor:
             return [dict(zip(columns, row)) for row in rows]
         if fmt == "pandas":
             try:
-                import pandas as pd  # type: ignore
+                import pandas as pd
             except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
             return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
-                import polars as pl  # type: ignore
+                import polars as pl
             except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
                 raise RuntimeError("Polars support requested but polars is not installed") from exc
             return pl.DataFrame(rows, schema=columns)

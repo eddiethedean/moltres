@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Dict
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier

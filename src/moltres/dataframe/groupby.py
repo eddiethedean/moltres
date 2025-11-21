@@ -31,7 +31,8 @@ class GroupedDataFrame:
             DataFrame with aggregated results
 
         Raises:
-            ValueError: If no aggregations are provided or if invalid aggregation expressions are used
+            ValueError: If no aggregations are provided or if invalid
+                aggregation expressions are used
 
         Example:
             >>> from moltres import col

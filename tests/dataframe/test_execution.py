@@ -1,5 +1,5 @@
 from moltres import col, connect
-from moltres.expressions.functions import sum as sum_  # noqa: A001
+from moltres.expressions.functions import sum as sum_
 from moltres.io.read import read_table
 
 

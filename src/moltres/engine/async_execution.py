@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 # AsyncConnection is used via TYPE_CHECKING, but not directly imported here
 # The actual connection is managed by AsyncConnectionManager
-
 from ..config import EngineConfig
 from ..utils.exceptions import ExecutionError
 from .async_connection import AsyncConnectionManager
@@ -190,13 +190,13 @@ class AsyncQueryExecutor:
             return [dict(zip(columns, row)) for row in rows]
         if fmt == "pandas":
             try:
-                import pandas as pd  # type: ignore[import-untyped]
+                import pandas as pd
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
             return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
-                import polars as pl  # type: ignore[import-not-found,import-untyped]
+                import polars as pl
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Polars support requested but polars is not installed") from exc
             return pl.DataFrame(rows, schema=columns)

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    AsyncIterator,
     Callable,
     Dict,
     List,
     Optional,
-    Sequence,
     cast,
 )
 
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
 
 async def read_text(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
     column_name: str = "value",
@@ -55,7 +54,7 @@ async def read_text(
         raise FileNotFoundError(f"Text file not found: {path}")
 
     rows: List[Dict[str, object]] = []
-    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
+    async with aiofiles.open(path_obj, encoding="utf-8") as f:
         async for line in f:
             rows.append({column_name: line.rstrip("\n\r")})
 
@@ -67,7 +66,7 @@ async def read_text(
 
 async def read_text_stream(
     path: str,
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
     column_name: str = "value",
@@ -87,14 +86,14 @@ async def read_text_stream(
     Raises:
         FileNotFoundError: If file doesn't exist
     """
-    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
+    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
         chunk: List[Dict[str, object]] = []
-        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
+        async with aiofiles.open(path_obj, encoding="utf-8") as f:
             async for line in f:
                 chunk.append({column_name: line.rstrip("\n\r")})
                 if len(chunk) >= chunk_size:
@@ -114,15 +113,15 @@ async def read_text_stream(
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
 
     async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
-        yield cast(List[Dict[str, object]], first_chunk)
+        yield first_chunk
         async for chunk in first_chunk_gen:
-            yield cast(List[Dict[str, object]], chunk)
+            yield chunk
 
     return _create_async_dataframe_from_stream(database, _typed_chunk_generator, schema)
 
 
 def _create_async_dataframe_from_data(
-    database: "AsyncDatabase", rows: List[Dict[str, object]]
+    database: AsyncDatabase, rows: List[Dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame from materialized data."""
     from ...logical.plan import TableScan
@@ -133,14 +132,14 @@ def _create_async_dataframe_from_data(
 
 
 def _create_async_dataframe_from_schema(
-    database: "AsyncDatabase", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> AsyncDataFrame:
     """Create AsyncDataFrame with explicit schema but no data."""
     return _create_async_dataframe_from_data(database, rows)
 
 
 def _create_async_dataframe_from_stream(
-    database: "AsyncDatabase",
+    database: AsyncDatabase,
     chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncDataFrame:

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence, Tuple
+from collections.abc import Iterable, Sequence
+from typing import Optional, Tuple
 
 from ..expressions.column import Column
 from .plan import (
     Aggregate,
+    Distinct,
     Filter,
     Join,
     Limit,
@@ -15,6 +17,7 @@ from .plan import (
     Sort,
     SortOrder,
     TableScan,
+    Union,
 )
 
 
@@ -57,17 +60,44 @@ def filter(child: LogicalPlan, predicate: Column) -> Filter:
     return Filter(child=child, predicate=predicate)
 
 
-def limit(child: LogicalPlan, count: int) -> Limit:
+def limit(child: LogicalPlan, count: int, offset: int = 0) -> Limit:
     """Create a Limit logical plan node.
 
     Args:
         child: Child logical plan
         count: Maximum number of rows to return
+        offset: Number of rows to skip before returning results
 
     Returns:
         Limit logical plan node
     """
-    return Limit(child=child, count=count)
+    return Limit(child=child, count=count, offset=offset)
+
+
+def distinct(child: LogicalPlan) -> Distinct:
+    """Create a Distinct logical plan node.
+
+    Args:
+        child: Child logical plan
+
+    Returns:
+        Distinct logical plan node
+    """
+    return Distinct(child=child)
+
+
+def union(left: LogicalPlan, right: LogicalPlan, distinct: bool = True) -> Union:
+    """Create a Union logical plan node.
+
+    Args:
+        left: Left logical plan
+        right: Right logical plan
+        distinct: If True, use UNION (distinct), if False use UNION ALL
+
+    Returns:
+        Union logical plan node
+    """
+    return Union(left=left, right=right, distinct=distinct)
 
 
 def order_by(child: LogicalPlan, orders: Iterable[SortOrder]) -> Sort:

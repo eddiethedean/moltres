@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
 from ...table.schema import ColumnDef
 from ..dataframe import DataFrame
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 
 def read_csv(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -38,13 +39,13 @@ def read_csv(
     if not path_obj.exists():
         raise FileNotFoundError(f"CSV file not found: {path}")
 
-    header = cast(bool, options.get("header", True))
-    delimiter = cast(str, options.get("delimiter", ","))
-    infer_schema = cast(bool, options.get("inferSchema", True))
+    header = cast("bool", options.get("header", True))
+    delimiter = cast("str", options.get("delimiter", ","))
+    infer_schema = cast("bool", options.get("inferSchema", True))
 
     rows: List[Dict[str, object]] = []
 
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open(path_obj, encoding="utf-8") as f:
         if header and not schema:
             # Use DictReader when we have headers and no explicit schema
             dict_reader: Any = csv.DictReader(f, delimiter=delimiter)
@@ -72,7 +73,8 @@ def read_csv(
             else:
                 # No header and no schema - can't determine column names
                 raise ValueError(
-                    "CSV file without header requires explicit schema. Use .schema([ColumnDef(...), ...])"
+                    "CSV file without header requires explicit schema. "
+                    "Use .schema([ColumnDef(...), ...])"
                 )
 
     if not rows:
@@ -104,7 +106,7 @@ def read_csv(
 
 def read_csv_stream(
     path: str,
-    database: "Database",
+    database: Database,
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> DataFrame:
@@ -123,17 +125,17 @@ def read_csv_stream(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty or invalid
     """
-    chunk_size = int(cast(Any, options.get("chunk_size", 10000)))
+    chunk_size = int(cast("Any", options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"CSV file not found: {path}")
 
-    header = cast(bool, options.get("header", True))
-    delimiter = cast(str, options.get("delimiter", ","))
-    infer_schema = cast(bool, options.get("inferSchema", True))
+    header = cast("bool", options.get("header", True))
+    delimiter = cast("str", options.get("delimiter", ","))
+    infer_schema = cast("bool", options.get("inferSchema", True))
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open(path_obj, encoding="utf-8") as f:
             if header and not schema:
                 reader = csv.DictReader(f, delimiter=delimiter)
                 chunk = []
@@ -166,7 +168,8 @@ def read_csv_stream(
                         yield chunk
                 else:
                     raise ValueError(
-                        "CSV file without header requires explicit schema. Use .schema([ColumnDef(...), ...])"
+                        "CSV file without header requires explicit schema. "
+                        "Use .schema([ColumnDef(...), ...])"
                     )
 
     # Read first chunk to infer schema
@@ -203,7 +206,7 @@ def read_csv_stream(
     return _create_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, object]]) -> DataFrame:
+def _create_dataframe_from_data(database: Database, rows: List[Dict[str, object]]) -> DataFrame:
     """Create DataFrame from materialized data."""
     from ...logical.plan import TableScan
 
@@ -211,14 +214,14 @@ def _create_dataframe_from_data(database: "Database", rows: List[Dict[str, objec
 
 
 def _create_dataframe_from_schema(
-    database: "Database", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+    database: Database, schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> DataFrame:
     """Create DataFrame with explicit schema but no data."""
     return _create_dataframe_from_data(database, rows)
 
 
 def _create_dataframe_from_stream(
-    database: "Database",
+    database: Database,
     chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> DataFrame:

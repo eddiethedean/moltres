@@ -1,5 +1,5 @@
 from moltres.expressions import col
-from moltres.expressions.functions import sum as sum_  # noqa: A001
+from moltres.expressions.functions import sum as sum_
 from moltres.logical import operators
 from moltres.sql.compiler import compile_plan
 

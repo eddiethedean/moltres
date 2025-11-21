@@ -129,7 +129,7 @@ def test_stream_write_csv(db, large_csv_file):
         df.write.stream().csv(output_path)
 
         # Verify output file
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             reader = csv.DictReader(f)
             rows = list(reader)
             assert len(rows) == 25000
@@ -150,7 +150,7 @@ def test_stream_write_jsonl(db, large_jsonl_file):
         df.write.stream().jsonl(output_path)
 
         # Verify output file
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             lines = f.readlines()
             assert len(lines) == 25000
             first = json.loads(lines[0])
