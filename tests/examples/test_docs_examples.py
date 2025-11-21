@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.examples.executors import ExampleExecutor
-from tests.examples.extractors import extract_code_blocks
+from .executors import ExampleExecutor
+from .extractors import extract_code_blocks
 
 
 def test_examples_file_basic_queries(temp_db_path, temp_file_dir):
