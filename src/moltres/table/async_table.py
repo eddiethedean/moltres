@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, , Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from ..config import MoltresConfig
 
@@ -101,8 +101,7 @@ class AsyncDatabase:
         columns: Sequence[ColumnDef],
         *,
         if_not_exists: bool = True,
-        temporary: bool = False,
-    ) -> AsyncTableHandle:
+        temporary: bool = False) -> AsyncTableHandle:
         """Create a new table with the specified schema.
 
         Args:
@@ -127,8 +126,7 @@ class AsyncDatabase:
             name=name,
             columns=columns,
             if_not_exists=if_not_exists,
-            temporary=temporary,
-        )
+            temporary=temporary)
         sql = compile_create_table(schema, self._dialect)
         await self._executor.execute(sql)
         return await self.table(name)

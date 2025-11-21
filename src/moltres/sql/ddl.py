@@ -47,8 +47,7 @@ def compile_create_table(schema: TableSchema, dialect: DialectSpec) -> str:
 def compile_drop_table(
     table_name: str,
     dialect: DialectSpec,
-    if_exists: bool = True,
-) -> str:
+    if_exists: bool = True) -> str:
     """Compile a DROP TABLE statement."""
     quote = dialect.quote_char
     quoted_name = quote_identifier(table_name, quote)

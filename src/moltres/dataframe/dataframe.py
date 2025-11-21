@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, , Optional, , Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 from ..expressions.column import Column, col
 from ..logical import operators
@@ -105,8 +105,7 @@ class DataFrame:
         other: DataFrame,
         *,
         on: str | Sequence[str] | Sequence[tuple[str, str]] | None = None,
-        how: str = "inner",
-    ) -> DataFrame:
+        how: str = "inner") -> DataFrame:
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to a Database before joining")
         if self.database is not other.database:
@@ -356,8 +355,7 @@ class DataFrame:
             database=self.database,
             _materialized_data=self._materialized_data,
             _stream_generator=self._stream_generator,
-            _stream_schema=self._stream_schema,
-        )
+            _stream_schema=self._stream_schema)
 
     def _normalize_projection(self, expr: Column | str) -> Column:
         if isinstance(expr, Column):

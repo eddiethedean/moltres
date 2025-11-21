@@ -11,8 +11,7 @@ from typing import (
     Any,
     Callable,
     Optional,
-    cast,
-)
+    cast)
 
 try:
     import aiofiles  # type: ignore[import-untyped]
@@ -32,8 +31,7 @@ async def read_csv(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
+    options: dict[str, object]) -> AsyncDataFrame:
     """Read CSV file asynchronously and return AsyncDataFrame.
 
     Args:
@@ -126,8 +124,7 @@ async def read_csv_stream(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
+    options: dict[str, object]) -> AsyncDataFrame:
     """Read CSV file asynchronously in streaming mode (chunked).
 
     Args:
@@ -249,8 +246,7 @@ def _create_async_dataframe_from_schema(
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
     chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef],
-) -> AsyncDataFrame:
+    schema: Sequence[ColumnDef]) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""
     from ...logical.plan import TableScan
 
@@ -258,5 +254,4 @@ def _create_async_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,  # Store the async generator callable
-        _stream_schema=schema,
-    )
+        _stream_schema=schema)

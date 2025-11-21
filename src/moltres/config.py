@@ -70,8 +70,7 @@ def _load_env_config() -> dict[str, object]:
             "true",
             "1",
             "yes",
-            "on",
-        )
+            "on")
 
     return config
 

@@ -20,11 +20,9 @@ from ..logical.plan import (
     Project,
     Sort,
     SortOrder,
-    TableScan,
-)
+    TableScan)
 from ..logical.plan import (
-    Union as UnionPlan,
-)
+    Union as UnionPlan)
 from ..utils.exceptions import CompilationError
 from .builders import comma_separated, format_literal, quote_identifier
 

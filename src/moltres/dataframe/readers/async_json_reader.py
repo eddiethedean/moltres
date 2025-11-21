@@ -9,8 +9,7 @@ from typing import (
     TYPE_CHECKING,
     Callable,
     Optional,
-    cast,
-)
+    cast)
 
 try:
     import aiofiles  # type: ignore[import-untyped]
@@ -30,8 +29,7 @@ async def read_json(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
+    options: dict[str, object]) -> AsyncDataFrame:
     """Read JSON file (array of objects) asynchronously and return AsyncDataFrame.
 
     Args:
@@ -98,8 +96,7 @@ async def read_jsonl(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
+    options: dict[str, object]) -> AsyncDataFrame:
     """Read JSONL file (one JSON object per line) asynchronously and return AsyncDataFrame.
 
     Args:
@@ -151,8 +148,7 @@ async def read_json_stream(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
+    options: dict[str, object]) -> AsyncDataFrame:
     """Read JSON file asynchronously in streaming mode (chunked).
 
     Args:
@@ -232,8 +228,7 @@ async def read_jsonl_stream(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
+    options: dict[str, object]) -> AsyncDataFrame:
     """Read JSONL file asynchronously in streaming mode (chunked).
 
     Args:
@@ -315,8 +310,7 @@ def _create_async_dataframe_from_schema(
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
     chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef],
-) -> AsyncDataFrame:
+    schema: Sequence[ColumnDef]) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""
     from ...logical.plan import TableScan
 
@@ -324,5 +318,4 @@ def _create_async_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,
-        _stream_schema=schema,
-    )
+        _stream_schema=schema)

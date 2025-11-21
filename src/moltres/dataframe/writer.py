@@ -7,7 +7,7 @@ import json
 import logging
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, , Optional, Union, cast
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -421,8 +421,7 @@ class DataFrameWriter:
         base_path: str,
         format: str,
         rows: list[dict[str, object]],
-        headers: list[str] | None,
-    ) -> None:
+        headers: list[str] | None) -> None:
         """Save data partitioned by specified columns."""
         if not rows:
             return

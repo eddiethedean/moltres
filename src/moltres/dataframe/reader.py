@@ -17,8 +17,7 @@ from .readers import (
     read_parquet,
     read_parquet_stream,
     read_text,
-    read_text_stream,
-)
+    read_text_stream)
 
 if TYPE_CHECKING:
     from ..table.table import Database

@@ -6,7 +6,7 @@ import logging
 import time
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, , Optional
+from typing import Any, Callable, Optional
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -71,8 +71,7 @@ class QueryExecutor:
                     "query_end",
                     sql,
                     elapsed,
-                    {"rowcount": rowcount, "params": params},
-                )
+                    {"rowcount": rowcount, "params": params})
 
                 return QueryResult(rows=payload, rowcount=result.rowcount)
         except SQLAlchemyError as exc:
@@ -125,8 +124,7 @@ class QueryExecutor:
         logger.debug(
             "Executing batch statement (%d rows): %s",
             len(params_list),
-            sql[:200] if len(sql) > 200 else sql,
-        )
+            sql[:200] if len(sql) > 200 else sql)
         total_rowcount = 0
         try:
             with self._connections.connect() as conn:

@@ -44,8 +44,7 @@ from .functions import (
     trim,
     trunc,
     upper,
-    year,
-)
+    year)
 from .when import when
 from .window import (
     Window,
@@ -56,8 +55,7 @@ from .window import (
     last_value,
     lead,
     rank,
-    row_number,
-)
+    row_number)
 
 __all__ = [
     "Column",

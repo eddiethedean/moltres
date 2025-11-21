@@ -17,8 +17,7 @@ from .plan import (
     Sort,
     SortOrder,
     TableScan,
-    Union,
-)
+    Union)
 
 
 def scan(table: str, alias: str | None = None) -> TableScan:
@@ -148,8 +147,7 @@ def join(
     *,
     how: str,
     on: Sequence[tuple[str, str]] | None = None,
-    condition: Column | None = None,
-) -> Join:
+    condition: Column | None = None) -> Join:
     """Create a Join logical plan node.
 
     Args:

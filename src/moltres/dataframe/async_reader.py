@@ -12,8 +12,7 @@ from .readers.async_json_reader import (
     read_json,
     read_json_stream,
     read_jsonl,
-    read_jsonl_stream,
-)
+    read_jsonl_stream)
 from .readers.async_text_reader import read_text, read_text_stream
 
 

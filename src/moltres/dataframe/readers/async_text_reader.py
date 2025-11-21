@@ -8,8 +8,7 @@ from typing import (
     TYPE_CHECKING,
     Callable,
     Optional,
-    cast,
-)
+    cast)
 
 try:
     import aiofiles  # type: ignore[import-untyped]
@@ -30,8 +29,7 @@ async def read_text(
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
     options: dict[str, object],
-    column_name: str = "value",
-) -> AsyncDataFrame:
+    column_name: str = "value") -> AsyncDataFrame:
     """Read text file line-by-line asynchronously and return AsyncDataFrame.
 
     Args:
@@ -67,8 +65,7 @@ async def read_text_stream(
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
     options: dict[str, object],
-    column_name: str = "value",
-) -> AsyncDataFrame:
+    column_name: str = "value") -> AsyncDataFrame:
     """Read text file asynchronously in streaming mode (chunked).
 
     Args:
@@ -139,8 +136,7 @@ def _create_async_dataframe_from_schema(
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
     chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef],
-) -> AsyncDataFrame:
+    schema: Sequence[ColumnDef]) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""
     from ...logical.plan import TableScan
 
@@ -148,5 +144,4 @@ def _create_async_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,
-        _stream_schema=schema,
-    )
+        _stream_schema=schema)

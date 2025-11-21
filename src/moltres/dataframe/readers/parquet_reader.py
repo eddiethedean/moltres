@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, , Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from ...table.schema import ColumnDef
 from ..dataframe import DataFrame
@@ -17,8 +17,7 @@ def read_parquet(
     path: str,
     database: Database,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> DataFrame:
+    options: dict[str, object]) -> DataFrame:
     """Read Parquet file and return DataFrame.
 
     Args:
@@ -84,8 +83,7 @@ def read_parquet_stream(
     path: str,
     database: Database,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> DataFrame:
+    options: dict[str, object]) -> DataFrame:
     """Read Parquet file in streaming mode (row group by row group).
 
     Args:
@@ -166,8 +164,7 @@ def _create_dataframe_from_schema(
 def _create_dataframe_from_stream(
     database: Database,
     chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef],
-) -> DataFrame:
+    schema: Sequence[ColumnDef]) -> DataFrame:
     """Create DataFrame from streaming generator.
 
     Args:
@@ -181,5 +178,4 @@ def _create_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,
-        _stream_schema=schema,
-    )
+        _stream_schema=schema)

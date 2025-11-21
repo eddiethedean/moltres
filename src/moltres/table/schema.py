@@ -33,13 +33,11 @@ def column(
     type_name: str,
     nullable: bool = True,
     default: object | None = None,
-    primary_key: bool = False,
-) -> ColumnDef:
+    primary_key: bool = False) -> ColumnDef:
     """Convenience helper for creating column definitions."""
     return ColumnDef(
         name=name,
         type_name=type_name,
         nullable=nullable,
         default=default,
-        primary_key=primary_key,
-    )
+        primary_key=primary_key)

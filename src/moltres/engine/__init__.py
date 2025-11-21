@@ -8,8 +8,7 @@ from .execution import (
     QueryExecutor,
     QueryResult,
     register_performance_hook,
-    unregister_performance_hook,
-)
+    unregister_performance_hook)
 
 __all__ = [
     "ConnectionManager",
