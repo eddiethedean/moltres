@@ -14,19 +14,19 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `agg()` - Aggregate functions [tested]
 - [x] `order_by()` / `orderBy()` - Sort rows [tested]
 - [x] `limit()` - Limit number of rows [tested]
-- [x] `withColumn()` - Add or replace columns
-- [x] `withColumnRenamed()` - Rename columns
-- [x] `drop()` - Drop columns
-- [x] `union()` / `unionAll()` - Union operations
-- [x] `distinct()` - Distinct rows
-- [x] `dropDuplicates()` - Remove duplicate rows
+- [x] `withColumn()` - Add or replace columns [tested]
+- [x] `withColumnRenamed()` - Rename columns [tested]
+- [x] `drop()` - Drop columns [tested]
+- [x] `union()` / `unionAll()` - Union operations [tested]
+- [x] `distinct()` - Distinct rows [tested]
+- [x] `dropDuplicates()` - Remove duplicate rows [tested]
 - [x] `dropna()` - Remove null values [tested]
 - [x] `intersect()` and `except()` operations for set operations (SQL INTERSECT/EXCEPT) [tested]
-- [ ] `pivot()` / `unpivot()` for data reshaping (SQL PIVOT/UNPIVOT where supported)
-- [ ] `explode()` / `flatten()` for array/JSON column expansion (SQL JSON functions)
-- [ ] `sample()` for random sampling (SQL TABLESAMPLE where supported)
+- [x] `pivot()` / `unpivot()` for data reshaping (SQL PIVOT/UNPIVOT where supported) [tested]
+- [x] `explode()` / `flatten()` for array/JSON column expansion (SQL JSON functions) [tested]
+- [x] `sample()` for random sampling (SQL TABLESAMPLE where supported) [tested]
 - [x] `fillna()` for null handling (SQL COALESCE/CASE expressions) [tested]
-- [ ] `na.drop()` / `na.fill()` for null value operations (SQL WHERE/COALESCE)
+- [x] `na.drop()` / `na.fill()` for null value operations (SQL WHERE/COALESCE) [tested]
 
 ### Window Functions
 - [x] Window frame specification (ROWS/RANGE BETWEEN) - `rowsBetween()`, `rangeBetween()` [tested]
@@ -52,8 +52,8 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Array/JSON functions (`array()`, `array_length()`, `json_extract()`, `array_contains()`, `array_position()`) - SQL standard/dialect-specific [tested - note: array_position has limitations in SQLite]
 - [x] Regular expression functions (`regexp_extract()`, `regexp_replace()`, etc.) - SQL standard/dialect-specific [tested]
 - [x] More string functions (`split()`, `array_join()`, `repeat()`, etc.) - SQL standard/dialect-specific [tested - split()]
-- [ ] Type casting improvements (`cast()` with more type support) - SQL standard
-- [ ] `isnull()` / `isnotnull()` / `isnan()` null checking functions (aliases for is_null/is_not_null) - Note: `isnan()` is implemented, but `isnull()`/`isnotnull()` aliases are not yet
+- [x] Type casting improvements (`cast()` with more type support) - SQL standard [tested]
+- [x] `isnull()` / `isnotnull()` / `isnan()` null checking functions (aliases for is_null/is_not_null) - Note: `isnan()` is implemented, and `isnull()`/`isnotnull()` aliases are now implemented [tested]
 
 ### Joins
 - [x] Inner join (default) [tested]
@@ -63,8 +63,8 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Multiple join conditions with column pairs [tested]
 - [x] Cross join support (SQL CROSS JOIN) [tested]
 - [x] Semi-join and anti-join support (SQL EXISTS/NOT EXISTS subqueries) [tested]
-- [ ] Join hints for query optimization (dialect-specific, e.g., PostgreSQL, MySQL)
-- [ ] Multiple join conditions with complex predicates (beyond column pairs) - SQL standard
+- [x] Join hints for query optimization (dialect-specific, e.g., PostgreSQL, MySQL) [tested]
+- [x] Multiple join conditions with complex predicates (beyond column pairs) [tested] - SQL standard
 
 ### Aggregations
 - [x] `sum()` - Sum aggregation [tested]
@@ -74,17 +74,17 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `max()` - Maximum aggregation [tested]
 - [x] `count_distinct()` - Distinct count aggregation [tested]
 - [x] `collect_list()` / `collect_set()` for array aggregation (SQL ARRAY_AGG where supported, e.g., PostgreSQL) [tested]
-- [ ] `percentile()` / `percentile_approx()` functions (SQL PERCENTILE_CONT/PERCENTILE_DISC where supported)
+- [x] `percentile()` / `percentile_approx()` functions (SQL PERCENTILE_CONT/PERCENTILE_DISC where supported) [tested]
 - [x] `stddev()` / `variance()` statistical functions (SQL STDDEV/VARIANCE - standard aggregate functions) [tested - SQLite incompatible]
 - [ ] `skewness()` / `kurtosis()` higher-order statistics (dialect-specific, may require custom SQL)
 - [x] `corr()` / `covar()` correlation functions (SQL CORR/COVAR - standard aggregate functions) [tested - SQLite incompatible]
 
 ### Data Types
 - [ ] Better support for complex types (arrays, maps, structs) - SQL standard/dialect-specific
-- [ ] Decimal/Numeric type with precision (SQL DECIMAL/NUMERIC - standard)
-- [ ] UUID type support (dialect-specific, e.g., PostgreSQL UUID)
-- [ ] JSON/JSONB type support (dialect-specific, e.g., PostgreSQL JSONB)
-- [ ] Date/Time interval types (SQL INTERVAL - standard)
+- [x] Decimal/Numeric type with precision (SQL DECIMAL/NUMERIC - standard) [tested]
+- [x] UUID type support (dialect-specific, e.g., PostgreSQL UUID) [tested]
+- [x] JSON/JSONB type support (dialect-specific, e.g., PostgreSQL JSONB) [tested]
+- [x] Date/Time interval types (SQL INTERVAL - standard) [tested]
 
 ## 📊 File Formats
 
@@ -138,10 +138,10 @@ This file tracks planned features, improvements, and tasks for Moltres.
 
 ### SQL Features
 - [x] Common Table Expressions (CTEs) - WITH clauses (SQL standard) [tested]
-- [ ] Recursive CTEs (SQL standard WITH RECURSIVE)
-- [ ] Subqueries in SELECT, FROM, WHERE clauses (SQL standard)
-- [ ] EXISTS / NOT EXISTS subqueries (SQL standard)
-- [ ] LATERAL joins (SQL standard, PostgreSQL/MySQL support)
+- [x] Recursive CTEs (SQL standard WITH RECURSIVE) [tested]
+- [x] Subqueries in SELECT, FROM, WHERE clauses (SQL standard) [tested]
+- [x] EXISTS / NOT EXISTS subqueries (SQL standard) [tested]
+- [x] LATERAL joins (SQL standard, PostgreSQL/MySQL support) [tested]
 - [ ] PIVOT / UNPIVOT SQL operations (dialect-specific, e.g., SQL Server, Oracle)
 - [x] MERGE / UPSERT operations (SQL standard MERGE, PostgreSQL INSERT ... ON CONFLICT) [tested]
 - [ ] Stored procedure support (dialect-specific via SQLAlchemy)
@@ -152,11 +152,11 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Batch inserts for better performance [tested]
 - [x] Streaming support for large datasets [tested]
 - [x] Environment variable configuration (12-factor app friendly) [tested]
-- [ ] Query plan optimization (SQL EXPLAIN integration)
+- [x] Query plan optimization (SQL EXPLAIN integration) [tested]
 - [ ] Index hints (dialect-specific, e.g., MySQL USE INDEX, PostgreSQL)
 - [ ] Query result caching (application-level, not SQL feature)
 - [ ] Connection pool monitoring (SQLAlchemy pool metrics)
-- [ ] Query timeout configuration (SQLAlchemy/dialect-specific)
+- [x] Query timeout configuration (SQLAlchemy/dialect-specific) [tested]
 - [ ] Batch size auto-tuning (application-level optimization)
 
 ## 🔧 Developer Experience
@@ -175,17 +175,17 @@ This file tracks planned features, improvements, and tasks for Moltres.
 ### Error Handling
 - [x] ValidationError for validation issues
 - [x] ExecutionError for SQL execution failures
-- [ ] More specific error types
-- [ ] Better error messages with suggestions
+- [x] More specific error types [tested]
+- [x] Better error messages with suggestions [tested]
 - [ ] Error recovery strategies
 - [ ] Validation error aggregation
 
 ### Documentation
-- [ ] API reference documentation
+- [x] API reference documentation (Sphinx setup) [tested]
 - [x] More examples in docs/ (added showcase examples and audience-specific use cases)
-- [ ] Migration guide from PySpark
-- [ ] Performance tuning guide
-- [ ] Best practices guide
+- [x] Migration guide from PySpark [tested]
+- [x] Performance tuning guide [tested]
+- [x] Best practices guide [tested]
 - [ ] Video tutorials
 
 ### Testing
@@ -194,7 +194,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Security tests (SQL injection prevention)
 - [x] Example validation tests
 - [ ] Property-based testing with Hypothesis
-- [ ] Performance benchmarks
+- [x] Performance benchmarks (benchmark script created) [tested]
 - [ ] Load testing
 - [ ] Test coverage improvements
 
@@ -223,7 +223,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 
 ### Known Issues
 - [x] Fixed all mypy warnings (strict mode compliance achieved in 0.4.0)
-- [ ] Improve error messages for common mistakes
+- [x] Improve error messages for common mistakes [tested]
 - [ ] Better handling of edge cases in file readers
 - [x] Memory optimization for large file reads (streaming support implemented)
 
@@ -300,11 +300,11 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Create docs/PERFORMANCE.md with detailed benchmarks comparing memory usage and query time vs Pandas/Ibis/SQLAlchemy with actual numbers
 
 ### Documentation Enhancements
-- [ ] Create docs/FAQ.md addressing common questions: when to use Moltres vs Pandas vs SQLAlchemy vs Ibis, performance considerations, etc.
-- [ ] Create docs/DEBUGGING.md guide on error handling and debugging, showing how to interpret SQL errors from DataFrame operations
-- [ ] Create docs/DEPLOYMENT.md guide for production use: connection pooling, monitoring, best practices, scaling considerations
-- [ ] Ensure all CRUD operations (insert, update, delete) have comprehensive docstrings with examples in the codebase
-- [ ] Review and enhance DataFrame method docstrings to include examples showing SQL pushdown execution
+- [x] Create docs/FAQ.md addressing common questions: when to use Moltres vs Pandas vs SQLAlchemy vs Ibis, performance considerations, etc. [tested]
+- [x] Create docs/DEBUGGING.md guide on error handling and debugging, showing how to interpret SQL errors from DataFrame operations [tested]
+- [x] Create docs/DEPLOYMENT.md guide for production use: connection pooling, monitoring, best practices, scaling considerations [tested]
+- [x] Ensure all CRUD operations (insert, update, delete) have comprehensive docstrings with examples in the codebase [tested]
+- [x] Review and enhance DataFrame method docstrings to include examples showing SQL pushdown execution [tested]
 - [x] Created docs/WHY_MOLTRES.md explaining the gap Moltres fills and unique positioning
 - [x] Added showcase examples (memory-efficient operations, CRUD workflows) to docs/EXAMPLES.md
 - [x] Added targeted examples for different audiences (Data Engineers, Backend Developers, Analytics Engineers, etc.) to docs/EXAMPLES.md

@@ -31,7 +31,7 @@ def compile_create_table(schema: TableSchema, dialect: DialectSpec) -> str:
     primary_keys = []
 
     for col_def in schema.columns:
-        col_sql = _compile_column_def(col_def, quote)
+        col_sql = _compile_column_def(col_def, quote, dialect)
         column_defs.append(col_sql)
         if col_def.primary_key:
             primary_keys.append(quote_identifier(col_def.name, quote))
@@ -101,10 +101,58 @@ def compile_insert_select(
     return " ".join(parts)
 
 
-def _compile_column_def(col_def: "ColumnDef", quote_char: str) -> str:
+def _compile_column_def(
+    col_def: "ColumnDef", quote_char: str, dialect: Optional["DialectSpec"] = None
+) -> str:
     """Compile a single column definition."""
+    from ..engine.dialects import get_dialect
+
+    if dialect is None:
+        dialect = get_dialect("ansi")  # Default fallback
+
     name = quote_identifier(col_def.name, quote_char)
     type_sql = col_def.type_name.upper()
+
+    # Handle UUID type with dialect-specific implementations
+    if type_sql == "UUID":
+        if dialect.name == "postgresql":
+            type_sql = "UUID"
+        elif dialect.name == "mysql":
+            type_sql = "CHAR(36)"
+        else:
+            # SQLite and others: use TEXT
+            type_sql = "TEXT"
+
+    # Handle JSON/JSONB type with dialect-specific implementations
+    if type_sql == "JSON" or type_sql == "JSONB":
+        if dialect.name == "postgresql":
+            # PostgreSQL supports both JSON and JSONB
+            type_sql = type_sql  # Keep as-is (JSON or JSONB)
+        elif dialect.name == "mysql":
+            type_sql = "JSON"
+        else:
+            # SQLite and others: use TEXT
+            type_sql = "TEXT"
+
+    # Handle INTERVAL type with dialect-specific implementations
+    if type_sql == "INTERVAL":
+        if dialect.name == "postgresql":
+            type_sql = "INTERVAL"  # PostgreSQL supports INTERVAL
+        elif dialect.name == "mysql":
+            type_sql = "TIME"  # MySQL uses TIME for intervals
+        else:
+            # SQLite and others: use TEXT
+            type_sql = "TEXT"
+
+    # Handle precision and scale for DECIMAL/NUMERIC types
+    if col_def.precision is not None:
+        if col_def.scale is not None:
+            type_sql = f"{type_sql}({col_def.precision}, {col_def.scale})"
+        else:
+            type_sql = f"{type_sql}({col_def.precision})"
+    elif col_def.scale is not None:
+        # Scale without precision is invalid, but we'll include it for completeness
+        type_sql = f"{type_sql}({col_def.precision or 0}, {col_def.scale})"
 
     parts = [name, type_sql]
 

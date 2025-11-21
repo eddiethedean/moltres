@@ -488,6 +488,19 @@ class AsyncDataFrame:
         return result.rows  # type: ignore[no-any-return]
 
     @property
+    def na(self) -> "AsyncNullHandling":
+        """Access null handling methods via the `na` property.
+
+        Returns:
+            AsyncNullHandling helper object with drop() and fill() methods
+
+        Example:
+            >>> await df.na.drop().collect()  # Drop rows with nulls
+            >>> await df.na.fill(0).collect()  # Fill nulls with 0
+        """
+        return AsyncNullHandling(self)
+
+    @property
     def write(self) -> "AsyncDataFrameWriter":
         """Return an AsyncDataFrameWriter for writing this DataFrame to a table."""
         from .async_writer import AsyncDataFrameWriter
@@ -527,3 +540,53 @@ class AsyncDataFrame:
         if isinstance(on, (list, tuple)) and on and isinstance(on[0], (list, tuple)):
             return [tuple(pair) for pair in on]
         raise ValueError(f"Invalid join keys: {on}")
+
+
+class AsyncNullHandling:
+    """Helper class for null handling operations on AsyncDataFrames.
+
+    Accessed via the `na` property on AsyncDataFrame instances.
+    """
+
+    def __init__(self, df: AsyncDataFrame):
+        self._df = df
+
+    def drop(self, how: str = "any", subset: Optional[Sequence[str]] = None) -> AsyncDataFrame:
+        """Drop rows with null values.
+
+        This is a convenience wrapper around AsyncDataFrame.dropna().
+
+        Args:
+            how: "any" (drop if any null) or "all" (drop if all null) (default: "any")
+            subset: Optional list of column names to check. If None, checks all columns.
+
+        Returns:
+            New AsyncDataFrame with null rows removed
+
+        Example:
+            >>> await df.na.drop().collect()  # Drop rows with any null values
+            >>> await df.na.drop(how="all").collect()  # Drop rows where all values are null
+            >>> await df.na.drop(subset=["col1", "col2"]).collect()  # Only check specific columns
+        """
+        return self._df.dropna(how=how, subset=subset)
+
+    def fill(
+        self, value: Union[object, Dict[str, object]], subset: Optional[Sequence[str]] = None
+    ) -> AsyncDataFrame:
+        """Fill null values with a specified value.
+
+        This is a convenience wrapper around AsyncDataFrame.fillna().
+
+        Args:
+            value: Value to use for filling nulls. Can be a single value or a dict mapping column names to values.
+            subset: Optional list of column names to fill. If None, fills all columns.
+
+        Returns:
+            New AsyncDataFrame with null values filled
+
+        Example:
+            >>> await df.na.fill(0).collect()  # Fill all nulls with 0
+            >>> await df.na.fill({"col1": 0, "col2": "unknown"}).collect()  # Fill different columns with different values
+            >>> await df.na.fill(0, subset=["col1", "col2"]).collect()  # Fill specific columns with 0
+        """
+        return self._df.fillna(value=value, subset=subset)

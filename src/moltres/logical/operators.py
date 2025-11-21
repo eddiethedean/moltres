@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from typing import Optional
 
 from ..expressions.column import Column
 from .plan import (
@@ -11,12 +12,16 @@ from .plan import (
     CTE,
     Distinct,
     Except,
+    Explode,
     Filter,
     Intersect,
     Join,
     Limit,
     LogicalPlan,
+    Pivot,
     Project,
+    RecursiveCTE,
+    Sample,
     SemiJoin,
     Sort,
     SortOrder,
@@ -76,6 +81,22 @@ def limit(child: LogicalPlan, count: int, offset: int = 0) -> Limit:
         Limit logical plan node
     """
     return Limit(child=child, count=count, offset=offset)
+
+
+def sample(child: LogicalPlan, fraction: float, seed: Optional[int] = None) -> Sample:
+    """Create a Sample logical plan node.
+
+    Args:
+        child: Child logical plan
+        fraction: Fraction of rows to sample (0.0 to 1.0)
+        seed: Optional random seed for reproducible sampling
+
+    Returns:
+        Sample logical plan node
+    """
+    if not 0.0 <= fraction <= 1.0:
+        raise ValueError(f"Sample fraction must be between 0.0 and 1.0, got {fraction}")
+    return Sample(child=child, fraction=fraction, seed=seed)
 
 
 def distinct(child: LogicalPlan) -> Distinct:
@@ -181,6 +202,8 @@ def join(
     how: str,
     on: Sequence[tuple[str, str]] | None = None,
     condition: Column | None = None,
+    lateral: bool = False,
+    hints: Sequence[str] | None = None,
 ) -> Join:
     """Create a Join logical plan node.
 
@@ -190,6 +213,7 @@ def join(
         how: Join type ("inner", "left", "right", "full", "cross")
         on: Optional sequence of (left_column, right_column) tuples for equality joins
         condition: Optional column expression for custom join condition
+        lateral: If True, create a LATERAL join (PostgreSQL, MySQL 8.0+)
 
     Returns:
         Join logical plan node
@@ -197,8 +221,15 @@ def join(
     Raises:
         CompilationError: If neither 'on' nor 'condition' is provided
     """
+    hints_tuple = tuple(hints) if hints else None
     return Join(
-        left=left, right=right, how=how, on=None if on is None else tuple(on), condition=condition
+        left=left,
+        right=right,
+        how=how,
+        on=None if on is None else tuple(on),
+        condition=condition,
+        lateral=lateral,
+        hints=hints_tuple,
     )
 
 
@@ -213,6 +244,29 @@ def cte(plan: LogicalPlan, name: str) -> CTE:
         CTE logical plan node
     """
     return CTE(name=name, child=plan)
+
+
+def recursive_cte(
+    name: str, initial: LogicalPlan, recursive: LogicalPlan, union_all: bool = False
+) -> RecursiveCTE:
+    """Create a RecursiveCTE (WITH RECURSIVE) logical plan node.
+
+    Args:
+        name: Name for the recursive CTE
+        initial: Initial/seed query (non-recursive part)
+        recursive: Recursive part that references the CTE
+        union_all: If True, use UNION ALL; if False, use UNION (distinct)
+
+    Returns:
+        RecursiveCTE logical plan node
+
+    Example:
+        >>> # Fibonacci sequence
+        >>> initial = scan("seed").select(lit(1).alias("n"), lit(1).alias("fib"))
+        >>> recursive = scan(name).select(...)  # References CTE name
+        >>> fib_cte = recursive_cte("fib", initial, recursive)
+    """
+    return RecursiveCTE(name=name, initial=initial, recursive=recursive, union_all=union_all)
 
 
 def semi_join(
@@ -259,3 +313,46 @@ def anti_join(
     return AntiJoin(
         left=left, right=right, on=None if on is None else tuple(on), condition=condition
     )
+
+
+def pivot(
+    child: LogicalPlan,
+    pivot_column: str,
+    value_column: str,
+    agg_func: str = "sum",
+    pivot_values: Sequence[str] | None = None,
+) -> Pivot:
+    """Create a Pivot logical plan node.
+
+    Args:
+        child: Child logical plan
+        pivot_column: Column to pivot on (becomes column headers)
+        value_column: Column containing values to aggregate
+        agg_func: Aggregation function name (e.g., "sum", "avg", "count")
+        pivot_values: Optional list of specific values to pivot (if None, uses all distinct values)
+
+    Returns:
+        Pivot logical plan node
+    """
+    pivot_values_tuple = tuple(pivot_values) if pivot_values else None
+    return Pivot(
+        child=child,
+        pivot_column=pivot_column,
+        value_column=value_column,
+        agg_func=agg_func,
+        pivot_values=pivot_values_tuple,
+    )
+
+
+def explode(child: LogicalPlan, column: Column, alias: str = "value") -> Explode:
+    """Create an Explode logical plan node (expands array/JSON column into multiple rows).
+
+    Args:
+        child: Child logical plan
+        column: Column expression to explode (array or JSON column)
+        alias: Alias for the exploded value column (default: "value")
+
+    Returns:
+        Explode logical plan node
+    """
+    return Explode(child=child, column=column, alias=alias)

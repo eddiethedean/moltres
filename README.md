@@ -1,15 +1,48 @@
-# <img src="https://raw.githubusercontent.com/eddiethedean/moltres/main/logo.png" alt="Moltres Logo" width="40" height="40" /> Moltres
+# Moltres
+
+<div align="center">
 
 [![CI](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/eddiethedean/moltres)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/eddiethedean/moltres/blob/main/LICENSE)
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-> The Missing DataFrame Layer for SQL in Python — DataFrame API with SQL pushdown execution and real SQL CRUD.
+**The Missing DataFrame Layer for SQL in Python**
+
+**MOLTRES**: **M**odern **O**perations **L**ayer for **T**ransformations, **R**elational **E**xecution, and **S**QL
+
+[Installation](#-installation) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Why Moltres?](#-why-moltres)
+
+</div>
+
+---
 
 **Moltres** fills a major gap in the Python data ecosystem: it's the **only** library that combines a **DataFrame API** (like Pandas/Polars), **SQL pushdown execution** (no data loading into memory), and **real SQL CRUD operations** (INSERT, UPDATE, DELETE) in one unified interface.
 
 Transform millions of rows using familiar DataFrame operations—all executed directly in SQL without materializing data. Update, insert, and delete with column-aware, type-safe operations. No juggling between Pandas, SQLAlchemy, and raw SQL. Just one library that does it all.
+
+## 📑 Table of Contents
+
+- [Features](#-features)
+- [What Makes Moltres Unique](#-what-makes-moltres-unique)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Why Moltres?](#-why-moltres)
+- [Core Concepts](#-core-concepts)
+- [Reading Data](#-reading-data)
+- [Writing Data](#-writing-data)
+- [Streaming for Large Datasets](#-streaming-for-large-datasets)
+- [Table Management](#️-table-management)
+- [Data Mutations](#️-data-mutations)
+- [Result Formats](#-result-formats)
+- [Configuration](#️-configuration)
+- [Performance Monitoring](#-performance-monitoring)
+- [Security](#-security)
+- [Advanced Examples](#-advanced-examples)
+- [Supported Operations](#️-supported-operations)
+- [Development](#-development)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
 
 ## ✨ Features
 
@@ -49,49 +82,60 @@ Moltres is the **only** Python library that provides:
 - **Type-safe CRUD operations** - Validated, column-aware INSERT, UPDATE, DELETE with DataFrame-style syntax
 - **SQL-first design** - Focuses on providing full SQL feature support through a DataFrame API, not replicating every PySpark feature. Features are included only if they map to SQL/SQLAlchemy capabilities and align with SQL pushdown execution.
 
-## 🆕 What's New in 0.5.0
+## 🆕 What's New
+
+### Version 0.6.0
+
+- **Null Handling Convenience Methods** - New `na` property on DataFrame: `df.na.drop()` and `df.na.fill(value)` for convenient null handling
+- **Random Sampling** - New `sample(fraction, seed=None)` method for random row sampling with dialect-specific SQL compilation
+- **Enhanced Type System** - New data types: `decimal()`, `uuid()`, `json()`, and `interval()` helpers with full SQL support and dialect-specific compilation
+- **Interval Arithmetic** - New `date_add()` and `date_sub()` functions for date/time interval operations
+- **Join Hints** - New `hints` parameter for `join()` method to provide query optimization hints
+- **Complex Join Conditions** - Enhanced `join()` method to support arbitrary Column expressions in join conditions
+- **Query Plan Analysis** - New `explain(analyze=False)` method to return query execution plans
+- **Pivot Operations** - New `pivot()` method for data reshaping with cross-dialect compatibility
+
+### Version 0.5.0
 
 - **Compressed File Reading** - Automatic detection and support for gzip, bz2, and xz compression in CSV, JSON, JSONL, and text file readers (both sync and async)
 - **Array/JSON Functions** - New functions for working with JSON and array data: `json_extract()`, `array()`, `array_length()`, `array_contains()`, `array_position()` with dialect-specific SQL compilation
 - **Collect Aggregations** - New aggregation functions `collect_list()` and `collect_set()` for array aggregation (uses `ARRAY_AGG` in PostgreSQL, `group_concat` in SQLite/MySQL)
-- **Semi-Join and Anti-Join** - New `semi_join()` and `anti_join()` methods that compile to efficient `EXISTS`/`NOT EXISTS` subqueries (implemented as INNER JOIN with DISTINCT and LEFT JOIN with IS NULL)
+- **Semi-Join and Anti-Join** - New `semi_join()` and `anti_join()` methods that compile to efficient `EXISTS`/`NOT EXISTS` subqueries
 - **MERGE/UPSERT Operations** - New `merge()` method on tables for upsert operations with dialect-specific support (SQLite `ON CONFLICT`, PostgreSQL `MERGE`, MySQL `ON DUPLICATE KEY`)
 - **Comprehensive Test Coverage** - All new features include full test coverage with execution tests
 
-## What's New in 0.4.0
+<details>
+<summary><b>Previous Releases</b></summary>
 
-- **Strict Type Checking** - Full mypy strict mode compliance with comprehensive type annotations across the entire codebase
-- **Type Stubs for PyArrow** - Custom type stubs (`stubs/pyarrow/`) to provide type information for pyarrow library
-- **PEP 561 Compliance** - Added `py.typed` marker file to signal that the package is fully typed
-- **Enhanced Type Safety** - All functions and methods now have complete type annotations with improved type inference
-- **Code Quality Improvements** - Removed all unused type ignore comments and fixed type inference issues
+### Version 0.4.0
+- **Strict Type Checking** - Full mypy strict mode compliance with comprehensive type annotations
+- **Type Stubs for PyArrow** - Custom type stubs to provide type information for pyarrow library
+- **PEP 561 Compliance** - Added `py.typed` marker file
+- **Enhanced Type Safety** - Complete type annotations with improved type inference
 
-## What's New in 0.3.0
+### Version 0.3.0
+- **Separation of File Reads and SQL Operations** - File readers return `Records` instead of `DataFrame`
+- **Records Class** - New `Records` and `AsyncRecords` classes for file data
+- **Full Async/Await Support** - Complete async API for all operations
+- **Async Streaming** - Process large datasets asynchronously
 
-- **Separation of File Reads and SQL Operations** - File readers (`db.load.*`) now return `Records` instead of `DataFrame`, making it clear that file data is materialized and not suitable for SQL operations. Use `db.table(name).select()` for SQL queries.
-- **Records Class** - New `Records` and `AsyncRecords` classes for file data that support iteration, indexing, and direct use with insert operations
-- **Full Async/Await Support** - Complete async API for all database operations, file I/O, and DataFrame operations
-- **Async Database Operations** - Use `async_connect()` for async database connections with SQLAlchemy async engines
-- **Async File Operations** - Async reading and writing of CSV, JSON, JSONL, Parquet, and text files
-- **Optional Async Dependencies** - Install async support with `pip install moltres[async-postgresql]` (or async-mysql, async-sqlite)
-- **Async Streaming** - Process large datasets asynchronously with async iterators
+### Version 0.2.0
+- **Environment Variable Support** - Configure via environment variables
+- **Performance Monitoring Hooks** - Track query execution time
+- **Enhanced Security** - Comprehensive SQL injection prevention
+- **Modular Architecture** - Refactored file readers
 
-## What's New in 0.2.0
+</details>
 
-- **Environment Variable Support** - Configure Moltres via `MOLTRES_DSN`, `MOLTRES_POOL_SIZE`, etc.
-- **Performance Monitoring Hooks** - Track query execution time with `register_performance_hook()`
-- **Enhanced Security** - Comprehensive SQL injection prevention and security documentation
-- **Modular Architecture** - Refactored file readers into organized, maintainable modules
-- **Comprehensive Testing** - 113 test cases covering edge cases, security, and error handling
-- **Better Documentation** - Security guide, troubleshooting, and examples documentation
+## 📦 Installation
 
-## 📋 Requirements
+### Requirements
 
 - Python 3.9+
 - SQLAlchemy 2.0+ (for database connectivity)
 - A supported SQLAlchemy driver (SQLite, PostgreSQL, MySQL, etc.)
 
-## 📦 Installation
+### Install Moltres
 
 ```bash
 pip install moltres
@@ -740,15 +784,17 @@ Additional documentation is available in the `docs/` directory:
 
 Contributions are welcome! Please see [`CONTRIBUTING.md`](https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md) for guidelines.
 
+**Quick Start:**
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
-
-MIT License - see [LICENSE](https://github.com/eddiethedean/moltres/blob/main/LICENSE) file for details.
+**Before submitting:**
+- Run tests: `pytest`
+- Check code quality: `ruff check . && mypy src`
+- Update documentation if needed
 
 ## 👤 Author
 
@@ -763,6 +809,16 @@ MIT License - see [LICENSE](https://github.com/eddiethedean/moltres/blob/main/LI
 - Built on SQLAlchemy for database connectivity and SQL compilation
 - Thanks to all contributors and users
 
+## 📄 License
+
+MIT License - see [LICENSE](https://github.com/eddiethedean/moltres/blob/main/LICENSE) file for details.
+
 ---
 
+<div align="center">
+
 **Made with ❤️ for the Python data community**
+
+[⬆ Back to Top](#moltres)
+
+</div>

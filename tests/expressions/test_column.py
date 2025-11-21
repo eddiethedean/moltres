@@ -49,3 +49,46 @@ def test_variadic_string_helpers():
     assert len(expr.args) == 3
     nz = F.coalesce(col("nickname"), col("first"))
     assert nz.op == "coalesce"
+
+
+def test_isnull_isnotnull_aliases():
+    """Test isnull() and isnotnull() aliases for is_null() and is_not_null()."""
+    from moltres.expressions.functions import isnull, isnotnull
+
+    # Test isnull() creates is_null operation
+    isnull_expr = isnull(col("email"))
+    assert isnull_expr.op == "is_null"
+    assert isnull_expr.args[0].source == "email"
+
+    # Test isnotnull() creates is_not_null operation
+    isnotnull_expr = isnotnull(col("email"))
+    assert isnotnull_expr.op == "is_not_null"
+    assert isnotnull_expr.args[0].source == "email"
+
+    # Verify they work the same as is_null() and is_not_null() methods
+    assert isnull_expr.op == col("email").is_null().op
+    assert isnotnull_expr.op == col("email").is_not_null().op
+
+
+def test_cast_decimal_with_precision_scale_execution(tmp_path):
+    """Test cast() to DECIMAL with precision and scale in actual query."""
+    from moltres import connect, col
+
+    db_path = tmp_path / "cast_decimal.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE prices (id INTEGER PRIMARY KEY, amount REAL)")
+        conn.exec_driver_sql("INSERT INTO prices (id, amount) VALUES (1, 99.999), (2, 149.50)")
+
+    # Test casting to DECIMAL with precision and scale
+    df = db.table("prices").select(
+        col("id"), col("amount").cast("DECIMAL", precision=10, scale=2).alias("amount_decimal")
+    )
+
+    result = df.collect()
+    assert len(result) == 2
+    # The cast should work (SQLite will handle it)
+    assert result[0]["id"] == 1
+    assert result[1]["id"] == 2

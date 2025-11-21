@@ -25,8 +25,28 @@ class Column(Expression):
     def alias(self, alias: str) -> "Column":
         return replace(self, _alias=alias)
 
-    def cast(self, type_name: str) -> "Column":
-        return Column(op="cast", args=(self, type_name))
+    def cast(
+        self, type_name: str, precision: Optional[int] = None, scale: Optional[int] = None
+    ) -> "Column":
+        """Cast a column to a different type.
+
+        Args:
+            type_name: SQL type name (e.g., "INTEGER", "DECIMAL", "TIMESTAMP", "DATE", "TIME", "VARCHAR")
+            precision: Optional precision for DECIMAL/NUMERIC types
+            scale: Optional scale for DECIMAL/NUMERIC types
+
+        Returns:
+            Column expression for the cast operation
+
+        Example:
+            >>> col("price").cast("DECIMAL", precision=10, scale=2)
+            >>> col("date_str").cast("DATE")
+            >>> col("timestamp_str").cast("TIMESTAMP")
+        """
+        args: tuple[Any, ...] = (self, type_name)
+        if precision is not None or scale is not None:
+            args = (self, type_name, precision, scale)
+        return Column(op="cast", args=args)
 
     def is_null(self) -> "Column":
         return Column(op="is_null", args=(self,))

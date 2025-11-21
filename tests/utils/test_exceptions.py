@@ -27,12 +27,18 @@ def test_exception_instantiation():
     """Test that exceptions can be instantiated with messages."""
     msg = "Test error message"
 
-    assert str(CompilationError(msg)) == msg
-    assert str(ExecutionError(msg)) == msg
-    assert str(ValidationError(msg)) == msg
-    assert str(SchemaError(msg)) == msg
-    assert str(DatabaseConnectionError(msg)) == msg
-    assert str(UnsupportedOperationError(msg)) == msg
+    # All exceptions may have auto-generated suggestions, so we check that the message is included
+    assert msg in str(CompilationError(msg))
+    assert msg in str(ExecutionError(msg))
+    assert msg in str(ValidationError(msg))
+    assert msg in str(SchemaError(msg))
+    assert msg in str(DatabaseConnectionError(msg))
+    assert msg in str(UnsupportedOperationError(msg))
+
+    # Test that exceptions can be created without suggestions
+    assert msg in str(CompilationError(msg, suggestion=None))
+    assert msg in str(ExecutionError(msg, suggestion=None))
+    assert msg in str(ValidationError(msg, suggestion=None))
 
 
 def test_exception_chaining():

@@ -65,11 +65,24 @@ class QueryExecutor:
 
         try:
             with self._connections.connect() as conn:
+                # Apply query timeout if configured
+                execution_options = {}
+                if self._config.query_timeout is not None:
+                    execution_options["timeout"] = self._config.query_timeout
+
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
                 if isinstance(stmt, Select):
-                    result = conn.execute(stmt)
+                    if execution_options:
+                        result = conn.execution_options(**execution_options).execute(stmt)
+                    else:
+                        result = conn.execute(stmt)
                 else:
-                    result = conn.execute(text(stmt), params or {})
+                    if execution_options:
+                        result = conn.execution_options(**execution_options).execute(
+                            text(stmt), params or {}
+                        )
+                    else:
+                        result = conn.execute(text(stmt), params or {})
                 rows = result.fetchall()
                 columns = list(result.keys())
                 payload = self._format_rows(rows, columns)
@@ -89,6 +102,15 @@ class QueryExecutor:
         except SQLAlchemyError as exc:
             elapsed = time.perf_counter() - start_time
             logger.error("SQL execution failed after %.3f seconds: %s", elapsed, exc, exc_info=True)
+            # Check if it's a timeout error
+            error_str = str(exc).lower()
+            if "timeout" in error_str or "timed out" in error_str:
+                from ..utils.exceptions import QueryTimeoutError
+
+                raise QueryTimeoutError(
+                    f"Query exceeded timeout: {exc}",
+                    timeout=self._config.query_timeout,
+                ) from exc
             raise ExecutionError(f"Failed to execute query: {exc}") from exc
 
     def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:

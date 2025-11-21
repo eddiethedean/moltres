@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-01-21
+
+### Added
+- **Null Handling Convenience Methods** - New `na` property on DataFrame for convenient null handling:
+  - `df.na.drop()` - Drop rows with null values (wrapper around `dropna()`)
+  - `df.na.fill(value)` - Fill null values with a specified value (wrapper around `fillna()`)
+  - Available on both synchronous and asynchronous DataFrames
+- **Random Sampling** - New `sample(fraction, seed=None)` method for random row sampling:
+  - Uses `TABLESAMPLE` clause for PostgreSQL and SQL Server
+  - Falls back to `ORDER BY RANDOM() LIMIT` for SQLite and other dialects
+  - Supports optional seed for reproducible sampling
+- **Enhanced Type System** - New data types with full SQL support:
+  - **Decimal/Numeric with Precision** - `decimal(name, precision, scale)` helper for creating columns with specific precision and scale
+  - **UUID Type** - `uuid(name)` helper with dialect-specific compilation (PostgreSQL `UUID`, MySQL `CHAR(36)`, SQLite `TEXT`)
+  - **JSON/JSONB Type** - `json(name)` helper with dialect-specific compilation (PostgreSQL `JSONB`, MySQL `JSON`, SQLite `TEXT`)
+  - **Date/Time Interval Types** - `interval(name)` helper with interval arithmetic support
+  - All types support precision/scale where applicable and proper casting
+- **Interval Arithmetic Functions** - New functions for date/time interval operations:
+  - `date_add(column, interval)` - Add interval to date/time column (e.g., `date_add(col("date"), "1 DAY")`)
+  - `date_sub(column, interval)` - Subtract interval from date/time column
+  - Dialect-specific compilation with proper interval handling
+- **Join Hints** - New `hints` parameter for `join()` method to provide query optimization hints:
+  - Supports dialect-specific join hints (e.g., `USE_INDEX`, `FORCE_INDEX`, `IGNORE_INDEX`)
+  - Hints are passed through to the SQL compiler for database-specific optimizations
+- **Complex Join Conditions** - Enhanced `join()` method to support arbitrary Column expressions in join conditions:
+  - Beyond simple column pairs, now supports complex predicates and expressions
+  - Enables more sophisticated join logic while maintaining SQL pushdown
+- **Query Plan Analysis** - New `explain(analyze=False)` method on DataFrame:
+  - Returns query execution plan as SQL `EXPLAIN` output
+  - Supports `analyze=True` for execution plan with statistics (PostgreSQL `EXPLAIN ANALYZE`)
+  - Helps with query optimization and debugging
+- **Pivot/Unpivot Operations** - New `pivot()` method for data reshaping:
+  - `df.pivot(pivot_column, value_column, agg_func="sum", pivot_values=None)` - Reshape data by pivoting columns
+  - Compiles to `CASE WHEN` with aggregation for cross-dialect compatibility
+  - Supports custom aggregation functions (sum, avg, count, min, max)
+  - Automatically detects pivot values if not specified
+
+### Changed
+- Enhanced `cast()` function to support more SQL types with precision/scale (DECIMAL, TIMESTAMP, DATE, TIME, INTERVAL)
+- Improved type annotations throughout the codebase for better IDE support and type safety
+
+### Fixed
+- Fixed mypy type checking errors related to type annotations in compiler and DDL modules
+- Fixed ruff linting errors for unused imports and code formatting
+
 ## [0.5.0] - 2025-01-21
 
 ### Added
@@ -145,7 +190,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/eddiethedean/moltres/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/eddiethedean/moltres/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/eddiethedean/moltres/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/eddiethedean/moltres/compare/v0.2.0...v0.3.0

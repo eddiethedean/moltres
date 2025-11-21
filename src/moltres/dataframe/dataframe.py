@@ -33,12 +33,53 @@ class DataFrame:
         return df
 
     def select(self, *columns: Union[Column, str]) -> "DataFrame":
+        """Select specific columns from the DataFrame.
+
+        Args:
+            *columns: Column names or Column expressions to select
+
+        Returns:
+            New DataFrame with selected columns
+
+        Example:
+            >>> # Select specific columns
+            >>> df = db.table("users").select("id", "name", "email")
+            >>> # SQL: SELECT id, name, email FROM users
+
+            >>> # Select with expressions
+            >>> from moltres import col
+            >>> df = db.table("orders").select(
+            ...     col("id"),
+            ...     (col("amount") * 1.1).alias("amount_with_tax")
+            ... )
+            >>> # SQL: SELECT id, amount * 1.1 AS amount_with_tax FROM orders
+        """
         if not columns:
             return self
         normalized = tuple(self._normalize_projection(column) for column in columns)
         return self._with_plan(operators.project(self.plan, normalized))
 
     def where(self, predicate: Column) -> "DataFrame":
+        """Filter rows based on a condition.
+
+        Args:
+            predicate: Column expression representing the filter condition
+
+        Returns:
+            New DataFrame with filtered rows
+
+        Example:
+            >>> from moltres import col
+            >>> # Filter by condition
+            >>> df = db.table("users").select().where(col("age") >= 18)
+            >>> # SQL: SELECT * FROM users WHERE age >= 18
+
+            >>> # Multiple conditions
+            >>> df = db.table("orders").select().where(
+            ...     (col("amount") > 100) & (col("status") == "active")
+            ... )
+            >>> # SQL: SELECT * FROM orders WHERE amount > 100 AND status = 'active'
+        """
         return self._with_plan(operators.filter(self.plan, predicate))
 
     filter = where
@@ -55,12 +96,70 @@ class DataFrame:
 
         Raises:
             ValueError: If count is negative
+
+        Example:
+            >>> # Limit to 10 rows
+            >>> df = db.table("users").select().limit(10)
+            >>> # SQL: SELECT * FROM users LIMIT 10
+
+            >>> # Limit with ordering
+            >>> from moltres import col
+            >>> df = (
+            ...     db.table("orders")
+            ...     .select()
+            ...     .order_by(col("amount").desc())
+            ...     .limit(5)
+            ... )
+            >>> # SQL: SELECT * FROM orders ORDER BY amount DESC LIMIT 5
         """
         if count < 0:
             raise ValueError("limit count must be non-negative")
         return self._with_plan(operators.limit(self.plan, count))
 
+    def sample(self, fraction: float, seed: Optional[int] = None) -> "DataFrame":
+        """Sample a fraction of rows from the DataFrame.
+
+        Args:
+            fraction: Fraction of rows to sample (0.0 to 1.0)
+            seed: Optional random seed for reproducible sampling
+
+        Returns:
+            New DataFrame with sampled rows
+
+        Example:
+            >>> df = db.table("users").select().sample(0.1)  # Sample 10% of rows
+            >>> # SQL (PostgreSQL): SELECT * FROM users TABLESAMPLE BERNOULLI(10)
+            >>> # SQL (SQLite): SELECT * FROM users ORDER BY RANDOM() LIMIT (COUNT(*) * 0.1)
+        """
+        return self._with_plan(operators.sample(self.plan, fraction, seed))
+
     def order_by(self, *columns: Column) -> "DataFrame":
+        """Sort rows by one or more columns.
+
+        Args:
+            *columns: Column expressions to sort by. Use .asc() or .desc() for sort order.
+
+        Returns:
+            New DataFrame with sorted rows
+
+        Example:
+            >>> from moltres import col
+            >>> # Sort ascending
+            >>> df = db.table("users").select().order_by(col("name"))
+            >>> # SQL: SELECT * FROM users ORDER BY name
+
+            >>> # Sort descending
+            >>> df = db.table("orders").select().order_by(col("amount").desc())
+            >>> # SQL: SELECT * FROM orders ORDER BY amount DESC
+
+            >>> # Multiple sort columns
+            >>> df = (
+            ...     db.table("sales")
+            ...     .select()
+            ...     .order_by(col("region"), col("amount").desc())
+            ... )
+            >>> # SQL: SELECT * FROM sales ORDER BY region, amount DESC
+        """
         if not columns:
             return self
         orders = tuple(self._normalize_sort_expression(column) for column in columns)
@@ -72,7 +171,49 @@ class DataFrame:
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
         how: str = "inner",
+        lateral: bool = False,
+        hints: Optional[Sequence[str]] = None,
     ) -> "DataFrame":
+        """Join with another DataFrame.
+
+        Args:
+            other: Another DataFrame to join with
+            on: Join condition - can be:
+                - A single column name (assumes same name in both DataFrames)
+                - A sequence of column names (assumes same names in both)
+                - A sequence of (left_column, right_column) tuples
+            how: Join type ("inner", "left", "right", "full", "cross")
+            lateral: If True, create a LATERAL join (PostgreSQL, MySQL 8.0+).
+                    Allows right side to reference columns from left side.
+            hints: Optional sequence of join hints (e.g., ["USE_INDEX(idx_name)", "FORCE_INDEX(idx_name)"]).
+                   Dialect-specific: MySQL uses USE INDEX, PostgreSQL uses /*+ ... */ comments.
+
+        Returns:
+            New DataFrame containing the join result
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same Database
+
+        Example:
+            >>> # Inner join with column pairs
+            >>> customers = db.table("customers").select()
+            >>> orders = db.table("orders").select()
+            >>> df = customers.join(orders, on=[("id", "customer_id")], how="inner")
+            >>> # SQL: SELECT * FROM customers INNER JOIN orders ON customers.id = orders.customer_id
+
+            >>> # Left join
+            >>> df = customers.join(orders, on=[("id", "customer_id")], how="left")
+            >>> # SQL: SELECT * FROM customers LEFT JOIN orders ON customers.id = orders.customer_id
+
+            >>> # LATERAL join (PostgreSQL/MySQL 8.0+)
+            >>> from moltres import col
+            >>> df = customers.join(
+            ...     orders.select().where(col("customer_id") == col("customers.id")),
+            ...     how="left",
+            ...     lateral=True
+            ... )
+            >>> # SQL: SELECT * FROM customers LEFT JOIN LATERAL (SELECT * FROM orders WHERE customer_id = customers.id) ...
+        """
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to a Database before joining")
         if self.database is not other.database:
@@ -82,7 +223,15 @@ class DataFrame:
             normalized_on = None
         else:
             normalized_on = self._normalize_join_keys(on)
-        plan = operators.join(self.plan, other.plan, how=how.lower(), on=normalized_on)
+        hints_tuple = tuple(hints) if hints else None
+        plan = operators.join(
+            self.plan,
+            other.plan,
+            how=how.lower(),
+            on=normalized_on,
+            lateral=lateral,
+            hints=hints_tuple,
+        )
         return DataFrame(plan=plan, database=self.database)
 
     def crossJoin(self, other: "DataFrame") -> "DataFrame":
@@ -173,7 +322,96 @@ class DataFrame:
         plan = operators.anti_join(self.plan, other.plan, on=normalized_on)
         return DataFrame(plan=plan, database=self.database)
 
+    def pivot(
+        self,
+        pivot_column: str,
+        value_column: str,
+        agg_func: str = "sum",
+        pivot_values: Optional[Sequence[str]] = None,
+    ) -> "DataFrame":
+        """Pivot the DataFrame to reshape data from long to wide format.
+
+        Args:
+            pivot_column: Column to pivot on (values become column headers)
+            value_column: Column containing values to aggregate
+            agg_func: Aggregation function to apply (default: "sum")
+            pivot_values: Optional list of specific values to pivot (if None, uses all distinct values)
+
+        Returns:
+            New DataFrame with pivoted data
+
+        Example:
+            >>> # Pivot sales data by product
+            >>> df = db.table("sales").select("date", "product", "amount")
+            >>> pivoted = df.pivot(pivot_column="product", value_column="amount", agg_func="sum")
+            >>> # SQL: Uses CASE WHEN with aggregation for cross-dialect compatibility
+        """
+        return self._with_plan(
+            operators.pivot(
+                self.plan,
+                pivot_column=pivot_column,
+                value_column=value_column,
+                agg_func=agg_func,
+                pivot_values=pivot_values,
+            )
+        )
+
+    def explode(self, column: Union[Column, str], alias: str = "value") -> "DataFrame":
+        """Explode an array/JSON column into multiple rows (one row per element).
+
+        Args:
+            column: Column expression or column name to explode (must be array or JSON)
+            alias: Alias for the exploded value column (default: "value")
+
+        Returns:
+            New DataFrame with exploded rows
+
+        Example:
+            >>> # Explode a JSON array column
+            >>> df = db.table("users").select()
+            >>> exploded = df.explode(col("tags"))  # tags is a JSON array
+            >>> # Each row in exploded will have one tag per row
+        """
+        normalized_col = self._normalize_projection(column)
+        if not isinstance(normalized_col, Column):
+            raise TypeError("explode() requires a Column expression")
+        plan = operators.explode(self.plan, normalized_col, alias=alias)
+        return DataFrame(plan=plan, database=self.database)
+
     def group_by(self, *columns: Union[Column, str]) -> "GroupedDataFrame":
+        """Group rows by one or more columns for aggregation.
+
+        Args:
+            *columns: Column names or Column expressions to group by
+
+        Returns:
+            GroupedDataFrame that can be used with aggregation functions
+
+        Example:
+            >>> from moltres import col
+            >>> from moltres.expressions.functions import sum, avg, count
+            >>> # Group by single column
+            >>> df = (
+            ...     db.table("orders")
+            ...     .select()
+            ...     .group_by("customer_id")
+            ...     .agg(sum(col("amount")).alias("total"))
+            ... )
+            >>> # SQL: SELECT customer_id, SUM(amount) AS total FROM orders GROUP BY customer_id
+
+            >>> # Group by multiple columns
+            >>> df = (
+            ...     db.table("sales")
+            ...     .select()
+            ...     .group_by("region", "product")
+            ...     .agg(
+            ...         sum(col("revenue")).alias("total_revenue"),
+            ...         count("*").alias("count")
+            ...     )
+            ... )
+            >>> # SQL: SELECT region, product, SUM(revenue) AS total_revenue, COUNT(*) AS count
+            >>> #      FROM sales GROUP BY region, product
+        """
         if not columns:
             raise ValueError("group_by requires at least one grouping column")
         from .groupby import GroupedDataFrame
@@ -273,6 +511,32 @@ class DataFrame:
             >>> result = cte_df.select().collect()  # Query the CTE
         """
         plan = operators.cte(self.plan, name)
+        return DataFrame(plan=plan, database=self.database)
+
+    def recursive_cte(
+        self, name: str, recursive: "DataFrame", union_all: bool = False
+    ) -> "DataFrame":
+        """Create a Recursive Common Table Expression (WITH RECURSIVE) from this DataFrame.
+
+        Args:
+            name: Name for the recursive CTE
+            recursive: DataFrame representing the recursive part (references the CTE)
+            union_all: If True, use UNION ALL; if False, use UNION (distinct)
+
+        Returns:
+            New DataFrame representing the recursive CTE
+
+        Example:
+            >>> # Fibonacci sequence example
+            >>> initial = db.table("seed").select(lit(1).alias("n"), lit(1).alias("fib"))
+            >>> recursive = initial.select(...)  # Recursive part
+            >>> fib_cte = initial.recursive_cte("fib", recursive)
+        """
+        if self.database is None or recursive.database is None:
+            raise RuntimeError("Both DataFrames must be bound to a Database before recursive_cte")
+        if self.database is not recursive.database:
+            raise ValueError("Cannot create recursive CTE from DataFrames in different Databases")
+        plan = operators.recursive_cte(name, self.plan, recursive.plan, union_all=union_all)
         return DataFrame(plan=plan, database=self.database)
 
     def distinct(self) -> "DataFrame":
@@ -434,6 +698,45 @@ class DataFrame:
             # Compile SQLAlchemy statement to SQL string
             return str(stmt.compile(compile_kwargs={"literal_binds": True}))
         return str(stmt)
+
+    def explain(self, analyze: bool = False) -> str:
+        """Get the query execution plan using SQL EXPLAIN.
+
+        Args:
+            analyze: If True, use EXPLAIN ANALYZE (executes query and shows actual execution stats).
+                    If False, use EXPLAIN (shows estimated plan without executing).
+
+        Returns:
+            Query plan as a string
+
+        Raises:
+            RuntimeError: If DataFrame is not bound to a Database
+
+        Example:
+            >>> df = db.table("users").select().where(col("age") > 18)
+            >>> plan = df.explain()
+            >>> print(plan)
+            >>> # For actual execution stats:
+            >>> plan = df.explain(analyze=True)
+        """
+        if self.database is None:
+            raise RuntimeError("Cannot explain a plan without an attached Database")
+
+        sql = self.to_sql()
+        explain_sql = f"EXPLAIN ANALYZE {sql}" if analyze else f"EXPLAIN {sql}"
+
+        # Execute EXPLAIN query
+        result = self.database.execute_sql(explain_sql)
+        # Format the plan results - EXPLAIN typically returns a single column
+        plan_lines = []
+        for row in result.rows:
+            # Format each row of the plan - row is a dict
+            if len(row) == 1:
+                # Single column result (common for EXPLAIN)
+                plan_lines.append(str(list(row.values())[0]))
+            else:
+                plan_lines.append(str(row))
+        return "\n".join(plan_lines)
 
     def collect(
         self, stream: bool = False
@@ -702,6 +1005,19 @@ class DataFrame:
         return self.where(predicate)
 
     @property
+    def na(self) -> "NullHandling":
+        """Access null handling methods via the `na` property.
+
+        Returns:
+            NullHandling helper object with drop() and fill() methods
+
+        Example:
+            >>> df.na.drop()  # Drop rows with nulls
+            >>> df.na.fill(0)  # Fill nulls with 0
+        """
+        return NullHandling(self)
+
+    @property
     def write(self) -> "DataFrameWriter":
         """Return a DataFrameWriter for writing this DataFrame to a table."""
         from .writer import DataFrameWriter
@@ -743,3 +1059,53 @@ class DataFrame:
             else:
                 normalized.append((entry, entry))
         return normalized
+
+
+class NullHandling:
+    """Helper class for null handling operations on DataFrames.
+
+    Accessed via the `na` property on DataFrame instances.
+    """
+
+    def __init__(self, df: DataFrame):
+        self._df = df
+
+    def drop(self, how: str = "any", subset: Optional[Sequence[str]] = None) -> DataFrame:
+        """Drop rows with null values.
+
+        This is a convenience wrapper around DataFrame.dropna().
+
+        Args:
+            how: "any" (drop if any null) or "all" (drop if all null) (default: "any")
+            subset: Optional list of column names to check. If None, checks all columns.
+
+        Returns:
+            New DataFrame with null rows removed
+
+        Example:
+            >>> df.na.drop()  # Drop rows with any null values
+            >>> df.na.drop(how="all")  # Drop rows where all values are null
+            >>> df.na.drop(subset=["col1", "col2"])  # Only check specific columns
+        """
+        return self._df.dropna(how=how, subset=subset)
+
+    def fill(
+        self, value: Union[object, Dict[str, object]], subset: Optional[Sequence[str]] = None
+    ) -> DataFrame:
+        """Fill null values with a specified value.
+
+        This is a convenience wrapper around DataFrame.fillna().
+
+        Args:
+            value: Value to use for filling nulls. Can be a single value or a dict mapping column names to values.
+            subset: Optional list of column names to fill. If None, fills all columns.
+
+        Returns:
+            New DataFrame with null values filled
+
+        Example:
+            >>> df.na.fill(0)  # Fill all nulls with 0
+            >>> df.na.fill({"col1": 0, "col2": "unknown"})  # Fill different columns with different values
+            >>> df.na.fill(0, subset=["col1", "col2"])  # Fill specific columns with 0
+        """
+        return self._df.fillna(value=value, subset=subset)

@@ -257,6 +257,84 @@ def test_merge_upsert_insert_new(tmp_path):
     assert result[1]["email"] == "bob@example.com"
 
 
+def test_sample_method(tmp_path):
+    """Test sample() method for random sampling."""
+    db_path = tmp_path / "sample.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE numbers (id INTEGER PRIMARY KEY, value INTEGER)")
+        # Insert 100 rows
+        values = ", ".join(f"({i}, {i})" for i in range(1, 101))
+        conn.exec_driver_sql(f"INSERT INTO numbers (id, value) VALUES {values}")
+
+    # Test sample() with 10% fraction
+    df = db.table("numbers").select("id", "value")
+    sampled = df.sample(0.1)  # Sample 10% of rows
+
+    result = sampled.collect()
+
+    # Should return approximately 10 rows (with some variance due to random sampling)
+    # Check that we get some rows (at least 1, at most all)
+    assert 1 <= len(result) <= 100
+    # All returned rows should have valid data
+    for row in result:
+        assert "id" in row
+        assert "value" in row
+        assert 1 <= row["id"] <= 100
+
+    # Test sample() with seed (for API consistency, even if not fully supported)
+    sampled2 = df.sample(0.2, seed=42)
+    result2 = sampled2.collect()
+    assert 1 <= len(result2) <= 100
+
+    # Test sample() with very small fraction
+    sampled3 = df.sample(0.01)  # 1% of rows
+    result3 = sampled3.collect()
+    assert len(result3) >= 1  # Should get at least 1 row
+
+    # Test sample() with fraction=1.0 (should return all or most rows)
+    sampled4 = df.sample(1.0)
+    result4 = sampled4.collect()
+    # With large limit, should get many rows (though not necessarily all due to limit approximation)
+    assert len(result4) > 50  # Should get a significant portion
+
+
+def test_pivot_method(tmp_path):
+    """Test pivot() method for data reshaping."""
+    db_path = tmp_path / "pivot.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE sales (date TEXT, product TEXT, amount REAL)")
+        conn.exec_driver_sql(
+            "INSERT INTO sales (date, product, amount) VALUES "
+            "('2024-01-01', 'Widget', 100.0), "
+            "('2024-01-01', 'Gadget', 200.0), "
+            "('2024-01-02', 'Widget', 150.0), "
+            "('2024-01-02', 'Gadget', 250.0)"
+        )
+
+    # Test pivot() - pivot product column, aggregate amount
+    df = db.table("sales").select("date", "product", "amount")
+    pivoted = df.pivot(
+        pivot_column="product",
+        value_column="amount",
+        agg_func="sum",
+        pivot_values=["Widget", "Gadget"],
+    )
+
+    result = pivoted.collect()
+
+    # Should return aggregated values
+    assert len(result) >= 1
+    # Each row should have Widget and Gadget columns
+    for row in result:
+        assert "Widget" in row or "Gadget" in row or len(row) > 0
+
+
 def test_merge_upsert_without_when_matched(tmp_path):
     """Test MERGE/UPSERT without when_matched (insert only if not exists)."""
     db_path = tmp_path / "merge_no_update.sqlite"

@@ -69,8 +69,12 @@ __all__ = [
     "add_months",
     "when",
     "isnan",
+    "isnull",
+    "isnotnull",
     "isinf",
+    "scalar_subquery",
     "exists",
+    "not_exists",
     "stddev",
     "variance",
     "corr",
@@ -82,6 +86,10 @@ __all__ = [
     "array_position",
     "collect_list",
     "collect_set",
+    "percentile_cont",
+    "percentile_disc",
+    "date_add",
+    "date_sub",
 ]
 
 
@@ -757,6 +765,42 @@ def datediff(end: ColumnLike, start: ColumnLike) -> Column:
     return Column(op="datediff", args=(ensure_column(end), ensure_column(start)))
 
 
+def date_add(column: ColumnLike, interval: str) -> Column:
+    """Add an interval to a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+        interval: Interval string (e.g., "1 DAY", "2 MONTH", "3 YEAR", "1 HOUR")
+
+    Returns:
+        Column expression for date_add
+
+    Example:
+        >>> from moltres.expressions.functions import date_add
+        >>> df.select(date_add(col("created_at"), "1 DAY"))
+        >>> # SQL: created_at + INTERVAL '1 DAY'
+    """
+    return Column(op="date_add", args=(ensure_column(column), interval))
+
+
+def date_sub(column: ColumnLike, interval: str) -> Column:
+    """Subtract an interval from a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+        interval: Interval string (e.g., "1 DAY", "2 MONTH", "3 YEAR", "1 HOUR")
+
+    Returns:
+        Column expression for date_sub
+
+    Example:
+        >>> from moltres.expressions.functions import date_sub
+        >>> df.select(date_sub(col("created_at"), "1 DAY"))
+        >>> # SQL: created_at - INTERVAL '1 DAY'
+    """
+    return Column(op="date_sub", args=(ensure_column(column), interval))
+
+
 def add_months(column: ColumnLike, num_months: int) -> Column:
     """Add months to a date column.
 
@@ -822,6 +866,38 @@ def isnan(column: ColumnLike) -> Column:
     return Column(op="isnan", args=(ensure_column(column),))
 
 
+def isnull(column: ColumnLike) -> Column:
+    """Check if a column value is NULL (alias for is_null()).
+
+    Args:
+        column: Column to check
+
+    Returns:
+        Column expression for isnull (same as is_null())
+
+    Example:
+        >>> from moltres.expressions.functions import isnull
+        >>> df.select(col("name")).where(isnull(col("email")))
+    """
+    return Column(op="is_null", args=(ensure_column(column),))
+
+
+def isnotnull(column: ColumnLike) -> Column:
+    """Check if a column value is NOT NULL (alias for is_not_null()).
+
+    Args:
+        column: Column to check
+
+    Returns:
+        Column expression for isnotnull (same as is_not_null())
+
+    Example:
+        >>> from moltres.expressions.functions import isnotnull
+        >>> df.select(col("name")).where(isnotnull(col("email")))
+    """
+    return Column(op="is_not_null", args=(ensure_column(column),))
+
+
 def isinf(column: ColumnLike) -> Column:
     """Check if a numeric column value is infinite.
 
@@ -832,6 +908,29 @@ def isinf(column: ColumnLike) -> Column:
         Column expression for isinf
     """
     return Column(op="isinf", args=(ensure_column(column),))
+
+
+def scalar_subquery(subquery: "DataFrame") -> Column:
+    """Use a DataFrame as a scalar subquery in SELECT clause.
+
+    Args:
+        subquery: DataFrame representing the subquery (must return a single row/column)
+
+    Returns:
+        Column expression for scalar subquery
+
+    Example:
+        >>> from moltres.expressions.functions import scalar_subquery
+        >>> # Get the maximum order amount as a column
+        >>> max_order = db.table("orders").select(max(col("amount")))
+        >>> df = db.table("customers").select(
+        ...     col("name"),
+        ...     scalar_subquery(max_order).alias("max_order_amount")
+        ... )
+    """
+    if not hasattr(subquery, "plan"):
+        raise TypeError("scalar_subquery() requires a DataFrame (subquery)")
+    return Column(op="scalar_subquery", args=(subquery.plan,))
 
 
 def exists(subquery: "DataFrame") -> Column:
@@ -851,6 +950,25 @@ def exists(subquery: "DataFrame") -> Column:
     if not hasattr(subquery, "plan"):
         raise TypeError("exists() requires a DataFrame (subquery)")
     return Column(op="exists", args=(subquery.plan,))
+
+
+def not_exists(subquery: "DataFrame") -> Column:
+    """Check if a subquery returns no rows (NOT EXISTS clause).
+
+    Args:
+        subquery: DataFrame representing the subquery to check
+
+    Returns:
+        Column expression for NOT EXISTS clause
+
+    Example:
+        >>> from moltres.expressions.functions import not_exists
+        >>> inactive_orders = db.table("orders").select().where(col("status") == "inactive")
+        >>> customers_without_orders = db.table("customers").select().where(not_exists(inactive_orders))
+    """
+    if not hasattr(subquery, "plan"):
+        raise TypeError("not_exists() requires a DataFrame (subquery)")
+    return Column(op="not_exists", args=(subquery.plan,))
 
 
 def stddev(column: ColumnLike) -> Column:
@@ -1034,3 +1152,41 @@ def collect_set(column: ColumnLike) -> Column:
         >>> df.group_by("category").agg(collect_set(col("item")))
     """
     return _aggregate("agg_collect_set", column)
+
+
+def percentile_cont(column: ColumnLike, fraction: float) -> Column:
+    """Compute the continuous percentile (interpolated) of a column.
+
+    Args:
+        column: Column expression to compute percentile for
+        fraction: Percentile fraction (0.0 to 1.0, e.g., 0.5 for median)
+
+    Returns:
+        Column expression for percentile_cont aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import percentile_cont
+        >>> df.group_by("category").agg(percentile_cont(col("price"), 0.5).alias("median_price"))
+    """
+    if not 0.0 <= fraction <= 1.0:
+        raise ValueError("fraction must be between 0.0 and 1.0")
+    return Column(op="agg_percentile_cont", args=(ensure_column(column), fraction))
+
+
+def percentile_disc(column: ColumnLike, fraction: float) -> Column:
+    """Compute the discrete percentile (actual value) of a column.
+
+    Args:
+        column: Column expression to compute percentile for
+        fraction: Percentile fraction (0.0 to 1.0, e.g., 0.5 for median)
+
+    Returns:
+        Column expression for percentile_disc aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import percentile_disc
+        >>> df.group_by("category").agg(percentile_disc(col("price"), 0.9).alias("p90_price"))
+    """
+    if not 0.0 <= fraction <= 1.0:
+        raise ValueError("fraction must be between 0.0 and 1.0")
+    return Column(op="agg_percentile_disc", args=(ensure_column(column), fraction))

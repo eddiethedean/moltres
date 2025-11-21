@@ -1,5 +1,5 @@
 from moltres import col, connect
-from moltres.expressions.functions import sum as sum_
+from moltres.expressions.functions import isnull, isnotnull, sum as sum_
 from moltres.io.read import read_table
 
 
@@ -251,3 +251,32 @@ def test_exists_subquery(tmp_path):
     result2 = customers_with_any_orders.collect()
     # If EXISTS works, this should return all customers (since orders exist)
     assert len(result2) == 3
+
+
+def test_isnull_isnotnull_execution(tmp_path):
+    """Test isnull() and isnotnull() functions in actual SQL queries."""
+    db_path = tmp_path / "isnull_test.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)")
+        conn.exec_driver_sql(
+            "INSERT INTO users (id, name, email) VALUES "
+            "(1, 'Alice', 'alice@example.com'), "
+            "(2, 'Bob', NULL), "
+            "(3, 'Charlie', 'charlie@example.com')"
+        )
+
+    # Test isnull() - should return users with NULL email
+    df_null = db.table("users").select().where(isnull(col("email")))
+    result_null = df_null.collect()
+    assert len(result_null) == 1
+    assert result_null[0]["name"] == "Bob"
+
+    # Test isnotnull() - should return users with non-NULL email
+    df_not_null = db.table("users").select().where(isnotnull(col("email")))
+    result_not_null = df_not_null.collect()
+    assert len(result_not_null) == 2
+    names = {row["name"] for row in result_not_null}
+    assert names == {"Alice", "Charlie"}

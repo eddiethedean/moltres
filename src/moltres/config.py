@@ -22,6 +22,7 @@ class EngineConfig:
     pool_timeout: int | None = None
     pool_recycle: int | None = None
     pool_pre_ping: bool = False
+    query_timeout: float | None = None  # Query execution timeout in seconds
     future: bool = True
 
 
@@ -73,6 +74,9 @@ def _load_env_config() -> dict[str, object]:
             "on",
         )
 
+    if "MOLTRES_QUERY_TIMEOUT" in os.environ:
+        config["query_timeout"] = float(os.environ["MOLTRES_QUERY_TIMEOUT"])
+
     return config
 
 
@@ -89,6 +93,7 @@ def create_config(dsn: str | None = None, **kwargs: object) -> MoltresConfig:
     - MOLTRES_POOL_TIMEOUT: Pool timeout in seconds
     - MOLTRES_POOL_RECYCLE: Connection recycle time in seconds
     - MOLTRES_POOL_PRE_PING: Enable connection health checks (true/false)
+    - MOLTRES_QUERY_TIMEOUT: Query execution timeout in seconds
 
     Args:
         dsn: Database connection string (e.g., "sqlite:///example.db").
@@ -102,6 +107,7 @@ def create_config(dsn: str | None = None, **kwargs: object) -> MoltresConfig:
             - pool_timeout: Pool timeout in seconds
             - pool_recycle: Connection recycle time in seconds
             - pool_pre_ping: Enable connection health checks
+            - query_timeout: Query execution timeout in seconds
             - future: Use SQLAlchemy 2.0 style (default: True)
             - Other options are stored in config.options
 

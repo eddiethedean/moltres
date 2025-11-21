@@ -62,6 +62,24 @@ class Limit(LogicalPlan):
 
 
 @dataclass(frozen=True)
+class Sample(LogicalPlan):
+    """Sample rows from a DataFrame.
+
+    Args:
+        child: The logical plan to sample from
+        fraction: Fraction of rows to sample (0.0 to 1.0)
+        seed: Optional random seed for reproducible sampling
+    """
+
+    child: LogicalPlan
+    fraction: float
+    seed: Optional[int] = None
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.child,)
+
+
+@dataclass(frozen=True)
 class SortOrder:
     expression: Column
     descending: bool = False
@@ -93,6 +111,8 @@ class Join(LogicalPlan):
     how: str
     on: tuple[tuple[str, str], ...] | None = None
     condition: Column | None = None
+    lateral: bool = False  # True for LATERAL join (PostgreSQL, MySQL 8.0+)
+    hints: tuple[str, ...] | None = None  # Join hints (e.g., "USE_INDEX", "FORCE_INDEX")
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.left, self.right)
@@ -148,6 +168,19 @@ class CTE(LogicalPlan):
 
 
 @dataclass(frozen=True)
+class RecursiveCTE(LogicalPlan):
+    """Recursive Common Table Expression (WITH RECURSIVE) - for recursive queries."""
+
+    name: str
+    initial: LogicalPlan  # Initial/seed query
+    recursive: LogicalPlan  # Recursive part that references the CTE
+    union_all: bool = False  # True for UNION ALL, False for UNION
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.initial, self.recursive)
+
+
+@dataclass(frozen=True)
 class SemiJoin(LogicalPlan):
     """Semi-join: returns rows from left where a matching row exists in right (EXISTS subquery)."""
 
@@ -171,3 +204,37 @@ class AntiJoin(LogicalPlan):
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.left, self.right)
+
+
+@dataclass(frozen=True)
+class Pivot(LogicalPlan):
+    """Pivot operation for data reshaping.
+
+    Args:
+        child: The logical plan to pivot
+        pivot_column: Column to pivot on (becomes column headers)
+        value_column: Column containing values to aggregate
+        agg_func: Aggregation function name (e.g., "sum", "avg", "count")
+        pivot_values: Optional list of specific values to pivot (if None, uses all distinct values)
+    """
+
+    child: LogicalPlan
+    pivot_column: str
+    value_column: str
+    agg_func: str
+    pivot_values: tuple[str, ...] | None = None
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.child,)
+
+
+@dataclass(frozen=True)
+class Explode(LogicalPlan):
+    """Explode: expands array/JSON column into multiple rows (one row per element)."""
+
+    child: LogicalPlan
+    column: Column
+    alias: str = "value"  # Alias for the exploded value column
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.child,)

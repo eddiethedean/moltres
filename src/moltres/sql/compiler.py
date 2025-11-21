@@ -16,12 +16,16 @@ from ..logical.plan import (
     CTE,
     Distinct,
     Except,
+    Explode,
     Filter,
     Intersect,
     Join,
     Limit,
     LogicalPlan,
+    Pivot,
     Project,
+    RecursiveCTE,
+    Sample,
     SemiJoin,
     Sort,
     SortOrder,
@@ -92,6 +96,27 @@ class SQLCompiler:
 
             return select(literal_column("*")).select_from(cte_obj)
 
+        if isinstance(plan, RecursiveCTE):
+            # WITH RECURSIVE: compile initial and recursive parts
+            initial_stmt = self._compile_plan(plan.initial)
+            recursive_stmt = self._compile_plan(plan.recursive)
+
+            # Create recursive CTE using SQLAlchemy's recursive CTE support
+            # SQLAlchemy uses .cte(recursive=True) for recursive CTEs
+            from sqlalchemy import literal_column
+
+            # For recursive CTEs, we need to combine initial and recursive with UNION/UNION ALL
+            if plan.union_all:
+                combined = initial_stmt.union_all(recursive_stmt)
+            else:
+                combined = initial_stmt.union(recursive_stmt)
+
+            # Create recursive CTE
+            recursive_cte_obj = combined.cte(name=plan.name, recursive=True)
+
+            # Return a select from the recursive CTE
+            return select(literal_column("*")).select_from(recursive_cte_obj)
+
         if isinstance(plan, TableScan):
             sa_table = table(plan.table)
             if plan.alias:
@@ -147,6 +172,23 @@ class SQLCompiler:
         if isinstance(plan, Limit):
             child_stmt = self._compile_plan(plan.child)
             return child_stmt.limit(plan.count)
+
+        if isinstance(plan, Sample):
+            child_stmt = self._compile_plan(plan.child)
+            # Use ORDER BY RANDOM() with LIMIT based on fraction
+            # This works across most SQL dialects (SQLite, PostgreSQL, MySQL)
+            from sqlalchemy import func as sa_func
+
+            # Calculate approximate limit - use a reasonable default
+            # In practice, for exact fraction sampling, we'd need to know row count first
+            # For now, use a large limit as approximation
+            limit_count = max(1, int(plan.fraction * 10000))  # Reasonable default for large tables
+            result = child_stmt.order_by(sa_func.random())
+            if plan.seed is not None:
+                # Most databases don't support seed in RANDOM(), but we accept it for API consistency
+                # PostgreSQL supports setseed() but it's not easily composable here
+                pass
+            return result.limit(limit_count)
 
         if isinstance(plan, Sort):
             child_stmt = self._compile_plan(plan.child)
@@ -236,13 +278,45 @@ class SQLCompiler:
                 join_condition = None
             else:
                 raise CompilationError(
-                    "Join requires either 'on' keys or a 'condition' (except for cross joins)"
+                    "Join requires either 'on' keys or a 'condition' (except for cross joins)",
+                    suggestion=(
+                        "Provide join conditions using either:\n"
+                        "  - on=[('left_col', 'right_col')] for equality joins\n"
+                        "  - condition=col('left_col') == col('right_col') for custom conditions\n"
+                        "  - how='cross' for cross joins (no condition needed)"
+                    ),
                 )
 
             # Build join - use SELECT * to get all columns from both sides
             from sqlalchemy import literal_column
 
-            if plan.how == "cross":
+            # Handle LATERAL joins (PostgreSQL, MySQL 8.0+)
+            if plan.lateral:
+                if self.dialect.name not in ("postgresql", "mysql"):
+                    raise CompilationError(
+                        f"LATERAL joins are not supported for {self.dialect.name} dialect. "
+                        "Supported dialects: PostgreSQL, MySQL 8.0+"
+                    )
+                from sqlalchemy import lateral
+
+                # Wrap right side in lateral()
+                right_lateral = lateral(right_subq)
+                if plan.how == "cross":
+                    stmt = select(literal_column("*")).select_from(left_subq, right_lateral)
+                elif plan.how == "inner":
+                    stmt = select(literal_column("*")).select_from(
+                        left_subq.join(right_lateral, join_condition)
+                    )
+                elif plan.how == "left":
+                    stmt = select(literal_column("*")).select_from(
+                        left_subq.join(right_lateral, join_condition, isouter=True)
+                    )
+                else:
+                    raise CompilationError(
+                        f"LATERAL join with '{plan.how}' join type is not supported. "
+                        "Supported types: inner, left, cross"
+                    )
+            elif plan.how == "cross":
                 # Cross join doesn't need a condition
                 stmt = select(literal_column("*")).select_from(left_subq, right_subq)
             elif plan.how == "inner":
@@ -262,7 +336,13 @@ class SQLCompiler:
                     left_subq.join(right_subq, join_condition, full=True)
                 )
             else:
-                raise CompilationError(f"Unsupported join type: {plan.how}")
+                raise CompilationError(
+                    f"Unsupported join type: {plan.how}",
+                    suggestion=(
+                        f"Supported join types are: 'inner', 'left', 'right', 'full', 'cross'. "
+                        f"Received: {plan.how!r}"
+                    ),
+                )
 
             return stmt
 
@@ -324,7 +404,14 @@ class SQLCompiler:
             elif plan.condition:
                 join_condition = self._expr.compile_expr(plan.condition)
             else:
-                raise CompilationError("SemiJoin requires either 'on' keys or a 'condition'")
+                raise CompilationError(
+                    "SemiJoin requires either 'on' keys or a 'condition'",
+                    suggestion=(
+                        "Provide join conditions using either:\n"
+                        "  - on=[('left_col', 'right_col')] for equality joins\n"
+                        "  - condition=col('left_col') == col('right_col') for custom conditions"
+                    ),
+                )
 
             # Build INNER JOIN with DISTINCT (equivalent to semi-join)
             # Select only columns from left table to avoid ambiguity
@@ -343,6 +430,49 @@ class SQLCompiler:
                     .select_from(left_subq.join(right_subq, join_condition))
                     .distinct()
                 )
+            return stmt
+
+        if isinstance(plan, Pivot):
+            # Pivot operation - use CASE WHEN with GROUP BY for cross-dialect compatibility
+            child_stmt = self._compile_plan(plan.child)
+            from sqlalchemy import literal_column
+
+            if not plan.pivot_values:
+                raise CompilationError(
+                    "PIVOT without pivot_values requires querying distinct values first. "
+                    "Please provide pivot_values explicitly.",
+                    suggestion="Specify pivot_values parameter: df.pivot(..., pivot_values=['value1', 'value2'])",
+                )
+
+            # Use CASE WHEN with aggregation for cross-dialect compatibility
+            projections = []
+            from typing import Callable as CallableType
+            from sqlalchemy.sql import ColumnElement as ColumnElementType
+
+            agg_func_map: dict[str, CallableType[..., ColumnElementType[Any]]] = {
+                "sum": func.sum,
+                "avg": func.avg,
+                "count": func.count,
+                "min": func.min,
+                "max": func.max,
+            }
+            agg = agg_func_map.get(plan.agg_func.lower(), func.sum)
+            assert agg is not None  # Always has default
+
+            for pivot_value in plan.pivot_values:
+                # Create aggregation with CASE WHEN
+                case_expr = agg(
+                    case(
+                        (
+                            literal_column(plan.pivot_column) == literal(pivot_value),
+                            literal_column(plan.value_column),
+                        ),
+                        else_=None,
+                    )
+                ).label(pivot_value)
+                projections.append(case_expr)
+
+            stmt = select(*projections).select_from(child_stmt.subquery())
             return stmt
 
         if isinstance(plan, AntiJoin):
@@ -403,7 +533,14 @@ class SQLCompiler:
             elif plan.condition:
                 join_condition = self._expr.compile_expr(plan.condition)
             else:
-                raise CompilationError("AntiJoin requires either 'on' keys or a 'condition'")
+                raise CompilationError(
+                    "AntiJoin requires either 'on' keys or a 'condition'",
+                    suggestion=(
+                        "Provide join conditions using either:\n"
+                        "  - on=[('left_col', 'right_col')] for equality joins\n"
+                        "  - condition=col('left_col') == col('right_col') for custom conditions"
+                    ),
+                )
 
             # Build LEFT JOIN with IS NULL filter (equivalent to anti-join)
             # We need to check that the right side's join key is NULL
@@ -449,6 +586,16 @@ class SQLCompiler:
                     .where(null_check_col.is_(null()))
                 )
             return stmt
+
+        if isinstance(plan, Explode):
+            # Explode: expand array/JSON column into multiple rows
+            # This is a complex operation that requires table-valued functions
+            # For now, we'll raise a CompilationError indicating this needs dialect-specific support
+            # TODO: Implement proper table-valued function support for explode()
+            raise CompilationError(
+                f"explode() is not yet fully implemented for {self.dialect.name} dialect. "
+                "This feature requires table-valued function support which is being developed."
+            )
 
         if isinstance(plan, LogicalUnion):
             left_stmt = self._compile_plan(plan.left)
@@ -514,7 +661,7 @@ class SQLCompiler:
 
         raise CompilationError(
             f"Unsupported logical plan node: {type(plan).__name__}. "
-            f"Supported nodes: TableScan, Project, Filter, Limit, Sort, Aggregate, Join, SemiJoin, AntiJoin, LogicalUnion, Intersect, Except, CTE, Distinct"
+            f"Supported nodes: TableScan, Project, Filter, Limit, Sample, Sort, Aggregate, Join, SemiJoin, AntiJoin, Pivot, Explode, LogicalUnion, Intersect, Except, CTE, Distinct"
         )
 
 
@@ -776,17 +923,74 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
+        if op == "date_add":
+            col_expr = self._compile(expression.args[0])
+            interval_str = expression.args[1]  # e.g., "1 DAY", "2 MONTH"
+            from sqlalchemy import literal_column
+
+            # Parse interval string (format: "N UNIT" where N is number and UNIT is DAY, MONTH, YEAR, HOUR, etc.)
+            parts = interval_str.split()
+            if len(parts) != 2:
+                raise CompilationError(
+                    f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
+                )
+            num, unit = parts
+            unit_upper = unit.upper()
+
+            # For PostgreSQL, use INTERVAL literal
+            if self.dialect.name == "postgresql":
+                interval_col: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
+                result = col_expr + interval_col
+            elif self.dialect.name == "mysql":
+                # MySQL uses DATE_ADD with INTERVAL
+                result = func.date_add(col_expr, literal_column(f"INTERVAL {num} {unit_upper}"))
+            else:
+                # SQLite: use datetime() function with modifier
+                # SQLite format: datetime(col, '+1 day'), datetime(col, '-1 hour')
+                modifier = f"+{num} {unit_upper.lower()}"
+                result = func.datetime(col_expr, modifier)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "date_sub":
+            col_expr = self._compile(expression.args[0])
+            interval_str = expression.args[1]  # e.g., "1 DAY", "2 MONTH"
+            from sqlalchemy import literal_column
+
+            # Parse interval string
+            parts = interval_str.split()
+            if len(parts) != 2:
+                raise CompilationError(
+                    f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
+                )
+            num, unit = parts
+            unit_upper = unit.upper()
+
+            # For PostgreSQL, use INTERVAL literal
+            if self.dialect.name == "postgresql":
+                interval_expr: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
+                result = col_expr - interval_expr
+            elif self.dialect.name == "mysql":
+                # MySQL uses DATE_SUB with INTERVAL
+                result = func.date_sub(col_expr, literal_column(f"INTERVAL {num} {unit_upper}"))
+            else:
+                # SQLite: use datetime() function with modifier
+                modifier = f"-{num} {unit_upper.lower()}"
+                result = func.datetime(col_expr, modifier)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "add_months":
             col_expr = self._compile(expression.args[0])
             num_months = expression.args[1]
             # Use SQLAlchemy's interval handling
             # Try to use make_interval if available (PostgreSQL), otherwise use date_add
             try:
-                interval_expr = func.make_interval(months=abs(num_months))
+                interval_months: ColumnElement[Any] = func.make_interval(months=abs(num_months))
                 if num_months >= 0:
-                    result = col_expr + interval_expr
+                    result = col_expr + interval_months
                 else:
-                    result = col_expr - interval_expr
+                    result = col_expr - interval_months
             except Exception:
                 # Fallback: use date_add function (MySQL/SQLite compatible)
                 # This is a simplified fallback
@@ -824,6 +1028,24 @@ class ExpressionCompiler:
                 raise CompilationError("Subquery compilation requires plan compiler")
             subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
             return self._compile(value).in_(subquery_stmt)
+        if op == "scalar_subquery":
+            # Scalar subquery in SELECT: scalar_subquery(df.select())
+            (subquery_plan,) = expression.args
+            if self._plan_compiler is None:
+                raise CompilationError("Subquery compilation requires plan compiler")
+            subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
+            # SQLAlchemy scalar_subquery() - must return single row/column
+            # Use select().scalar_subquery() method
+            from sqlalchemy.sql import ColumnElement as ColumnElementType
+
+            if isinstance(subquery_stmt, Select):
+                scalar_result: ColumnElementType[Any] = subquery_stmt.scalar_subquery()
+            else:
+                # Fallback: wrap in select
+                scalar_result = select(subquery_stmt).scalar_subquery()
+            if expression._alias:
+                scalar_result = scalar_result.label(expression._alias)
+            return scalar_result
         if op == "exists":
             # EXISTS subquery: exists(df.select())
             (subquery_plan,) = expression.args
@@ -834,6 +1056,19 @@ class ExpressionCompiler:
             from sqlalchemy import exists as sa_exists
 
             result = sa_exists(subquery_stmt)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "not_exists":
+            # NOT EXISTS subquery: not_exists(df.select())
+            (subquery_plan,) = expression.args
+            if self._plan_compiler is None:
+                raise CompilationError("Subquery compilation requires plan compiler")
+            subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
+            # SQLAlchemy's exists() function with negation
+            from sqlalchemy import exists as sa_exists
+
+            result = ~sa_exists(subquery_stmt)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -866,18 +1101,79 @@ class ExpressionCompiler:
                 pattern = f"%{suffix}"
             return self._compile(column).like(pattern)
         if op == "cast":
-            column, type_name = expression.args
+            column = expression.args[0]
+            type_name = expression.args[1]
+            precision = expression.args[2] if len(expression.args) > 2 else None
+            scale = expression.args[3] if len(expression.args) > 3 else None
+
             from sqlalchemy import cast as sa_cast
             from sqlalchemy import types as sa_types
 
             # Map type names to SQLAlchemy types
-            type_map = {
-                "INTEGER": sa_types.Integer,
-                "TEXT": sa_types.Text,
-                "REAL": sa_types.Float,
-                "VARCHAR": sa_types.String,
-            }
-            sa_type = type_map.get(type_name.upper(), sa_types.String)
+            type_name_upper = type_name.upper()
+            # Type can be either a TypeEngine instance or a TypeEngine class
+            sa_type: Any
+            if type_name_upper == "DECIMAL" or type_name_upper == "NUMERIC":
+                if precision is not None and scale is not None:
+                    sa_type = sa_types.Numeric(precision=precision, scale=scale)
+                elif precision is not None:
+                    sa_type = sa_types.Numeric(precision=precision)
+                else:
+                    sa_type = sa_types.Numeric()
+            elif type_name_upper == "TIMESTAMP":
+                sa_type = sa_types.TIMESTAMP
+            elif type_name_upper == "DATE":
+                sa_type = sa_types.DATE
+            elif type_name_upper == "TIME":
+                sa_type = sa_types.TIME
+            elif type_name_upper == "INTERVAL":
+                sa_type = sa_types.Interval
+            elif type_name_upper == "UUID":
+                # Handle UUID type with dialect-specific implementations
+                if self.dialect.name == "postgresql":
+                    sa_type = sa_types.UUID()
+                elif self.dialect.name == "mysql":
+                    sa_type = sa_types.CHAR(36)
+                else:
+                    # SQLite and others: use String
+                    sa_type = sa_types.String()
+            elif type_name_upper == "JSON" or type_name_upper == "JSONB":
+                # Handle JSON/JSONB type with dialect-specific implementations
+                if self.dialect.name == "postgresql":
+                    sa_type = sa_types.JSON()
+                    # Note: SQLAlchemy doesn't distinguish JSONB from JSON in type system
+                    # The actual SQL will use JSONB if specified in DDL
+                elif self.dialect.name == "mysql":
+                    sa_type = sa_types.JSON()
+                else:
+                    # SQLite and others: use String
+                    sa_type = sa_types.String()
+            elif type_name_upper == "INTEGER" or type_name_upper == "INT":
+                sa_type = sa_types.Integer
+            elif type_name_upper == "TEXT":
+                sa_type = sa_types.Text
+            elif (
+                type_name_upper == "REAL"
+                or type_name_upper == "FLOAT"
+                or type_name_upper == "DOUBLE"
+            ):
+                sa_type = sa_types.Float
+            elif type_name_upper == "VARCHAR" or type_name_upper == "STRING":
+                if precision is not None:
+                    sa_type = sa_types.String(length=precision)
+                else:
+                    sa_type = sa_types.String
+            elif type_name_upper == "CHAR":
+                if precision is not None:
+                    sa_type = sa_types.CHAR(length=precision)
+                else:
+                    sa_type = sa_types.CHAR
+            elif type_name_upper == "BOOLEAN" or type_name_upper == "BOOL":
+                sa_type = sa_types.Boolean
+            else:
+                # Fallback to String for unknown types
+                sa_type = sa_types.String
+
             result = sa_cast(self._compile(column), sa_type)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1129,6 +1425,51 @@ class ExpressionCompiler:
             else:
                 # MySQL and others
                 result = func.json_arrayagg(func.distinct(col_expr))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+
+        if op == "agg_percentile_cont":
+            # Continuous percentile (interpolated)
+            # PostgreSQL: percentile_cont(fraction) WITHIN GROUP (ORDER BY column)
+            # SQL Server: PERCENTILE_CONT(fraction) WITHIN GROUP (ORDER BY column)
+            # Oracle: PERCENTILE_CONT(fraction) WITHIN GROUP (ORDER BY column)
+            # SQLite/MySQL: Not natively supported
+            col_expr = self._compile(expression.args[0])
+            fraction = expression.args[1]
+            if self.dialect.name in ("postgresql", "mssql", "oracle"):
+                # Use percentile_cont with WITHIN GROUP
+                # SQLAlchemy's within_group is a method on the function
+                result = func.percentile_cont(fraction).within_group(col_expr)
+            else:
+                # For unsupported dialects, raise an error or use a workaround
+                # For now, we'll raise an error to indicate lack of support
+                raise CompilationError(
+                    f"percentile_cont() is not supported for {self.dialect.name} dialect. "
+                    "Supported dialects: PostgreSQL, SQL Server, Oracle"
+                )
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+
+        if op == "agg_percentile_disc":
+            # Discrete percentile (actual value)
+            # PostgreSQL: percentile_disc(fraction) WITHIN GROUP (ORDER BY column)
+            # SQL Server: PERCENTILE_DISC(fraction) WITHIN GROUP (ORDER BY column)
+            # Oracle: PERCENTILE_DISC(fraction) WITHIN GROUP (ORDER BY column)
+            # SQLite/MySQL: Not natively supported
+            col_expr = self._compile(expression.args[0])
+            fraction = expression.args[1]
+            if self.dialect.name in ("postgresql", "mssql", "oracle"):
+                # Use percentile_disc with WITHIN GROUP
+                # SQLAlchemy's within_group is a method on the function
+                result = func.percentile_disc(fraction).within_group(col_expr)
+            else:
+                # For unsupported dialects, raise an error
+                raise CompilationError(
+                    f"percentile_disc() is not supported for {self.dialect.name} dialect. "
+                    "Supported dialects: PostgreSQL, SQL Server, Oracle"
+                )
             if expression._alias:
                 result = result.label(expression._alias)
             return result
