@@ -128,7 +128,7 @@ class Column(Expression):
         return Column(op="endswith", args=(self, suffix))
 
     def asc(self) -> Column:
-        return Column(op="sort_asc", args=(self))
+        return Column(op="sort_asc", args=(self,))
 
     def desc(self) -> Column:
         return Column(op="sort_desc", args=(self,))
@@ -159,4 +159,4 @@ def ensure_column(value: ColumnLike) -> Column:
 
 
 def col(name: str) -> Column:
-    return Column(op="column", args=(name), source=name)
+    return Column(op="column", args=(name,), source=name)
