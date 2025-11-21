@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Sequence
+
+from sqlalchemy.sql import Select
 
 from ..engine.dialects import DialectSpec
 from ..table.schema import TableSchema
@@ -44,7 +46,11 @@ def compile_create_table(schema: TableSchema, dialect: DialectSpec) -> str:
     return " ".join(parts)
 
 
-def compile_drop_table(table_name: str, dialect: DialectSpec, if_exists: bool = True) -> str:
+def compile_drop_table(
+    table_name: str,
+    dialect: DialectSpec,
+    if_exists: bool = True,
+) -> str:
     """Compile a DROP TABLE statement."""
     quote = dialect.quote_char
     quoted_name = quote_identifier(table_name, quote)
@@ -57,7 +63,45 @@ def compile_drop_table(table_name: str, dialect: DialectSpec, if_exists: bool = 
     return " ".join(parts)
 
 
-def _compile_column_def(col_def: ColumnDef, quote_char: str) -> str:
+def compile_insert_select(
+    target_table: str,
+    select_stmt: Select,
+    dialect: DialectSpec,
+    columns: Optional[Sequence[str]] = None,
+) -> str:
+    """Compile an INSERT INTO ... SELECT statement.
+
+    Args:
+        target_table: Name of target table
+        select_stmt: SQLAlchemy Select statement for the SELECT part
+        columns: Optional list of column names to insert into
+        dialect: SQL dialect specification
+
+    Returns:
+        SQL string for INSERT INTO ... SELECT statement
+    """
+    quote = dialect.quote_char
+    quoted_table = quote_identifier(target_table, quote)
+
+    # Convert SELECT statement to SQL string
+    select_sql = str(select_stmt.compile(compile_kwargs={"literal_binds": True}))
+
+    parts = ["INSERT INTO", quoted_table]
+
+    # Add column list if provided
+    if columns:
+        quoted_columns = [quote_identifier(col, quote) for col in columns]
+        parts.append("(")
+        parts.append(", ".join(quoted_columns))
+        parts.append(")")
+
+    # Append the SELECT statement (it already includes "SELECT")
+    parts.append(select_sql)
+
+    return " ".join(parts)
+
+
+def _compile_column_def(col_def: "ColumnDef", quote_char: str) -> str:
     """Compile a single column definition."""
     name = quote_identifier(col_def.name, quote_char)
     type_sql = col_def.type_name.upper()

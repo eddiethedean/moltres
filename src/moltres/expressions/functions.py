@@ -2,56 +2,71 @@
 
 from __future__ import annotations
 
+from typing import Optional, Union
+
 from .column import Column, ColumnLike, ensure_column, literal
 
 __all__ = [
-    "abs",
+    "lit",
+    "sum",
     "avg",
-    "ceil",
-    "coalesce",
-    "concat",
+    "min",
+    "max",
     "count",
     "count_distinct",
-    "current_date",
-    "current_timestamp",
-    "date_add",
-    "date_sub",
-    "datediff",
-    "day",
-    "exp",
-    "floor",
+    "coalesce",
+    "concat",
+    "upper",
+    "lower",
     "greatest",
-    "hour",
     "least",
-    "len",
+    "row_number",
+    "rank",
+    "dense_rank",
+    "lag",
+    "lead",
+    "substring",
+    "trim",
+    "ltrim",
+    "rtrim",
+    "regexp_extract",
+    "regexp_replace",
+    "split",
+    "replace",
     "length",
-    "lit",
+    "lpad",
+    "rpad",
+    "round",
+    "floor",
+    "ceil",
+    "abs",
+    "sqrt",
+    "exp",
     "log",
     "log10",
-    "lower",
-    "ltrim",
-    "max",
-    "min",
-    "minute",
-    "month",
-    "pow",
-    "power",
-    "replace",
-    "round",
-    "rtrim",
-    "second",
-    "sqrt",
-    "substr",
-    "substring",
-    "sum",
-    "trim",
-    "trunc",
-    "upper",
+    "sin",
+    "cos",
+    "tan",
     "year",
+    "month",
+    "day",
+    "dayofweek",
+    "hour",
+    "minute",
+    "second",
+    "date_format",
+    "to_date",
+    "current_date",
+    "current_timestamp",
+    "datediff",
+    "add_months",
+    "when",
+    "isnan",
+    "isinf",
 ]
 
 
-def lit(value: bool | int | float | str | None) -> Column:
+def lit(value: Union[bool, int, float, str, None]) -> Column:
     """Create a literal column expression from a Python value.
 
     Args:
@@ -72,7 +87,7 @@ def _aggregate(op: str, column: ColumnLike) -> Column:
     return Column(op=op, args=(ensure_column(column),))
 
 
-def sum(column: ColumnLike) -> Column:
+def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     """Compute the sum of a column.
 
     Args:
@@ -93,15 +108,15 @@ def avg(column: ColumnLike) -> Column:
     return _aggregate("agg_avg", column)
 
 
-def min(column: ColumnLike) -> Column:
+def min(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     return _aggregate("agg_min", column)
 
 
-def max(column: ColumnLike) -> Column:
+def max(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     return _aggregate("agg_max", column)
 
 
-def count(column: ColumnLike | str = "*") -> Column:
+def count(column: Union[ColumnLike, str] = "*") -> Column:
     """Count the number of rows or non-null values.
 
     Args:
@@ -141,25 +156,11 @@ def concat(*columns: ColumnLike) -> Column:
 
 
 def upper(column: ColumnLike) -> Column:
-    return Column(
-        op="upper",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="upper", args=(ensure_column(column),))
 
 
 def lower(column: ColumnLike) -> Column:
-    return Column(
-        op="lower",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="lower", args=(ensure_column(column),))
 
 
 def greatest(*columns: ColumnLike) -> Column:
@@ -174,314 +175,484 @@ def least(*columns: ColumnLike) -> Column:
     return Column(op="least", args=tuple(ensure_column(c) for c in columns))
 
 
-def substring(column: ColumnLike, start: int, length: int | None = None) -> Column:
+def row_number() -> Column:
+    """Generate a row number for each row in a window.
+
+    Returns:
+        Column expression for row_number() window function
+
+    Example:
+        >>> from moltres.expressions.functions import row_number
+        >>> df.select(col("id"), row_number().over(partition_by=col("category")))
+    """
+    return Column(op="window_row_number", args=())
+
+
+def rank() -> Column:
+    """Compute the rank of rows within a window.
+
+    Returns:
+        Column expression for rank() window function
+
+    Example:
+        >>> from moltres.expressions.functions import rank
+        >>> df.select(col("id"), rank().over(partition_by=col("category"), order_by=col("score")))
+    """
+    return Column(op="window_rank", args=())
+
+
+def dense_rank() -> Column:
+    """Compute the dense rank of rows within a window.
+
+    Returns:
+        Column expression for dense_rank() window function
+
+    Example:
+        >>> from moltres.expressions.functions import dense_rank
+        >>> df.select(col("id"), dense_rank().over(partition_by=col("category"), order_by=col("score")))
+    """
+    return Column(op="window_dense_rank", args=())
+
+
+def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = None) -> Column:
+    """Get the value of a column from a previous row in the window.
+
+    Args:
+        column: Column to get the lagged value from
+        offset: Number of rows to look back (default: 1)
+        default: Default value if offset goes beyond window (optional)
+
+    Returns:
+        Column expression for lag() window function
+
+    Example:
+        >>> from moltres.expressions.functions import lag
+        >>> df.select(col("id"), lag(col("value"), offset=1).over(order_by=col("date")))
+    """
+    args = [ensure_column(column), offset]
+    if default is not None:
+        args.append(ensure_column(default))
+    return Column(op="window_lag", args=tuple(args))
+
+
+def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = None) -> Column:
+    """Get the value of a column from a following row in the window.
+
+    Args:
+        column: Column to get the leading value from
+        offset: Number of rows to look ahead (default: 1)
+        default: Default value if offset goes beyond window (optional)
+
+    Returns:
+        Column expression for lead() window function
+
+    Example:
+        >>> from moltres.expressions.functions import lead
+        >>> df.select(col("id"), lead(col("value"), offset=1).over(order_by=col("date")))
+    """
+    args = [ensure_column(column), offset]
+    if default is not None:
+        args.append(ensure_column(default))
+    return Column(op="window_lead", args=tuple(args))
+
+
+def substring(column: ColumnLike, pos: int, len: Optional[int] = None) -> Column:  # noqa: A001
     """Extract a substring from a column.
 
     Args:
-        column: Column expression
-        start: Starting position (1-indexed)
-        length: Optional length of substring. If None, returns rest of string.
+        column: Column to extract substring from
+        pos: Starting position (1-indexed)
+        len: Length of substring (optional, if None returns rest of string)
 
     Returns:
         Column expression for substring
     """
-    col_expr = ensure_column(column)
-    if length is not None:
-        return Column(op="substring", args=(col_expr, start, length))
-    return Column(op="substring", args=(col_expr, start))
-
-
-def substr(column: ColumnLike, start: int, length: int | None = None) -> Column:
-    """Alias for substring."""
-    return substring(column, start, length)
+    if len is not None:
+        return Column(op="substring", args=(ensure_column(column), pos, len))
+    return Column(op="substring", args=(ensure_column(column), pos))
 
 
 def trim(column: ColumnLike) -> Column:
     """Remove leading and trailing whitespace from a column.
 
     Args:
-        column: Column expression
+        column: Column to trim
 
     Returns:
-        Column expression for trimmed string
+        Column expression for trim
     """
-    return Column(
-        op="trim",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="trim", args=(ensure_column(column),))
 
 
 def ltrim(column: ColumnLike) -> Column:
     """Remove leading whitespace from a column.
 
     Args:
-        column: Column expression
+        column: Column to trim
 
     Returns:
-        Column expression for left-trimmed string
+        Column expression for ltrim
     """
-    return Column(
-        op="ltrim",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="ltrim", args=(ensure_column(column),))
 
 
 def rtrim(column: ColumnLike) -> Column:
     """Remove trailing whitespace from a column.
 
     Args:
-        column: Column expression
+        column: Column to trim
 
     Returns:
-        Column expression for right-trimmed string
+        Column expression for rtrim
     """
-    return Column(
-        op="rtrim",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="rtrim", args=(ensure_column(column),))
 
 
-def replace(column: ColumnLike, old: str, new: str) -> Column:
-    """Replace occurrences of a substring in a column.
+def regexp_extract(column: ColumnLike, pattern: str, group_idx: int = 0) -> Column:
+    """Extract a regex pattern from a column.
 
     Args:
-        column: Column expression
-        old: Substring to replace
-        new: Replacement string
+        column: Column to extract from
+        pattern: Regular expression pattern
+        group_idx: Capture group index (default: 0)
 
     Returns:
-        Column expression for replaced string
+        Column expression for regexp_extract
     """
-    return Column(op="replace", args=(ensure_column(column), old, new))
+    return Column(op="regexp_extract", args=(ensure_column(column), pattern, group_idx))
+
+
+def regexp_replace(column: ColumnLike, pattern: str, replacement: str) -> Column:
+    """Replace regex pattern matches in a column.
+
+    Args:
+        column: Column to replace in
+        pattern: Regular expression pattern
+        replacement: Replacement string
+
+    Returns:
+        Column expression for regexp_replace
+    """
+    return Column(op="regexp_replace", args=(ensure_column(column), pattern, replacement))
+
+
+def split(column: ColumnLike, delimiter: str) -> Column:
+    """Split a column by delimiter.
+
+    Args:
+        column: Column to split
+        delimiter: Delimiter string
+
+    Returns:
+        Column expression for split (returns array)
+    """
+    return Column(op="split", args=(ensure_column(column), delimiter))
+
+
+def replace(column: ColumnLike, search: str, replacement: str) -> Column:
+    """Replace occurrences of a string in a column.
+
+    Args:
+        column: Column to replace in
+        search: String to search for
+        replacement: Replacement string
+
+    Returns:
+        Column expression for replace
+    """
+    return Column(op="replace", args=(ensure_column(column), search, replacement))
 
 
 def length(column: ColumnLike) -> Column:
     """Get the length of a string column.
 
     Args:
-        column: Column expression
+        column: Column to get length of
 
     Returns:
-        Column expression for string length
+        Column expression for length
     """
-    return Column(
-        op="length",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="length", args=(ensure_column(column),))
 
 
-def len(column: ColumnLike) -> Column:
-    """Alias for length."""
-    return length(column)
-
-
-def abs(column: ColumnLike) -> Column:
-    """Get the absolute value of a column.
+def lpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A001
+    """Left pad a string column to a specified length.
 
     Args:
-        column: Column expression
+        column: Column to pad
+        length: Target length
+        pad: Padding character (default: space)
 
     Returns:
-        Column expression for absolute value
+        Column expression for lpad
     """
-    return Column(
-        op="abs",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="lpad", args=(ensure_column(column), length, pad))
 
 
-def round(column: ColumnLike, decimals: int = 0) -> Column:
-    """Round a numeric column to specified number of decimal places.
+def rpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A001
+    """Right pad a string column to a specified length.
 
     Args:
-        column: Column expression
-        decimals: Number of decimal places (default: 0)
+        column: Column to pad
+        length: Target length
+        pad: Padding character (default: space)
 
     Returns:
-        Column expression for rounded value
+        Column expression for rpad
     """
-    col_expr = ensure_column(column)
-    if decimals == 0:
-        return Column(op="round", args=(col_expr,))
-    return Column(op="round", args=(col_expr, decimals))
+    return Column(op="rpad", args=(ensure_column(column), length, pad))
+
+
+def round(column: ColumnLike, scale: int = 0) -> Column:
+    """Round a numeric column to the specified number of decimal places.
+
+    Args:
+        column: Column to round
+        scale: Number of decimal places (default: 0)
+
+    Returns:
+        Column expression for round
+    """
+    return Column(op="round", args=(ensure_column(column), scale))
 
 
 def floor(column: ColumnLike) -> Column:
-    """Get the floor (largest integer <= value) of a column.
+    """Get the floor of a numeric column.
 
     Args:
-        column: Column expression
+        column: Column to get floor of
 
     Returns:
-        Column expression for floor value
+        Column expression for floor
     """
-    return Column(
-        op="floor",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="floor", args=(ensure_column(column),))
 
 
 def ceil(column: ColumnLike) -> Column:
-    """Get the ceiling (smallest integer >= value) of a column.
+    """Get the ceiling of a numeric column.
 
     Args:
-        column: Column expression
+        column: Column to get ceiling of
 
     Returns:
-        Column expression for ceiling value
+        Column expression for ceil
     """
-    return Column(
-        op="ceil",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="ceil", args=(ensure_column(column),))
 
 
-def trunc(column: ColumnLike) -> Column:
-    """Truncate a numeric column to integer part.
+def abs(column: ColumnLike) -> Column:  # noqa: A001
+    """Get the absolute value of a numeric column.
 
     Args:
-        column: Column expression
+        column: Column to get absolute value of
 
     Returns:
-        Column expression for truncated value
+        Column expression for abs
     """
-    return Column(
-        op="trunc",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="abs", args=(ensure_column(column),))
 
 
 def sqrt(column: ColumnLike) -> Column:
-    """Get the square root of a column.
+    """Get the square root of a numeric column.
 
     Args:
-        column: Column expression
+        column: Column to get square root of
 
     Returns:
-        Column expression for square root
+        Column expression for sqrt
     """
-    return Column(
-        op="sqrt",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
-
-
-def pow(column: ColumnLike, power: ColumnLike | int | float) -> Column:
-    """Raise a column to a power.
-
-    Args:
-        column: Column expression
-        power: Power to raise to (can be column, int, or float)
-
-    Returns:
-        Column expression for power result
-    """
-    return Column(op="pow", args=(ensure_column(column), ensure_column(power)))
-
-
-def power(column: ColumnLike, power: ColumnLike | int | float) -> Column:
-    """Alias for pow."""
-    return pow(column, power)
+    return Column(op="sqrt", args=(ensure_column(column),))
 
 
 def exp(column: ColumnLike) -> Column:
-    """Get e raised to the power of a column.
+    """Get the exponential of a numeric column.
 
     Args:
-        column: Column expression
+        column: Column to get exponential of
 
     Returns:
-        Column expression for exponential
+        Column expression for exp
     """
-    return Column(
-        op="exp",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="exp", args=(ensure_column(column),))
 
 
 def log(column: ColumnLike) -> Column:
-    """Get the natural logarithm of a column.
+    """Get the natural logarithm of a numeric column.
 
     Args:
-        column: Column expression
+        column: Column to get logarithm of
 
     Returns:
-        Column expression for natural logarithm
+        Column expression for log
     """
-    return Column(
-        op="log",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="log", args=(ensure_column(column),))
 
 
 def log10(column: ColumnLike) -> Column:
-    """Get the base-10 logarithm of a column.
+    """Get the base-10 logarithm of a numeric column.
 
     Args:
-        column: Column expression
+        column: Column to get logarithm of
 
     Returns:
-        Column expression for base-10 logarithm
+        Column expression for log10
     """
-    return Column(
-        op="log10",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="log10", args=(ensure_column(column),))
+
+
+def sin(column: ColumnLike) -> Column:
+    """Get the sine of a numeric column (in radians).
+
+    Args:
+        column: Column to get sine of
+
+    Returns:
+        Column expression for sin
+    """
+    return Column(op="sin", args=(ensure_column(column),))
+
+
+def cos(column: ColumnLike) -> Column:
+    """Get the cosine of a numeric column (in radians).
+
+    Args:
+        column: Column to get cosine of
+
+    Returns:
+        Column expression for cos
+    """
+    return Column(op="cos", args=(ensure_column(column),))
+
+
+def tan(column: ColumnLike) -> Column:
+    """Get the tangent of a numeric column (in radians).
+
+    Args:
+        column: Column to get tangent of
+
+    Returns:
+        Column expression for tan
+    """
+    return Column(op="tan", args=(ensure_column(column),))
+
+
+def year(column: ColumnLike) -> Column:
+    """Extract the year from a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for year
+    """
+    return Column(op="year", args=(ensure_column(column),))
+
+
+def month(column: ColumnLike) -> Column:
+    """Extract the month from a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for month
+    """
+    return Column(op="month", args=(ensure_column(column),))
+
+
+def day(column: ColumnLike) -> Column:
+    """Extract the day of month from a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for day
+    """
+    return Column(op="day", args=(ensure_column(column),))
+
+
+def dayofweek(column: ColumnLike) -> Column:
+    """Extract the day of week from a date/timestamp column (1=Sunday, 7=Saturday).
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for dayofweek
+    """
+    return Column(op="dayofweek", args=(ensure_column(column),))
+
+
+def hour(column: ColumnLike) -> Column:
+    """Extract the hour from a timestamp column.
+
+    Args:
+        column: Timestamp column
+
+    Returns:
+        Column expression for hour
+    """
+    return Column(op="hour", args=(ensure_column(column),))
+
+
+def minute(column: ColumnLike) -> Column:
+    """Extract the minute from a timestamp column.
+
+    Args:
+        column: Timestamp column
+
+    Returns:
+        Column expression for minute
+    """
+    return Column(op="minute", args=(ensure_column(column),))
+
+
+def second(column: ColumnLike) -> Column:
+    """Extract the second from a timestamp column.
+
+    Args:
+        column: Timestamp column
+
+    Returns:
+        Column expression for second
+    """
+    return Column(op="second", args=(ensure_column(column),))
+
+
+def date_format(column: ColumnLike, format: str) -> Column:  # noqa: A001
+    """Format a date/timestamp column as a string.
+
+    Args:
+        column: Date or timestamp column
+        format: Format string (e.g., "YYYY-MM-DD")
+
+    Returns:
+        Column expression for date_format
+    """
+    return Column(op="date_format", args=(ensure_column(column), format))
+
+
+def to_date(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa: A001
+    """Convert a string column to a date.
+
+    Args:
+        column: String column containing a date
+        format: Optional format string (if None, uses default parsing)
+
+    Returns:
+        Column expression for to_date
+    """
+    if format is not None:
+        return Column(op="to_date", args=(ensure_column(column), format))
+    return Column(op="to_date", args=(ensure_column(column),))
 
 
 def current_date() -> Column:
     """Get the current date.
 
     Returns:
-        Column expression for current date
+        Column expression for current_date
     """
     return Column(op="current_date", args=())
 
@@ -490,159 +661,96 @@ def current_timestamp() -> Column:
     """Get the current timestamp.
 
     Returns:
-        Column expression for current timestamp
+        Column expression for current_timestamp
     """
     return Column(op="current_timestamp", args=())
-
-
-def date_add(column: ColumnLike, days: int) -> Column:
-    """Add days to a date column.
-
-    Args:
-        column: Date column expression
-        days: Number of days to add
-
-    Returns:
-        Column expression for date with days added
-    """
-    return Column(op="date_add", args=(ensure_column(column), days))
-
-
-def date_sub(column: ColumnLike, days: int) -> Column:
-    """Subtract days from a date column.
-
-    Args:
-        column: Date column expression
-        days: Number of days to subtract
-
-    Returns:
-        Column expression for date with days subtracted
-    """
-    return Column(op="date_sub", args=(ensure_column(column), days))
 
 
 def datediff(end: ColumnLike, start: ColumnLike) -> Column:
     """Calculate the difference in days between two dates.
 
     Args:
-        end: End date column expression
-        start: Start date column expression
+        end: End date column
+        start: Start date column
 
     Returns:
-        Column expression for date difference in days
+        Column expression for datediff
     """
     return Column(op="datediff", args=(ensure_column(end), ensure_column(start)))
 
 
-def year(column: ColumnLike) -> Column:
-    """Extract the year from a date column.
+def add_months(column: ColumnLike, num_months: int) -> Column:
+    """Add months to a date column.
 
     Args:
-        column: Date column expression
+        column: Date column
+        num_months: Number of months to add (can be negative)
 
     Returns:
-        Column expression for year
+        Column expression for add_months
     """
-    return Column(
-        op="year",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="add_months", args=(ensure_column(column), num_months))
 
 
-def month(column: ColumnLike) -> Column:
-    """Extract the month from a date column.
+class When:
+    """Builder for CASE WHEN expressions."""
+
+    def __init__(self, condition: Column, value: ColumnLike):
+        self._conditions = [(condition, ensure_column(value))]
+
+    def when(self, condition: Column, value: ColumnLike) -> "When":
+        """Add another WHEN clause."""
+        self._conditions.append((condition, ensure_column(value)))
+        return self
+
+    def otherwise(self, value: ColumnLike) -> Column:
+        """Complete the CASE expression with an ELSE clause.
+
+        Args:
+            value: Default value if no conditions match
+
+        Returns:
+            Column expression for the complete CASE WHEN statement
+        """
+        return Column(op="case_when", args=(tuple(self._conditions), ensure_column(value)))
+
+
+def when(condition: Column, value: ColumnLike) -> When:
+    """Start a CASE WHEN expression.
 
     Args:
-        column: Date column expression
+        condition: Boolean condition
+        value: Value if condition is true
 
     Returns:
-        Column expression for month (1-12)
+        When builder for chaining additional WHEN clauses
+
+    Example:
+        >>> from moltres.expressions.functions import when
+        >>> df.select(when(col("age") >= 18, "adult").otherwise("minor"))
     """
-    return Column(
-        op="month",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return When(condition, value)
 
 
-def day(column: ColumnLike) -> Column:
-    """Extract the day from a date column.
+def isnan(column: ColumnLike) -> Column:
+    """Check if a numeric column value is NaN.
 
     Args:
-        column: Date column expression
+        column: Numeric column to check
 
     Returns:
-        Column expression for day of month (1-31)
+        Column expression for isnan
     """
-    return Column(
-        op="day",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="isnan", args=(ensure_column(column),))
 
 
-def hour(column: ColumnLike) -> Column:
-    """Extract the hour from a timestamp column.
+def isinf(column: ColumnLike) -> Column:
+    """Check if a numeric column value is infinite.
 
     Args:
-        column: Timestamp column expression
+        column: Numeric column to check
 
     Returns:
-        Column expression for hour (0-23)
+        Column expression for isinf
     """
-    return Column(
-        op="hour",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
-
-
-def minute(column: ColumnLike) -> Column:
-    """Extract the minute from a timestamp column.
-
-    Args:
-        column: Timestamp column expression
-
-    Returns:
-        Column expression for minute (0-59)
-    """
-    return Column(
-        op="minute",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
-
-
-def second(column: ColumnLike) -> Column:
-    """Extract the second from a timestamp column.
-
-    Args:
-        column: Timestamp column expression
-
-    Returns:
-        Column expression for second (0-59)
-    """
-    return Column(
-        op="second",
-        args=(
-            ensure_column(
-                column,
-            ),
-        ),
-    )
+    return Column(op="isinf", args=(ensure_column(column),))

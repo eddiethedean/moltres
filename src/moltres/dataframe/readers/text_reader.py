@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence, cast
 
+from ...io.records import Records
 from ...table.schema import ColumnDef
-from ..dataframe import DataFrame
 
 if TYPE_CHECKING:
     from ...table.table import Database
@@ -15,12 +14,12 @@ if TYPE_CHECKING:
 
 def read_text(
     path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
+    database: "Database",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
     column_name: str = "value",
-) -> DataFrame:
-    """Read text file line-by-line and return DataFrame.
+) -> Records:
+    """Read text file line-by-line and return Records.
 
     Args:
         path: Path to text file
@@ -30,7 +29,7 @@ def read_text(
         column_name: Name of the column to create (default: "value")
 
     Returns:
-        DataFrame containing the text file lines
+        Records containing the text file lines
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -39,24 +38,25 @@ def read_text(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    rows: list[dict[str, object]] = []
-    with open(path_obj, encoding="utf-8") as f:
+    rows: List[Dict[str, object]] = []
+    with open(path_obj, "r", encoding="utf-8") as f:
         for line in f:
             rows.append({column_name: line.rstrip("\n\r")})
 
+    schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
     if not rows:
-        return _create_dataframe_from_schema(database, [], [])
+        return _create_records_from_schema(database, schema, [])
 
-    return _create_dataframe_from_data(database, rows)
+    return _create_records_from_data(database, rows, schema)
 
 
 def read_text_stream(
     path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
+    database: "Database",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
     column_name: str = "value",
-) -> DataFrame:
+) -> Records:
     """Read text file in streaming mode (chunked).
 
     Args:
@@ -67,19 +67,19 @@ def read_text_stream(
         column_name: Name of the column to create (default: "value")
 
     Returns:
-        DataFrame with streaming generator
+        Records with streaming generator
 
     Raises:
         FileNotFoundError: If file doesn't exist
     """
-    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
+    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    def _chunk_generator() -> Iterator[list[dict[str, object]]]:
-        chunk: list[dict[str, object]] = []
-        with open(path_obj, encoding="utf-8") as f:
+    def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
+        chunk: List[Dict[str, object]] = []
+        with open(path_obj, "r", encoding="utf-8") as f:
             for line in f:
                 chunk.append({column_name: line.rstrip("\n\r")})
                 if len(chunk) >= chunk_size:
@@ -94,48 +94,42 @@ def read_text_stream(
         first_chunk = next(first_chunk_gen)
     except StopIteration:
         schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
-        return _create_dataframe_from_schema(database, schema, [])
+        return _create_records_from_schema(database, schema, [])
 
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
 
-    def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
+    def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
         yield first_chunk
-        yield from first_chunk_gen
+        for chunk in first_chunk_gen:
+            yield chunk
 
-    return _create_dataframe_from_stream(database, _typed_chunk_generator, schema)
-
-
-def _create_dataframe_from_data(database: Database, rows: list[dict[str, object]]) -> DataFrame:
-    """Create DataFrame from materialized data."""
-    from ...logical.plan import TableScan
-
-    return DataFrame(plan=TableScan(table="__memory__"), database=database, _materialized_data=rows)
+    return _create_records_from_stream(database, _typed_chunk_generator, schema)
 
 
-def _create_dataframe_from_schema(
-    database: Database, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
-) -> DataFrame:
-    """Create DataFrame with explicit schema but no data."""
-    return _create_dataframe_from_data(database, rows)
+def _create_records_from_data(
+    database: "Database", rows: List[Dict[str, object]], schema: Optional[Sequence[ColumnDef]]
+) -> Records:
+    """Create Records from materialized data."""
+    return Records(_data=rows, _schema=schema, _database=database)
 
 
-def _create_dataframe_from_stream(
-    database: Database,
-    chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
+def _create_records_from_schema(
+    database: "Database", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+) -> Records:
+    """Create Records with explicit schema but no data."""
+    return Records(_data=rows, _schema=schema, _database=database)
+
+
+def _create_records_from_stream(
+    database: "Database",
+    chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
-) -> DataFrame:
-    """Create DataFrame from streaming generator.
+) -> Records:
+    """Create Records from streaming generator.
 
     Args:
         database: Database instance
         chunk_generator: Callable that returns an iterator of chunks
         schema: Schema for the data
     """
-    from ...logical.plan import TableScan
-
-    return DataFrame(
-        plan=TableScan(table="__stream__"),
-        database=database,
-        _stream_generator=chunk_generator,
-        _stream_schema=schema,
-    )
+    return Records(_generator=chunk_generator, _schema=schema, _database=database)

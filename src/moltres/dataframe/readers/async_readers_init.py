@@ -5,5 +5,4 @@ from __future__ import annotations
 # Async readers are in separate modules to keep imports clean
 # They are imported directly in async_reader.py
 
-# Async readers are not exported from here, use AsyncDataFrameReader instead
-__all__: list[str] = []
+__all__ = []  # Async readers are not exported from here, use AsyncDataLoader instead

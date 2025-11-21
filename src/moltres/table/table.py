@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 
 from ..config import MoltresConfig
 
 if TYPE_CHECKING:
     from ..dataframe.dataframe import DataFrame
-    from ..dataframe.reader import DataFrameReader
+    from ..dataframe.reader import DataLoader
+    from ..io.records import Records
 from ..engine.connection import ConnectionManager
 from ..engine.dialects import DialectSpec, get_dialect
 from ..engine.execution import QueryExecutor, QueryResult
@@ -26,14 +26,14 @@ class TableHandle:
     """Lightweight handle representing a table reference."""
 
     name: str
-    database: Database
+    database: "Database"
 
-    def select(self, *columns: str) -> DataFrame:
+    def select(self, *columns: str) -> "DataFrame":
         from ..dataframe.dataframe import DataFrame
 
         return DataFrame.from_table(self, columns=list(columns))
 
-    def insert(self, rows: Sequence[Mapping[str, object]]) -> int:
+    def insert(self, rows: Union[Sequence[Mapping[str, object]], "Records"]) -> int:
         from .mutations import insert_rows
 
         return insert_rows(self, rows)
@@ -78,8 +78,8 @@ class Database:
         Raises:
             ValidationError: If table name is invalid
         """
-        from ..sql.builders import quote_identifier
         from ..utils.exceptions import ValidationError
+        from ..sql.builders import quote_identifier
 
         if not name:
             raise ValidationError("Table name cannot be empty")
@@ -88,11 +88,14 @@ class Database:
         return TableHandle(name=name, database=self)
 
     @property
-    def read(self) -> DataFrameReader:
-        """Return a DataFrameReader for reading from tables and files."""
-        from ..dataframe.reader import DataFrameReader
+    def load(self) -> "DataLoader":
+        """Return a DataLoader for loading data from files and tables as Records.
 
-        return DataFrameReader(self)
+        Note: For SQL operations on tables, use db.table(name).select() instead.
+        """
+        from ..dataframe.reader import DataLoader
+
+        return DataLoader(self)
 
     # -------------------------------------------------------------- DDL operations
     def create_table(
@@ -124,7 +127,10 @@ class Database:
             raise ValidationError(f"Cannot create table '{name}' with no columns")
 
         schema = TableSchema(
-            name=name, columns=columns, if_not_exists=if_not_exists, temporary=temporary
+            name=name,
+            columns=columns,
+            if_not_exists=if_not_exists,
+            temporary=temporary,
         )
         sql = compile_create_table(schema, self._dialect)
         self._executor.execute(sql)
@@ -145,19 +151,21 @@ class Database:
         self._executor.execute(sql)
 
     # -------------------------------------------------------------- query utils
-    def compile_plan(self, plan: LogicalPlan) -> str:
+    def compile_plan(self, plan: LogicalPlan) -> Any:
+        """Compile a logical plan to a SQLAlchemy Select statement."""
+
         return compile_plan(plan, dialect=self._dialect)
 
     def execute_plan(self, plan: LogicalPlan) -> QueryResult:
-        sql = self.compile_plan(plan)
-        return self._executor.fetch(sql)
+        stmt = self.compile_plan(plan)
+        return self._executor.fetch(stmt)
 
-    def execute_plan_stream(self, plan: LogicalPlan) -> Iterator[list[dict[str, object]]]:
+    def execute_plan_stream(self, plan: LogicalPlan) -> Iterator[List[Dict[str, object]]]:
         """Execute a plan and return an iterator of row chunks."""
-        sql = self.compile_plan(plan)
-        return self._executor.fetch_stream(sql)
+        stmt = self.compile_plan(plan)
+        return self._executor.fetch_stream(stmt)
 
-    def execute_sql(self, sql: str, params: dict[str, Any] | None = None) -> QueryResult:
+    def execute_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
         return self._executor.fetch(sql, params=params)
 
     @property

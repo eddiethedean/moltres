@@ -136,7 +136,7 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
    ```python
    from pathlib import Path
    file_path = Path("data.csv").resolve()
-   df = db.read.csv(str(file_path))
+   records = db.load.csv(str(file_path))
    ```
 
 2. **Check file permissions**
@@ -162,12 +162,12 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
        ColumnDef(name="name", type_name="TEXT"),
        ColumnDef(name="price", type_name="REAL"),
    ]
-   df = db.read.schema(schema).csv("data.csv")
+   records = db.load.schema(schema).csv("data.csv")
    ```
 
 2. **Disable schema inference**:
    ```python
-   df = db.read.option("inferSchema", False).csv("data.csv")
+   records = db.load.option("inferSchema", False).csv("data.csv")
    ```
 
 ## Performance Issues
@@ -179,9 +179,9 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 **Solutions**:
 1. **Use streaming for large datasets**:
    ```python
-   df = db.read.stream().csv("large_file.csv")
-   for chunk in df.collect(stream=True):
-       process_chunk(chunk)
+   records = db.load.stream().csv("large_file.csv")
+   for row in records:
+       process(row)
    ```
 
 2. **Add indexes** to database tables (at database level)
@@ -213,9 +213,9 @@ df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 **Solutions**:
 1. **Use streaming mode**:
    ```python
-   df = db.read.stream().option("chunk_size", 10000).csv("large.csv")
-   for chunk in df.collect(stream=True):
-       process_chunk(chunk)
+   records = db.load.stream().option("chunk_size", 10000).csv("large.csv")
+   for row in records:
+       process(row)
    ```
 
 2. **Process in batches**:

@@ -68,9 +68,15 @@ def connect(dsn: str | None = None, **options: object) -> Database:
         Database instance for querying and table operations
 
     Example:
-        >>> db = connect("sqlite:///example.db")
-        >>> df = db.table("users").select().where(col("active") == True)
-        >>> results = df.collect()
+        >>> db = connect("sqlite:///:memory:")  # doctest: +SKIP
+        >>> # Create table first
+        >>> from moltres.table.schema import ColumnDef
+        >>> table = db.create_table("users", [ColumnDef("id", "INTEGER"), ColumnDef("active", "BOOLEAN")])  # doctest: +SKIP
+        >>> table.insert([{"id": 1, "active": True}])  # doctest: +SKIP
+        >>> df = db.table("users").select().where(col("active") == True)  # doctest: +SKIP
+        >>> results = df.collect()  # doctest: +SKIP
+        >>> len(results)  # doctest: +SKIP
+        1
     """
     config: MoltresConfig = create_config(dsn, **options)
     return Database(config=config)
@@ -81,9 +87,9 @@ def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
 
     This function requires async dependencies. Install with:
     - `pip install moltres[async]` - for core async support (aiofiles)
-    - `pip install moltres[async,async-postgresql]` - for PostgreSQL async support
-    - `pip install moltres[async,async-mysql]` - for MySQL async support
-    - `pip install moltres[async,async-sqlite]` - for SQLite async support
+    - `pip install moltres[async-postgresql]` - for PostgreSQL async support (includes async + asyncpg)
+    - `pip install moltres[async-mysql]` - for MySQL async support (includes async + aiomysql)
+    - `pip install moltres[async-sqlite]` - for SQLite async support (includes async + aiosqlite)
 
     Configuration can be provided via arguments or environment variables:
     - MOLTRES_DSN: Database connection string (if dsn is None)
@@ -120,16 +126,20 @@ def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
         ImportError: If async dependencies are not installed
 
     Example:
-        >>> import asyncio
-        >>> from moltres import async_connect
+        >>> import asyncio  # doctest: +SKIP
+        >>> from moltres import async_connect  # doctest: +SKIP
         >>>
-        >>> async def main():
-        ...     db = async_connect("postgresql+asyncpg://user:pass@localhost/db")
-        ...     df = await db.read.table("users")
-        ...     results = await df.collect()
-        ...     print(results)
+        >>> async def main():  # doctest: +SKIP
+        ...     db = async_connect("sqlite+aiosqlite:///:memory:")  # doctest: +SKIP
+        ...     from moltres.table.schema import ColumnDef  # doctest: +SKIP
+        ...     table = await db.create_table("users", [ColumnDef("id", "INTEGER")])  # doctest: +SKIP
+        ...     await table.insert([{"id": 1}])  # doctest: +SKIP
+        ...     table_handle = await db.table("users")  # doctest: +SKIP
+        ...     df = table_handle.select()  # doctest: +SKIP
+        ...     results = await df.collect()  # doctest: +SKIP
+        ...     await db.close()  # doctest: +SKIP
         >>>
-        >>> asyncio.run(main())
+        >>> # asyncio.run(main())  # doctest: +SKIP
     """
     try:
         from .table.async_table import AsyncDatabase

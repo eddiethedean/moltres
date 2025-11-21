@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.4.0"
+version = "0.3.0"
 description = "PySpark-like DataFrame API that compiles to SQL"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -24,54 +24,31 @@ Issues = "https://github.com/eddiethedean/moltres/issues"
 polars = ["polars>=1.0"]
 pandas = ["pandas>=2.1"]
 async = ["aiofiles>=23.0"]
-async-postgresql = ["asyncpg>=0.29.0"]
-async-mysql = ["aiomysql>=0.2.0"]
-async-sqlite = ["aiosqlite>=0.19.0"]
+async-postgresql = ["aiofiles>=23.0", "asyncpg>=0.29.0"]
+async-mysql = ["aiofiles>=23.0", "aiomysql>=0.2.0"]
+async-sqlite = ["aiofiles>=23.0", "aiosqlite>=0.19.0"]
 
 dev = [
     "pytest>=8.0",
-    "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1",
     "pytest-xdist>=3.5",
     "mypy>=1.8",
     "ruff>=0.6",
     "pre-commit>=3.5",
+    "pandas>=2.1",
+    "polars>=1.0",
+    "pyarrow>=10.0",
 ]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra --strict-markers"
 testpaths = ["tests"]
-filterwarnings = [
-    "ignore::pytest.PytestRemovedIn9Warning",
-    "ignore::pytest.PytestDeprecationWarning",
-]
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py39"
-
-[tool.ruff.lint]
-# Allow autofix for all enabled rules (when `--fix`) is provided.
-fixable = ["ALL"]
-unfixable = []
-
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-# Focus on essential checks for Python 3.9+ compatibility
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "UP",  # pyupgrade (ensures Python 3.9+ syntax)
-]
-ignore = [
-    "E501",  # line too long (handled by line-length)
-    "UP045",  # Use X | None - requires Python 3.10+, we support 3.9+
-    "UP007",  # Use X | Y - requires Python 3.10+, we support 3.9+
-]
 
 [tool.setuptools]
 packages = {find = {where = ["src"], exclude = ["tests*", "*.tests", "*.tests.*"]}}
@@ -79,43 +56,33 @@ packages = {find = {where = ["src"], exclude = ["tests*", "*.tests", "*.tests.*"
 [tool.setuptools.package-dir]
 "" = "src"
 
+[tool.moltres]
+default_dialect = "ansi"
+
 [tool.mypy]
 python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = false
+disallow_untyped_decorators = true
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
-warn_unreachable = true
 strict_equality = true
+strict_optional = true
 show_error_codes = true
 show_error_context = true
-pretty = true
+mypy_path = "stubs"
 
 [[tool.mypy.overrides]]
 module = [
     "tests.*",
+    "scripts.*",
 ]
 ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = [
-    "moltres.dataframe.async_writer",
-    "moltres.dataframe.readers.async_text_reader",
-    "moltres.dataframe.readers.async_parquet_reader",
-    "moltres.dataframe.readers.async_json_reader",
-    "moltres.dataframe.readers.async_csv_reader",
-    "moltres.dataframe.writer",
-    "moltres.dataframe.readers.parquet_reader",
-    "moltres.engine.async_execution",
-    "moltres.__init__",
-]
-warn_unused_ignores = false
-
-[tool.moltres]
-default_dialect = "ansi"
+# Note: pyarrow type stubs are provided in stubs/pyarrow/
+# The stubs directory is automatically discovered by mypy

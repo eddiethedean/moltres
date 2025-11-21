@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Dict, Mapping, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -10,8 +10,19 @@ from ..sql.compiler import ExpressionCompiler
 from ..utils.exceptions import ValidationError
 from .async_table import AsyncTableHandle
 
+if TYPE_CHECKING:
+    from ..io.records import AsyncRecords
+else:
+    # Import at runtime for isinstance check
+    try:
+        from ..io.records import AsyncRecords
+    except ImportError:
+        AsyncRecords = None  # type: ignore[assignment, misc]
 
-async def insert_rows_async(handle: AsyncTableHandle, rows: Sequence[Mapping[str, object]]) -> int:
+
+async def insert_rows_async(
+    handle: AsyncTableHandle, rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]
+) -> int:
     """Insert rows into a table using batch inserts for better performance.
 
     Args:
@@ -26,10 +37,17 @@ async def insert_rows_async(handle: AsyncTableHandle, rows: Sequence[Mapping[str
     """
     if not rows:
         return 0
-    columns = list(rows[0].keys())
+    # AsyncRecords implements Sequence, so it's indexable and iterable
+    # Check if rows is AsyncRecords (imported at runtime if available)
+    if AsyncRecords is not None and isinstance(rows, AsyncRecords):
+        columns = list(rows[0].keys())  # type: ignore[index]
+        rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+    else:
+        columns = list(rows[0].keys())
+        rows_seq = rows
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
-    _validate_row_shapes(rows, columns, table_name=handle.name)
+    _validate_row_shapes(rows_seq, columns, table_name=handle.name)
     table_sql = quote_identifier(handle.name, handle.database.dialect.quote_char)
     column_sql = comma_separated(
         quote_identifier(col, handle.database.dialect.quote_char) for col in columns
@@ -38,7 +56,7 @@ async def insert_rows_async(handle: AsyncTableHandle, rows: Sequence[Mapping[str
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     # Use batch insert for better performance
-    params_list: list[dict[str, object]] = [dict(row) for row in rows]
+    params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]
     result = await handle.database.executor.execute_many(sql, params_list)
     return result.rowcount or 0
 
@@ -64,7 +82,7 @@ async def update_rows_async(
             f"update requires at least one value in `set` for table '{handle.name}'"
         )
     assignments = []
-    params: dict[str, object] = {}
+    params: Dict[str, object] = {}
     quote = handle.database.dialect.quote_char
     for idx, (column, value) in enumerate(values.items()):
         param_name = f"val_{idx}"

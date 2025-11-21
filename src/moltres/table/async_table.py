@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Mapping, Optional, Sequence, Union
 
 from ..config import MoltresConfig
 
 if TYPE_CHECKING:
     from ..dataframe.async_dataframe import AsyncDataFrame
-    from ..dataframe.async_reader import AsyncDataFrameReader
+    from ..dataframe.async_reader import AsyncDataLoader
+    from ..io.records import AsyncRecords
 from ..engine.async_connection import AsyncConnectionManager
 from ..engine.async_execution import AsyncQueryExecutor, AsyncQueryResult
 from ..engine.dialects import DialectSpec, get_dialect
@@ -26,14 +26,14 @@ class AsyncTableHandle:
     """Lightweight handle representing a table reference for async operations."""
 
     name: str
-    database: AsyncDatabase
+    database: "AsyncDatabase"
 
-    def select(self, *columns: str) -> AsyncDataFrame:
+    def select(self, *columns: str) -> "AsyncDataFrame":
         from ..dataframe.async_dataframe import AsyncDataFrame
 
         return AsyncDataFrame.from_table(self, columns=list(columns))
 
-    async def insert(self, rows: Sequence[Mapping[str, object]]) -> int:
+    async def insert(self, rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]) -> int:
         from .async_mutations import insert_rows_async
 
         return await insert_rows_async(self, rows)
@@ -78,8 +78,8 @@ class AsyncDatabase:
         Raises:
             ValidationError: If table name is invalid
         """
-        from ..sql.builders import quote_identifier
         from ..utils.exceptions import ValidationError
+        from ..sql.builders import quote_identifier
 
         if not name:
             raise ValidationError("Table name cannot be empty")
@@ -88,11 +88,14 @@ class AsyncDatabase:
         return AsyncTableHandle(name=name, database=self)
 
     @property
-    def read(self) -> AsyncDataFrameReader:
-        """Return an AsyncDataFrameReader for reading from tables and files."""
-        from ..dataframe.async_reader import AsyncDataFrameReader
+    def load(self) -> "AsyncDataLoader":
+        """Return an AsyncDataLoader for loading data from files and tables as AsyncRecords.
 
-        return AsyncDataFrameReader(self)
+        Note: For SQL operations on tables, use await db.table(name).select() instead.
+        """
+        from ..dataframe.async_reader import AsyncDataLoader
+
+        return AsyncDataLoader(self)
 
     # -------------------------------------------------------------- DDL operations
     async def create_table(
@@ -124,7 +127,10 @@ class AsyncDatabase:
             raise ValidationError(f"Cannot create table '{name}' with no columns")
 
         schema = TableSchema(
-            name=name, columns=columns, if_not_exists=if_not_exists, temporary=temporary
+            name=name,
+            columns=columns,
+            if_not_exists=if_not_exists,
+            temporary=temporary,
         )
         sql = compile_create_table(schema, self._dialect)
         await self._executor.execute(sql)
@@ -145,7 +151,7 @@ class AsyncDatabase:
         await self._executor.execute(sql)
 
     # -------------------------------------------------------------- query utils
-    def compile_plan(self, plan: LogicalPlan) -> str:
+    def compile_plan(self, plan: LogicalPlan) -> Any:
         """Compile a logical plan to SQL."""
         return compile_plan(plan, dialect=self._dialect)
 
@@ -156,13 +162,15 @@ class AsyncDatabase:
 
     async def execute_plan_stream(
         self, plan: LogicalPlan
-    ) -> AsyncIterator[list[dict[str, object]]]:
+    ) -> AsyncIterator[List[Dict[str, object]]]:
         """Execute a plan and return an async iterator of row chunks."""
         sql = self.compile_plan(plan)
         async for chunk in self._executor.fetch_stream(sql):
             yield chunk
 
-    async def execute_sql(self, sql: str, params: dict[str, Any] | None = None) -> AsyncQueryResult:
+    async def execute_sql(
+        self, sql: str, params: Optional[Dict[str, Any]] = None
+    ) -> AsyncQueryResult:
         """Execute raw SQL and return results."""
         return await self._executor.fetch(sql, params=params)
 

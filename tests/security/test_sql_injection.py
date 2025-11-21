@@ -53,7 +53,7 @@ def test_sql_injection_column_name(tmp_path):
     for col_name in malicious_columns:
         # Validation happens when SQL is compiled, not when select() is called
         df = table.select(col_name)
-        with pytest.raises(ValidationError, match="invalid characters"):
+        with pytest.raises(ValidationError, match="Invalid column name|invalid characters"):
             df.to_sql()  # This triggers SQL compilation and validation
 
 

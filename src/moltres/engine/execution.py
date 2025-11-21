@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,7 +26,7 @@ _perf_hooks: dict[str, list[Callable[[str, float, dict[str, Any]], None]]] = {
 @dataclass
 class QueryResult:
     rows: Any
-    rowcount: int | None
+    rowcount: Optional[int]
 
 
 class QueryExecutor:
@@ -37,12 +36,12 @@ class QueryExecutor:
         self._connections = connection_manager
         self._config = config
 
-    def fetch(self, sql: str, params: dict[str, Any] | None = None) -> QueryResult:
+    def fetch(self, stmt: Union[str, Any], params: Optional[Dict[str, Any]] = None) -> QueryResult:
         """Execute a SELECT query and return results.
 
         Args:
-            sql: The SQL query to execute
-            params: Optional parameter dictionary for parameterized queries
+            stmt: The SQLAlchemy Select statement or SQL string to execute
+            params: Optional parameter dictionary for parameterized queries (only used with SQL strings)
 
         Returns:
             QueryResult containing rows and rowcount
@@ -50,15 +49,27 @@ class QueryExecutor:
         Raises:
             ExecutionError: If SQL execution fails
         """
-        logger.debug("Executing query: %s", sql[:200] if len(sql) > 200 else sql)
+        from sqlalchemy.sql import Select
+
+        # Convert SQLAlchemy statement to string for logging
+        if isinstance(stmt, Select):
+            sql_str = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        else:
+            sql_str = str(stmt)[:200] if len(str(stmt)) > 200 else str(stmt)
+
+        logger.debug("Executing query: %s", sql_str)
 
         # Performance monitoring
         start_time = time.perf_counter()
-        _call_hooks("query_start", sql, 0.0, {"params": params})
+        _call_hooks("query_start", sql_str, 0.0, {"params": params})
 
         try:
             with self._connections.connect() as conn:
-                result = conn.execute(text(sql), params or {})
+                # Execute SQLAlchemy statement directly or use text() for SQL strings
+                if isinstance(stmt, Select):
+                    result = conn.execute(stmt)
+                else:
+                    result = conn.execute(text(stmt), params or {})
                 rows = result.fetchall()
                 columns = list(result.keys())
                 payload = self._format_rows(rows, columns)
@@ -67,7 +78,12 @@ class QueryExecutor:
                 elapsed = time.perf_counter() - start_time
                 logger.debug("Query returned %d rows in %.3f seconds", rowcount, elapsed)
 
-                _call_hooks("query_end", sql, elapsed, {"rowcount": rowcount, "params": params})
+                _call_hooks(
+                    "query_end",
+                    sql_str,
+                    elapsed,
+                    {"rowcount": rowcount, "params": params},
+                )
 
                 return QueryResult(rows=payload, rowcount=result.rowcount)
         except SQLAlchemyError as exc:
@@ -75,7 +91,7 @@ class QueryExecutor:
             logger.error("SQL execution failed after %.3f seconds: %s", elapsed, exc, exc_info=True)
             raise ExecutionError(f"Failed to execute query: {exc}") from exc
 
-    def execute(self, sql: str, params: dict[str, Any] | None = None) -> QueryResult:
+    def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
         """Execute a non-SELECT SQL statement (INSERT, UPDATE, DELETE, etc.).
 
         Args:
@@ -99,7 +115,7 @@ class QueryExecutor:
             logger.error("SQL execution failed: %s", exc, exc_info=True)
             raise ExecutionError(f"Failed to execute statement: {exc}") from exc
 
-    def execute_many(self, sql: str, params_list: Sequence[dict[str, Any]]) -> QueryResult:
+    def execute_many(self, sql: str, params_list: Sequence[Dict[str, Any]]) -> QueryResult:
         """Execute a SQL statement multiple times with different parameter sets.
 
         This is more efficient than calling execute() in a loop for batch inserts.
@@ -135,11 +151,20 @@ class QueryExecutor:
             raise ExecutionError(f"Failed to execute batch statement: {exc}") from exc
 
     def fetch_stream(
-        self, sql: str, params: dict[str, Any] | None = None, chunk_size: int = 10000
-    ) -> Iterator[list[dict[str, Any]]]:
+        self,
+        stmt: Union[str, Any],
+        params: Optional[Dict[str, Any]] = None,
+        chunk_size: int = 10000,
+    ) -> Iterator[List[Dict[str, Any]]]:
         """Fetch query results in streaming chunks."""
+        from sqlalchemy.sql import Select
+
         with self._connections.connect() as conn:
-            result = conn.execute(text(sql), params or {})
+            # Execute SQLAlchemy statement directly or use text() for SQL strings
+            if isinstance(stmt, Select):
+                result = conn.execute(stmt)
+            else:
+                result = conn.execute(text(stmt), params or {})
             columns = list(result.keys())
 
             while True:
@@ -162,13 +187,13 @@ class QueryExecutor:
             return [dict(zip(columns, row)) for row in rows]
         if fmt == "pandas":
             try:
-                import pandas as pd  # type: ignore[import-untyped]
+                import pandas as pd  # type: ignore
             except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
             return pd.DataFrame(rows, columns=columns)
         if fmt == "polars":
             try:
-                import polars as pl  # type: ignore[import-not-found]
+                import polars as pl
             except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
                 raise RuntimeError("Polars support requested but polars is not installed") from exc
             return pl.DataFrame(rows, schema=columns)

@@ -35,8 +35,9 @@ async def test_async_dataframe_collect(tmp_path):
         ]
     )
 
-    # Query with filters
-    df = await db.read.table("users")
+    # Query with filters - use db.table().select() for SQL operations
+    table_handle = await db.table("users")
+    df = table_handle.select()
     filtered = df.where(col("age") > 25)
     results = await filtered.collect()
 
@@ -65,7 +66,9 @@ async def test_async_dataframe_select(tmp_path):
 
     await table.insert([{"a": 1, "b": 2, "c": 3}])
 
-    df = await db.read.table("data")
+    # Use db.table().select() for SQL operations
+    table_handle = await db.table("data")
+    df = table_handle.select()
     selected = df.select("a", "c")
     results = await selected.collect()
 
@@ -90,7 +93,9 @@ async def test_async_dataframe_limit(tmp_path):
     rows = [{"n": i} for i in range(10)]
     await table.insert(rows)
 
-    df = await db.read.table("numbers")
+    # Use db.table().select() for SQL operations
+    table_handle = await db.table("numbers")
+    df = table_handle.select()
     limited = df.limit(5)
     results = await limited.collect()
 

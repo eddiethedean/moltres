@@ -91,7 +91,7 @@ user_path = get_user_input()
 path = Path(user_path).resolve()
 if not str(path).startswith(str(Path("/safe/directory").resolve())):
     raise ValueError("Invalid file path")
-df = db.read.csv(str(path))
+records = db.load.csv(str(path))
 ```
 
 ## Authentication and Authorization

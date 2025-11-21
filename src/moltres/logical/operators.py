@@ -167,3 +167,29 @@ def join(
     return Join(
         left=left, right=right, how=how, on=None if on is None else tuple(on), condition=condition
     )
+
+
+def union(left: LogicalPlan, right: LogicalPlan, distinct: bool = True) -> Union:
+    """Create a Union logical plan node.
+
+    Args:
+        left: Left logical plan
+        right: Right logical plan
+        distinct: If True, use UNION (distinct), if False, use UNION ALL
+
+    Returns:
+        Union logical plan node
+    """
+    return Union(left=left, right=right, distinct=distinct)
+
+
+def distinct(child: LogicalPlan) -> Distinct:
+    """Create a Distinct logical plan node.
+
+    Args:
+        child: Child logical plan
+
+    Returns:
+        Distinct logical plan node
+    """
+    return Distinct(child=child)

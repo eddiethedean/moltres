@@ -15,14 +15,14 @@
    streaming execution via `fetch_stream()` for cursor-based pagination of large result sets.
 5. **DDL Layer** – `moltres.sql.ddl` and `moltres.table.schema` provide table creation and schema
    definition utilities that compile to CREATE TABLE and DROP TABLE statements.
-6. **Read Layer** – `moltres.dataframe.reader` provides data source readers with:
-   - Table reads: `read.table()` for database tables
-   - File formats: `read.csv()`, `read.json()`, `read.jsonl()`, `read.parquet()`, `read.text()`
-   - Generic format: `read.format(format_name).load(path)`
+6. **Data Loading Layer** – `moltres.dataframe.reader` (now `DataLoader`) provides data source loaders with:
+   - File formats: `load.csv()`, `load.json()`, `load.jsonl()`, `load.parquet()`, `load.text()` - all return `Records`
+   - Generic format: `load.format(format_name).load(path)` - returns `Records`
    - Schema inference: automatic type detection from data
    - Explicit schemas: `.schema([ColumnDef(...), ...])` for type control
    - Format options: `.option(key, value)` for format-specific settings
    - Streaming: `.stream()` for chunked reading of large files (configurable chunk_size)
+   - **Note:** File readers return `Records` (not `DataFrame`). For SQL operations, use `db.table(name).select()`
 7. **Write Layer** – `moltres.dataframe.writer` provides DataFrame persistence with:
    - Table writes: `save_as_table()` with schema inference and automatic table creation
    - Existing table inserts: `insertInto()` for appending to pre-existing tables
@@ -37,9 +37,10 @@
 
 - Create tables programmatically using `db.create_table(name, columns, ...)` with schema definitions
   built from `column()` helpers. Drop tables with `db.drop_table(name)`.
-- Read data using `db.read.table("name")` for database tables, or `db.read.csv(path)`,
-  `db.read.json(path)`, `db.read.parquet(path)`, etc. for file formats. Use `.schema([...])` for
+- Load data from files using `db.load.csv(path)`, `db.load.json(path)`, `db.load.parquet(path)`, etc.
+  These return `Records` which can be inserted into tables or iterated. Use `.schema([...])` for
   explicit schemas and `.option(key, value)` for format-specific settings.
+- For SQL operations on database tables, use `db.table("name").select(...)` to get a DataFrame.
 - Use `db.table("name").select(...)` to construct lazy DataFrames.
 - Compose joins via `df.join(other_df, on=[("left_col", "right_col")])` and aggregations via
   `df.group_by("country").agg(sum(col("amount")).alias("total"))`.
@@ -51,9 +52,9 @@
 - Write DataFrames to files using `df.write.csv(path)`, `df.write.json(path)`, `df.write.parquet(path)`,
   or the generic `df.write.save(path, format="...")`. Use `.partitionBy("col1", "col2")` for
   directory-based partitioning and `.option(key, value)` for format-specific settings.
-- Enable streaming for large datasets: `df.read.stream().option("chunk_size", 10000).csv("large.csv")`
-  reads in chunks, and `df.write.stream().save_as_table("large_table")` writes without materializing.
-  Use `collect(stream=True)` to process chunks incrementally.
+- Enable streaming for large file datasets: `db.load.stream().option("chunk_size", 10000).csv("large.csv")`
+  returns streaming `Records` that iterate row-by-row. For SQL queries, use `collect(stream=True)` to
+  process chunks incrementally. Use `df.write.stream().save_as_table("large_table")` to write without materializing.
 - Perform table mutations through the `TableHandle` (`db.table("orders").insert([...])`).
 
 ## Testing & Tooling

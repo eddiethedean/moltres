@@ -34,11 +34,15 @@ jobs:
 
       - name: Run type checking
         run: |
-          mypy src
+          mypy src --config-file pyproject.toml
 
       - name: Run tests
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: 1
         run: |
           pytest
+
+      - name: Validate documentation examples
+        run: |
+          python scripts/validate_examples.py
 

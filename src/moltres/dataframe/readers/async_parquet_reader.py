@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Dict, List, Optional, Sequence
 
 try:
-    import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
+    import pyarrow.parquet as pq
 except ImportError as exc:
     raise ImportError(
         "Async Parquet reading requires pyarrow. Install with: pip install pyarrow"
@@ -16,8 +15,8 @@ except ImportError as exc:
 # aiofiles is not directly used here, but required for async file operations
 # The import check is handled by the caller
 
+from ...io.records import AsyncRecords
 from ...table.schema import ColumnDef
-from ..async_dataframe import AsyncDataFrame
 
 if TYPE_CHECKING:
     from ...table.async_table import AsyncDatabase
@@ -25,11 +24,11 @@ if TYPE_CHECKING:
 
 async def read_parquet(
     path: str,
-    database: AsyncDatabase,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
-    """Read Parquet file asynchronously and return AsyncDataFrame.
+    database: "AsyncDatabase",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
+) -> AsyncRecords:
+    """Read Parquet file asynchronously and return AsyncRecords.
 
     Args:
         path: Path to Parquet file
@@ -38,7 +37,7 @@ async def read_parquet(
         options: Reader options (unused for Parquet)
 
     Returns:
-        AsyncDataFrame containing the Parquet data
+        AsyncRecords containing the Parquet data
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -52,7 +51,7 @@ async def read_parquet(
     # Note: pyarrow doesn't have native async support, so we use asyncio.to_thread
     import asyncio
 
-    def _read_parquet_sync() -> list[dict[str, object]]:
+    def _read_parquet_sync() -> List[Dict[str, object]]:
         table = pq.read_table(str(path_obj))
         try:
             import pandas as pd  # type: ignore[import-untyped]  # noqa: F401
@@ -61,14 +60,14 @@ async def read_parquet(
                 "Parquet format requires pandas. Install with: pip install pandas"
             ) from exc
         df = table.to_pandas()
-        return cast(list[dict[str, object]], df.to_dict("records"))
+        return df.to_dict("records")  # type: ignore[no-any-return]
 
     rows = await asyncio.to_thread(_read_parquet_sync)
 
     if not rows:
         if schema:
-            return _create_async_dataframe_from_schema(database, schema, [])
-        return _create_async_dataframe_from_data(database, [])
+            return _create_async_records_from_schema(database, schema, [])
+        return _create_async_records_from_data(database, [], schema)
 
     # Infer or use explicit schema
     if schema:
@@ -83,15 +82,15 @@ async def read_parquet(
 
     typed_rows = apply_schema_to_rows(rows, final_schema)
 
-    return _create_async_dataframe_from_data(database, typed_rows)
+    return _create_async_records_from_data(database, typed_rows, final_schema)
 
 
 async def read_parquet_stream(
     path: str,
-    database: AsyncDatabase,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
-) -> AsyncDataFrame:
+    database: "AsyncDatabase",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
+) -> AsyncRecords:
     """Read Parquet file asynchronously in streaming mode (row group by row group).
 
     Args:
@@ -101,7 +100,7 @@ async def read_parquet_stream(
         options: Reader options (unused for Parquet)
 
     Returns:
-        AsyncDataFrame with streaming generator
+        AsyncRecords with streaming generator
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -118,17 +117,17 @@ async def read_parquet_stream(
 
     parquet_file = await asyncio.to_thread(_get_parquet_file)
 
-    async def _chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
+    async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
         for i in range(parquet_file.num_row_groups):
 
-            def _read_row_group(idx: int) -> list[dict[str, object]]:
+            def _read_row_group(idx: int) -> List[Dict[str, object]]:
                 row_group = parquet_file.read_row_group(idx)
                 try:
                     import pandas as pd  # noqa: F401
                 except ImportError:
                     raise RuntimeError("Parquet requires pandas") from None
                 df = row_group.to_pandas()
-                return cast(list[dict[str, object]], df.to_dict("records"))
+                return df.to_dict("records")  # type: ignore[no-any-return]
 
             rows = await asyncio.to_thread(_read_row_group, i)
             if rows:
@@ -140,8 +139,8 @@ async def read_parquet_stream(
         first_chunk = await first_chunk_gen.__anext__()
     except StopAsyncIteration:
         if schema:
-            return _create_async_dataframe_from_schema(database, schema, [])
-        return _create_async_dataframe_from_data(database, [])
+            return _create_async_records_from_schema(database, schema, [])
+        return _create_async_records_from_data(database, [], schema)
 
     # Infer or use explicit schema
     if schema:
@@ -153,43 +152,32 @@ async def read_parquet_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    async def _typed_chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
+    async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         async for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
 
-    return _create_async_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
+    return _create_async_records_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_async_dataframe_from_data(
-    database: AsyncDatabase, rows: list[dict[str, object]]
-) -> AsyncDataFrame:
-    """Create AsyncDataFrame from materialized data."""
-    from ...logical.plan import TableScan
-
-    return AsyncDataFrame(
-        plan=TableScan(table="__memory__"), database=database, _materialized_data=rows
-    )
+def _create_async_records_from_data(
+    database: "AsyncDatabase", rows: List[Dict[str, object]], schema: Optional[Sequence[ColumnDef]]
+) -> AsyncRecords:
+    """Create AsyncRecords from materialized data."""
+    return AsyncRecords(_data=rows, _schema=schema, _database=database)
 
 
-def _create_async_dataframe_from_schema(
-    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
-) -> AsyncDataFrame:
-    """Create AsyncDataFrame with explicit schema but no data."""
-    return _create_async_dataframe_from_data(database, rows)
+def _create_async_records_from_schema(
+    database: "AsyncDatabase", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+) -> AsyncRecords:
+    """Create AsyncRecords with explicit schema but no data."""
+    return AsyncRecords(_data=rows, _schema=schema, _database=database)
 
 
-def _create_async_dataframe_from_stream(
-    database: AsyncDatabase,
-    chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
+def _create_async_records_from_stream(
+    database: "AsyncDatabase",
+    chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
-) -> AsyncDataFrame:
-    """Create AsyncDataFrame from streaming generator."""
-    from ...logical.plan import TableScan
-
-    return AsyncDataFrame(
-        plan=TableScan(table="__stream__"),
-        database=database,
-        _stream_generator=chunk_generator,
-        _stream_schema=schema,
-    )
+) -> AsyncRecords:
+    """Create AsyncRecords from streaming generator."""
+    return AsyncRecords(_generator=chunk_generator, _schema=schema, _database=database)

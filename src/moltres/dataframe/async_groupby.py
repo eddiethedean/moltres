@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from ..expressions.column import Column
 from ..logical import operators
@@ -19,12 +19,10 @@ class AsyncGroupedDataFrame:
     def __init__(
         self,
         plan: LogicalPlan,
-        database: AsyncDatabase | None = None,
-        _materialized_data: list[dict[str, object]] | None = None,
+        database: Optional["AsyncDatabase"] = None,
     ):
         self.plan = plan
         self.database = database
-        self._materialized_data = _materialized_data
 
     def agg(self, *aggregates: Column) -> AsyncDataFrame:
         """Apply aggregate functions to the grouped data.
@@ -44,5 +42,6 @@ class AsyncGroupedDataFrame:
         grouping = self.plan.grouping
         new_plan = operators.aggregate(self.plan.child, keys=grouping, aggregates=aggregates)
         return AsyncDataFrame(
-            plan=new_plan, database=self.database, _materialized_data=self._materialized_data
+            plan=new_plan,
+            database=self.database,
         )

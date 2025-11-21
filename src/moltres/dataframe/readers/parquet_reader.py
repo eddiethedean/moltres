@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence
 
+from ...io.records import Records
 from ...table.schema import ColumnDef
-from ..dataframe import DataFrame
 
 if TYPE_CHECKING:
     from ...table.table import Database
 
 
 def read_parquet(
-    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
-) -> DataFrame:
-    """Read Parquet file and return DataFrame.
+    path: str,
+    database: "Database",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
+) -> Records:
+    """Read Parquet file and return Records.
 
     Args:
         path: Path to Parquet file
@@ -25,7 +27,7 @@ def read_parquet(
         options: Reader options (unused for Parquet)
 
     Returns:
-        DataFrame containing the Parquet data
+        Records containing the Parquet data
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -39,7 +41,7 @@ def read_parquet(
         ) from exc
 
     try:
-        import pyarrow.parquet as pq  # type: ignore[import-not-found]
+        import pyarrow.parquet as pq
     except ImportError as exc:
         raise RuntimeError(
             "Parquet format requires pyarrow. Install with: pip install pyarrow"
@@ -58,8 +60,8 @@ def read_parquet(
 
     if not rows:
         if schema:
-            return _create_dataframe_from_schema(database, schema, [])
-        return _create_dataframe_from_data(database, [])
+            return _create_records_from_schema(database, schema, [])
+        return _create_records_from_data(database, [], schema)
 
     # Infer or use explicit schema
     if schema:
@@ -74,12 +76,15 @@ def read_parquet(
 
     typed_rows = apply_schema_to_rows(rows, final_schema)
 
-    return _create_dataframe_from_data(database, typed_rows)
+    return _create_records_from_data(database, typed_rows, final_schema)
 
 
 def read_parquet_stream(
-    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
-) -> DataFrame:
+    path: str,
+    database: "Database",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
+) -> Records:
     """Read Parquet file in streaming mode (row group by row group).
 
     Args:
@@ -89,14 +94,14 @@ def read_parquet_stream(
         options: Reader options (unused for Parquet)
 
     Returns:
-        DataFrame with streaming generator
+        Records with streaming generator
 
     Raises:
         FileNotFoundError: If file doesn't exist
         RuntimeError: If pyarrow is not installed
     """
     try:
-        import pyarrow.parquet as pq  # type: ignore[import-not-found]
+        import pyarrow.parquet as pq
     except ImportError as exc:
         raise RuntimeError(
             "Parquet format requires pyarrow. Install with: pip install pyarrow"
@@ -108,7 +113,7 @@ def read_parquet_stream(
 
     parquet_file = pq.ParquetFile(str(path_obj))
 
-    def _chunk_generator() -> Iterator[list[dict[str, object]]]:
+    def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
         for i in range(parquet_file.num_row_groups):
             row_group = parquet_file.read_row_group(i)
             df = row_group.to_pandas()
@@ -122,8 +127,8 @@ def read_parquet_stream(
         first_chunk = next(first_chunk_gen)
     except StopIteration:
         if schema:
-            return _create_dataframe_from_schema(database, schema, [])
-        return _create_dataframe_from_data(database, [])
+            return _create_records_from_schema(database, schema, [])
+        return _create_records_from_data(database, [], schema)
 
     # Infer or use explicit schema
     if schema:
@@ -135,45 +140,38 @@ def read_parquet_stream(
 
     from .schema_inference import apply_schema_to_rows
 
-    def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
+    def _typed_chunk_generator() -> Iterator[List[Dict[str, object]]]:
         yield apply_schema_to_rows(first_chunk, final_schema)
         for chunk in first_chunk_gen:
             yield apply_schema_to_rows(chunk, final_schema)
 
-    return _create_dataframe_from_stream(database, _typed_chunk_generator, final_schema)
+    return _create_records_from_stream(database, _typed_chunk_generator, final_schema)
 
 
-def _create_dataframe_from_data(database: Database, rows: list[dict[str, object]]) -> DataFrame:
-    """Create DataFrame from materialized data."""
-    from ...logical.plan import TableScan
-
-    return DataFrame(plan=TableScan(table="__memory__"), database=database, _materialized_data=rows)
-
-
-def _create_dataframe_from_schema(
-    database: Database, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
-) -> DataFrame:
-    """Create DataFrame with explicit schema but no data."""
-    return _create_dataframe_from_data(database, rows)
+def _create_records_from_data(
+    database: "Database", rows: List[Dict[str, object]], schema: Optional[Sequence[ColumnDef]]
+) -> Records:
+    """Create Records from materialized data."""
+    return Records(_data=rows, _schema=schema, _database=database)
 
 
-def _create_dataframe_from_stream(
-    database: Database,
-    chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
+def _create_records_from_schema(
+    database: "Database", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+) -> Records:
+    """Create Records with explicit schema but no data."""
+    return Records(_data=rows, _schema=schema, _database=database)
+
+
+def _create_records_from_stream(
+    database: "Database",
+    chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
-) -> DataFrame:
-    """Create DataFrame from streaming generator.
+) -> Records:
+    """Create Records from streaming generator.
 
     Args:
         database: Database instance
         chunk_generator: Callable that returns an iterator of chunks
         schema: Schema for the data
     """
-    from ...logical.plan import TableScan
-
-    return DataFrame(
-        plan=TableScan(table="__stream__"),
-        database=database,
-        _stream_generator=chunk_generator,
-        _stream_schema=schema,
-    )
+    return Records(_generator=chunk_generator, _schema=schema, _database=database)

@@ -31,7 +31,9 @@ async def test_async_fetch(tmp_path):
     await table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
 
     # Query data
-    df = await db.read.table("users")
+    # Use db.table().select() for SQL operations
+    table_handle = await db.table("users")
+    df = table_handle.select()
     results = await df.collect()
 
     assert len(results) == 2
@@ -64,7 +66,9 @@ async def test_async_batch_insert(tmp_path):
     assert count == 100
 
     # Verify
-    df = await db.read.table("items")
+    # Use db.table().select() for SQL operations
+    table_handle = await db.table("items")
+    df = table_handle.select()
     results = await df.collect()
     assert len(results) == 100
 
@@ -89,7 +93,9 @@ async def test_async_streaming(tmp_path):
     await table.insert(rows)
 
     # Stream query results
-    df = await db.read.table("numbers")
+    # Use db.table().select() for SQL operations
+    table_handle = await db.table("numbers")
+    df = table_handle.select()
     chunk_count = 0
     total_rows = 0
     async for chunk in await df.collect(stream=True):

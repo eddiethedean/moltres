@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, cast
+from typing import (
+    TYPE_CHECKING,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    cast,
+)
 
 try:
     import aiofiles  # type: ignore[import-untyped]
@@ -13,8 +21,8 @@ except ImportError as exc:
         "Async text reading requires aiofiles. Install with: pip install moltres[async]"
     ) from exc
 
+from ...io.records import AsyncRecords
 from ...table.schema import ColumnDef
-from ..async_dataframe import AsyncDataFrame
 
 if TYPE_CHECKING:
     from ...table.async_table import AsyncDatabase
@@ -22,12 +30,12 @@ if TYPE_CHECKING:
 
 async def read_text(
     path: str,
-    database: AsyncDatabase,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
+    database: "AsyncDatabase",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
     column_name: str = "value",
-) -> AsyncDataFrame:
-    """Read text file line-by-line asynchronously and return AsyncDataFrame.
+) -> AsyncRecords:
+    """Read text file line-by-line asynchronously and return AsyncRecords.
 
     Args:
         path: Path to text file
@@ -37,7 +45,7 @@ async def read_text(
         column_name: Name of the column to create (default: "value")
 
     Returns:
-        AsyncDataFrame containing the text file lines
+        AsyncRecords containing the text file lines
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -46,24 +54,25 @@ async def read_text(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    rows: list[dict[str, object]] = []
-    async with aiofiles.open(path_obj, encoding="utf-8") as f:
+    rows: List[Dict[str, object]] = []
+    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
         async for line in f:
             rows.append({column_name: line.rstrip("\n\r")})
 
     if not rows:
-        return _create_async_dataframe_from_schema(database, [], [])
+        return _create_async_records_from_schema(database, [], [])
 
-    return _create_async_dataframe_from_data(database, rows)
+    schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
+    return _create_async_records_from_data(database, rows, schema)
 
 
 async def read_text_stream(
     path: str,
-    database: AsyncDatabase,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object],
+    database: "AsyncDatabase",
+    schema: Optional[Sequence[ColumnDef]],
+    options: Dict[str, object],
     column_name: str = "value",
-) -> AsyncDataFrame:
+) -> AsyncRecords:
     """Read text file asynchronously in streaming mode (chunked).
 
     Args:
@@ -74,19 +83,19 @@ async def read_text_stream(
         column_name: Name of the column to create (default: "value")
 
     Returns:
-        AsyncDataFrame with streaming generator
+        AsyncRecords with streaming generator
 
     Raises:
         FileNotFoundError: If file doesn't exist
     """
-    chunk_size = int(cast("int", options.get("chunk_size", 10000)))
+    chunk_size = int(cast(int, options.get("chunk_size", 10000)))
     path_obj = Path(path)
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
-    async def _chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
-        chunk: list[dict[str, object]] = []
-        async with aiofiles.open(path_obj, encoding="utf-8") as f:
+    async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+        chunk: List[Dict[str, object]] = []
+        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
             async for line in f:
                 chunk.append({column_name: line.rstrip("\n\r")})
                 if len(chunk) >= chunk_size:
@@ -101,47 +110,36 @@ async def read_text_stream(
         first_chunk = await first_chunk_gen.__anext__()
     except StopAsyncIteration:
         schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
-        return _create_async_dataframe_from_schema(database, schema, [])
+        return _create_async_records_from_schema(database, schema, [])
 
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
 
-    async def _typed_chunk_generator() -> AsyncIterator[list[dict[str, object]]]:
+    async def _typed_chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
         yield first_chunk
         async for chunk in first_chunk_gen:
             yield chunk
 
-    return _create_async_dataframe_from_stream(database, _typed_chunk_generator, schema)
+    return _create_async_records_from_stream(database, _typed_chunk_generator, schema)
 
 
-def _create_async_dataframe_from_data(
-    database: AsyncDatabase, rows: list[dict[str, object]]
-) -> AsyncDataFrame:
-    """Create AsyncDataFrame from materialized data."""
-    from ...logical.plan import TableScan
-
-    return AsyncDataFrame(
-        plan=TableScan(table="__memory__"), database=database, _materialized_data=rows
-    )
+def _create_async_records_from_data(
+    database: "AsyncDatabase", rows: List[Dict[str, object]], schema: Optional[Sequence[ColumnDef]]
+) -> AsyncRecords:
+    """Create AsyncRecords from materialized data."""
+    return AsyncRecords(_data=rows, _schema=schema, _database=database)
 
 
-def _create_async_dataframe_from_schema(
-    database: AsyncDatabase, schema: Sequence[ColumnDef], rows: list[dict[str, object]]
-) -> AsyncDataFrame:
-    """Create AsyncDataFrame with explicit schema but no data."""
-    return _create_async_dataframe_from_data(database, rows)
+def _create_async_records_from_schema(
+    database: "AsyncDatabase", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
+) -> AsyncRecords:
+    """Create AsyncRecords with explicit schema but no data."""
+    return AsyncRecords(_data=rows, _schema=schema, _database=database)
 
 
-def _create_async_dataframe_from_stream(
-    database: AsyncDatabase,
-    chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
+def _create_async_records_from_stream(
+    database: "AsyncDatabase",
+    chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
-) -> AsyncDataFrame:
-    """Create AsyncDataFrame from streaming generator."""
-    from ...logical.plan import TableScan
-
-    return AsyncDataFrame(
-        plan=TableScan(table="__stream__"),
-        database=database,
-        _stream_generator=chunk_generator,
-        _stream_schema=schema,
-    )
+) -> AsyncRecords:
+    """Create AsyncRecords from streaming generator."""
+    return AsyncRecords(_generator=chunk_generator, _schema=schema, _database=database)

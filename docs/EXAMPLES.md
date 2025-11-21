@@ -13,8 +13,9 @@ from moltres import async_connect, col
 async def main():
     db = async_connect("sqlite+aiosqlite:///example.db")
     
-    # Read from table
-    df = await db.read.table("users")
+    # For SQL operations, use db.table().select()
+    table_handle = await db.table("users")
+    df = table_handle.select()
     results = await df.collect()
     
     print(results)
@@ -32,14 +33,14 @@ from moltres import async_connect
 async def main():
     db = async_connect("sqlite+aiosqlite:///example.db")
     
-    # Read CSV asynchronously
-    df = await db.read.csv("data.csv")
-    results = await df.collect()
+    # Load CSV asynchronously (returns AsyncRecords)
+    records = await db.load.csv("data.csv")
+    rows = await records.rows()  # Get all rows
     
-    # Stream large files
-    df_stream = await db.read.stream(True).csv("large_file.csv")
-    async for chunk in await df_stream.collect(stream=True):
-        process_chunk(chunk)
+    # Stream large files (returns AsyncRecords)
+    records_stream = await db.load.stream().csv("large_file.csv")
+    async for row in records_stream:
+        process(row)
     
     await db.close()
 
@@ -313,23 +314,35 @@ table.delete(
 
 ## File Operations
 
-### Reading Files
+### Loading Files
+
+File readers return `Records`, not `DataFrame`. Records are materialized data that can be inserted into tables or iterated.
 
 ```python
-# CSV
-df = db.read.csv("data.csv")
-df = db.read.option("delimiter", "|").csv("pipe_delimited.csv")
-df = db.read.option("header", False).csv("no_header.csv")
+# CSV - returns Records
+records = db.load.csv("data.csv")
+records = db.load.option("delimiter", "|").csv("pipe_delimited.csv")
+records = db.load.option("header", False).csv("no_header.csv")
 
-# JSON
-df = db.read.json("data.json")  # Array of objects
-df = db.read.jsonl("data.jsonl")  # One object per line
+# JSON - returns Records
+records = db.load.json("data.json")  # Array of objects
+records = db.load.jsonl("data.jsonl")  # One object per line
 
-# Parquet (requires pandas and pyarrow)
-df = db.read.parquet("data.parquet")
+# Parquet (requires pandas and pyarrow) - returns Records
+records = db.load.parquet("data.parquet")
 
-# Text file
-df = db.read.text("log.txt", column_name="line")
+# Text file - returns Records
+records = db.load.text("log.txt", column_name="line")
+
+# Use Records with insert operations
+table.insert(records)  # Records implements Sequence protocol
+# Or use convenience method
+records.insert_into("table_name")
+
+# Access data
+rows = records.rows()  # Get all rows as a list
+for row in records:  # Iterate directly
+    process(row)
 ```
 
 ### Writing Files
@@ -354,11 +367,15 @@ df.write.parquet("output.parquet")
 ### Streaming Reads
 
 ```python
-# Read large file in chunks
-df = db.read.stream().option("chunk_size", 10000).csv("large_file.csv")
+# Load large file in streaming mode (returns Records)
+records = db.load.stream().option("chunk_size", 10000).csv("large_file.csv")
 
-for chunk in df.collect(stream=True):
-    process_chunk(chunk)  # Process 10,000 rows at a time
+# Records iterate row-by-row (streaming happens internally)
+for row in records:
+    process(row)  # Process one row at a time
+
+# Or materialize all at once
+all_rows = records.rows()  # Materializes all data
 ```
 
 ### Streaming Writes
@@ -479,13 +496,13 @@ for row in rows:
 
 ```python
 # ✅ Good: Stream large files
-df = db.read.stream().csv("large.csv")
-for chunk in df.collect(stream=True):
-    process(chunk)
+records = db.load.stream().csv("large.csv")
+for row in records:
+    process(row)  # Processes row-by-row, streaming internally
 
-# ❌ Avoid: Loading entire file into memory
-df = db.read.csv("large.csv")  # May cause memory issues
-all_data = df.collect()  # Loads everything
+# ❌ Avoid: Loading entire file into memory at once
+records = db.load.csv("large.csv")  # Materializes all data
+all_data = records.rows()  # Loads everything into memory
 ```
 
 ### Optimize Connection Pooling
@@ -506,12 +523,21 @@ db = connect(
 ### ETL Pipeline
 
 ```python
-# Extract
-raw_data = db.read.csv("raw_data.csv")
+# Extract: Load from CSV (returns Records)
+raw_records = db.load.csv("raw_data.csv")
 
-# Transform
+# Load raw data into staging table first
+db.create_table("staging", [
+    column("id", "INTEGER"),
+    column("name", "TEXT"),
+    column("amount", "REAL"),
+    column("category", "TEXT"),
+])
+raw_records.insert_into("staging")
+
+# Transform: Use SQL operations on the table
 cleaned = (
-    raw_data
+    db.table("staging")
     .select(
         col("id"),
         col("name").upper().alias("name"),

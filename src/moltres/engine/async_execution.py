@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Sequence, Union
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 # AsyncConnection is used via TYPE_CHECKING, but not directly imported here
 # The actual connection is managed by AsyncConnectionManager
+
 from ..config import EngineConfig
 from ..utils.exceptions import ExecutionError
 from .async_connection import AsyncConnectionManager
@@ -31,7 +31,7 @@ class AsyncQueryResult:
     """Result from an async query execution."""
 
     rows: Any
-    rowcount: int | None
+    rowcount: Optional[int]
 
 
 class AsyncQueryExecutor:
@@ -41,12 +41,14 @@ class AsyncQueryExecutor:
         self._connections = connection_manager
         self._config = config
 
-    async def fetch(self, sql: str, params: dict[str, Any] | None = None) -> AsyncQueryResult:
+    async def fetch(
+        self, stmt: Union[str, Any], params: Optional[Dict[str, Any]] = None
+    ) -> AsyncQueryResult:
         """Execute a SELECT query and return results.
 
         Args:
-            sql: The SQL query to execute
-            params: Optional parameter dictionary for parameterized queries
+            stmt: The SQLAlchemy Select statement or SQL string to execute
+            params: Optional parameter dictionary (only used with SQL strings)
 
         Returns:
             AsyncQueryResult containing rows and rowcount
@@ -54,15 +56,27 @@ class AsyncQueryExecutor:
         Raises:
             ExecutionError: If SQL execution fails
         """
-        logger.debug("Executing async query: %s", sql[:200] if len(sql) > 200 else sql)
+        from sqlalchemy.sql import Select
+
+        # Convert SQLAlchemy statement to string for logging
+        if isinstance(stmt, Select):
+            sql_str = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+        else:
+            sql_str = str(stmt)[:200] if len(str(stmt)) > 200 else str(stmt)
+
+        logger.debug("Executing async query: %s", sql_str)
 
         # Performance monitoring
         start_time = time.perf_counter()
-        _call_async_hooks("query_start", sql, 0.0, {"params": params})
+        _call_async_hooks("query_start", sql_str, 0.0, {"params": params})
 
         try:
             async with self._connections.connect() as conn:
-                result = await conn.execute(text(sql), params or {})
+                # Execute SQLAlchemy statement directly or use text() for SQL strings
+                if isinstance(stmt, Select):
+                    result = await conn.execute(stmt)
+                else:
+                    result = await conn.execute(text(stmt), params or {})
                 rows = result.fetchall()
                 columns = list(result.keys())
                 payload = await self._format_rows(rows, columns)
@@ -72,7 +86,10 @@ class AsyncQueryExecutor:
                 logger.debug("Async query returned %d rows in %.3f seconds", rowcount, elapsed)
 
                 _call_async_hooks(
-                    "query_end", sql, elapsed, {"rowcount": rowcount, "params": params}
+                    "query_end",
+                    sql_str,
+                    elapsed,
+                    {"rowcount": rowcount, "params": params},
                 )
 
                 return AsyncQueryResult(rows=payload, rowcount=result.rowcount)
@@ -83,7 +100,7 @@ class AsyncQueryExecutor:
             )
             raise ExecutionError(f"Failed to execute async query: {exc}") from exc
 
-    async def execute(self, sql: str, params: dict[str, Any] | None = None) -> AsyncQueryResult:
+    async def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> AsyncQueryResult:
         """Execute a non-SELECT SQL statement (INSERT, UPDATE, DELETE, etc.).
 
         Args:
@@ -108,7 +125,7 @@ class AsyncQueryExecutor:
             raise ExecutionError(f"Failed to execute async statement: {exc}") from exc
 
     async def execute_many(
-        self, sql: str, params_list: Sequence[dict[str, Any]]
+        self, sql: str, params_list: Sequence[Dict[str, Any]]
     ) -> AsyncQueryResult:
         """Execute a SQL statement multiple times with different parameter sets.
 
@@ -146,22 +163,31 @@ class AsyncQueryExecutor:
             raise ExecutionError(f"Failed to execute async batch statement: {exc}") from exc
 
     async def fetch_stream(
-        self, sql: str, params: dict[str, Any] | None = None, chunk_size: int = 10000
-    ) -> AsyncIterator[list[dict[str, Any]]]:
+        self,
+        stmt: Union[str, Any],
+        params: Optional[Dict[str, Any]] = None,
+        chunk_size: int = 10000,
+    ) -> AsyncIterator[List[Dict[str, Any]]]:
         """Fetch query results in streaming chunks.
 
         Args:
-            sql: The SQL query to execute
-            params: Optional parameter dictionary
+            stmt: The SQLAlchemy Select statement or SQL string to execute
+            params: Optional parameter dictionary (only used with SQL strings)
             chunk_size: Number of rows per chunk
 
         Yields:
             Lists of row dictionaries
         """
+        from sqlalchemy.sql import Select
+
         async with self._connections.connect() as conn:
-            result = await conn.stream(text(sql), params or {})
-            columns: list[str] | None = None
-            chunk: list[dict[str, Any]] = []
+            # Execute SQLAlchemy statement directly or use text() for SQL strings
+            if isinstance(stmt, Select):
+                result = await conn.stream(stmt)
+            else:
+                result = await conn.stream(text(stmt), params or {})
+            columns: Optional[List[str]] = None
+            chunk: List[Dict[str, Any]] = []
 
             async for row in result:
                 if columns is None:
@@ -190,10 +216,10 @@ class AsyncQueryExecutor:
                 import pandas as pd  # type: ignore[import-untyped]
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
-            return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
+            return pd.DataFrame(rows, columns=columns)
         if fmt == "polars":
             try:
-                import polars as pl  # type: ignore[import-not-found]
+                import polars as pl
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Polars support requested but polars is not installed") from exc
             return pl.DataFrame(rows, schema=columns)

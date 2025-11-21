@@ -9,6 +9,16 @@ from ..expressions.column import Column
 
 
 @dataclass(frozen=True)
+class WindowSpec:
+    """Window specification for window functions."""
+
+    partition_by: tuple[Column, ...] = ()
+    order_by: tuple[Column, ...] = ()
+    rows_between: Optional[tuple[Optional[int], Optional[int]]] = None
+    range_between: Optional[tuple[Optional[int], Optional[int]]] = None
+
+
+@dataclass(frozen=True)
 class LogicalPlan:
     """Base class for logical operators."""
 
@@ -103,3 +113,21 @@ class Union(LogicalPlan):
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.left, self.right)
+
+
+@dataclass(frozen=True)
+class Union(LogicalPlan):
+    left: LogicalPlan
+    right: LogicalPlan
+    distinct: bool = True  # True for UNION, False for UNION ALL
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.left, self.right)
+
+
+@dataclass(frozen=True)
+class Distinct(LogicalPlan):
+    child: LogicalPlan
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.child,)

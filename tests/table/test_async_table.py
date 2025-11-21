@@ -44,7 +44,9 @@ async def test_async_table_operations(tmp_path):
     assert updated == 1
 
     # Query
-    df = await db.read.table("products")
+    # Use db.table().select() for SQL operations
+    table_handle = await db.table("products")
+    df = table_handle.select()
     results = await df.collect()
     assert len(results) == 2
     assert results[0]["price"] == 15.0

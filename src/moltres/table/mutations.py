@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Dict, Mapping, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -10,8 +10,11 @@ from ..sql.compiler import ExpressionCompiler
 from ..utils.exceptions import ValidationError
 from .table import TableHandle
 
+if TYPE_CHECKING:
+    from ..io.records import Records
 
-def insert_rows(handle: TableHandle, rows: Sequence[Mapping[str, object]]) -> int:
+
+def insert_rows(handle: TableHandle, rows: Union[Sequence[Mapping[str, object]], "Records"]) -> int:
     """Insert rows into a table using batch inserts for better performance.
 
     Args:
@@ -38,7 +41,7 @@ def insert_rows(handle: TableHandle, rows: Sequence[Mapping[str, object]]) -> in
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     # Use batch insert for better performance
-    params_list: list[dict[str, object]] = [dict(row) for row in rows]
+    params_list: list[Dict[str, object]] = [dict(row) for row in rows]
     result = handle.database.executor.execute_many(sql, params_list)
     return result.rowcount or 0
 
@@ -62,7 +65,7 @@ def update_rows(handle: TableHandle, *, where: Column, values: Mapping[str, obje
             f"update requires at least one value in `set` for table '{handle.name}'"
         )
     assignments = []
-    params: dict[str, object] = {}
+    params: Dict[str, object] = {}
     quote = handle.database.dialect.quote_char
     for idx, (column, value) in enumerate(values.items()):
         param_name = f"val_{idx}"

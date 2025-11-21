@@ -7,61 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2024-12-19
-
 ### Added
-- **Distinct operation** - `distinct()` method to remove duplicate rows
-- **Union operations** - `union()` and `unionAll()` methods for combining DataFrames
-- **Offset support** - `offset()` method for pagination and skipping rows
-- **Column manipulation methods**:
-  - `drop()` - Remove columns from DataFrame
-  - `rename()` - Rename columns using a mapping
-  - `withColumnRenamed()` - Rename a single column
-  - `withColumn()` - Add or replace a column
-- **Schema inspection**:
-  - `columns` property - Get list of column names
-  - `schema` property - Get DataFrame schema as ColumnDef sequence
-  - `printSchema()` method - Print schema in a readable format
-- **Extended string functions**:
-  - `substring()` / `substr()` - Extract substring from string
-  - `trim()`, `ltrim()`, `rtrim()` - Remove whitespace
-  - `replace()` - Replace substring in string
-  - `length()` / `len()` - Get string length
-- **Math functions**:
-  - `abs()` - Absolute value
-  - `round()` - Round to specified decimal places
-  - `floor()`, `ceil()`, `trunc()` - Rounding functions
-  - `sqrt()` - Square root
-  - `pow()` / `power()` - Exponentiation
-  - `exp()` - Exponential function
-  - `log()` - Natural logarithm
-  - `log10()` - Base-10 logarithm
-- **Date/time functions**:
-  - `current_date()`, `current_timestamp()` - Current date/time
-  - `date_add()`, `date_sub()` - Add/subtract days
-  - `datediff()` - Difference between dates
-  - `year()`, `month()`, `day()` - Extract date components
-  - `hour()`, `minute()`, `second()` - Extract time components
-- **Conditional expressions** - `when()` and `otherwise()` builders for CASE WHEN statements
-- **Window functions**:
-  - `row_number()`, `rank()`, `dense_rank()` - Ranking functions
-  - `lag()`, `lead()` - Access previous/next row values
-  - `first_value()`, `last_value()` - First/last values in window
-  - `over()` method on Column for window specifications
-  - `Window` class for creating window specifications with `partitionBy()` and `orderBy()`
+- **Records and AsyncRecords classes** - New data containers for file reads that clearly separate materialized file data from SQL operations
+- **DataLoader and AsyncDataLoader** - Renamed from `DataFrameReader` to better reflect that file loads return `Records`, not `DataFrame`
+- **Records.insert_into()** - Convenience method to insert Records directly into tables
+- **Records Sequence protocol** - Records implement `Sequence[Mapping[str, object]]` for direct use with `table.insert()`
+- **Strict Type Checking** - Enabled mypy strict mode with comprehensive type annotations across the entire codebase
+- **Type Stubs for PyArrow** - Custom type stubs (`stubs/pyarrow/`) to provide type information for pyarrow library
+- **PEP 561 Compliance** - Added `py.typed` marker file to signal that the package is fully typed
+- **Mypy Configuration** - Comprehensive mypy configuration in `pyproject.toml` with strict checking enabled
 
 ### Changed
-- Improved type annotations throughout the codebase
-- Enhanced error handling with specific exception types
-- Better type safety for optional dependencies
+- **Breaking:** `db.read` → `db.load` - File loading API renamed for clarity
+- **Breaking:** File readers (`db.load.csv()`, `db.load.json()`, etc.) now return `Records` instead of `DataFrame`
+- **Breaking:** `db.load.table()` returns `Records` (materialized). For SQL operations, use `db.table(name).select()` instead
+- **Breaking:** Removed materialized data support from `DataFrame` - DataFrames now only work with SQL queries (lazy evaluation)
+- Clear separation between file operations (materialized `Records`) and SQL operations (lazy `DataFrame`)
+- **Type Safety:** All functions and methods now have complete type annotations
+- **Type Safety:** Removed all unused type ignore comments and fixed type inference issues
+- **Type Safety:** Improved type hints for async operations and Records classes
 
 ### Fixed
-- Fixed unreachable `None` check in format detection for DataFrame writers
-- Replaced bare `except Exception` blocks with specific exception types
-- Improved async table existence checking with dialect-specific queries
-- Enhanced type annotations for optional async imports using `TYPE_CHECKING`
-- Fixed linting errors (line length, unused imports, unused variables)
-- Improved mypy type checking with proper type casts and annotations
+- Fixed `AsyncRecords` import issue in `async_mutations.py` for proper runtime type checking
+- Fixed missing pytest fixtures for example tests by creating `conftest.py`
+- Fixed all mypy type errors to achieve strict mode compliance
 
 ## [0.3.0] - 2024-12-19
 
@@ -74,9 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Async table mutations** - Async `insert()`, `update()`, and `delete()` operations
 - **Optional async dependencies** - Grouped optional dependencies for async support:
   - `moltres[async]` - Core async support (aiofiles)
-  - `moltres[async,async-postgresql]` - PostgreSQL async driver (asyncpg)
-  - `moltres[async,async-mysql]` - MySQL async driver (aiomysql)
-  - `moltres[async,async-sqlite]` - SQLite async driver (aiosqlite)
+  - `moltres[async-postgresql]` - PostgreSQL async driver (includes async + asyncpg)
+  - `moltres[async-mysql]` - MySQL async driver (includes async + aiomysql)
+  - `moltres[async-sqlite]` - SQLite async driver (includes async + aiosqlite)
 - **Async streaming support** - Async iterators for processing large datasets in chunks
 - **SQLAlchemy async engine integration** - Automatic async driver detection and configuration
 - Comprehensive async test suite (8 new async tests)
@@ -137,8 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/eddiethedean/moltres/compare/v0.3.0...v0.4.0
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/eddiethedean/moltres/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/eddiethedean/moltres/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/eddiethedean/moltres/releases/tag/v0.1.0

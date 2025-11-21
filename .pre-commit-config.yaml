@@ -27,6 +27,6 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-all]
-        args: [--ignore-missing-imports, --no-strict-optional]
-        exclude: ^(tests/|docs/)
+        args: []
+        exclude: ^(tests/|docs/|scripts/)
 

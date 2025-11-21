@@ -15,7 +15,7 @@
 - 🗄️ **SQL Compilation** - All operations compile to ANSI SQL and run on your database
 - 📊 **Multiple Formats** - Read/write CSV, JSON, JSONL, Parquet, and more
 - 🌊 **Streaming Support** - Handle datasets larger than memory with chunked processing
-- 🔧 **Type Safe** - Full type hints and mypy support
+- 🔧 **Type Safe** - Full type hints with strict mypy checking and custom type stubs for dependencies
 - 🎯 **Zero Dependencies** - Works with just SQLAlchemy (pandas/polars optional)
 - 🔒 **Security First** - Built-in SQL injection prevention and validation
 - ⚡ **Performance Monitoring** - Optional hooks for query performance tracking
@@ -38,11 +38,14 @@
 
 ## What's New in 0.3.0
 
+- **Separation of File Reads and SQL Operations** - File readers (`db.load.*`) now return `Records` instead of `DataFrame`, making it clear that file data is materialized and not suitable for SQL operations. Use `db.table(name).select()` for SQL queries.
+- **Records Class** - New `Records` and `AsyncRecords` classes for file data that support iteration, indexing, and direct use with insert operations
 - **Full Async/Await Support** - Complete async API for all database operations, file I/O, and DataFrame operations
 - **Async Database Operations** - Use `async_connect()` for async database connections with SQLAlchemy async engines
 - **Async File Operations** - Async reading and writing of CSV, JSON, JSONL, Parquet, and text files
-- **Optional Async Dependencies** - Install async support with `pip install moltres[async,async-postgresql]` (or async-mysql, async-sqlite)
+- **Optional Async Dependencies** - Install async support with `pip install moltres[async-postgresql]` (or async-mysql, async-sqlite)
 - **Async Streaming** - Process large datasets asynchronously with async iterators
+- **Strict Type Checking** - Full mypy strict mode compliance with custom type stubs for pyarrow and comprehensive type annotations throughout the codebase
 
 ## What's New in 0.2.0
 
@@ -76,9 +79,9 @@ pip install moltres[polars]
 
 # For async support (requires async database drivers)
 pip install moltres[async]  # Core async support (aiofiles)
-pip install moltres[async,async-postgresql]  # PostgreSQL async (asyncpg)
-pip install moltres[async,async-mysql]  # MySQL async (aiomysql)
-pip install moltres[async,async-sqlite]  # SQLite async (aiosqlite)
+pip install moltres[async-postgresql]  # PostgreSQL async (includes async + asyncpg)
+pip install moltres[async-mysql]  # MySQL async (includes async + aiomysql)
+pip install moltres[async-sqlite]  # SQLite async (includes async + aiosqlite)
 
 # For both pandas and polars
 pip install moltres[pandas,polars]
@@ -120,7 +123,8 @@ async def main():
     db = async_connect("postgresql+asyncpg://user:pass@localhost/db")
     
     # All operations are async
-    df = await db.read.table("orders")
+    # For SQL operations, use db.table().select()
+    df = db.table("orders").select()
     results = await df.collect()
     
     # Streaming support
@@ -133,9 +137,9 @@ asyncio.run(main())
 ```
 
 **Note:** Async support requires async database drivers. Install with:
-- `pip install moltres[async,async-postgresql]` for PostgreSQL
-- `pip install moltres[async,async-mysql]` for MySQL
-- `pip install moltres[async,async-sqlite]` for SQLite
+- `pip install moltres[async-postgresql]` for PostgreSQL (includes async + asyncpg)
+- `pip install moltres[async-mysql]` for MySQL (includes async + aiomysql)
+- `pip install moltres[async-sqlite]` for SQLite (includes async + aiosqlite)
 
 ## 💡 Why Moltres?
 
@@ -191,35 +195,43 @@ df = (
 ### From Database Tables
 
 ```python
-# Simple table read
-df = db.read.table("customers")
-
-# With column selection
+# For SQL operations, use db.table().select()
+df = db.table("customers").select()
 df = db.table("customers").select("id", "name", "email")
 ```
 
 ### From Files
 
-Moltres supports reading from various file formats:
+Moltres supports loading data from various file formats. **File readers return `Records`, not `DataFrame`** - this makes it clear that file data is materialized and not suitable for SQL operations.
 
 ```python
-# CSV files
-df = db.read.csv("data.csv")
-df = db.read.option("delimiter", "|").csv("pipe_delimited.csv")
-df = db.read.option("header", False).schema([...]).csv("no_header.csv")
+# CSV files - returns Records
+records = db.load.csv("data.csv")
+records = db.load.option("delimiter", "|").csv("pipe_delimited.csv")
+records = db.load.option("header", False).schema([...]).csv("no_header.csv")
 
-# JSON files
-df = db.read.json("data.json")  # Array of objects
-df = db.read.jsonl("data.jsonl")  # One JSON object per line
+# JSON files - returns Records
+records = db.load.json("data.json")  # Array of objects
+records = db.load.jsonl("data.jsonl")  # One JSON object per line
 
-# Parquet files (requires pandas and pyarrow)
-df = db.read.parquet("data.parquet")
+# Parquet files (requires pandas and pyarrow) - returns Records
+records = db.load.parquet("data.parquet")
 
-# Text files (one line per row)
-df = db.read.text("log.txt", column_name="line")
+# Text files (one line per row) - returns Records
+records = db.load.text("log.txt", column_name="line")
 
-# Generic format reader
-df = db.read.format("csv").option("header", True).load("data.csv")
+# Generic format reader - returns Records
+records = db.load.format("csv").option("header", True).load("data.csv")
+
+# Records can be used directly with insert operations
+table.insert(records)  # Records implements Sequence protocol
+# Or use the convenience method
+records.insert_into("table_name")
+
+# Access data
+rows = records.rows()  # Get all rows as a list
+for row in records:  # Iterate directly
+    process(row)
 ```
 
 ### Schema Inference and Explicit Schemas
@@ -235,7 +247,7 @@ schema = [
     ColumnDef(name="score", type_name="REAL"),
 ]
 
-df = db.read.schema(schema).csv("data.csv")
+records = db.load.schema(schema).csv("data.csv")
 ```
 
 **File Format Options:**
@@ -243,7 +255,12 @@ df = db.read.schema(schema).csv("data.csv")
 - **JSON**: `multiline` (default: False) - if True, reads as JSONL
 - **Parquet**: Requires `pandas` and `pyarrow`
 
-> **Note:** File-based readers materialize data into memory (not lazy) since files aren't in the SQL database.
+> **Important:** File readers (`db.load.*`) return `Records`, not `DataFrame`. Records are materialized data containers that can be:
+> - Iterated directly: `for row in records: ...`
+> - Converted to a list: `rows = records.rows()`
+> - Used with insert operations: `table.insert(records)` or `records.insert_into("table")`
+> 
+> For SQL operations (select, filter, join, etc.), use `db.table(name).select()` to get a DataFrame.
 
 ## 📤 Writing Data
 
@@ -303,14 +320,14 @@ Moltres supports streaming operations for datasets larger than available memory:
 
 ```python
 # Enable streaming mode
-df = db.read.stream().option("chunk_size", 10000).csv("large_file.csv")
+records = db.load.stream().option("chunk_size", 10000).csv("large_file.csv")
 
-# Process chunks one at a time
-for chunk in df.collect(stream=True):
-    process_chunk(chunk)
+# Process records (streaming Records iterate row-by-row)
+for row in records:
+    process(row)
 
-# Or materialize all data (backward compatible)
-all_rows = df.collect()  # Still works, materializes all chunks
+# Or materialize all at once
+all_rows = records.rows()  # Materializes all data
 
 # Streaming writes
 df.write.stream().mode("overwrite").save_as_table("large_table")
@@ -547,12 +564,21 @@ df = (
 # Complete ETL pipeline
 db = connect("postgresql://user:pass@localhost/warehouse")
 
-# Extract: Read from CSV
-raw_data = db.read.csv("raw_sales.csv")
+# Extract: Load from CSV (returns Records)
+raw_records = db.load.csv("raw_sales.csv")
 
-# Transform: Clean and aggregate
+# Load raw data into staging table
+db.create_table("staging_sales", [
+    column("order_id", "INTEGER"),
+    column("product", "TEXT"),
+    column("amount", "REAL"),
+    column("date", "DATE"),
+])
+raw_records.insert_into("staging_sales")
+
+# Transform: Clean and aggregate using SQL operations
 cleaned = (
-    raw_data
+    db.table("staging_sales")
     .select(
         col("order_id"),
         col("product").upper().alias("product"),
@@ -629,7 +655,7 @@ ruff check .
 # Formatting
 ruff format .
 
-# Type checking
+# Type checking (strict mode enabled)
 mypy src
 ```
 

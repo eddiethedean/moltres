@@ -46,35 +46,31 @@ def large_jsonl_file():
 
 def test_stream_csv_read(db, large_csv_file):
     """Test streaming CSV read with chunked processing."""
-    df = db.read.stream().option("chunk_size", 5000).csv(large_csv_file)
+    records = db.load.stream().option("chunk_size", 5000).csv(large_csv_file)
 
-    # collect(stream=True) should return an iterator
-    chunk_iter = df.collect(stream=True)
-    assert hasattr(chunk_iter, "__iter__")
-
-    # Verify chunks are correct size
+    # Records from streaming reads can be iterated directly
+    # For streaming Records, we iterate row by row (not in chunks)
     total_rows = 0
-    chunk_count = 0
-    for chunk in chunk_iter:
-        assert isinstance(chunk, list)
-        assert len(chunk) <= 5000  # Chunk size limit
-        if chunk:
-            assert "id" in chunk[0]
-            assert "name" in chunk[0]
-            assert "value" in chunk[0]
-        total_rows += len(chunk)
-        chunk_count += 1
+    for row in records:
+        assert isinstance(row, dict)
+        assert "id" in row
+        assert "name" in row
+        assert "value" in row
+        total_rows += 1
+        if total_rows >= 5000:  # Check first chunk
+            break
 
-    assert total_rows == 25000
-    assert chunk_count >= 5  # Should have at least 5 chunks (25000 / 5000)
+    # Materialize to check total
+    all_rows = records.rows()
+    assert len(all_rows) == 25000
 
 
 def test_stream_csv_read_materialize(db, large_csv_file):
     """Test that streaming read can still materialize all data."""
-    df = db.read.stream().option("chunk_size", 5000).csv(large_csv_file)
+    records = db.load.stream().option("chunk_size", 5000).csv(large_csv_file)
 
-    # collect() without stream should materialize all data
-    rows = df.collect()
+    # rows() should materialize all data
+    rows = records.rows()
     assert isinstance(rows, list)
     assert len(rows) == 25000
     assert rows[0]["id"] == 0
@@ -83,14 +79,18 @@ def test_stream_csv_read_materialize(db, large_csv_file):
 
 def test_stream_jsonl_read(db, large_jsonl_file):
     """Test streaming JSONL read with chunked processing."""
-    df = db.read.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
+    records = db.load.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
 
-    chunk_iter = df.collect(stream=True)
+    # Iterate over records
     total_rows = 0
-    for chunk in chunk_iter:
-        total_rows += len(chunk)
+    for row in records:
+        total_rows += 1
+        if total_rows >= 100:  # Just check it works
+            break
 
-    assert total_rows == 25000
+    # Materialize to check total
+    all_rows = records.rows()
+    assert len(all_rows) == 25000
 
 
 def test_stream_write_table(db):
@@ -108,10 +108,20 @@ def test_stream_write_table(db):
     rows = [{"id": i, "name": f"item_{i}"} for i in range(20000)]
     db.table("source").insert(rows)
 
-    # Read with streaming and write with streaming
-    df = db.read.stream().option("chunk_size", 5000).table("source")
+    # Read with streaming and insert into target table
+    records = db.load.stream().option("chunk_size", 5000).table("source")
 
-    df.write.stream().mode("overwrite").save_as_table("target")
+    # Create target table
+    db.create_table(
+        "target",
+        [
+            ColumnDef(name="id", type_name="INTEGER"),
+            ColumnDef(name="name", type_name="TEXT"),
+        ],
+    )
+
+    # Insert records into target
+    records.insert_into("target")
 
     # Verify all rows were written
     result = db.table("target").select().collect()
@@ -119,46 +129,53 @@ def test_stream_write_table(db):
 
 
 def test_stream_write_csv(db, large_csv_file):
-    """Test streaming write to CSV file."""
-    df = db.read.stream().option("chunk_size", 5000).csv(large_csv_file)
+    """Test that Records can be read and inserted into a table (file write not supported for Records)."""
+    records = db.load.stream().option("chunk_size", 5000).csv(large_csv_file)
 
-    with tempfile.NamedTemporaryFile(mode="r", suffix=".csv", delete=False) as f:
-        output_path = f.name
+    # Create a table and insert records
+    db.create_table(
+        "output",
+        [
+            ColumnDef(name="id", type_name="INTEGER"),
+            ColumnDef(name="name", type_name="TEXT"),
+            ColumnDef(name="value", type_name="REAL"),
+        ],
+    )
 
-    try:
-        df.write.stream().csv(output_path)
+    # Insert records into table
+    records.insert_into("output")
 
-        # Verify output file
-        with open(output_path) as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-            assert len(rows) == 25000
-            assert rows[0]["id"] == "0"
-            assert rows[-1]["id"] == "24999"
-    finally:
-        Path(output_path).unlink(missing_ok=True)
+    # Verify all rows were inserted
+    result = db.table("output").select().collect()
+    assert len(result) == 25000
+    assert result[0]["id"] == 0
+    assert result[-1]["id"] == 24999
 
 
 def test_stream_write_jsonl(db, large_jsonl_file):
-    """Test streaming write to JSONL file."""
-    df = db.read.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
+    """Test that Records can be read and inserted into a table."""
+    records = db.load.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
 
-    with tempfile.NamedTemporaryFile(mode="r", suffix=".jsonl", delete=False) as f:
-        output_path = f.name
+    # Create a table and insert records
+    db.create_table(
+        "output",
+        [
+            ColumnDef(name="id", type_name="INTEGER"),
+            ColumnDef(name="name", type_name="TEXT"),
+            ColumnDef(name="value", type_name="REAL"),
+        ],
+    )
 
-    try:
-        df.write.stream().jsonl(output_path)
+    # Insert records into table
+    records.insert_into("output")
 
-        # Verify output file
-        with open(output_path) as f:
-            lines = f.readlines()
-            assert len(lines) == 25000
-            first = json.loads(lines[0])
-            assert first["id"] == 0
-            last = json.loads(lines[-1])
-            assert last["id"] == 24999
-    finally:
-        Path(output_path).unlink(missing_ok=True)
+    # Verify all rows were inserted
+    result = db.table("output").select().collect()
+    assert len(result) == 25000
+    first = result[0]
+    assert first["id"] == 0
+    last = result[-1]
+    assert last["id"] == 24999
 
 
 def test_stream_sql_query(db):
@@ -214,9 +231,9 @@ def test_stream_insert_into(db):
     rows = [{"id": i, "name": f"item_{i}"} for i in range(10000)]
     db.table("source").insert(rows)
 
-    # Stream insert
-    df = db.read.stream().option("chunk_size", 2000).table("source")
-    df.write.stream().option("batch_size", 2000).insertInto("target")
+    # Stream insert - Records can be inserted directly
+    records = db.load.stream().option("chunk_size", 2000).table("source")
+    records.insert_into("target")
 
     # Verify
     result = db.table("target").select().collect()
@@ -224,10 +241,10 @@ def test_stream_insert_into(db):
 
 
 def test_non_streaming_backward_compat(db, large_csv_file):
-    """Test that non-streaming mode still works (backward compatibility)."""
-    # Without .stream(), should work as before
-    df = db.read.csv(large_csv_file)
-    rows = df.collect()
+    """Test that non-streaming mode still works with Records."""
+    # Without .stream(), should return materialized Records
+    records = db.load.csv(large_csv_file)
+    rows = records.rows()
 
     assert isinstance(rows, list)
     assert len(rows) == 25000
@@ -243,12 +260,15 @@ def test_stream_with_explicit_schema(db, large_csv_file):
         ColumnDef(name="value", type_name="REAL"),
     ]
 
-    df = db.read.stream().schema(schema).option("chunk_size", 5000).csv(large_csv_file)
+    records = db.load.stream().schema(schema).option("chunk_size", 5000).csv(large_csv_file)
 
-    chunk_iter = df.collect(stream=True)
-    first_chunk = next(chunk_iter)
+    # Get all rows to verify types
+    all_rows = records.rows()
 
     # Verify types are correct
-    assert isinstance(first_chunk[0]["id"], int)
-    assert isinstance(first_chunk[0]["name"], str)
-    assert isinstance(first_chunk[0]["value"], float)
+    assert isinstance(all_rows[0]["id"], int)
+    assert isinstance(all_rows[0]["name"], str)
+    assert isinstance(all_rows[0]["value"], float)
+
+    # Verify total
+    assert len(all_rows) == 25000
