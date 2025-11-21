@@ -153,7 +153,7 @@ def literal(value: LiteralValue) -> Column:
 def ensure_column(value: ColumnLike) -> Column:
     if isinstance(value, Column):
         return value
-    return literal(value)  # type: ignore[arg-type]
+    return literal(value)
 
 
 def col(name: str) -> Column:

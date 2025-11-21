@@ -85,6 +85,8 @@ disallow_untyped_decorators = false
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+warn_unused_configs = true
+ignore_missing_imports = false
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
@@ -97,6 +99,13 @@ module = [
     "tests.*",
 ]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "moltres.dataframe.async_writer",
+    "moltres.dataframe.readers.async_*",
+]
+warn_unused_ignores = false
 
 [tool.moltres]
 default_dialect = "ansi"
