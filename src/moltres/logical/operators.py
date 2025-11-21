@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Optional
+
 from ..expressions.column import Column
 from .plan import (
     Aggregate,
@@ -16,7 +16,8 @@ from .plan import (
     Sort,
     SortOrder,
     TableScan,
-    Union)
+    Union,
+)
 
 
 def scan(table: str, alias: str | None = None) -> TableScan:

@@ -257,7 +257,9 @@ class ExpressionCompiler:
         if op == "column":
             return quote_identifier(expression.args[0], self.dialect.quote_char)
         if op == "literal":
-            return format_literal(expression.args[0])
+            # args might be the value directly (for backwards compatibility) or a tuple
+            value = expression.args[0] if isinstance(expression.args, tuple) and len(expression.args) > 0 else expression.args
+            return format_literal(value)
         if op in self.BINARY_OPERATORS:
             left, right = expression.args
             operator = self.BINARY_OPERATORS[op]
