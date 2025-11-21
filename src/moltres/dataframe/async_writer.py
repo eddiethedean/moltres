@@ -6,7 +6,7 @@ import json
 import logging
 from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, , Optional, cast
 
 try:
     import aiofiles  # type: ignore[import-untyped]

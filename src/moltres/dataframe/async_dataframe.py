@@ -7,10 +7,7 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Callable,
-    Dict,
-    List,
     Optional,
-    Tuple,
     Union,
     cast,
 )
@@ -120,7 +117,7 @@ class AsyncDataFrame:
                    materialize all rows into a list.
 
         Returns:
-            If stream=False: List of dictionaries representing rows.
+            If stream=False: list of dictionaries representing rows.
             If stream=True: AsyncIterator of row chunks (each chunk is a list of dicts).
 
         Raises:
@@ -145,7 +142,7 @@ class AsyncDataFrame:
                     yield self._materialized_data  # type: ignore[misc]
 
                 return single_chunk()
-            # _materialized_data is already List[Dict[str, object]] when not None
+            # _materialized_data is already list[dict[str, object]] when not None
             return self._materialized_data
 
         if self.database is None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Dict, Optional
+from typing import , Optional
 
 try:
     from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine

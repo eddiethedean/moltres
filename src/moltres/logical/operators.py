@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Optional, Tuple
+from typing import Optional, 
 
 from ..expressions.column import Column
 from .plan import (

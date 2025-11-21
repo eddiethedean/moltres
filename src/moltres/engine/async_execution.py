@@ -6,7 +6,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, , Optional
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
