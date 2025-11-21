@@ -69,7 +69,7 @@ def lit(value: bool | int | float | str | None) -> Column:
 
 
 def _aggregate(op: str, column: ColumnLike) -> Column:
-    return Column(op=op, args=(ensure_column(column,)))
+    return Column(op=op, args=(ensure_column(column),))
 
 
 def sum(column: ColumnLike) -> Column:
