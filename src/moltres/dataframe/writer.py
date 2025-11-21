@@ -109,19 +109,21 @@ class DataFrameWriter:
                 ".jsonl": "jsonl",
                 ".parquet": "parquet",
             }
-            format = format_map.get(ext, "csv")  # Default to csv for unknown extensions
-
-        format = format.lower()
-        if format == "csv":
+            format_str = format_map.get(ext, "csv")  # Default to csv for unknown extensions
+        else:
+            format_str = format.lower()
+        if format_str == "csv":
             self._save_csv(path)
-        elif format == "json":
+        elif format_str == "json":
             self._save_json(path)
-        elif format == "jsonl":
+        elif format_str == "jsonl":
             self._save_jsonl(path)
-        elif format == "parquet":
+        elif format_str == "parquet":
             self._save_parquet(path)
         else:
-            raise ValueError(f"Unsupported format '{format}'. Supported: csv, json, jsonl, parquet")
+            raise ValueError(
+                f"Unsupported format '{format_str}'. Supported: csv, json, jsonl, parquet"
+            )
 
     def csv(self, path: str) -> None:
         """Save DataFrame as CSV file."""
@@ -382,15 +384,15 @@ class DataFrameWriter:
     def _save_parquet(self, path: str) -> None:
         """Save DataFrame as Parquet file."""
         try:
-            import pandas as pd  # type: ignore[import-untyped]
+            import pandas as pd
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"
             ) from exc
 
         try:
-            import pyarrow as pa  # type: ignore[import-not-found]
-            import pyarrow.parquet as pq  # type: ignore[import-not-found]
+            import pyarrow as pa  # type: ignore[import-not-found,import-untyped]
+            import pyarrow.parquet as pq  # type: ignore[import-not-found,import-untyped]
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
