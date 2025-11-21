@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import 
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
