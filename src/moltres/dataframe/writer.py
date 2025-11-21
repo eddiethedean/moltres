@@ -403,7 +403,7 @@ class DataFrameWriter:
             self._save_partitioned(path, "parquet", rows, None)
             return
 
-        # Convert to pandas DataFrame
+            # Convert to pandas DataFrame
             df = pd.DataFrame(rows)
 
         path_obj = Path(path)
