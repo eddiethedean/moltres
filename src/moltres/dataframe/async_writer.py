@@ -120,16 +120,16 @@ class AsyncDataFrameWriter:
             format_str = format_map.get(ext, "csv")  # Default to csv for unknown extensions
         else:
             format_str = format.lower()
-        if format == "csv":
+        if format_str == "csv":
             await self._save_csv(path)
-        elif format == "json":
+        elif format_str == "json":
             await self._save_json(path)
-        elif format == "jsonl":
+        elif format_str == "jsonl":
             await self._save_jsonl(path)
-        elif format == "parquet":
+        elif format_str == "parquet":
             await self._save_parquet(path)
         else:
-            raise ValueError(f"Unsupported format '{format}'. Supported: csv, json, jsonl, parquet")
+            raise ValueError(f"Unsupported format '{format_str}'. Supported: csv, json, jsonl, parquet")
 
     async def csv(self, path: str) -> None:
         """Save AsyncDataFrame as CSV file."""
