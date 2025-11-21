@@ -129,7 +129,9 @@ class AsyncDataFrameWriter:
         elif format_str == "parquet":
             await self._save_parquet(path)
         else:
-            raise ValueError(f"Unsupported format '{format_str}'. Supported: csv, json, jsonl, parquet")
+            raise ValueError(
+                f"Unsupported format '{format_str}'. Supported: csv, json, jsonl, parquet"
+            )
 
     async def csv(self, path: str) -> None:
         """Save AsyncDataFrame as CSV file."""
