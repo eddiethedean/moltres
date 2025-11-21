@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from .column import Column, ColumnLike, ensure_column
 
 

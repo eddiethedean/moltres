@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ..table.schema import ColumnDef
 from .async_dataframe import AsyncDataFrame
 from .readers.async_csv_reader import read_csv, read_csv_stream
-from .readers.async_json_reader import (
-    read_json,
-    read_json_stream,
-    read_jsonl,
-    read_jsonl_stream)
+from .readers.async_json_reader import read_json, read_json_stream, read_jsonl, read_jsonl_stream
 from .readers.async_text_reader import read_text, read_text_stream
 
 

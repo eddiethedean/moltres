@@ -4,12 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Optional,
-    Union,
-    cast)
+from typing import TYPE_CHECKING, Callable, cast
 
 from ..expressions.column import Column, col
 from ..logical import operators

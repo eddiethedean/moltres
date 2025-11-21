@@ -6,12 +6,7 @@ import csv
 import io
 from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Optional,
-    cast)
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 try:
     import aiofiles  # type: ignore[import-untyped]

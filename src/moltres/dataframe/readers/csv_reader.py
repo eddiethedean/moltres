@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from ...table.schema import ColumnDef
 from ..dataframe import DataFrame

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from ..engine.dialects import DialectSpec, get_dialect
 from ..expressions.column import Column
@@ -20,9 +20,9 @@ from ..logical.plan import (
     Project,
     Sort,
     SortOrder,
-    TableScan)
-from ..logical.plan import (
-    Union as UnionPlan)
+    TableScan,
+)
+from ..logical.plan import Union as UnionPlan
 from ..utils.exceptions import CompilationError
 from .builders import comma_separated, format_literal, quote_identifier
 

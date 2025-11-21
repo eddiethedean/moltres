@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ..table.schema import ColumnDef
 from .dataframe import DataFrame
@@ -17,7 +17,8 @@ from .readers import (
     read_parquet,
     read_parquet_stream,
     read_text,
-    read_text_stream)
+    read_text_stream,
+)
 
 if TYPE_CHECKING:
     from ..table.table import Database
