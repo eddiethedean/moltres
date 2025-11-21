@@ -404,7 +404,7 @@ class DataFrameWriter:
             return
 
         # Convert to pandas DataFrame
-        df = pd.DataFrame(rows)  # type: ignore[call-overload]
+            df = pd.DataFrame(rows)
 
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)

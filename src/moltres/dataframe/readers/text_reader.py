@@ -99,9 +99,9 @@ def read_text_stream(
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
 
     def _typed_chunk_generator() -> Iterator[list[dict[str, object]]]:
-        yield cast("list[dict[str, object]]", first_chunk)
+            yield first_chunk
         for chunk in first_chunk_gen:
-            yield cast("list[dict[str, object]]", chunk)
+                yield chunk
 
     return _create_dataframe_from_stream(database, _typed_chunk_generator, schema)
 
