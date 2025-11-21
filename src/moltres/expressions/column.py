@@ -32,10 +32,10 @@ class Column(Expression):
         return Column(op="cast", args=(self, type_name))
 
     def is_null(self) -> Column:
-        return Column(op="is_null", args=(self))
+        return Column(op="is_null", args=(self,))
 
     def is_not_null(self) -> Column:
-        return Column(op="is_not_null", args=(self))
+        return Column(op="is_not_null", args=(self,))
 
     def like(self, pattern: str) -> Column:
         return Column(op="like", args=(self, pattern))
@@ -53,7 +53,7 @@ class Column(Expression):
         return Column(op=op, args=(self, ensure_column(other)))
 
     def _unary(self, op: str) -> Column:
-        return Column(op=op, args=(self))
+        return Column(op=op, args=(self,))
 
     def __add__(self, other: ColumnLike) -> Column:
         return self._binary("add", other)
@@ -131,7 +131,7 @@ class Column(Expression):
         return Column(op="sort_asc", args=(self))
 
     def desc(self) -> Column:
-        return Column(op="sort_desc", args=(self))
+        return Column(op="sort_desc", args=(self,))
 
     def over(self, window: WindowSpec) -> Column:
         """Apply a window specification to this column expression.
@@ -149,7 +149,7 @@ class Column(Expression):
 
 
 def literal(value: LiteralValue) -> Column:
-    return Column(op="literal", args=(value))
+    return Column(op="literal", args=(value,))
 
 
 def ensure_column(value: ColumnLike) -> Column:
