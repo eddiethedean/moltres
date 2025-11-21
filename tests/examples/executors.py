@@ -37,20 +37,31 @@ class ExampleExecutor:
         prepared = code
 
         # Replace database paths
+        # Use as_posix() to convert paths to forward slashes (required for SQLite URLs)
+        db_path_str = self.temp_db_path.as_posix()
         prepared = re.sub(
             r"sqlite:///example\.db",
-            f"sqlite:///{self.temp_db_path}",
+            f"sqlite:///{db_path_str}",
             prepared,
         )
         prepared = re.sub(
             r"sqlite\+aiosqlite:///example\.db",
-            f"sqlite+aiosqlite:///{self.temp_db_path}",
+            f"sqlite+aiosqlite:///{db_path_str}",
             prepared,
         )
 
         # Replace file paths (common patterns)
-        prepared = re.sub(r'"data\.csv"', f'"{self.temp_file_dir / "data.csv"}"', prepared)
-        prepared = re.sub(r'"data\.json"', f'"{self.temp_file_dir / "data.json"}"', prepared)
+        # Path objects handle platform-specific separators automatically
+        prepared = re.sub(
+            r'"data\.csv"',
+            f'"{self.temp_file_dir / "data.csv"}"',
+            prepared,
+        )
+        prepared = re.sub(
+            r'"data\.json"',
+            f'"{self.temp_file_dir / "data.json"}"',
+            prepared,
+        )
         prepared = re.sub(
             r'"large_file\.csv"',
             f'"{self.temp_file_dir / "large_file.csv"}"',
