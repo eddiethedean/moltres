@@ -44,9 +44,7 @@ class Column(Expression):
         return Column(op="ilike", args=(self, pattern))
 
     def between(self, lower: ColumnLike, upper: ColumnLike) -> Column:
-        return Column(
-            op="between",
-            args=(self, ensure_column(lower), ensure_column(upper)))
+        return Column(op="between", args=(self, ensure_column(lower), ensure_column(upper)))
 
     # ---------------------------------------------------------------- operators
     def _binary(self, op: str, other: ColumnLike) -> Column:

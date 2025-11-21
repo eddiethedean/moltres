@@ -28,7 +28,7 @@ class Project(LogicalPlan):
     projections: tuple[Column, ...]
 
     def children(self) -> Sequence[LogicalPlan]:
-        return (self.child)
+        return self.child
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ class Filter(LogicalPlan):
     predicate: Column
 
     def children(self) -> Sequence[LogicalPlan]:
-        return (self.child)
+        return self.child
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,7 @@ class Limit(LogicalPlan):
     offset: int = 0
 
     def children(self) -> Sequence[LogicalPlan]:
-        return (self.child)
+        return self.child
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,7 @@ class Sort(LogicalPlan):
     orders: tuple[SortOrder, ...]
 
     def children(self) -> Sequence[LogicalPlan]:
-        return (self.child)
+        return self.child
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ class Aggregate(LogicalPlan):
     aggregates: tuple[Column, ...]
 
     def children(self) -> Sequence[LogicalPlan]:
-        return (self.child)
+        return self.child
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ class Distinct(LogicalPlan):
     child: LogicalPlan
 
     def children(self) -> Sequence[LogicalPlan]:
-        return (self.child)
+        return self.child
 
 
 @dataclass(frozen=True)

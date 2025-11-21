@@ -18,7 +18,8 @@ def read_text(
     database: Database,
     schema: Sequence[ColumnDef] | None,
     options: dict[str, object],
-    column_name: str = "value") -> DataFrame:
+    column_name: str = "value",
+) -> DataFrame:
     """Read text file line-by-line and return DataFrame.
 
     Args:
@@ -54,7 +55,8 @@ def read_text_stream(
     database: Database,
     schema: Sequence[ColumnDef] | None,
     options: dict[str, object],
-    column_name: str = "value") -> DataFrame:
+    column_name: str = "value",
+) -> DataFrame:
     """Read text file in streaming mode (chunked).
 
     Args:
@@ -121,7 +123,8 @@ def _create_dataframe_from_schema(
 def _create_dataframe_from_stream(
     database: Database,
     chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef]) -> DataFrame:
+    schema: Sequence[ColumnDef],
+) -> DataFrame:
     """Create DataFrame from streaming generator.
 
     Args:
@@ -135,4 +138,5 @@ def _create_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,
-        _stream_schema=schema)
+        _stream_schema=schema,
+    )

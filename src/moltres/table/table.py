@@ -101,7 +101,8 @@ class Database:
         columns: Sequence[ColumnDef],
         *,
         if_not_exists: bool = True,
-        temporary: bool = False) -> TableHandle:
+        temporary: bool = False,
+    ) -> TableHandle:
         """Create a new table with the specified schema.
 
         Args:
@@ -123,10 +124,8 @@ class Database:
             raise ValidationError(f"Cannot create table '{name}' with no columns")
 
         schema = TableSchema(
-            name=name,
-            columns=columns,
-            if_not_exists=if_not_exists,
-            temporary=temporary)
+            name=name, columns=columns, if_not_exists=if_not_exists, temporary=temporary
+        )
         sql = compile_create_table(schema, self._dialect)
         self._executor.execute(sql)
         return self.table(name)

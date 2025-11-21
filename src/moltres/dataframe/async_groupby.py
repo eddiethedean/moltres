@@ -20,7 +20,8 @@ class AsyncGroupedDataFrame:
         self,
         plan: LogicalPlan,
         database: AsyncDatabase | None = None,
-        _materialized_data: list[dict[str, object]] | None = None):
+        _materialized_data: list[dict[str, object]] | None = None,
+    ):
         self.plan = plan
         self.database = database
         self._materialized_data = _materialized_data
@@ -43,6 +44,5 @@ class AsyncGroupedDataFrame:
         grouping = self.plan.grouping
         new_plan = operators.aggregate(self.plan.child, keys=grouping, aggregates=aggregates)
         return AsyncDataFrame(
-            plan=new_plan,
-            database=self.database,
-            _materialized_data=self._materialized_data)
+            plan=new_plan, database=self.database, _materialized_data=self._materialized_data
+        )

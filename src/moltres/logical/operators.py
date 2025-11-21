@@ -147,7 +147,8 @@ def join(
     *,
     how: str,
     on: Sequence[tuple[str, str]] | None = None,
-    condition: Column | None = None) -> Join:
+    condition: Column | None = None,
+) -> Join:
     """Create a Join logical plan node.
 
     Args:

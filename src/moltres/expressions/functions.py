@@ -141,11 +141,25 @@ def concat(*columns: ColumnLike) -> Column:
 
 
 def upper(column: ColumnLike) -> Column:
-    return Column(op="upper", args=(ensure_column(column,)))
+    return Column(
+        op="upper",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def lower(column: ColumnLike) -> Column:
-    return Column(op="lower", args=(ensure_column(column,)))
+    return Column(
+        op="lower",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def greatest(*columns: ColumnLike) -> Column:
@@ -191,7 +205,14 @@ def trim(column: ColumnLike) -> Column:
     Returns:
         Column expression for trimmed string
     """
-    return Column(op="trim", args=(ensure_column(column,)))
+    return Column(
+        op="trim",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def ltrim(column: ColumnLike) -> Column:
@@ -203,7 +224,14 @@ def ltrim(column: ColumnLike) -> Column:
     Returns:
         Column expression for left-trimmed string
     """
-    return Column(op="ltrim", args=(ensure_column(column,)))
+    return Column(
+        op="ltrim",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def rtrim(column: ColumnLike) -> Column:
@@ -215,7 +243,14 @@ def rtrim(column: ColumnLike) -> Column:
     Returns:
         Column expression for right-trimmed string
     """
-    return Column(op="rtrim", args=(ensure_column(column,)))
+    return Column(
+        op="rtrim",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def replace(column: ColumnLike, old: str, new: str) -> Column:
@@ -241,7 +276,14 @@ def length(column: ColumnLike) -> Column:
     Returns:
         Column expression for string length
     """
-    return Column(op="length", args=(ensure_column(column,)))
+    return Column(
+        op="length",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def len(column: ColumnLike) -> Column:
@@ -258,7 +300,14 @@ def abs(column: ColumnLike) -> Column:
     Returns:
         Column expression for absolute value
     """
-    return Column(op="abs", args=(ensure_column(column,)))
+    return Column(
+        op="abs",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def round(column: ColumnLike, decimals: int = 0) -> Column:
@@ -286,7 +335,14 @@ def floor(column: ColumnLike) -> Column:
     Returns:
         Column expression for floor value
     """
-    return Column(op="floor", args=(ensure_column(column,)))
+    return Column(
+        op="floor",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def ceil(column: ColumnLike) -> Column:
@@ -298,7 +354,14 @@ def ceil(column: ColumnLike) -> Column:
     Returns:
         Column expression for ceiling value
     """
-    return Column(op="ceil", args=(ensure_column(column,)))
+    return Column(
+        op="ceil",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def trunc(column: ColumnLike) -> Column:
@@ -310,7 +373,14 @@ def trunc(column: ColumnLike) -> Column:
     Returns:
         Column expression for truncated value
     """
-    return Column(op="trunc", args=(ensure_column(column,)))
+    return Column(
+        op="trunc",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def sqrt(column: ColumnLike) -> Column:
@@ -322,7 +392,14 @@ def sqrt(column: ColumnLike) -> Column:
     Returns:
         Column expression for square root
     """
-    return Column(op="sqrt", args=(ensure_column(column,)))
+    return Column(
+        op="sqrt",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def pow(column: ColumnLike, power: ColumnLike | int | float) -> Column:
@@ -352,7 +429,14 @@ def exp(column: ColumnLike) -> Column:
     Returns:
         Column expression for exponential
     """
-    return Column(op="exp", args=(ensure_column(column,)))
+    return Column(
+        op="exp",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def log(column: ColumnLike) -> Column:
@@ -364,7 +448,14 @@ def log(column: ColumnLike) -> Column:
     Returns:
         Column expression for natural logarithm
     """
-    return Column(op="log", args=(ensure_column(column,)))
+    return Column(
+        op="log",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def log10(column: ColumnLike) -> Column:
@@ -376,7 +467,14 @@ def log10(column: ColumnLike) -> Column:
     Returns:
         Column expression for base-10 logarithm
     """
-    return Column(op="log10", args=(ensure_column(column,)))
+    return Column(
+        op="log10",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def current_date() -> Column:
@@ -445,7 +543,14 @@ def year(column: ColumnLike) -> Column:
     Returns:
         Column expression for year
     """
-    return Column(op="year", args=(ensure_column(column,)))
+    return Column(
+        op="year",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def month(column: ColumnLike) -> Column:
@@ -457,7 +562,14 @@ def month(column: ColumnLike) -> Column:
     Returns:
         Column expression for month (1-12)
     """
-    return Column(op="month", args=(ensure_column(column,)))
+    return Column(
+        op="month",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def day(column: ColumnLike) -> Column:
@@ -469,7 +581,14 @@ def day(column: ColumnLike) -> Column:
     Returns:
         Column expression for day of month (1-31)
     """
-    return Column(op="day", args=(ensure_column(column,)))
+    return Column(
+        op="day",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def hour(column: ColumnLike) -> Column:
@@ -481,7 +600,14 @@ def hour(column: ColumnLike) -> Column:
     Returns:
         Column expression for hour (0-23)
     """
-    return Column(op="hour", args=(ensure_column(column,)))
+    return Column(
+        op="hour",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def minute(column: ColumnLike) -> Column:
@@ -493,7 +619,14 @@ def minute(column: ColumnLike) -> Column:
     Returns:
         Column expression for minute (0-59)
     """
-    return Column(op="minute", args=(ensure_column(column,)))
+    return Column(
+        op="minute",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )
 
 
 def second(column: ColumnLike) -> Column:
@@ -505,4 +638,11 @@ def second(column: ColumnLike) -> Column:
     Returns:
         Column expression for second (0-59)
     """
-    return Column(op="second", args=(ensure_column(column,)))
+    return Column(
+        op="second",
+        args=(
+            ensure_column(
+                column,
+            )
+        ),
+    )

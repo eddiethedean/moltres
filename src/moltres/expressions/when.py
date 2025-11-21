@@ -62,4 +62,3 @@ def when(condition: Column, value: ColumnLike) -> WhenBuilder:
         >>> expr = when(col("age") >= 18, "adult").otherwise("minor")
     """
     return WhenBuilder(condition, value)
-

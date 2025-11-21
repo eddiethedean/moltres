@@ -417,11 +417,8 @@ class DataFrameWriter:
         pq.write_table(table, str(path_obj), compression=compression)
 
     def _save_partitioned(
-        self,
-        base_path: str,
-        format: str,
-        rows: list[dict[str, object]],
-        headers: list[str] | None) -> None:
+        self, base_path: str, format: str, rows: list[dict[str, object]], headers: list[str] | None
+    ) -> None:
         """Save data partitioned by specified columns."""
         if not rows:
             return

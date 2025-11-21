@@ -15,10 +15,8 @@ if TYPE_CHECKING:
 
 
 def read_csv(
-    path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> DataFrame:
+    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
+) -> DataFrame:
     """Read CSV file and return DataFrame.
 
     Args:
@@ -104,10 +102,8 @@ def read_csv(
 
 
 def read_csv_stream(
-    path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> DataFrame:
+    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
+) -> DataFrame:
     """Read CSV file in streaming mode (chunked).
 
     Args:
@@ -221,7 +217,8 @@ def _create_dataframe_from_schema(
 def _create_dataframe_from_stream(
     database: Database,
     chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef]) -> DataFrame:
+    schema: Sequence[ColumnDef],
+) -> DataFrame:
     """Create DataFrame from streaming generator.
 
     Args:
@@ -235,4 +232,5 @@ def _create_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,
-        _stream_schema=schema)
+        _stream_schema=schema,
+    )

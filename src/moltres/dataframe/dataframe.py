@@ -84,6 +84,7 @@ class DataFrame:
             raise ValueError("offset count must be non-negative")
         # Get current limit and offset from plan if it's a Limit node
         from ..logical.plan import Limit
+
         if isinstance(self.plan, Limit):
             # Update existing limit with new offset
             return self._with_plan(
@@ -105,7 +106,8 @@ class DataFrame:
         other: DataFrame,
         *,
         on: str | Sequence[str] | Sequence[tuple[str, str]] | None = None,
-        how: str = "inner") -> DataFrame:
+        how: str = "inner",
+    ) -> DataFrame:
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to a Database before joining")
         if self.database is not other.database:
@@ -254,6 +256,7 @@ class DataFrame:
 
         # If no explicit projections, try to get from table scan
         from ..logical.plan import TableScan
+
         if isinstance(self.plan, TableScan):
             if self.database is None:
                 raise RuntimeError("Cannot determine columns: DataFrame not bound to Database")
@@ -355,7 +358,8 @@ class DataFrame:
             database=self.database,
             _materialized_data=self._materialized_data,
             _stream_generator=self._stream_generator,
-            _stream_schema=self._stream_schema)
+            _stream_schema=self._stream_schema,
+        )
 
     def _normalize_projection(self, expr: Column | str) -> Column:
         if isinstance(expr, Column):

@@ -201,4 +201,3 @@ def last_value(column: ColumnLike) -> Column:
         Column expression for last value
     """
     return Column(op="window_last_value", args=(ensure_column(column)))
-

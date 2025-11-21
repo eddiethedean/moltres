@@ -27,7 +27,8 @@ async def read_parquet(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> AsyncDataFrame:
+    options: dict[str, object],
+) -> AsyncDataFrame:
     """Read Parquet file asynchronously and return AsyncDataFrame.
 
     Args:
@@ -89,7 +90,8 @@ async def read_parquet_stream(
     path: str,
     database: AsyncDatabase,
     schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> AsyncDataFrame:
+    options: dict[str, object],
+) -> AsyncDataFrame:
     """Read Parquet file asynchronously in streaming mode (row group by row group).
 
     Args:
@@ -180,7 +182,8 @@ def _create_async_dataframe_from_schema(
 def _create_async_dataframe_from_stream(
     database: AsyncDatabase,
     chunk_generator: Callable[[], AsyncIterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef]) -> AsyncDataFrame:
+    schema: Sequence[ColumnDef],
+) -> AsyncDataFrame:
     """Create AsyncDataFrame from streaming generator."""
     from ...logical.plan import TableScan
 
@@ -188,4 +191,5 @@ def _create_async_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,
-        _stream_schema=schema)
+        _stream_schema=schema,
+    )

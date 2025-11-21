@@ -72,10 +72,8 @@ class AsyncQueryExecutor:
                 logger.debug("Async query returned %d rows in %.3f seconds", rowcount, elapsed)
 
                 _call_async_hooks(
-                    "query_end",
-                    sql,
-                    elapsed,
-                    {"rowcount": rowcount, "params": params})
+                    "query_end", sql, elapsed, {"rowcount": rowcount, "params": params}
+                )
 
                 return AsyncQueryResult(rows=payload, rowcount=result.rowcount)
         except SQLAlchemyError as exc:
@@ -133,7 +131,8 @@ class AsyncQueryExecutor:
         logger.debug(
             "Executing async batch statement (%d rows): %s",
             len(params_list),
-            sql[:200] if len(sql) > 200 else sql)
+            sql[:200] if len(sql) > 200 else sql,
+        )
         total_rowcount = 0
         try:
             async with self._connections.connect() as conn:

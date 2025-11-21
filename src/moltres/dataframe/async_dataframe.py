@@ -57,7 +57,8 @@ class AsyncDataFrame:
         self,
         other: AsyncDataFrame,
         on: str | Sequence[str] | Sequence[tuple[str, str]],
-        how: str = "inner") -> AsyncDataFrame:
+        how: str = "inner",
+    ) -> AsyncDataFrame:
         """Join with another DataFrame."""
         if how not in ("inner", "left", "right", "outer"):
             raise ValueError(f"Unsupported join type: {how}")
@@ -169,7 +170,8 @@ class AsyncDataFrame:
             database=self.database,
             _materialized_data=self._materialized_data,
             _stream_generator=self._stream_generator,
-            _stream_schema=self._stream_schema)
+            _stream_schema=self._stream_schema,
+        )
 
     def _normalize_projection(self, expr: Column | str) -> Column:
         """Normalize a projection expression to a Column."""

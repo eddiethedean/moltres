@@ -13,12 +13,9 @@ def test_compile_project_filter_limit():
 
     sql = compile_plan(limited)
 
-    assert (
-        sql
-        == (
-            'SELECT "id", "name" FROM "customers" '
-            'WHERE (("active" = TRUE) AND (NOT ("country" = \'US\'))) LIMIT 10'
-        )
+    assert sql == (
+        'SELECT "id", "name" FROM "customers" '
+        'WHERE (("active" = TRUE) AND (NOT ("country" = \'US\'))) LIMIT 10'
     )
 
 

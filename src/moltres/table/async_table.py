@@ -101,7 +101,8 @@ class AsyncDatabase:
         columns: Sequence[ColumnDef],
         *,
         if_not_exists: bool = True,
-        temporary: bool = False) -> AsyncTableHandle:
+        temporary: bool = False,
+    ) -> AsyncTableHandle:
         """Create a new table with the specified schema.
 
         Args:
@@ -123,10 +124,8 @@ class AsyncDatabase:
             raise ValidationError(f"Cannot create table '{name}' with no columns")
 
         schema = TableSchema(
-            name=name,
-            columns=columns,
-            if_not_exists=if_not_exists,
-            temporary=temporary)
+            name=name, columns=columns, if_not_exists=if_not_exists, temporary=temporary
+        )
         sql = compile_create_table(schema, self._dialect)
         await self._executor.execute(sql)
         return await self.table(name)
@@ -163,9 +162,7 @@ class AsyncDatabase:
         async for chunk in self._executor.fetch_stream(sql):
             yield chunk
 
-    async def execute_sql(
-        self, sql: str, params: dict[str, Any] | None = None
-    ) -> AsyncQueryResult:
+    async def execute_sql(self, sql: str, params: dict[str, Any] | None = None) -> AsyncQueryResult:
         """Execute raw SQL and return results."""
         return await self._executor.fetch(sql, params=params)
 

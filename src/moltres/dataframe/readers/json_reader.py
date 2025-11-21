@@ -15,10 +15,8 @@ if TYPE_CHECKING:
 
 
 def read_json(
-    path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> DataFrame:
+    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
+) -> DataFrame:
     """Read JSON file (array of objects) and return DataFrame.
 
     Args:
@@ -80,10 +78,8 @@ def read_json(
 
 
 def read_jsonl(
-    path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> DataFrame:
+    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
+) -> DataFrame:
     """Read JSONL file (one JSON object per line) and return DataFrame.
 
     Args:
@@ -132,10 +128,8 @@ def read_jsonl(
 
 
 def read_json_stream(
-    path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> DataFrame:
+    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
+) -> DataFrame:
     """Read JSON file in streaming mode (chunked).
 
     Args:
@@ -211,10 +205,8 @@ def read_json_stream(
 
 
 def read_jsonl_stream(
-    path: str,
-    database: Database,
-    schema: Sequence[ColumnDef] | None,
-    options: dict[str, object]) -> DataFrame:
+    path: str, database: Database, schema: Sequence[ColumnDef] | None, options: dict[str, object]
+) -> DataFrame:
     """Read JSONL file in streaming mode (chunked).
 
     Args:
@@ -292,7 +284,8 @@ def _create_dataframe_from_schema(
 def _create_dataframe_from_stream(
     database: Database,
     chunk_generator: Callable[[], Iterator[list[dict[str, object]]]],
-    schema: Sequence[ColumnDef]) -> DataFrame:
+    schema: Sequence[ColumnDef],
+) -> DataFrame:
     """Create DataFrame from streaming generator.
 
     Args:
@@ -306,4 +299,5 @@ def _create_dataframe_from_stream(
         plan=TableScan(table="__stream__"),
         database=database,
         _stream_generator=chunk_generator,
-        _stream_schema=schema)
+        _stream_schema=schema,
+    )
