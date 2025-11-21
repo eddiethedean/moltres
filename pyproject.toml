@@ -30,6 +30,7 @@ async-sqlite = ["aiosqlite>=0.19.0"]
 
 dev = [
     "pytest>=8.0",
+    "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1",
     "pytest-xdist>=3.5",
     "mypy>=1.8",
@@ -41,6 +42,10 @@ dev = [
 minversion = "8.0"
 addopts = "-ra --strict-markers"
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore::pytest.PytestRemovedIn9Warning",
+    "ignore::pytest.PytestDeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 100

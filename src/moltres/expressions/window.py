@@ -188,7 +188,7 @@ def first_value(column: ColumnLike) -> Column:
     Returns:
         Column expression for first value
     """
-    return Column(op="window_first_value", args=(ensure_column(column)))
+    return Column(op="window_first_value", args=(ensure_column(column),))
 
 
 def last_value(column: ColumnLike) -> Column:
@@ -200,4 +200,4 @@ def last_value(column: ColumnLike) -> Column:
     Returns:
         Column expression for last value
     """
-    return Column(op="window_last_value", args=(ensure_column(column)))
+    return Column(op="window_last_value", args=(ensure_column(column),))

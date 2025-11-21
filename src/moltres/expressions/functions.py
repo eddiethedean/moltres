@@ -146,7 +146,7 @@ def upper(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -157,7 +157,7 @@ def lower(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -210,7 +210,7 @@ def trim(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -229,7 +229,7 @@ def ltrim(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -248,7 +248,7 @@ def rtrim(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -281,7 +281,7 @@ def length(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -305,7 +305,7 @@ def abs(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -340,7 +340,7 @@ def floor(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -359,7 +359,7 @@ def ceil(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -378,7 +378,7 @@ def trunc(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -397,7 +397,7 @@ def sqrt(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -434,7 +434,7 @@ def exp(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -453,7 +453,7 @@ def log(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -472,7 +472,7 @@ def log10(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -548,7 +548,7 @@ def year(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -567,7 +567,7 @@ def month(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -586,7 +586,7 @@ def day(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -605,7 +605,7 @@ def hour(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -624,7 +624,7 @@ def minute(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
 
@@ -643,6 +643,6 @@ def second(column: ColumnLike) -> Column:
         args=(
             ensure_column(
                 column,
-            )
+            ),
         ),
     )
