@@ -321,7 +321,7 @@ class AsyncDataFrameWriter:
     async def _save_parquet(self, path: str) -> None:
         """Save AsyncDataFrame as Parquet file."""
         try:
-            import pandas as pd  # type: ignore[import-untyped,import-not-found]
+            import pandas as pd  # type: ignore[import-untyped]
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"

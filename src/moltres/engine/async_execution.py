@@ -187,13 +187,13 @@ class AsyncQueryExecutor:
             return [dict(zip(columns, row)) for row in rows]
         if fmt == "pandas":
             try:
-                import pandas as pd  # type: ignore[import-untyped,import-not-found]
+                import pandas as pd  # type: ignore[import-untyped]
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
             return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
-                import polars as pl  # type: ignore[import-not-found,import-untyped]
+                import polars as pl  # type: ignore[import-not-found]
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Polars support requested but polars is not installed") from exc
             return pl.DataFrame(rows, schema=columns)
