@@ -117,11 +117,9 @@ class AsyncDataFrameWriter:
                 ".jsonl": "jsonl",
                 ".parquet": "parquet",
             }
-            format = format_map.get(ext, "csv")  # Default to csv for unknown extensions
-
-        if format is None:
-            format = "csv"  # Fallback default
-        format = format.lower()
+            format_str = format_map.get(ext, "csv")  # Default to csv for unknown extensions
+        else:
+            format_str = format.lower()
         if format == "csv":
             await self._save_csv(path)
         elif format == "json":

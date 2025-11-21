@@ -102,6 +102,9 @@ ignore_errors = true
 module = [
     "moltres.dataframe.async_writer",
     "moltres.dataframe.readers.async_*",
+    "moltres.dataframe.writer",
+    "moltres.dataframe.readers.parquet_reader",
+    "moltres.engine.async_execution",
 ]
 warn_unused_ignores = false
 
