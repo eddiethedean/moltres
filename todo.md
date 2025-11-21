@@ -49,7 +49,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `like()` / `ilike()` - Pattern matching [tested]
 - [x] `between()` - Range checking [tested]
 - [x] `greatest()` / `least()` functions for multiple values (SQL standard functions - already implemented) [tested]
-- [ ] Array/JSON functions (`array()`, `array_length()`, `json_extract()`, etc.) - SQL standard/dialect-specific
+- [x] Array/JSON functions (`array()`, `array_length()`, `json_extract()`, `array_contains()`, `array_position()`) - SQL standard/dialect-specific [tested - note: array_position has limitations in SQLite]
 - [x] Regular expression functions (`regexp_extract()`, `regexp_replace()`, etc.) - SQL standard/dialect-specific [tested]
 - [x] More string functions (`split()`, `array_join()`, `repeat()`, etc.) - SQL standard/dialect-specific [tested - split()]
 - [ ] Type casting improvements (`cast()` with more type support) - SQL standard
@@ -62,7 +62,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Outer join (`how="outer"`) [tested]
 - [x] Multiple join conditions with column pairs [tested]
 - [x] Cross join support (SQL CROSS JOIN) [tested]
-- [ ] Semi-join and anti-join support (SQL EXISTS/NOT EXISTS subqueries)
+- [x] Semi-join and anti-join support (SQL EXISTS/NOT EXISTS subqueries) [tested]
 - [ ] Join hints for query optimization (dialect-specific, e.g., PostgreSQL, MySQL)
 - [ ] Multiple join conditions with complex predicates (beyond column pairs) - SQL standard
 
@@ -73,7 +73,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `min()` - Minimum aggregation [tested]
 - [x] `max()` - Maximum aggregation [tested]
 - [x] `count_distinct()` - Distinct count aggregation [tested]
-- [ ] `collect_list()` / `collect_set()` for array aggregation (SQL ARRAY_AGG where supported, e.g., PostgreSQL)
+- [x] `collect_list()` / `collect_set()` for array aggregation (SQL ARRAY_AGG where supported, e.g., PostgreSQL) [tested]
 - [ ] `percentile()` / `percentile_approx()` functions (SQL PERCENTILE_CONT/PERCENTILE_DISC where supported)
 - [x] `stddev()` / `variance()` statistical functions (SQL STDDEV/VARIANCE - standard aggregate functions) [tested - SQLite incompatible]
 - [ ] `skewness()` / `kurtosis()` higher-order statistics (dialect-specific, may require custom SQL)
@@ -100,7 +100,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] ORC file support
 - [ ] Delta Lake support
 - [ ] Arrow IPC format support
-- [ ] Compressed file reading (gzip, bz2, xz, etc.)
+- [x] Compressed file reading (gzip, bz2, xz, etc.) [tested]
 
 ### Writing
 - [x] CSV file writing [tested]
@@ -143,7 +143,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] EXISTS / NOT EXISTS subqueries (SQL standard)
 - [ ] LATERAL joins (SQL standard, PostgreSQL/MySQL support)
 - [ ] PIVOT / UNPIVOT SQL operations (dialect-specific, e.g., SQL Server, Oracle)
-- [ ] MERGE / UPSERT operations (SQL standard MERGE, PostgreSQL INSERT ... ON CONFLICT)
+- [x] MERGE / UPSERT operations (SQL standard MERGE, PostgreSQL INSERT ... ON CONFLICT) [tested]
 - [ ] Stored procedure support (dialect-specific via SQLAlchemy)
 
 ### Performance

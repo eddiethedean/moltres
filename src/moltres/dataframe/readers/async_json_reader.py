@@ -15,15 +15,9 @@ from typing import (
     cast,
 )
 
-try:
-    import aiofiles  # type: ignore[import-untyped]
-except ImportError as exc:
-    raise ImportError(
-        "Async JSON reading requires aiofiles. Install with: pip install moltres[async]"
-    ) from exc
-
 from ...io.records import AsyncRecords
 from ...table.schema import ColumnDef
+from .compression import read_compressed_async
 
 if TYPE_CHECKING:
     from ...table.async_table import AsyncDatabase
@@ -55,26 +49,26 @@ async def read_json(
         raise FileNotFoundError(f"JSON file not found: {path}")
 
     multiline = cast(bool, options.get("multiline", False))
+    compression = cast(Optional[str], options.get("compression", None))
 
-    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-        content = await f.read()
+    content = await read_compressed_async(path, compression=compression)
 
-        if multiline:
-            # Read as JSONL (one object per line)
-            rows = []
-            for line in content.splitlines():
-                line = line.strip()
-                if line:
-                    rows.append(json.loads(line))
+    if multiline:
+        # Read as JSONL (one object per line)
+        rows = []
+        for line in content.splitlines():
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    else:
+        # Read as JSON array
+        data = json.loads(content)
+        if isinstance(data, list):
+            rows = data
+        elif isinstance(data, dict):
+            rows = [data]
         else:
-            # Read as JSON array
-            data = json.loads(content)
-            if isinstance(data, list):
-                rows = data
-            elif isinstance(data, dict):
-                rows = [data]
-            else:
-                raise ValueError(f"JSON file must contain an array or object: {path}")
+            raise ValueError(f"JSON file must contain an array or object: {path}")
 
     if not rows:
         if schema:
@@ -122,12 +116,13 @@ async def read_jsonl(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
+    content = await read_compressed_async(path, compression=compression)
     rows = []
-    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-        async for line in f:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
+    for line in content.splitlines():
+        line = line.strip()
+        if line:
+            rows.append(json.loads(line))
 
     if not rows:
         if schema:
@@ -177,32 +172,32 @@ async def read_json_stream(
         raise FileNotFoundError(f"JSON file not found: {path}")
 
     multiline = cast(bool, options.get("multiline", False))
+    compression = cast(Optional[str], options.get("compression", None))
 
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
-        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-            if multiline:
-                chunk = []
-                async for line in f:
-                    line = line.strip()
-                    if line:
-                        chunk.append(json.loads(line))
-                        if len(chunk) >= chunk_size:
-                            yield chunk
-                            chunk = []
-                if chunk:
-                    yield chunk
+        content = await read_compressed_async(path, compression=compression)
+        if multiline:
+            chunk = []
+            for line in content.splitlines():
+                line = line.strip()
+                if line:
+                    chunk.append(json.loads(line))
+                    if len(chunk) >= chunk_size:
+                        yield chunk
+                        chunk = []
+            if chunk:
+                yield chunk
+        else:
+            # For JSON arrays, we need to read the whole file
+            # This is a limitation - JSON arrays can't be truly streamed
+            data = json.loads(content)
+            if isinstance(data, list):
+                for i in range(0, len(data), chunk_size):
+                    yield data[i : i + chunk_size]
+            elif isinstance(data, dict):
+                yield [data]
             else:
-                # For JSON arrays, we need to read the whole file
-                # This is a limitation - JSON arrays can't be truly streamed
-                content = await f.read()
-                data = json.loads(content)
-                if isinstance(data, list):
-                    for i in range(0, len(data), chunk_size):
-                        yield data[i : i + chunk_size]
-                elif isinstance(data, dict):
-                    yield [data]
-                else:
-                    raise ValueError(f"JSON file must contain an array or object: {path}")
+                raise ValueError(f"JSON file must contain an array or object: {path}")
 
     # Read first chunk to infer schema
     first_chunk_gen = _chunk_generator()
@@ -257,18 +252,20 @@ async def read_jsonl_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
+
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+        content = await read_compressed_async(path, compression=compression)
         chunk = []
-        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-            async for line in f:
-                line = line.strip()
-                if line:
-                    chunk.append(json.loads(line))
-                    if len(chunk) >= chunk_size:
-                        yield chunk
-                        chunk = []
-            if chunk:
-                yield chunk
+        for line in content.splitlines():
+            line = line.strip()
+            if line:
+                chunk.append(json.loads(line))
+                if len(chunk) >= chunk_size:
+                    yield chunk
+                    chunk = []
+        if chunk:
+            yield chunk
 
     # Read first chunk to infer schema
     first_chunk_gen = _chunk_generator()

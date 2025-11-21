@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequ
 
 from ...io.records import Records
 from ...table.schema import ColumnDef
+from .compression import open_compressed
 
 if TYPE_CHECKING:
     from ...table.table import Database
@@ -39,8 +40,9 @@ def read_json(
         raise FileNotFoundError(f"JSON file not found: {path}")
 
     multiline = cast(bool, options.get("multiline", False))
+    compression = cast(Optional[str], options.get("compression", None))
 
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open_compressed(path, "r", compression=compression) as f:
         if multiline:
             # Read as JSONL (one object per line)
             rows = []
@@ -104,8 +106,9 @@ def read_jsonl(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
     rows = []
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open_compressed(path, "r", compression=compression) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -159,9 +162,10 @@ def read_json_stream(
         raise FileNotFoundError(f"JSON file not found: {path}")
 
     multiline = cast(bool, options.get("multiline", False))
+    compression = cast(Optional[str], options.get("compression", None))
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open_compressed(path, "r", compression=compression) as f:
             if multiline:
                 chunk = []
                 for line in f:
@@ -238,9 +242,11 @@ def read_jsonl_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
+
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
         chunk = []
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open_compressed(path, "r", compression=compression) as f:
             for line in f:
                 line = line.strip()
                 if line:

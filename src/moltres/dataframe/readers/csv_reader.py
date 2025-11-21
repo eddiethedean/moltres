@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional,
 
 from ...io.records import Records
 from ...table.schema import ColumnDef
+from .compression import open_compressed
 
 if TYPE_CHECKING:
     from ...table.table import Database
@@ -41,10 +42,11 @@ def read_csv(
     header = cast(bool, options.get("header", True))
     delimiter = cast(str, options.get("delimiter", ","))
     infer_schema = cast(bool, options.get("inferSchema", True))
+    compression = cast(Optional[str], options.get("compression", None))
 
     rows: List[Dict[str, object]] = []
 
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open_compressed(path, "r", compression=compression) as f:
         if header and not schema:
             # Use DictReader when we have headers and no explicit schema
             dict_reader: Any = csv.DictReader(f, delimiter=delimiter)
@@ -131,9 +133,10 @@ def read_csv_stream(
     header = cast(bool, options.get("header", True))
     delimiter = cast(str, options.get("delimiter", ","))
     infer_schema = cast(bool, options.get("inferSchema", True))
+    compression = cast(Optional[str], options.get("compression", None))
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open_compressed(path, "r", compression=compression) as f:
             if header and not schema:
                 reader = csv.DictReader(f, delimiter=delimiter)
                 chunk = []

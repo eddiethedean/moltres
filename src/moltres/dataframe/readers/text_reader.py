@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequ
 
 from ...io.records import Records
 from ...table.schema import ColumnDef
+from .compression import open_compressed
 
 if TYPE_CHECKING:
     from ...table.table import Database
@@ -38,8 +39,9 @@ def read_text(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
     rows: List[Dict[str, object]] = []
-    with open(path_obj, "r", encoding="utf-8") as f:
+    with open_compressed(path, "r", compression=compression) as f:
         for line in f:
             rows.append({column_name: line.rstrip("\n\r")})
 
@@ -77,9 +79,11 @@ def read_text_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
+
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
         chunk: List[Dict[str, object]] = []
-        with open(path_obj, "r", encoding="utf-8") as f:
+        with open_compressed(path, "r", compression=compression) as f:
             for line in f:
                 chunk.append({column_name: line.rstrip("\n\r")})
                 if len(chunk) >= chunk_size:

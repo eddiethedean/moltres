@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Mapping, Sequence, Union
+from typing import TYPE_CHECKING, Dict, Mapping, Optional, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -98,6 +98,133 @@ def delete_rows(handle: TableHandle, *, where: Column) -> int:
 def _compile_condition(condition: Column, handle: TableHandle) -> str:
     compiler = ExpressionCompiler(handle.database.dialect)
     return compiler.emit(condition)
+
+
+def merge_rows(
+    handle: TableHandle,
+    rows: Union[Sequence[Mapping[str, object]], "Records"],
+    *,
+    on: Sequence[str],
+    when_matched: Optional[Mapping[str, object]] = None,
+    when_not_matched: Optional[Mapping[str, object]] = None,
+) -> int:
+    """Merge (upsert) rows into a table with conflict resolution.
+
+    This implements MERGE/UPSERT operations with dialect-specific SQL:
+    - PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
+    - SQLite: INSERT ... ON CONFLICT ... DO UPDATE
+    - MySQL: INSERT ... ON DUPLICATE KEY UPDATE
+
+    Args:
+        handle: The table handle to merge into
+        rows: Sequence of row dictionaries to merge
+        on: Sequence of column names that form the conflict key (primary key or unique constraint)
+        when_matched: Optional dictionary of column updates when a conflict occurs
+                     If None, no update is performed (insert only if not exists)
+        when_not_matched: Optional dictionary of default values when inserting new rows
+                         If None, uses values from rows
+
+    Returns:
+        Number of rows affected (inserted or updated)
+
+    Raises:
+        ValidationError: If rows are empty, on columns are invalid, or when_matched/when_not_matched are invalid
+    """
+    if not rows:
+        return 0
+    if not on:
+        raise ValidationError("merge requires at least one column in 'on' for conflict detection")
+
+    columns = list(rows[0].keys())
+    if not columns:
+        raise ValidationError(f"merge requires column values for table '{handle.name}'")
+    _validate_row_shapes(rows, columns, table_name=handle.name)
+
+    # Validate that 'on' columns exist in rows
+    on_set = set(on)
+    if not on_set.issubset(set(columns)):
+        missing = on_set - set(columns)
+        raise ValidationError(f"merge 'on' columns {missing} not found in row columns {columns}")
+
+    dialect_name = handle.database.dialect.name
+    table_sql = quote_identifier(handle.name, handle.database.dialect.quote_char)
+    quote = handle.database.dialect.quote_char
+
+    # Build column and value placeholders
+    column_sql = comma_separated(quote_identifier(col, quote) for col in columns)
+    placeholder_sql = comma_separated(f":{col}" for col in columns)
+
+    # Build conflict clause based on dialect
+    if dialect_name == "postgresql" or dialect_name == "sqlite":
+        # PostgreSQL and SQLite use ON CONFLICT
+        on_columns_sql = comma_separated(quote_identifier(col, quote) for col in on)
+        conflict_clause = f"ON CONFLICT ({on_columns_sql})"
+
+        if when_matched:
+            # Build UPDATE clause
+            updates = []
+            for col_name, value in when_matched.items():
+                if col_name not in columns:
+                    raise ValidationError(f"when_matched column '{col_name}' not in row columns")
+                updates.append(f"{quote_identifier(col_name, quote)} = :update_{col_name}")
+            update_clause = f"DO UPDATE SET {', '.join(updates)}"
+            sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {conflict_clause} {update_clause}"
+        else:
+            # No update on conflict - just skip
+            sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {conflict_clause} DO NOTHING"
+    elif dialect_name == "mysql":
+        # MySQL uses ON DUPLICATE KEY UPDATE
+        if when_matched:
+            updates = []
+            for col_name, value in when_matched.items():
+                if col_name not in columns:
+                    raise ValidationError(f"when_matched column '{col_name}' not in row columns")
+                updates.append(f"{quote_identifier(col_name, quote)} = :update_{col_name}")
+            update_clause = f"ON DUPLICATE KEY UPDATE {', '.join(updates)}"
+            sql = (
+                f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {update_clause}"
+            )
+        else:
+            # MySQL requires ON DUPLICATE KEY UPDATE even if no update
+            # Use VALUES() to keep existing values
+            updates = [
+                f"{quote_identifier(col, quote)} = VALUES({quote_identifier(col, quote)})"
+                for col in columns
+                if col not in on
+            ]
+            if updates:
+                update_clause = f"ON DUPLICATE KEY UPDATE {', '.join(updates)}"
+                sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {update_clause}"
+            else:
+                # All columns are in 'on', so no update needed
+                sql = f"INSERT IGNORE INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
+    else:
+        # Generic fallback - try INSERT ... ON CONFLICT
+        on_columns_sql = comma_separated(quote_identifier(col, quote) for col in on)
+        conflict_clause = f"ON CONFLICT ({on_columns_sql})"
+        if when_matched:
+            updates = []
+            for col_name, value in when_matched.items():
+                if col_name not in columns:
+                    raise ValidationError(f"when_matched column '{col_name}' not in row columns")
+                updates.append(f"{quote_identifier(col_name, quote)} = :update_{col_name}")
+            update_clause = f"DO UPDATE SET {', '.join(updates)}"
+            sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {conflict_clause} {update_clause}"
+        else:
+            sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {conflict_clause} DO NOTHING"
+
+    # Prepare parameters for batch insert
+    params_list: list[Dict[str, object]] = []
+    for row in rows:
+        params = dict(row)
+        # Add update parameters if when_matched is provided
+        if when_matched:
+            for col_name, value in when_matched.items():
+                params[f"update_{col_name}"] = value
+        params_list.append(params)
+
+    result = handle.database.executor.execute_many(sql, params_list)
+    return result.rowcount or 0
 
 
 def _validate_row_shapes(

@@ -145,3 +145,29 @@ class CTE(LogicalPlan):
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.child,)
+
+
+@dataclass(frozen=True)
+class SemiJoin(LogicalPlan):
+    """Semi-join: returns rows from left where a matching row exists in right (EXISTS subquery)."""
+
+    left: LogicalPlan
+    right: LogicalPlan
+    on: tuple[tuple[str, str], ...] | None = None
+    condition: Column | None = None
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.left, self.right)
+
+
+@dataclass(frozen=True)
+class AntiJoin(LogicalPlan):
+    """Anti-join: returns rows from left where no matching row exists in right (NOT EXISTS subquery)."""
+
+    left: LogicalPlan
+    right: LogicalPlan
+    on: tuple[tuple[str, str], ...] | None = None
+    condition: Column | None = None
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.left, self.right)

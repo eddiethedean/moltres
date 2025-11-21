@@ -333,3 +333,79 @@ async def test_async_records_insert_into_with_table_handle(tmp_path):
     assert result[0]["name"] == "Alice"
 
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_csv_gzip(tmp_path):
+    """Test reading gzip-compressed CSV file asynchronously."""
+    import gzip
+
+    db_path = tmp_path / "async_read_csv_gzip.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create gzip-compressed CSV file
+    csv_path = tmp_path / "data.csv.gz"
+    with gzip.open(csv_path, "wt", encoding="utf-8") as f:
+        f.write("id,name,score\n")
+        f.write("1,Alice,95.5\n")
+        f.write("2,Bob,87.0\n")
+
+    # Read compressed CSV
+    records = await db.load.csv(str(csv_path))
+    rows = await records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[0]["score"] == 95.5
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_json_gzip(tmp_path):
+    """Test reading gzip-compressed JSON file asynchronously."""
+    import gzip
+
+    db_path = tmp_path / "async_read_json_gzip.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create gzip-compressed JSON file
+    json_path = tmp_path / "data.json.gz"
+    data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+    with gzip.open(json_path, "wt", encoding="utf-8") as f:
+        json.dump(data, f)
+
+    # Read compressed JSON
+    records = await db.load.json(str(json_path))
+    rows = await records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_text_gzip(tmp_path):
+    """Test reading gzip-compressed text file asynchronously."""
+    import gzip
+
+    db_path = tmp_path / "async_read_text_gzip.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create gzip-compressed text file
+    text_path = tmp_path / "data.txt.gz"
+    with gzip.open(text_path, "wt", encoding="utf-8") as f:
+        f.write("line 1\n")
+        f.write("line 2\n")
+
+    # Read compressed text
+    records = await db.load.text(str(text_path))
+    rows = await records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["value"] == "line 1"
+    assert rows[1]["value"] == "line 2"
+
+    await db.close()

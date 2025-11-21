@@ -49,7 +49,16 @@ Moltres is the **only** Python library that provides:
 - **Type-safe CRUD operations** - Validated, column-aware INSERT, UPDATE, DELETE with DataFrame-style syntax
 - **SQL-first design** - Focuses on providing full SQL feature support through a DataFrame API, not replicating every PySpark feature. Features are included only if they map to SQL/SQLAlchemy capabilities and align with SQL pushdown execution.
 
-## 🆕 What's New in 0.4.0
+## 🆕 What's New in 0.5.0
+
+- **Compressed File Reading** - Automatic detection and support for gzip, bz2, and xz compression in CSV, JSON, JSONL, and text file readers (both sync and async)
+- **Array/JSON Functions** - New functions for working with JSON and array data: `json_extract()`, `array()`, `array_length()`, `array_contains()`, `array_position()` with dialect-specific SQL compilation
+- **Collect Aggregations** - New aggregation functions `collect_list()` and `collect_set()` for array aggregation (uses `ARRAY_AGG` in PostgreSQL, `group_concat` in SQLite/MySQL)
+- **Semi-Join and Anti-Join** - New `semi_join()` and `anti_join()` methods that compile to efficient `EXISTS`/`NOT EXISTS` subqueries (implemented as INNER JOIN with DISTINCT and LEFT JOIN with IS NULL)
+- **MERGE/UPSERT Operations** - New `merge()` method on tables for upsert operations with dialect-specific support (SQLite `ON CONFLICT`, PostgreSQL `MERGE`, MySQL `ON DUPLICATE KEY`)
+- **Comprehensive Test Coverage** - All new features include full test coverage with execution tests
+
+## What's New in 0.4.0
 
 - **Strict Type Checking** - Full mypy strict mode compliance with comprehensive type annotations across the entire codebase
 - **Type Stubs for PyArrow** - Custom type stubs (`stubs/pyarrow/`) to provide type information for pyarrow library

@@ -17,15 +17,9 @@ from typing import (
     cast,
 )
 
-try:
-    import aiofiles  # type: ignore[import-untyped]
-except ImportError as exc:
-    raise ImportError(
-        "Async CSV reading requires aiofiles. Install with: pip install moltres[async]"
-    ) from exc
-
 from ...io.records import AsyncRecords
 from ...table.schema import ColumnDef
+from .compression import read_compressed_async
 
 if TYPE_CHECKING:
     from ...table.async_table import AsyncDatabase
@@ -59,43 +53,43 @@ async def read_csv(
     header = cast(bool, options.get("header", True))
     delimiter = cast(str, options.get("delimiter", ","))
     infer_schema = cast(bool, options.get("inferSchema", True))
+    compression = cast(Optional[str], options.get("compression", None))
 
     rows: List[Dict[str, object]] = []
 
-    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-        content = await f.read()
+    content = await read_compressed_async(path, compression=compression)
 
-        # Parse CSV content
-        csv_file = io.StringIO(content)
-        if header and not schema:
-            # Use DictReader when we have headers and no explicit schema
-            dict_reader: Any = csv.DictReader(csv_file, delimiter=delimiter)
-            for row in dict_reader:
-                # Convert empty strings to None for nullable inference
-                processed_row = {k: (None if v == "" else v) for k, v in row.items()}
-                rows.append(processed_row)
+    # Parse CSV content
+    csv_file = io.StringIO(content)
+    if header and not schema:
+        # Use DictReader when we have headers and no explicit schema
+        dict_reader: Any = csv.DictReader(csv_file, delimiter=delimiter)
+        for row in dict_reader:
+            # Convert empty strings to None for nullable inference
+            processed_row = {k: (None if v == "" else v) for k, v in row.items()}
+            rows.append(processed_row)
+    else:
+        # Read without header or with explicit schema
+        csv_reader: Any = csv.reader(csv_file, delimiter=delimiter)
+        if header and schema:
+            # Skip header row when we have explicit schema
+            next(csv_reader, None)
+
+        if schema:
+            # Use schema column names
+            for row_data in csv_reader:
+                if not row_data:  # Skip empty rows
+                    continue
+                row_dict = {}
+                for i, col_def in enumerate(schema):
+                    value = row_data[i] if i < len(row_data) else None
+                    row_dict[col_def.name] = None if value == "" else value
+                rows.append(row_dict)
         else:
-            # Read without header or with explicit schema
-            csv_reader: Any = csv.reader(csv_file, delimiter=delimiter)
-            if header and schema:
-                # Skip header row when we have explicit schema
-                next(csv_reader, None)
-
-            if schema:
-                # Use schema column names
-                for row_data in csv_reader:
-                    if not row_data:  # Skip empty rows
-                        continue
-                    row_dict = {}
-                    for i, col_def in enumerate(schema):
-                        value = row_data[i] if i < len(row_data) else None
-                        row_dict[col_def.name] = None if value == "" else value
-                    rows.append(row_dict)
-            else:
-                # No header and no schema - can't determine column names
-                raise ValueError(
-                    "CSV file without header requires explicit schema. Use .schema([ColumnDef(...), ...])"
-                )
+            # No header and no schema - can't determine column names
+            raise ValueError(
+                "CSV file without header requires explicit schema. Use .schema([ColumnDef(...), ...])"
+            )
 
     if not rows:
         if schema:
@@ -153,47 +147,47 @@ async def read_csv_stream(
     header = cast(bool, options.get("header", True))
     delimiter = cast(str, options.get("delimiter", ","))
     infer_schema = cast(bool, options.get("inferSchema", True))
+    compression = cast(Optional[str], options.get("compression", None))
 
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
-        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-            # Read file in chunks for streaming
-            content = await f.read()
-            csv_file = io.StringIO(content)
+        # Read and decompress file content
+        content = await read_compressed_async(path, compression=compression)
+        csv_file = io.StringIO(content)
 
-            if header and not schema:
-                reader = csv.DictReader(csv_file, delimiter=delimiter)
+        if header and not schema:
+            reader = csv.DictReader(csv_file, delimiter=delimiter)
+            chunk = []
+            for row in reader:
+                processed_row = {k: (None if v == "" else v) for k, v in row.items()}
+                chunk.append(processed_row)
+                if len(chunk) >= chunk_size:
+                    yield chunk
+                    chunk = []
+            if chunk:
+                yield chunk
+        else:
+            reader_obj: Any = csv.reader(csv_file, delimiter=delimiter)
+            if header and schema:
+                next(reader_obj, None)
+            if schema:
                 chunk = []
-                for row in reader:
-                    processed_row = {k: (None if v == "" else v) for k, v in row.items()}
-                    chunk.append(processed_row)
+                for row_data in reader_obj:
+                    if not row_data:
+                        continue
+                    row_dict: Dict[str, object] = {}
+                    for i, col_def in enumerate(schema):
+                        value = row_data[i] if i < len(row_data) else None
+                        row_dict[col_def.name] = None if value == "" else value
+                    chunk.append(row_dict)
                     if len(chunk) >= chunk_size:
                         yield chunk
                         chunk = []
                 if chunk:
                     yield chunk
             else:
-                reader_obj: Any = csv.reader(csv_file, delimiter=delimiter)
-                if header and schema:
-                    next(reader_obj, None)
-                if schema:
-                    chunk = []
-                    for row_data in reader_obj:
-                        if not row_data:
-                            continue
-                        row_dict: Dict[str, object] = {}
-                        for i, col_def in enumerate(schema):
-                            value = row_data[i] if i < len(row_data) else None
-                            row_dict[col_def.name] = None if value == "" else value
-                        chunk.append(row_dict)
-                        if len(chunk) >= chunk_size:
-                            yield chunk
-                            chunk = []
-                    if chunk:
-                        yield chunk
-                else:
-                    raise ValueError(
-                        "CSV file without header requires explicit schema. Use .schema([ColumnDef(...), ...])"
-                    )
+                raise ValueError(
+                    "CSV file without header requires explicit schema. Use .schema([ColumnDef(...), ...])"
+                )
 
     # Read first chunk to infer schema
     first_chunk_gen = _chunk_generator()

@@ -68,13 +68,15 @@ class AsyncDataFrame:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before joining")
         if self.database is not other.database:
             raise ValueError("Cannot join DataFrames from different AsyncDatabase instances")
-        
+
         # Cross joins don't require an 'on' clause
         if how.lower() == "cross":
             normalized_on = None
         else:
             normalized_on = self._normalize_join_keys(on)
-        return self._with_plan(operators.join(self.plan, other.plan, how=how.lower(), on=normalized_on))
+        return self._with_plan(
+            operators.join(self.plan, other.plan, how=how.lower(), on=normalized_on)
+        )
 
     def crossJoin(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
         """Perform a cross join (Cartesian product) with another DataFrame.
@@ -89,6 +91,68 @@ class AsyncDataFrame:
             RuntimeError: If DataFrames are not bound to the same AsyncDatabase
         """
         return self.join(other, how="cross")
+
+    def semi_join(
+        self,
+        other: "AsyncDataFrame",
+        *,
+        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+    ) -> "AsyncDataFrame":
+        """Perform a semi-join: return rows from this DataFrame where a matching row exists in other.
+
+        This is equivalent to filtering with EXISTS subquery.
+
+        Args:
+            other: Another DataFrame to semi-join with (used as EXISTS subquery)
+            on: Join condition - can be:
+                - A single column name (assumes same name in both DataFrames)
+                - A sequence of column names (assumes same names in both)
+                - A sequence of (left_column, right_column) tuples
+
+        Returns:
+            New DataFrame containing rows from this DataFrame that have matches in other
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same AsyncDatabase
+        """
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before semi_join")
+        if self.database is not other.database:
+            raise ValueError("Cannot semi_join DataFrames from different AsyncDatabase instances")
+        normalized_on = self._normalize_join_keys(on)
+        plan = operators.semi_join(self.plan, other.plan, on=normalized_on)
+        return AsyncDataFrame(plan=plan, database=self.database)
+
+    def anti_join(
+        self,
+        other: "AsyncDataFrame",
+        *,
+        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+    ) -> "AsyncDataFrame":
+        """Perform an anti-join: return rows from this DataFrame where no matching row exists in other.
+
+        This is equivalent to filtering with NOT EXISTS subquery.
+
+        Args:
+            other: Another DataFrame to anti-join with (used as NOT EXISTS subquery)
+            on: Join condition - can be:
+                - A single column name (assumes same name in both DataFrames)
+                - A sequence of column names (assumes same names in both)
+                - A sequence of (left_column, right_column) tuples
+
+        Returns:
+            New DataFrame containing rows from this DataFrame that have no matches in other
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same AsyncDatabase
+        """
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before anti_join")
+        if self.database is not other.database:
+            raise ValueError("Cannot anti_join DataFrames from different AsyncDatabase instances")
+        normalized_on = self._normalize_join_keys(on)
+        plan = operators.anti_join(self.plan, other.plan, on=normalized_on)
+        return AsyncDataFrame(plan=plan, database=self.database)
 
     def group_by(self, *columns: Union[Column, str]) -> "AsyncGroupedDataFrame":
         """Group by the specified columns."""

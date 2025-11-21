@@ -48,6 +48,46 @@ class AsyncTableHandle:
 
         return await delete_rows_async(self, where=where)
 
+    async def merge(
+        self,
+        rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"],
+        *,
+        on: Sequence[str],
+        when_matched: Optional[Mapping[str, object]] = None,
+        when_not_matched: Optional[Mapping[str, object]] = None,
+    ) -> int:
+        """Merge (upsert) rows into the table with conflict resolution (async).
+
+        This implements MERGE/UPSERT operations with dialect-specific SQL:
+        - PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
+        - SQLite: INSERT ... ON CONFLICT ... DO UPDATE
+        - MySQL: INSERT ... ON DUPLICATE KEY UPDATE
+
+        Args:
+            rows: Sequence of row dictionaries to merge
+            on: Sequence of column names that form the conflict key (primary key or unique constraint)
+            when_matched: Optional dictionary of column updates when a conflict occurs
+                         If None, no update is performed (insert only if not exists)
+            when_not_matched: Optional dictionary of default values when inserting new rows
+                             If None, uses values from rows
+
+        Returns:
+            Number of rows affected (inserted or updated)
+
+        Example:
+            >>> # Upsert users by email
+            >>> await table.merge(
+            ...     [{"email": "user@example.com", "name": "Updated Name"}],
+            ...     on=["email"],
+            ...     when_matched={"name": "Updated Name", "updated_at": "NOW()"}
+            ... )
+        """
+        from .async_mutations import merge_rows_async
+
+        return await merge_rows_async(
+            self, rows, on=on, when_matched=when_matched, when_not_matched=when_not_matched
+        )
+
 
 class AsyncDatabase:
     """Entry-point object returned by ``moltres.async_connect``."""

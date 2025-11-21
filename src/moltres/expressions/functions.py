@@ -75,6 +75,13 @@ __all__ = [
     "variance",
     "corr",
     "covar",
+    "json_extract",
+    "array",
+    "array_length",
+    "array_contains",
+    "array_position",
+    "collect_list",
+    "collect_set",
 ]
 
 
@@ -910,3 +917,120 @@ def covar(column1: ColumnLike, column2: ColumnLike) -> Column:
         >>> df.agg(covar(col("x"), col("y")))
     """
     return Column(op="agg_covar", args=(ensure_column(column1), ensure_column(column2)))
+
+
+def json_extract(column: ColumnLike, path: str) -> Column:
+    """Extract a value from a JSON column using a JSON path.
+
+    Args:
+        column: JSON column expression
+        path: JSON path expression (e.g., "$.key", "$.nested.key", "$[0]")
+
+    Returns:
+        Column expression for json_extract
+
+    Example:
+        >>> from moltres.expressions.functions import json_extract
+        >>> df.select(json_extract(col("data"), "$.name"))
+    """
+    return Column(op="json_extract", args=(ensure_column(column), path))
+
+
+def array(*columns: ColumnLike) -> Column:
+    """Create an array from multiple column values.
+
+    Args:
+        *columns: Column expressions or literal values to include in the array
+
+    Returns:
+        Column expression for array
+
+    Example:
+        >>> from moltres.expressions.functions import array
+        >>> df.select(array(col("a"), col("b"), col("c")))
+    """
+    if not columns:
+        raise ValueError("array() requires at least one column")
+    return Column(op="array", args=tuple(ensure_column(c) for c in columns))
+
+
+def array_length(column: ColumnLike) -> Column:
+    """Get the length of an array column.
+
+    Args:
+        column: Array column expression
+
+    Returns:
+        Column expression for array_length
+
+    Example:
+        >>> from moltres.expressions.functions import array_length
+        >>> df.select(array_length(col("tags")))
+    """
+    return Column(op="array_length", args=(ensure_column(column),))
+
+
+def array_contains(column: ColumnLike, value: ColumnLike) -> Column:
+    """Check if an array column contains a specific value.
+
+    Args:
+        column: Array column expression
+        value: Value to search for (column expression or literal)
+
+    Returns:
+        Column expression for array_contains (boolean)
+
+    Example:
+        >>> from moltres.expressions.functions import array_contains
+        >>> df.select(array_contains(col("tags"), "python"))
+    """
+    return Column(op="array_contains", args=(ensure_column(column), ensure_column(value)))
+
+
+def array_position(column: ColumnLike, value: ColumnLike) -> Column:
+    """Get the position (1-based index) of a value in an array column.
+
+    Args:
+        column: Array column expression
+        value: Value to search for (column expression or literal)
+
+    Returns:
+        Column expression for array_position (integer, or NULL if not found)
+
+    Example:
+        >>> from moltres.expressions.functions import array_position
+        >>> df.select(array_position(col("tags"), "python"))
+    """
+    return Column(op="array_position", args=(ensure_column(column), ensure_column(value)))
+
+
+def collect_list(column: ColumnLike) -> Column:
+    """Collect values from a column into an array (aggregate function).
+
+    Args:
+        column: Column expression to collect
+
+    Returns:
+        Column expression for collect_list aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import collect_list
+        >>> df.group_by("category").agg(collect_list(col("item")))
+    """
+    return _aggregate("agg_collect_list", column)
+
+
+def collect_set(column: ColumnLike) -> Column:
+    """Collect distinct values from a column into an array (aggregate function).
+
+    Args:
+        column: Column expression to collect
+
+    Returns:
+        Column expression for collect_set aggregate
+
+    Example:
+        >>> from moltres.expressions.functions import collect_set
+        >>> df.group_by("category").agg(collect_set(col("item")))
+    """
+    return _aggregate("agg_collect_set", column)

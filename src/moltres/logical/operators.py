@@ -7,6 +7,7 @@ from collections.abc import Iterable, Sequence
 from ..expressions.column import Column
 from .plan import (
     Aggregate,
+    AntiJoin,
     CTE,
     Distinct,
     Except,
@@ -16,6 +17,7 @@ from .plan import (
     Limit,
     LogicalPlan,
     Project,
+    SemiJoin,
     Sort,
     SortOrder,
     TableScan,
@@ -211,3 +213,49 @@ def cte(plan: LogicalPlan, name: str) -> CTE:
         CTE logical plan node
     """
     return CTE(name=name, child=plan)
+
+
+def semi_join(
+    left: LogicalPlan,
+    right: LogicalPlan,
+    *,
+    on: Sequence[tuple[str, str]] | None = None,
+    condition: Column | None = None,
+) -> SemiJoin:
+    """Create a SemiJoin logical plan node (EXISTS subquery).
+
+    Args:
+        left: Left logical plan
+        right: Right logical plan (subquery for EXISTS)
+        on: Optional sequence of (left_column, right_column) tuples for equality joins
+        condition: Optional column expression for custom join condition
+
+    Returns:
+        SemiJoin logical plan node
+    """
+    return SemiJoin(
+        left=left, right=right, on=None if on is None else tuple(on), condition=condition
+    )
+
+
+def anti_join(
+    left: LogicalPlan,
+    right: LogicalPlan,
+    *,
+    on: Sequence[tuple[str, str]] | None = None,
+    condition: Column | None = None,
+) -> AntiJoin:
+    """Create an AntiJoin logical plan node (NOT EXISTS subquery).
+
+    Args:
+        left: Left logical plan
+        right: Right logical plan (subquery for NOT EXISTS)
+        on: Optional sequence of (left_column, right_column) tuples for equality joins
+        condition: Optional column expression for custom join condition
+
+    Returns:
+        AntiJoin logical plan node
+    """
+    return AntiJoin(
+        left=left, right=right, on=None if on is None else tuple(on), condition=condition
+    )

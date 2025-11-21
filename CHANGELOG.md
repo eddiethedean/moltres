@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-01-21
+
+### Added
+- **Compressed File Reading** - Automatic detection and support for gzip, bz2, and xz compression formats
+  - Support for compressed CSV, JSON, JSONL, and text files
+  - Works with both synchronous and asynchronous file readers
+  - Compression detection from file extension (`.gz`, `.bz2`, `.xz`) or explicit `compression` option
+  - New `compression.py` module with `open_compressed()` and `read_compressed_async()` utilities
+- **Array/JSON Functions** - New functions for working with JSON and array data:
+  - `json_extract(column, path)` - Extract values from JSON columns (SQLite JSON1, PostgreSQL JSONB, MySQL JSON)
+  - `array(elements)` - Create array literals
+  - `array_length(column)` - Get array length
+  - `array_contains(column, value)` - Check if array contains value
+  - `array_position(column, value)` - Find position of value in array
+  - All functions include dialect-specific SQL compilation for optimal database support
+- **Collect Aggregations** - New aggregation functions for collecting values into arrays:
+  - `collect_list(column)` - Collect values into a list/array (uses `ARRAY_AGG` in PostgreSQL, `json_group_array` in SQLite, `GROUP_CONCAT` in MySQL)
+  - `collect_set(column)` - Collect distinct values into a set/array
+- **Semi-Join and Anti-Join Operations** - New DataFrame methods for efficient filtering:
+  - `semi_join(other, on=[...])` - Filter rows that have matches in another DataFrame (compiles to INNER JOIN with DISTINCT)
+  - `anti_join(other, on=[...])` - Filter rows that don't have matches in another DataFrame (compiles to LEFT JOIN with IS NULL)
+  - Both methods support column-based joins and custom conditions
+- **MERGE/UPSERT Operations** - New table method for upsert operations:
+  - `table.merge(source_df, on=[...], when_matched={...}, when_not_matched={...})` - Merge/upsert rows with conflict resolution
+  - Dialect-specific SQL compilation:
+    - SQLite: `INSERT ... ON CONFLICT DO UPDATE`
+    - PostgreSQL: Full `MERGE` statement
+    - MySQL: `INSERT ... ON DUPLICATE KEY UPDATE` (planned)
+  - Supports both update-on-match and insert-on-no-match scenarios
+- **Comprehensive Test Coverage** - Added execution tests for all new features:
+  - Tests for compressed file reading (gzip, bz2, xz) in sync and async modes
+  - Tests for array/JSON functions with SQLite limitations handled
+  - Tests for collect aggregations
+  - Tests for semi-join and anti-join operations
+  - Tests for MERGE/UPSERT operations
+
+### Changed
+- Improved join compilation to handle column qualification properly in semi-join and anti-join operations
+- Enhanced type safety with proper type annotations for new functions and methods
+
+### Fixed
+- Fixed type checking issues in compression utilities
+- Fixed column qualification in semi-join and anti-join to avoid ambiguous column errors
+
 ## [0.4.0] - 2025-01-21
 
 ### Added
@@ -101,7 +145,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/eddiethedean/moltres/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/eddiethedean/moltres/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/eddiethedean/moltres/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/eddiethedean/moltres/compare/v0.1.0...v0.2.0

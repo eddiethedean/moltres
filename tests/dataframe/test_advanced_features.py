@@ -406,7 +406,7 @@ def test_split_string_function(tmp_path):
 @pytest.mark.skip(reason="SQLite doesn't support stddev() function natively")
 def test_stddev_aggregate(tmp_path):
     """Test stddev() statistical aggregate function.
-    
+
     Note: SQLite doesn't support stddev() natively. This test would work with PostgreSQL.
     """
     db_path = tmp_path / "stddev.sqlite"
@@ -453,7 +453,7 @@ def test_stddev_aggregate(tmp_path):
 @pytest.mark.skip(reason="SQLite doesn't support variance() function natively")
 def test_variance_aggregate(tmp_path):
     """Test variance() statistical aggregate function.
-    
+
     Note: SQLite doesn't support variance() natively. This test would work with PostgreSQL.
     """
     db_path = tmp_path / "variance.sqlite"
@@ -499,7 +499,7 @@ def test_variance_aggregate(tmp_path):
 @pytest.mark.skip(reason="SQLite doesn't support corr() function natively")
 def test_corr_aggregate(tmp_path):
     """Test corr() correlation aggregate function.
-    
+
     Note: SQLite doesn't support corr() natively. This test would work with PostgreSQL.
     """
     db_path = tmp_path / "corr.sqlite"
@@ -531,8 +531,11 @@ def test_corr_aggregate(tmp_path):
     df = table.select()
     # For aggregate without grouping, create an aggregate with empty grouping
     from moltres.logical import operators
+
     # Create an aggregate with no grouping columns (empty tuple)
-    result_df = df._with_plan(operators.aggregate(df.plan, (), (corr(col("x"), col("y")).alias("correlation"),)))
+    result_df = df._with_plan(
+        operators.aggregate(df.plan, (), (corr(col("x"), col("y")).alias("correlation"),))
+    )
     results = result_df.collect()
 
     assert len(results) == 1
@@ -549,7 +552,7 @@ def test_corr_aggregate(tmp_path):
 @pytest.mark.skip(reason="SQLite doesn't support covar_pop() function natively")
 def test_covar_aggregate(tmp_path):
     """Test covar() covariance aggregate function.
-    
+
     Note: SQLite doesn't support covar_pop() natively. This test would work with PostgreSQL.
     """
     db_path = tmp_path / "covar.sqlite"
@@ -581,8 +584,11 @@ def test_covar_aggregate(tmp_path):
     df = table.select()
     # For aggregate without grouping, create an aggregate with empty grouping
     from moltres.logical import operators
+
     # Create an aggregate with no grouping columns (empty tuple)
-    result_df = df._with_plan(operators.aggregate(df.plan, (), (covar(col("x"), col("y")).alias("covariance"),)))
+    result_df = df._with_plan(
+        operators.aggregate(df.plan, (), (covar(col("x"), col("y")).alias("covariance"),))
+    )
     results = result_df.collect()
 
     assert len(results) == 1
@@ -591,4 +597,3 @@ def test_covar_aggregate(tmp_path):
     assert covariance is not None
     # For this data, covariance should be positive
     assert covariance > 0
-

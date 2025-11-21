@@ -99,6 +99,80 @@ class DataFrame:
         """
         return self.join(other, how="cross")
 
+    def semi_join(
+        self,
+        other: "DataFrame",
+        *,
+        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+    ) -> "DataFrame":
+        """Perform a semi-join: return rows from this DataFrame where a matching row exists in other.
+
+        This is equivalent to filtering with EXISTS subquery.
+
+        Args:
+            other: Another DataFrame to semi-join with (used as EXISTS subquery)
+            on: Join condition - can be:
+                - A single column name (assumes same name in both DataFrames)
+                - A sequence of column names (assumes same names in both)
+                - A sequence of (left_column, right_column) tuples
+
+        Returns:
+            New DataFrame containing rows from this DataFrame that have matches in other
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same Database
+
+        Example:
+            >>> # Find customers who have placed orders
+            >>> customers = db.table("customers").select()
+            >>> orders = db.table("orders").select()
+            >>> customers_with_orders = customers.semi_join(orders, on="customer_id")
+        """
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to a Database before semi_join")
+        if self.database is not other.database:
+            raise ValueError("Cannot semi_join DataFrames from different Database instances")
+        normalized_on = self._normalize_join_keys(on)
+        plan = operators.semi_join(self.plan, other.plan, on=normalized_on)
+        return DataFrame(plan=plan, database=self.database)
+
+    def anti_join(
+        self,
+        other: "DataFrame",
+        *,
+        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+    ) -> "DataFrame":
+        """Perform an anti-join: return rows from this DataFrame where no matching row exists in other.
+
+        This is equivalent to filtering with NOT EXISTS subquery.
+
+        Args:
+            other: Another DataFrame to anti-join with (used as NOT EXISTS subquery)
+            on: Join condition - can be:
+                - A single column name (assumes same name in both DataFrames)
+                - A sequence of column names (assumes same names in both)
+                - A sequence of (left_column, right_column) tuples
+
+        Returns:
+            New DataFrame containing rows from this DataFrame that have no matches in other
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same Database
+
+        Example:
+            >>> # Find customers who have not placed any orders
+            >>> customers = db.table("customers").select()
+            >>> orders = db.table("orders").select()
+            >>> customers_without_orders = customers.anti_join(orders, on="customer_id")
+        """
+        if self.database is None or other.database is None:
+            raise RuntimeError("Both DataFrames must be bound to a Database before anti_join")
+        if self.database is not other.database:
+            raise ValueError("Cannot anti_join DataFrames from different Database instances")
+        normalized_on = self._normalize_join_keys(on)
+        plan = operators.anti_join(self.plan, other.plan, on=normalized_on)
+        return DataFrame(plan=plan, database=self.database)
+
     def group_by(self, *columns: Union[Column, str]) -> "GroupedDataFrame":
         if not columns:
             raise ValueError("group_by requires at least one grouping column")

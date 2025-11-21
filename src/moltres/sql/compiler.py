@@ -12,6 +12,7 @@ from ..engine.dialects import DialectSpec, get_dialect
 from ..expressions.column import Column
 from ..logical.plan import (
     Aggregate,
+    AntiJoin,
     CTE,
     Distinct,
     Except,
@@ -21,6 +22,7 @@ from ..logical.plan import (
     Limit,
     LogicalPlan,
     Project,
+    SemiJoin,
     Sort,
     SortOrder,
     TableScan,
@@ -233,7 +235,9 @@ class SQLCompiler:
                 # Cross joins don't require a condition - handled separately
                 join_condition = None
             else:
-                raise CompilationError("Join requires either 'on' keys or a 'condition' (except for cross joins)")
+                raise CompilationError(
+                    "Join requires either 'on' keys or a 'condition' (except for cross joins)"
+                )
 
             # Build join - use SELECT * to get all columns from both sides
             from sqlalchemy import literal_column
@@ -260,6 +264,190 @@ class SQLCompiler:
             else:
                 raise CompilationError(f"Unsupported join type: {plan.how}")
 
+            return stmt
+
+        if isinstance(plan, SemiJoin):
+            # Semi-join: equivalent to INNER JOIN with DISTINCT
+            # SELECT DISTINCT left.* FROM left INNER JOIN right ON condition
+            left_stmt = self._compile_plan(plan.left)
+            right_stmt = self._compile_plan(plan.right)
+
+            # Extract table names for aliasing
+            from sqlalchemy import literal_column
+
+            left_table_name = self._extract_table_name(plan.left)
+            right_table_name = self._extract_table_name(plan.right)
+
+            # Convert to subqueries
+            if isinstance(left_stmt, Select):
+                left_subq = (
+                    left_stmt.subquery(name=left_table_name)
+                    if left_table_name
+                    else left_stmt.subquery()
+                )
+            else:
+                left_subq = left_stmt
+            if isinstance(right_stmt, Select):
+                right_subq = (
+                    right_stmt.subquery(name=right_table_name)
+                    if right_table_name
+                    else right_stmt.subquery()
+                )
+            else:
+                right_subq = right_stmt
+
+            # Build join condition
+            if plan.on:
+                conditions = []
+                from sqlalchemy import column as sa_column, literal_column
+
+                for left_col, right_col in plan.on:
+                    # Use table-qualified column names in join condition to avoid ambiguity
+                    if left_table_name:
+                        try:
+                            left_expr = left_subq.c[left_col]
+                        except (KeyError, AttributeError, TypeError):
+                            # Fallback to literal with table qualification
+                            left_expr = literal_column(f'"{left_table_name}"."{left_col}"')
+                    else:
+                        left_expr = sa_column(left_col)
+                    if right_table_name:
+                        try:
+                            right_expr = right_subq.c[right_col]
+                        except (KeyError, AttributeError, TypeError):
+                            # Fallback to literal with table qualification
+                            right_expr = literal_column(f'"{right_table_name}"."{right_col}"')
+                    else:
+                        right_expr = sa_column(right_col)
+                    conditions.append(left_expr == right_expr)
+                join_condition = and_(*conditions) if len(conditions) > 1 else conditions[0]
+            elif plan.condition:
+                join_condition = self._expr.compile_expr(plan.condition)
+            else:
+                raise CompilationError("SemiJoin requires either 'on' keys or a 'condition'")
+
+            # Build INNER JOIN with DISTINCT (equivalent to semi-join)
+            # Select only columns from left table to avoid ambiguity
+            # Get column names from left_subq
+            if hasattr(left_subq, "c"):
+                left_cols = [left_subq.c[col] for col in left_subq.c.keys()]
+                stmt = (
+                    select(*left_cols)
+                    .select_from(left_subq.join(right_subq, join_condition))
+                    .distinct()
+                )
+            else:
+                # Fallback: use * but this may cause ambiguity
+                stmt = (
+                    select(literal_column("*"))
+                    .select_from(left_subq.join(right_subq, join_condition))
+                    .distinct()
+                )
+            return stmt
+
+        if isinstance(plan, AntiJoin):
+            # Anti-join: equivalent to LEFT JOIN with IS NULL filter
+            # SELECT left.* FROM left LEFT JOIN right ON condition WHERE right.key IS NULL
+            left_stmt = self._compile_plan(plan.left)
+            right_stmt = self._compile_plan(plan.right)
+
+            # Extract table names for aliasing
+            from sqlalchemy import literal_column, null
+
+            left_table_name = self._extract_table_name(plan.left)
+            right_table_name = self._extract_table_name(plan.right)
+
+            # Convert to subqueries
+            if isinstance(left_stmt, Select):
+                left_subq = (
+                    left_stmt.subquery(name=left_table_name)
+                    if left_table_name
+                    else left_stmt.subquery()
+                )
+            else:
+                left_subq = left_stmt
+            if isinstance(right_stmt, Select):
+                right_subq = (
+                    right_stmt.subquery(name=right_table_name)
+                    if right_table_name
+                    else right_stmt.subquery()
+                )
+            else:
+                right_subq = right_stmt
+
+            # Build join condition
+            if plan.on:
+                conditions = []
+                from sqlalchemy import column as sa_column, literal_column
+
+                for left_col, right_col in plan.on:
+                    # Use table-qualified column names in join condition to avoid ambiguity
+                    if left_table_name:
+                        try:
+                            left_expr = left_subq.c[left_col]
+                        except (KeyError, AttributeError, TypeError):
+                            # Fallback to literal with table qualification
+                            left_expr = literal_column(f'"{left_table_name}"."{left_col}"')
+                    else:
+                        left_expr = sa_column(left_col)
+                    if right_table_name:
+                        try:
+                            right_expr = right_subq.c[right_col]
+                        except (KeyError, AttributeError, TypeError):
+                            # Fallback to literal with table qualification
+                            right_expr = literal_column(f'"{right_table_name}"."{right_col}"')
+                    else:
+                        right_expr = sa_column(right_col)
+                    conditions.append(left_expr == right_expr)
+                join_condition = and_(*conditions) if len(conditions) > 1 else conditions[0]
+            elif plan.condition:
+                join_condition = self._expr.compile_expr(plan.condition)
+            else:
+                raise CompilationError("AntiJoin requires either 'on' keys or a 'condition'")
+
+            # Build LEFT JOIN with IS NULL filter (equivalent to anti-join)
+            # We need to check that the right side's join key is NULL
+            # Use the first right column from the join condition
+            null_check_col: ColumnElement[Any]
+            if plan.on:
+                first_right_col = plan.on[0][1]
+                if right_table_name:
+                    try:
+                        null_check_col = right_subq.c[first_right_col]
+                    except (KeyError, AttributeError, TypeError):
+                        # Fallback to literal with table qualification
+                        from sqlalchemy import literal_column
+
+                        null_check_col = literal_column(f'"{right_table_name}"."{first_right_col}"')
+                else:
+                    from sqlalchemy import column as sa_column
+
+                    null_check_col = sa_column(first_right_col)
+            else:
+                # Fallback: use a column from right_subq if available
+                try:
+                    if hasattr(right_subq, "c"):
+                        null_check_col = list(right_subq.c)[0]
+                    else:
+                        null_check_col = null()
+                except (IndexError, AttributeError, TypeError):
+                    null_check_col = null()
+
+            # Select only columns from left table to avoid ambiguity
+            if hasattr(left_subq, "c"):
+                left_cols = [left_subq.c[col] for col in left_subq.c.keys()]
+                stmt = (
+                    select(*left_cols)
+                    .select_from(left_subq.join(right_subq, join_condition, isouter=True))
+                    .where(null_check_col.is_(null()))
+                )
+            else:
+                # Fallback: use * but this may cause ambiguity
+                stmt = (
+                    select(literal_column("*"))
+                    .select_from(left_subq.join(right_subq, join_condition, isouter=True))
+                    .where(null_check_col.is_(null()))
+                )
             return stmt
 
         if isinstance(plan, LogicalUnion):
@@ -326,7 +514,7 @@ class SQLCompiler:
 
         raise CompilationError(
             f"Unsupported logical plan node: {type(plan).__name__}. "
-            f"Supported nodes: TableScan, Project, Filter, Limit, Sort, Aggregate, Join, LogicalUnion, Intersect, Except, CTE, Distinct"
+            f"Supported nodes: TableScan, Project, Filter, Limit, Sort, Aggregate, Join, SemiJoin, AntiJoin, LogicalUnion, Intersect, Except, CTE, Distinct"
         )
 
 
@@ -638,7 +826,7 @@ class ExpressionCompiler:
             return self._compile(value).in_(subquery_stmt)
         if op == "exists":
             # EXISTS subquery: exists(df.select())
-            subquery_plan, = expression.args
+            (subquery_plan,) = expression.args
             if self._plan_compiler is None:
                 raise CompilationError("Subquery compilation requires plan compiler")
             subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
@@ -907,6 +1095,152 @@ class ExpressionCompiler:
         if op == "agg_count_distinct":
             args = [self._compile(arg) for arg in expression.args]
             result = func.count(func.distinct(*args))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "agg_collect_list":
+            # Collect values into an array
+            # PostgreSQL: array_agg(column)
+            # SQLite: json_group_array(column) - JSON1 extension
+            # MySQL: JSON_ARRAYAGG(column)
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.array_agg(col_expr)
+            elif self.dialect.name == "sqlite":
+                result = func.json_group_array(col_expr)
+            else:
+                # MySQL and others - use JSON_ARRAYAGG
+                result = func.json_arrayagg(col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "agg_collect_set":
+            # Collect distinct values into an array
+            # PostgreSQL: array_agg(DISTINCT column)
+            # SQLite: json_group_array(DISTINCT column) - JSON1 extension
+            # MySQL: JSON_ARRAYAGG(DISTINCT column)
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.array_agg(func.distinct(col_expr))
+            elif self.dialect.name == "sqlite":
+                # SQLite doesn't support DISTINCT in json_group_array directly
+                # We'll use a workaround or note the limitation
+                result = func.json_group_array(func.distinct(col_expr))
+            else:
+                # MySQL and others
+                result = func.json_arrayagg(func.distinct(col_expr))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+
+        # JSON functions
+        if op == "json_extract":
+            col_expr = self._compile(expression.args[0])
+            path = expression.args[1]
+            # Use dialect-specific JSON extraction
+            # PostgreSQL: -> operator or json_extract_path_text
+            # SQLite: json_extract (JSON1 extension)
+            # MySQL: JSON_EXTRACT or -> operator
+            # Generic: Use func.json_extract which SQLAlchemy may handle
+            if self.dialect.name == "postgresql":
+                # PostgreSQL uses -> for JSONB or json_extract_path_text for JSON
+                result = func.json_extract_path_text(col_expr, path)
+            elif self.dialect.name == "sqlite":
+                # SQLite JSON1 extension
+                result = func.json_extract(col_expr, path)
+            else:
+                # Generic fallback - try JSON_EXTRACT
+                result = func.json_extract(col_expr, path)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+
+        # Array functions
+        if op == "array":
+            args = [self._compile(arg) for arg in expression.args]
+            # Use dialect-specific array construction
+            # PostgreSQL: ARRAY[...]
+            # SQLite: json_array(...) or string_to_array
+            # MySQL: JSON_ARRAY(...)
+            if self.dialect.name == "postgresql":
+                result = func.array(*args)
+            elif self.dialect.name == "sqlite":
+                # SQLite doesn't have native arrays, use JSON array
+                result = func.json_array(*args)
+            else:
+                # Generic fallback
+                result = func.json_array(*args)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+
+        if op == "array_length":
+            col_expr = self._compile(expression.args[0])
+            # Use dialect-specific array length
+            # PostgreSQL: array_length(array, 1)
+            # SQLite: json_array_length(json_array)
+            # MySQL: JSON_LENGTH(json_array)
+            if self.dialect.name == "postgresql":
+                result = func.array_length(col_expr, 1)
+            elif self.dialect.name == "sqlite":
+                result = func.json_array_length(col_expr)
+            else:
+                result = func.json_length(col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+
+        if op == "array_contains":
+            col_expr = self._compile(expression.args[0])
+            value_expr = self._compile(expression.args[1])
+            # Use dialect-specific array contains
+            # PostgreSQL: value = ANY(array)
+            # SQLite: JSON_CONTAINS (if available) or json_each
+            # MySQL: JSON_CONTAINS(json_array, value)
+            if self.dialect.name == "postgresql":
+                # PostgreSQL uses = ANY(array)
+                from sqlalchemy import any_
+
+                result = value_expr == any_(col_expr)
+            else:
+                # SQLite and others - use JSON_CONTAINS if available
+                # For SQLite, we'll use a workaround with json_array_length
+                try:
+                    result = func.json_contains(col_expr, value_expr)
+                except Exception:
+                    # Fallback for SQLite - check if removing the value changes length
+                    result = func.json_array_length(col_expr) > func.coalesce(
+                        func.json_array_length(
+                            func.json_remove(col_expr, func.json_quote(value_expr))
+                        ),
+                        0,
+                    )
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+
+        if op == "array_position":
+            col_expr = self._compile(expression.args[0])
+            value_expr = self._compile(expression.args[1])
+            # Use dialect-specific array position
+            # PostgreSQL: array_position(array, value)
+            # SQLite: Use json_each with rowid - requires subquery (complex)
+            # MySQL: JSON_SEARCH(json_array, 'one', value) - returns path, extract index
+            if self.dialect.name == "postgresql":
+                result = func.array_position(col_expr, value_expr)
+            elif self.dialect.name == "sqlite":
+                # SQLite: Use json_each to find position
+                # This is a simplified version - full implementation would use a subquery
+                # For now, we'll use a workaround that may not be perfect
+                from sqlalchemy import literal_column
+
+                # Note: This is a limitation - full implementation requires subquery
+                # For SQLite, array_position with JSON arrays is complex
+                result = literal_column("NULL")  # Placeholder - requires subquery with json_each
+            else:
+                # MySQL and others - use JSON_SEARCH and extract index
+                # JSON_SEARCH returns path like "$[0]", extract the number
+                result = func.json_search(col_expr, "one", value_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result

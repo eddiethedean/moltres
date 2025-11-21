@@ -1062,3 +1062,144 @@ def test_records_text_custom_column_streaming(tmp_path):
     all_rows = records.rows()
     assert len(all_rows) == 50
     assert all_rows[0]["content"] == "line 0"
+
+
+def test_read_csv_gzip(tmp_path):
+    """Test reading gzip-compressed CSV file."""
+    import gzip
+
+    db_path = tmp_path / "read_csv_gzip.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create gzip-compressed CSV file
+    csv_path = tmp_path / "data.csv.gz"
+    with gzip.open(csv_path, "wt", encoding="utf-8") as f:
+        f.write("id,name,score\n")
+        f.write("1,Alice,95.5\n")
+        f.write("2,Bob,87.0\n")
+
+    # Read compressed CSV - should auto-detect compression
+    records = db.load.csv(str(csv_path))
+    rows = records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[0]["score"] == 95.5
+    assert rows[1]["name"] == "Bob"
+
+
+def test_read_csv_bz2(tmp_path):
+    """Test reading bzip2-compressed CSV file."""
+    import bz2
+
+    db_path = tmp_path / "read_csv_bz2.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create bzip2-compressed CSV file
+    csv_path = tmp_path / "data.csv.bz2"
+    with bz2.open(csv_path, "wt", encoding="utf-8") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    # Read compressed CSV
+    records = db.load.csv(str(csv_path))
+    rows = records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+
+
+def test_read_json_gzip(tmp_path):
+    """Test reading gzip-compressed JSON file."""
+    import gzip
+
+    db_path = tmp_path / "read_json_gzip.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create gzip-compressed JSON file
+    json_path = tmp_path / "data.json.gz"
+    data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+    with gzip.open(json_path, "wt", encoding="utf-8") as f:
+        json.dump(data, f)
+
+    # Read compressed JSON
+    records = db.load.json(str(json_path))
+    rows = records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+
+def test_read_jsonl_gzip(tmp_path):
+    """Test reading gzip-compressed JSONL file."""
+    import gzip
+
+    db_path = tmp_path / "read_jsonl_gzip.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create gzip-compressed JSONL file
+    jsonl_path = tmp_path / "data.jsonl.gz"
+    with gzip.open(jsonl_path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps({"id": 1, "name": "Alice"}) + "\n")
+        f.write(json.dumps({"id": 2, "name": "Bob"}) + "\n")
+
+    # Read compressed JSONL
+    records = db.load.jsonl(str(jsonl_path))
+    rows = records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+
+def test_read_text_gzip(tmp_path):
+    """Test reading gzip-compressed text file."""
+    import gzip
+
+    db_path = tmp_path / "read_text_gzip.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create gzip-compressed text file
+    text_path = tmp_path / "data.txt.gz"
+    with gzip.open(text_path, "wt", encoding="utf-8") as f:
+        f.write("line 1\n")
+        f.write("line 2\n")
+        f.write("line 3\n")
+
+    # Read compressed text
+    records = db.load.text(str(text_path))
+    rows = records.rows()
+
+    assert len(rows) == 3
+    assert rows[0]["value"] == "line 1"
+    assert rows[1]["value"] == "line 2"
+
+
+def test_read_csv_explicit_compression(tmp_path):
+    """Test reading CSV with explicit compression option."""
+    import gzip
+
+    db_path = tmp_path / "read_csv_explicit.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create uncompressed CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+
+    # Try to read with explicit compression (should fail if file is not compressed)
+    # But if we compress it first...
+    csv_gz_path = tmp_path / "data_compressed.csv"
+    with open(csv_path, "rb") as f_in:
+        with gzip.open(csv_gz_path, "wb") as f_out:
+            f_out.write(f_in.read())
+
+    # Read with explicit compression option
+    records = db.load.option("compression", "gzip").csv(str(csv_gz_path))
+    rows = records.rows()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"

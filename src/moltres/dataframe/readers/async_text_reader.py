@@ -14,15 +14,9 @@ from typing import (
     cast,
 )
 
-try:
-    import aiofiles  # type: ignore[import-untyped]
-except ImportError as exc:
-    raise ImportError(
-        "Async text reading requires aiofiles. Install with: pip install moltres[async]"
-    ) from exc
-
 from ...io.records import AsyncRecords
 from ...table.schema import ColumnDef
+from .compression import read_compressed_async
 
 if TYPE_CHECKING:
     from ...table.async_table import AsyncDatabase
@@ -54,10 +48,11 @@ async def read_text(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
+    content = await read_compressed_async(path, compression=compression)
     rows: List[Dict[str, object]] = []
-    async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-        async for line in f:
-            rows.append({column_name: line.rstrip("\n\r")})
+    for line in content.splitlines(keepends=True):
+        rows.append({column_name: line.rstrip("\n\r")})
 
     if not rows:
         return _create_async_records_from_schema(database, [], [])
@@ -93,16 +88,18 @@ async def read_text_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
+    compression = cast(Optional[str], options.get("compression", None))
+
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
+        content = await read_compressed_async(path, compression=compression)
         chunk: List[Dict[str, object]] = []
-        async with aiofiles.open(path_obj, "r", encoding="utf-8") as f:
-            async for line in f:
-                chunk.append({column_name: line.rstrip("\n\r")})
-                if len(chunk) >= chunk_size:
-                    yield chunk
-                    chunk = []
-            if chunk:
+        for line in content.splitlines(keepends=True):
+            chunk.append({column_name: line.rstrip("\n\r")})
+            if len(chunk) >= chunk_size:
                 yield chunk
+                chunk = []
+        if chunk:
+            yield chunk
 
     # Read first chunk
     first_chunk_gen = _chunk_generator()
