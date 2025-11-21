@@ -292,7 +292,7 @@ class DataFrameWriter:
         delimiter = cast("str", self._options.get("delimiter", ","))
 
         with open(path_obj, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=headers, delimiter=cast("str", delimiter))
+            writer = csv.DictWriter(f, fieldnames=headers, delimiter=delimiter)
             if header:
                 writer.writeheader()
             writer.writerows(rows)
@@ -321,14 +321,14 @@ class DataFrameWriter:
             headers = []
 
         with open(path_obj, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=headers, delimiter=cast("str", delimiter))
+            writer = csv.DictWriter(f, fieldnames=headers, delimiter=delimiter)
             if header:
                 writer.writeheader()
             if first_chunk:
                 writer.writerows(first_chunk)
             for chunk in chunk_iter:
                 if chunk:
-                    writer.writerows(cast("list[dict[str, object]]", chunk))
+                    writer.writerows(chunk)
 
     def _save_json(self, path: str) -> None:
         """Save DataFrame as JSON file (array of objects)."""
@@ -363,7 +363,7 @@ class DataFrameWriter:
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        rows_list = cast("list[dict[str, object]]", rows)
+        rows_list = rows
         with open(path_obj, "w", encoding="utf-8") as f:
             for row in rows_list:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -403,8 +403,8 @@ class DataFrameWriter:
             self._save_partitioned(path, "parquet", rows, None)
             return
 
-            # Convert to pandas DataFrame
-            df = pd.DataFrame(rows)
+        # Convert to pandas DataFrame
+        df = pd.DataFrame(rows)
 
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)

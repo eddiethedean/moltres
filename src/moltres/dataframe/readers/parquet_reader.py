@@ -106,7 +106,7 @@ def read_parquet_stream(
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 
-        parquet_file = pq.ParquetFile(str(path_obj))
+    parquet_file = pq.ParquetFile(str(path_obj))
 
     def _chunk_generator() -> Iterator[list[dict[str, object]]]:
         for i in range(parquet_file.num_row_groups):

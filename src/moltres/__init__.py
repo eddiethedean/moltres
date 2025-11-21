@@ -30,7 +30,7 @@ else:
     try:
         from .table.async_table import AsyncDatabase
     except ImportError:
-        AsyncDatabase = None  # type: ignore[assignment, misc]
+        AsyncDatabase = None  # type: ignore[assignment]
 
 
 def connect(dsn: str | None = None, **options: object) -> Database:
