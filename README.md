@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/eddiethedean/moltres/main/logo.svg" alt="Moltres Logo" width="40" height="40" /> Moltres
+# <img src="https://raw.githubusercontent.com/eddiethedean/moltres/main/logo.png" alt="Moltres Logo" width="40" height="40" /> Moltres
 
 [![CI](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/eddiethedean/moltres)
