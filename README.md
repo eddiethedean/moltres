@@ -1,8 +1,10 @@
 # Moltres
 
+![Moltres Logo](https://raw.githubusercontent.com/eddiethedean/moltres/main/logo.png)
+
 [![CI](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/eddiethedean/moltres)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/eddiethedean/moltres/blob/main/LICENSE)
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 > The Missing DataFrame Layer for SQL in Python — DataFrame API with SQL pushdown execution and real SQL CRUD.
@@ -569,7 +571,7 @@ Moltres includes built-in security features to prevent SQL injection:
 - **Parameterized Queries** - All user data is passed as parameters, never string concatenation
 - **Input Sanitization** - Comprehensive validation of identifiers and inputs
 
-See [`docs/SECURITY.md`](docs/SECURITY.md) for security best practices and guidelines.
+See [`docs/SECURITY.md`](https://github.com/eddiethedean/moltres/blob/main/docs/SECURITY.md) for security best practices and guidelines.
 
 ## 📚 Advanced Examples
 
@@ -720,16 +722,16 @@ mypy src
 
 Additional documentation is available in the `docs/` directory:
 
-- **[Why Moltres?](docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills and who needs it
-- **[Examples](docs/EXAMPLES.md)** - Common patterns, use cases, and examples for each audience
-- **[Security Guide](docs/SECURITY.md)** - Security best practices and SQL injection prevention
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Design Notes](docs/moltres_plan.md)** - High-level architecture and design decisions
-- **[Advocacy Document](docs/moltres_advocacy.md)** - Detailed positioning and comparison with alternatives
+- **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills and who needs it
+- **[Examples](https://github.com/eddiethedean/moltres/blob/main/docs/EXAMPLES.md)** - Common patterns, use cases, and examples for each audience
+- **[Security Guide](https://github.com/eddiethedean/moltres/blob/main/docs/SECURITY.md)** - Security best practices and SQL injection prevention
+- **[Troubleshooting](https://github.com/eddiethedean/moltres/blob/main/docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Design Notes](https://github.com/eddiethedean/moltres/blob/main/docs/moltres_plan.md)** - High-level architecture and design decisions
+- **[Advocacy Document](https://github.com/eddiethedean/moltres/blob/main/docs/moltres_advocacy.md)** - Detailed positioning and comparison with alternatives
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please see [`CONTRIBUTING.md`](https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md) for guidelines.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -739,7 +741,7 @@ Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for g
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](https://github.com/eddiethedean/moltres/blob/main/LICENSE) file for details.
 
 ## 👤 Author
 
