@@ -11,7 +11,7 @@ from ..config import MoltresConfig
 if TYPE_CHECKING:
     from ..dataframe.async_dataframe import AsyncDataFrame
     from ..dataframe.async_reader import AsyncDataLoader, AsyncReadAccessor
-    from ..io.records import AsyncRecords
+    from ..io.records import AsyncLazyRecords, AsyncRecords
     from .async_actions import (
         AsyncCreateTableOperation,
         AsyncDropTableOperation,
@@ -257,20 +257,24 @@ class AsyncDatabase:
 
     async def createDataFrame(
         self,
-        data: Union[Sequence[dict[str, object]], Sequence[tuple], "AsyncRecords"],
+        data: Union[
+            Sequence[dict[str, object]], Sequence[tuple], "AsyncRecords", "AsyncLazyRecords"
+        ],
         schema: Optional[Sequence[ColumnDef]] = None,
         pk: Optional[Union[str, Sequence[str]]] = None,
         auto_pk: Optional[Union[str, Sequence[str]]] = None,
     ) -> "AsyncDataFrame":
-        """Create an AsyncDataFrame from Python data (list of dicts, list of tuples, or AsyncRecords).
+        """Create an AsyncDataFrame from Python data (list of dicts, list of tuples, AsyncRecords, or AsyncLazyRecords).
 
         Creates a temporary table, inserts the data, and returns an AsyncDataFrame querying from that table.
+        If AsyncLazyRecords is provided, it will be auto-materialized.
 
         Args:
             data: Input data in one of supported formats:
                 - List of dicts: [{"col1": val1, "col2": val2}, ...]
                 - List of tuples: Requires schema parameter with column names
                 - AsyncRecords object: Extracts data and schema if available
+                - AsyncLazyRecords object: Auto-materializes and extracts data and schema
             schema: Optional explicit schema. If not provided, schema is inferred from data.
             pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
             auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
@@ -287,6 +291,9 @@ class AsyncDatabase:
             >>> df = await db.createDataFrame([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], pk="id")
             >>> # Create AsyncDataFrame with auto-incrementing primary key
             >>> df = await db.createDataFrame([{"name": "Alice"}, {"name": "Bob"}], auto_pk="id")
+            >>> # Create AsyncDataFrame from AsyncLazyRecords (auto-materializes)
+            >>> lazy_records = db.read.records.csv("data.csv")
+            >>> df = await db.createDataFrame(lazy_records, pk="id")
         """
         from ..dataframe.async_dataframe import AsyncDataFrame
         from ..dataframe.create_dataframe import (
@@ -295,11 +302,18 @@ class AsyncDatabase:
             get_schema_from_records,
         )
         from ..dataframe.readers.schema_inference import infer_schema_from_rows
-        from ..io.records import AsyncRecords
+        from ..io.records import AsyncLazyRecords, AsyncRecords
         from ..utils.exceptions import ValidationError
 
         # Normalize data to list of dicts
-        if isinstance(data, AsyncRecords):
+        # Handle AsyncLazyRecords by auto-materializing
+        if isinstance(data, AsyncLazyRecords):
+            materialized_records = await data.collect()  # Auto-materialize
+            rows = await materialized_records.rows()
+            # Use schema from AsyncRecords if available and no explicit schema provided
+            if schema is None:
+                schema = get_schema_from_records(materialized_records)
+        elif isinstance(data, AsyncRecords):
             rows = await data.rows()  # Materialize async records
             # Use schema from AsyncRecords if available and no explicit schema provided
             if schema is None:

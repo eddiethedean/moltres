@@ -11,7 +11,7 @@ from ..config import MoltresConfig
 if TYPE_CHECKING:
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.reader import DataLoader, ReadAccessor
-    from ..io.records import Records
+    from ..io.records import LazyRecords, Records
     from .actions import (
         CreateTableOperation,
         DropTableOperation,
@@ -297,20 +297,22 @@ class Database:
     # ----------------------------------------------------------------- internals
     def createDataFrame(
         self,
-        data: Union[Sequence[dict[str, object]], Sequence[tuple], Records],
+        data: Union[Sequence[dict[str, object]], Sequence[tuple], Records, "LazyRecords"],
         schema: Optional[Sequence[ColumnDef]] = None,
         pk: Optional[Union[str, Sequence[str]]] = None,
         auto_pk: Optional[Union[str, Sequence[str]]] = None,
     ) -> "DataFrame":
-        """Create a DataFrame from Python data (list of dicts, list of tuples, or Records).
+        """Create a DataFrame from Python data (list of dicts, list of tuples, Records, or LazyRecords).
 
         Creates a temporary table, inserts the data, and returns a DataFrame querying from that table.
+        If LazyRecords is provided, it will be auto-materialized.
 
         Args:
             data: Input data in one of supported formats:
                 - List of dicts: [{"col1": val1, "col2": val2}, ...]
                 - List of tuples: Requires schema parameter with column names
                 - Records object: Extracts data and schema if available
+                - LazyRecords object: Auto-materializes and extracts data and schema
             schema: Optional explicit schema. If not provided, schema is inferred from data.
             pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
             auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
@@ -331,6 +333,9 @@ class Database:
             >>> from moltres.io.records import Records
             >>> records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
             >>> df = db.createDataFrame(records, pk="id")
+            >>> # Create DataFrame from LazyRecords (auto-materializes)
+            >>> lazy_records = db.read.records.csv("data.csv")
+            >>> df = db.createDataFrame(lazy_records, pk="id")
         """
         from ..dataframe.create_dataframe import (
             ensure_primary_key,
@@ -340,11 +345,18 @@ class Database:
         )
         from ..dataframe.dataframe import DataFrame
         from ..dataframe.readers.schema_inference import infer_schema_from_rows
-        from ..io.records import Records
+        from ..io.records import LazyRecords, Records
         from ..utils.exceptions import ValidationError
 
         # Normalize data to list of dicts
-        if isinstance(data, Records):
+        # Handle LazyRecords by auto-materializing
+        if isinstance(data, LazyRecords):
+            materialized_records = data.collect()  # Auto-materialize
+            rows = normalize_data_to_rows(materialized_records)
+            # Use schema from Records if available and no explicit schema provided
+            if schema is None:
+                schema = get_schema_from_records(materialized_records)
+        elif isinstance(data, Records):
             rows = normalize_data_to_rows(data)
             # Use schema from Records if available and no explicit schema provided
             if schema is None:

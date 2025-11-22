@@ -6,12 +6,12 @@ import uuid
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, List, Optional, Union
 
-from ..io.records import Records
+from ..io.records import LazyRecords, Records
 from ..table.schema import ColumnDef
 from ..utils.exceptions import ValidationError
 
 if TYPE_CHECKING:
-    from ..io.records import AsyncRecords
+    from ..io.records import AsyncLazyRecords, AsyncRecords
 
 
 def normalize_data_to_rows(
@@ -19,6 +19,7 @@ def normalize_data_to_rows(
         Sequence[dict[str, object]],
         Sequence[tuple],
         Records,
+        LazyRecords,
         "AsyncRecords",
     ],
 ) -> List[dict[str, object]]:
@@ -29,6 +30,7 @@ def normalize_data_to_rows(
             - List of dicts: [{"col1": val1, "col2": val2}, ...]
             - List of tuples: Requires schema with column names
             - Records object: Extract _data
+            - LazyRecords object: Auto-materializes and extracts _data
             - AsyncRecords object: Extract _data
 
     Returns:
@@ -38,6 +40,13 @@ def normalize_data_to_rows(
         ValueError: If data format is not supported or data is empty
         ValidationError: If list of tuples provided without schema
     """
+    # Handle LazyRecords by auto-materializing
+    if isinstance(data, LazyRecords):
+        materialized_records = data.collect()  # Auto-materialize
+        return normalize_data_to_rows(
+            materialized_records
+        )  # Recursively handle materialized Records
+
     if isinstance(data, Records):
         if data._data is not None:
             return data._data.copy()
@@ -85,16 +94,17 @@ def normalize_data_to_rows(
 
 
 def get_schema_from_records(
-    records: Union[Records, "AsyncRecords"],
+    records: Union[Records, LazyRecords, "AsyncRecords", "AsyncLazyRecords"],
 ) -> Optional[Sequence[ColumnDef]]:
-    """Extract schema from Records or AsyncRecords object.
+    """Extract schema from Records, LazyRecords, AsyncRecords, or AsyncLazyRecords object.
 
     Args:
-        records: Records or AsyncRecords object
+        records: Records, LazyRecords, AsyncRecords, or AsyncLazyRecords object
 
     Returns:
         Schema if available, None otherwise
     """
+    # Try to get schema without materializing if possible (LazyRecords has _schema)
     return getattr(records, "_schema", None)
 
 

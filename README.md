@@ -86,6 +86,8 @@ Moltres is the **only** Python library that provides:
 
 ### Version 0.8.0
 
+- **PySpark-style `db.read.table()` API** - New `db.read.table()` and `db.read.*` methods that match PySpark's `spark.read.table()` pattern. Read database tables and files with a familiar API: `df = db.read.table("customers")` or `df = db.read.csv("data.csv")`. Returns lazy DataFrame objects for consistency with PySpark.
+- **LazyRecords for `db.read.records.*`** - The `db.read.records.*` methods now return lazy `LazyRecords`/`AsyncLazyRecords` objects that materialize on-demand when used. Records automatically materialize when you use Sequence operations (`len()`, `[]`, iteration), call `insert_into()`, or use them with `createDataFrame()`. Explicitly materialize with `.collect()` when needed. This provides better performance by deferring file reads until necessary.
 - **Lazy CRUD and DDL Operations** - All DataFrame CRUD and DDL operations are now lazy, requiring an explicit `.collect()` call for execution. This improves composability and aligns with PySpark's lazy evaluation model.
 - **Transaction Management** - All operations within a single `.collect()` call are part of a single session that rolls back all changes if any failure occurs.
 - **Batch Operation API** - New `db.batch()` context manager to queue multiple lazy operations and execute them together within a single transaction.
@@ -326,44 +328,57 @@ df = (
 ### From Database Tables
 
 ```python
-# For SQL operations, use db.table().select()
+# Option 1: Use db.table().select() (original API)
 df = db.table("customers").select()
 df = db.table("customers").select("id", "name", "email")
+
+# Option 2: Use db.read.table() (PySpark-style API)
+df = db.read.table("customers")
+df = db.read.table("customers").where(col("active") == True).select("id", "name")
 ```
+
+Both APIs return lazy `DataFrame` objects that can be transformed before execution. The `db.read.table()` API matches PySpark's `spark.read.table()` pattern for consistency.
 
 ### From Files
 
-Moltres supports loading data from various file formats. **File readers (`db.load.*`) return lazy `DataFrame` objects** - matching PySpark's API. Files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations.
+Moltres supports loading data from various file formats. **File readers (`db.load.*` and `db.read.*`) return lazy `DataFrame` objects** - matching PySpark's API. Files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations.
 
 ```python
-# CSV files - returns DataFrame (lazy)
+# Option 1: Use db.load.* (original API)
 df = db.load.csv("data.csv")
 df = db.load.option("delimiter", "|").csv("pipe_delimited.csv")
 df = db.load.option("header", False).schema([...]).csv("no_header.csv")
 
-# JSON files - returns DataFrame (lazy)
-df = db.load.json("data.json")  # Array of objects
-df = db.load.jsonl("data.jsonl")  # One JSON object per line
+# Option 2: Use db.read.* (PySpark-style API)
+df = db.read.csv("data.csv")
+df = db.read.json("data.json")  # Array of objects
+df = db.read.jsonl("data.jsonl")  # One JSON object per line
+df = db.read.parquet("data.parquet")  # Requires pandas and pyarrow
+df = db.read.text("log.txt", column_name="line")
+df = db.read.format("csv").option("header", True).load("data.csv")
 
-# Parquet files (requires pandas and pyarrow) - returns DataFrame (lazy)
-df = db.load.parquet("data.parquet")
-
-# Text files (one line per row) - returns DataFrame (lazy)
-df = db.load.text("log.txt", column_name="line")
-
-# Generic format reader - returns DataFrame (lazy)
-df = db.load.format("csv").option("header", True).load("data.csv")
+# Both APIs work the same way
+df = db.load.csv("data.csv")  # Same as db.read.csv("data.csv")
+df = db.read.csv("data.csv")  # Same as db.load.csv("data.csv")
 
 # Transform before materialization
-df = db.load.csv("data.csv").where(col("score") > 90).select("name", "score")
+df = db.read.csv("data.csv").where(col("score") > 90).select("name", "score")
 rows = df.collect()  # Materializes file and executes SQL operations
 
-# For backward compatibility: use db.read.records.* to get Records directly
-records = db.read.records.csv("data.csv")  # Returns Records (materialized)
-records.insert_into("table_name")  # Executes immediately
-rows = records.rows()  # Get all rows as a list
-for row in records:  # Iterate directly
+# Use db.read.records.* to get LazyRecords (lazy materialization)
+lazy_records = db.read.records.csv("data.csv")  # Returns LazyRecords (lazy, not materialized yet)
+# LazyRecords automatically materialize when used:
+len(lazy_records)  # Auto-materializes when you check length
+for row in lazy_records:  # Auto-materializes when you iterate
     process(row)
+lazy_records.insert_into("table_name")  # Auto-materializes and executes immediately
+rows = lazy_records.rows()  # Auto-materializes when you get rows
+
+# Explicitly materialize with .collect() if needed
+records = lazy_records.collect()  # Returns materialized Records object
+
+# For already-materialized data, use dicts() which returns Records directly
+records = db.read.records.dicts([{"id": 1, "name": "Alice"}])  # Returns Records (already materialized)
 ```
 
 ### Schema Inference and Explicit Schemas
@@ -380,8 +395,8 @@ schema = [
 ]
 
 df = db.load.schema(schema).csv("data.csv")
-# Or for Records:
-records = db.read.records.schema(schema).csv("data.csv")
+# Or for LazyRecords:
+lazy_records = db.read.records.schema(schema).csv("data.csv")
 ```
 
 **File Format Options:**
@@ -390,15 +405,17 @@ records = db.read.records.schema(schema).csv("data.csv")
 - **Parquet**: Requires `pandas` and `pyarrow`
 
 > **Important:** 
-> - **`db.load.*` methods return lazy `DataFrame` objects** - files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations. This matches PySpark's API.
-> - **`db.read.records.*` methods return `Records` objects** - for backward compatibility and when you need materialized data immediately. Records can be:
->   - Iterated directly: `for row in records: ...`
->   - Converted to a list: `rows = records.rows()`
->   - Used with insert operations: `records.insert_into("table")` (executes immediately)
+> - **`db.load.*` and `db.read.*` methods return lazy `DataFrame` objects** - files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations. The `db.read.*` API matches PySpark's `spark.read.*` pattern for consistency.
+> - **`db.read.table()`** - PySpark-style API for reading database tables: `df = db.read.table("customers")`
+> - **`db.read.records.*` methods return lazy `LazyRecords`/`AsyncLazyRecords` objects** - Records materialize on-demand when you use Sequence operations (`len()`, indexing, iteration), call `insert_into()`, or use them with `createDataFrame()`. Explicitly materialize with `.collect()` when needed. This provides better performance by deferring file reads until necessary.
+>   - LazyRecords automatically materialize when: using `len()`, indexing (`records[0]`), iteration (`for row in records`), calling `insert_into()`, or using with `createDataFrame()`
+>   - Explicitly materialize: `records = lazy_records.collect()` to get a materialized `Records` object
+>   - For already-materialized data, use `db.read.records.dicts([...])` which returns `Records` directly
 > 
 > **When to use each:**
-> - Use `db.load.*` (DataFrames) when you want to transform data before materialization or need SQL pushdown
-> - Use `db.read.records.*` (Records) when you need materialized data immediately or for backward compatibility
+> - Use `db.load.*` or `db.read.*` (DataFrames) when you want to transform data before materialization or need SQL pushdown
+> - Use `db.read.table()` (PySpark-style) for consistency with PySpark's `spark.read.table()` API
+> - Use `db.read.records.*` (LazyRecords) when you want lazy materialization and Records-style operations (insert_into, direct iteration, etc.)
 
 ## 📤 Writing Data
 
@@ -463,15 +480,18 @@ df.write.partitionBy("country", "year").csv("partitioned_data")
 Moltres supports streaming operations for datasets larger than available memory:
 
 ```python
-# Enable streaming mode for Records (using read.records)
-records = db.read.records.stream().option("chunk_size", 10000).csv("large_file.csv")
+# Enable streaming mode for LazyRecords (using read.records)
+lazy_records = db.read.records.stream().option("chunk_size", 10000).csv("large_file.csv")
 
-# Process records (streaming Records iterate row-by-row)
-for row in records:
+# Process records (LazyRecords auto-materialize when iterated, streaming processes in chunks)
+for row in lazy_records:
     process(row)
 
 # Or materialize all at once
-all_rows = records.rows()  # Materializes all data
+all_rows = lazy_records.rows()  # Auto-materializes all data
+
+# Explicitly materialize to get Records object
+records = lazy_records.collect()  # Returns materialized Records
 
 # For DataFrames, use collect(stream=True)
 df = db.load.csv("large_file.csv")
@@ -787,9 +807,9 @@ df = (
 # Complete ETL pipeline
 db = connect("postgresql://user:pass@localhost/warehouse")
 
-# Extract: Load from CSV (returns DataFrame, or use read.records for Records)
+# Extract: Load from CSV (returns DataFrame, or use read.records for LazyRecords)
 raw_df = db.load.csv("raw_sales.csv")
-# Or for Records:
+# Or for LazyRecords (lazy materialization):
 raw_records = db.read.records.csv("raw_sales.csv")
 
 # Load raw data into staging table (lazy operation)
@@ -799,7 +819,8 @@ db.create_table("staging_sales", [
     column("amount", "REAL"),
     column("date", "DATE"),
 ]).collect()  # Execute the create_table operation
-raw_records.insert_into("staging_sales")  # Executes immediately
+# LazyRecords auto-materialize when insert_into() is called
+raw_records.insert_into("staging_sales")  # Auto-materializes and executes immediately
 
 # Transform: Clean and aggregate using SQL operations
 cleaned = (

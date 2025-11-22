@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
 
-from ..io.records import AsyncRecords
+from ..io.records import AsyncLazyRecords, AsyncRecords
 from ..logical.operators import file_scan
 from ..table.schema import ColumnDef
 from .async_dataframe import AsyncDataFrame
@@ -206,10 +206,11 @@ class AsyncFormatReader:
 
 
 class AsyncRecordsLoader:
-    """Builder for loading data from files as AsyncRecords (convenience methods).
+    """Builder for loading data from files as AsyncLazyRecords (lazy AsyncRecords).
 
     Provides backward compatibility and convenience for cases where AsyncRecords are preferred
-    over AsyncDataFrames. Use await db.read.records.csv() etc. to get AsyncRecords directly.
+    over AsyncDataFrames. Use await db.read.records.csv() etc. to get AsyncLazyRecords directly.
+    AsyncLazyRecords materialize on-demand when used.
     """
 
     def __init__(self, database: "AsyncDatabase"):
@@ -232,56 +233,83 @@ class AsyncRecordsLoader:
         self._options[key] = value
         return self
 
-    async def csv(self, path: str) -> AsyncRecords:
-        """Read a CSV file as AsyncRecords.
+    def csv(self, path: str) -> AsyncLazyRecords:
+        """Read a CSV file as AsyncLazyRecords.
 
         Args:
             path: Path to the CSV file
 
         Returns:
-            AsyncRecords containing the CSV data
+            AsyncLazyRecords containing the CSV data (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return await read_csv_stream(path, self._database, self._schema, self._options)
-        return await read_csv(path, self._database, self._schema, self._options)
 
-    async def json(self, path: str) -> AsyncRecords:
-        """Read a JSON file (array of objects) as AsyncRecords.
+        async def read_func() -> AsyncRecords:
+            stream = self._options.get("stream", False)
+            if stream:
+                return await read_csv_stream(path, self._database, self._schema, self._options)
+            return await read_csv(path, self._database, self._schema, self._options)
+
+        return AsyncLazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def json(self, path: str) -> AsyncLazyRecords:
+        """Read a JSON file (array of objects) as AsyncLazyRecords.
 
         Args:
             path: Path to the JSON file
 
         Returns:
-            AsyncRecords containing the JSON data
+            AsyncLazyRecords containing the JSON data (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return await read_json_stream(path, self._database, self._schema, self._options)
-        return await read_json(path, self._database, self._schema, self._options)
 
-    async def jsonl(self, path: str) -> AsyncRecords:
-        """Read a JSONL file (one JSON object per line) as AsyncRecords.
+        async def read_func() -> AsyncRecords:
+            stream = self._options.get("stream", False)
+            if stream:
+                return await read_json_stream(path, self._database, self._schema, self._options)
+            return await read_json(path, self._database, self._schema, self._options)
+
+        return AsyncLazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def jsonl(self, path: str) -> AsyncLazyRecords:
+        """Read a JSONL file (one JSON object per line) as AsyncLazyRecords.
 
         Args:
             path: Path to the JSONL file
 
         Returns:
-            AsyncRecords containing the JSONL data
+            AsyncLazyRecords containing the JSONL data (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return await read_jsonl_stream(path, self._database, self._schema, self._options)
-        return await read_jsonl(path, self._database, self._schema, self._options)
 
-    async def parquet(self, path: str) -> AsyncRecords:
-        """Read a Parquet file as AsyncRecords.
+        async def read_func() -> AsyncRecords:
+            stream = self._options.get("stream", False)
+            if stream:
+                return await read_jsonl_stream(path, self._database, self._schema, self._options)
+            return await read_jsonl(path, self._database, self._schema, self._options)
+
+        return AsyncLazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def parquet(self, path: str) -> AsyncLazyRecords:
+        """Read a Parquet file as AsyncLazyRecords.
 
         Args:
             path: Path to the Parquet file
 
         Returns:
-            AsyncRecords containing the Parquet data
+            AsyncLazyRecords containing the Parquet data (materializes on-demand)
 
         Raises:
             RuntimeError: If pandas or pyarrow are not installed
@@ -289,48 +317,175 @@ class AsyncRecordsLoader:
         read_parquet, read_parquet_stream = _get_parquet_readers()
         if read_parquet is None:
             raise ImportError("Parquet support requires pyarrow. Install with: pip install pyarrow")
-        stream = self._options.get("stream", False)
-        if stream:
-            return await read_parquet_stream(path, self._database, self._schema, self._options)  # type: ignore[no-any-return]
-        return await read_parquet(path, self._database, self._schema, self._options)  # type: ignore[no-any-return]
 
-    async def text(self, path: str, column_name: str = "value") -> AsyncRecords:
-        """Read a text file as a single column (one line per row) as AsyncRecords.
+        async def read_func() -> AsyncRecords:
+            stream = self._options.get("stream", False)
+            if stream:
+                return await read_parquet_stream(path, self._database, self._schema, self._options)  # type: ignore[no-any-return]
+            return await read_parquet(path, self._database, self._schema, self._options)  # type: ignore[no-any-return]
+
+        return AsyncLazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def text(self, path: str, column_name: str = "value") -> AsyncLazyRecords:
+        """Read a text file as a single column (one line per row) as AsyncLazyRecords.
 
         Args:
             path: Path to the text file
             column_name: Name of the column to create (default: "value")
 
         Returns:
-            AsyncRecords containing the text file lines
+            AsyncLazyRecords containing the text file lines (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return await read_text_stream(
-                path, self._database, self._schema, self._options, column_name
-            )
-        return await read_text(path, self._database, self._schema, self._options, column_name)
 
-    async def dicts(self, data: Sequence[Dict[str, object]]) -> AsyncRecords:
+        async def read_func() -> AsyncRecords:
+            stream = self._options.get("stream", False)
+            if stream:
+                return await read_text_stream(
+                    path, self._database, self._schema, self._options, column_name
+                )
+            return await read_text(path, self._database, self._schema, self._options, column_name)
+
+        return AsyncLazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def dicts(self, data: Sequence[Dict[str, object]]) -> AsyncRecords:
         """Create AsyncRecords from a list of dictionaries.
+
+        Note: This returns AsyncRecords (not AsyncLazyRecords) since the data is already materialized.
 
         Args:
             data: List of dictionaries to convert to AsyncRecords
 
         Returns:
-            AsyncRecords containing the data
+            AsyncRecords containing the data (already materialized)
         """
         return AsyncRecords(_data=list(data), _database=self._database, _schema=self._schema)
 
 
 class AsyncReadAccessor:
-    """Accessor for async read operations."""
+    """Accessor for async read operations.
+
+    Provides PySpark-style API: await db.read.table(), await db.read.csv(), etc.
+    Also provides backward compatibility via db.read.records.*
+    """
 
     def __init__(self, database: "AsyncDatabase"):
         self._database = database
+        self._loader = AsyncDataLoader(database)
         self._records = AsyncRecordsLoader(database)
 
     @property
     def records(self) -> AsyncRecordsLoader:
         """Access to AsyncRecords-based read methods."""
         return self._records
+
+    # Builder methods that configure the underlying AsyncDataLoader
+    def stream(self, enabled: bool = True) -> "AsyncReadAccessor":
+        """Enable or disable streaming mode (chunked reading for large files)."""
+        self._loader.stream(enabled)
+        return self
+
+    def schema(self, schema: Sequence[ColumnDef]) -> "AsyncReadAccessor":
+        """Set an explicit schema for the data source."""
+        self._loader.schema(schema)
+        return self
+
+    def option(self, key: str, value: object) -> "AsyncReadAccessor":
+        """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
+        self._loader.option(key, value)
+        return self
+
+    # AsyncDataFrame read methods (delegate to AsyncDataLoader)
+    async def table(self, name: str) -> AsyncDataFrame:
+        """Read from a database table as an AsyncDataFrame.
+
+        Args:
+            name: Name of the table to read
+
+        Returns:
+            AsyncDataFrame that can be transformed before execution
+
+        Example:
+            >>> df = await db.read.table("users")
+            >>> results = await df.collect()
+        """
+        return await self._loader.table(name)
+
+    async def csv(self, path: str) -> AsyncDataFrame:
+        """Read a CSV file as an AsyncDataFrame.
+
+        Args:
+            path: Path to the CSV file
+
+        Returns:
+            AsyncDataFrame containing the CSV data (lazy, materialized on .collect())
+        """
+        return await self._loader.csv(path)
+
+    async def json(self, path: str) -> AsyncDataFrame:
+        """Read a JSON file (array of objects) as an AsyncDataFrame.
+
+        Args:
+            path: Path to the JSON file
+
+        Returns:
+            AsyncDataFrame containing the JSON data (lazy, materialized on .collect())
+        """
+        return await self._loader.json(path)
+
+    async def jsonl(self, path: str) -> AsyncDataFrame:
+        """Read a JSONL file (one JSON object per line) as an AsyncDataFrame.
+
+        Args:
+            path: Path to the JSONL file
+
+        Returns:
+            AsyncDataFrame containing the JSONL data (lazy, materialized on .collect())
+        """
+        return await self._loader.jsonl(path)
+
+    async def parquet(self, path: str) -> AsyncDataFrame:
+        """Read a Parquet file as an AsyncDataFrame.
+
+        Args:
+            path: Path to the Parquet file
+
+        Returns:
+            AsyncDataFrame containing the Parquet data (lazy, materialized on .collect())
+
+        Raises:
+            RuntimeError: If pandas or pyarrow are not installed
+        """
+        return await self._loader.parquet(path)
+
+    async def text(self, path: str, column_name: str = "value") -> AsyncDataFrame:
+        """Read a text file as a single column (one line per row) as an AsyncDataFrame.
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return await self._loader.text(path, column_name)
+
+    async def format(self, source: str) -> AsyncFormatReader:
+        """Specify the data source format.
+
+        Args:
+            source: Format name (e.g., "csv", "json", "parquet")
+
+        Returns:
+            AsyncFormatReader for the specified format
+        """
+        return await self._loader.format(source)

@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from moltres import async_connect
+from moltres import async_connect, column
+from moltres.io.records import AsyncLazyRecords, AsyncRecords
 from moltres.table.schema import ColumnDef
 
 
@@ -68,8 +69,8 @@ async def test_async_records_iteration(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    # Use read.records for AsyncRecords
-    records = await db.read.records.csv(str(csv_path))
+    # Use read.records for AsyncLazyRecords (returns synchronously)
+    records = db.read.records.csv(str(csv_path))
 
     # Async iteration
     rows = []
@@ -96,8 +97,8 @@ async def test_async_records_insert_into(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    # Use read.records for AsyncRecords
-    records = await db.read.records.csv(str(csv_path))
+    # Use read.records for AsyncLazyRecords (returns synchronously)
+    records = db.read.records.csv(str(csv_path))
 
     # Create table
     await db.create_table(
@@ -133,8 +134,8 @@ async def test_async_records_direct_insert(tmp_path):
     with open(json_path, "w") as f:
         json.dump([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], f)
 
-    # Use read.records for AsyncRecords
-    records = await db.read.records.json(str(json_path))
+    # Use read.records for AsyncLazyRecords (returns synchronously)
+    records = db.read.records.json(str(json_path))
 
     # Create table
     table = await db.create_table(
@@ -169,11 +170,12 @@ async def test_async_records_schema(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    # Use read.records for AsyncRecords
-    records = await db.read.records.csv(str(csv_path))
+    # Use read.records for AsyncLazyRecords (returns synchronously)
+    records = db.read.records.csv(str(csv_path))
 
-    # Check schema
-    schema = records.schema
+    # Check schema - materialize first to get inferred schema
+    materialized = await records.collect()
+    schema = materialized.schema
     assert schema is not None
     assert len(schema) == 2
     assert schema[0].name == "id"
@@ -195,8 +197,8 @@ async def test_async_records_streaming(tmp_path):
         for i in range(50):
             f.write(f"{i},user_{i}\n")
 
-    # Load in streaming mode using read.records
-    records = await db.read.records.stream().option("chunk_size", 10).csv(str(csv_path))
+    # Load in streaming mode using read.records (returns AsyncLazyRecords synchronously)
+    records = db.read.records.stream().option("chunk_size", 10).csv(str(csv_path))
 
     # Async iterate
     count = 0
@@ -278,7 +280,7 @@ async def test_async_records_with_explicit_schema(tmp_path):
         ColumnDef(name="name", type_name="TEXT"),
     ]
 
-    records = await db.read.records.schema(schema).csv(str(csv_path))
+    records = db.read.records.schema(schema).csv(str(csv_path))
     rows = await records.rows()
 
     assert len(rows) == 1
@@ -303,7 +305,7 @@ async def test_async_records_empty_data(tmp_path):
         ColumnDef(name="name", type_name="TEXT"),
     ]
 
-    records = await db.read.records.schema(schema).csv(str(csv_path))
+    records = db.read.records.schema(schema).csv(str(csv_path))
     rows = await records.rows()
 
     assert len(rows) == 0
@@ -323,8 +325,8 @@ async def test_async_records_insert_into_with_table_handle(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    # Use read.records for AsyncRecords
-    records = await db.read.records.csv(str(csv_path))
+    # Use read.records for AsyncLazyRecords (returns synchronously)
+    records = db.read.records.csv(str(csv_path))
 
     # Create table
     table = await db.create_table(
@@ -363,8 +365,8 @@ async def test_async_read_csv_gzip(tmp_path):
         f.write("1,Alice,95.5\n")
         f.write("2,Bob,87.0\n")
 
-    # Read compressed CSV (using read.records for Records)
-    records = await db.read.records.csv(str(csv_path))
+    # Read compressed CSV (using read.records for AsyncLazyRecords)
+    records = db.read.records.csv(str(csv_path))
     rows = await records.rows()
 
     assert len(rows) == 2
@@ -388,8 +390,8 @@ async def test_async_read_json_gzip(tmp_path):
     with gzip.open(json_path, "wt", encoding="utf-8") as f:
         json.dump(data, f)
 
-    # Read compressed JSON (using read.records for Records)
-    records = await db.read.records.json(str(json_path))
+    # Read compressed JSON (using read.records for AsyncLazyRecords)
+    records = db.read.records.json(str(json_path))
     rows = await records.rows()
 
     assert len(rows) == 2
@@ -413,8 +415,8 @@ async def test_async_read_text_gzip(tmp_path):
         f.write("line 1\n")
         f.write("line 2\n")
 
-    # Read compressed text (using read.records for Records)
-    records = await db.read.records.text(str(text_path))
+    # Read compressed text (using read.records for AsyncLazyRecords)
+    records = db.read.records.text(str(text_path))
     rows = await records.rows()
 
     assert len(rows) == 2
@@ -499,7 +501,7 @@ async def test_async_read_records_jsonl(tmp_path):
     with open(jsonl_path, "w") as f:
         f.write('{"id": 1, "name": "Alice"}\n')
 
-    records = await db.read.records.jsonl(str(jsonl_path))
+    records = db.read.records.jsonl(str(jsonl_path))
     rows = await records.rows()
 
     assert len(rows) == 1
@@ -518,7 +520,7 @@ async def test_async_read_records_text(tmp_path):
     with open(text_path, "w") as f:
         f.write("line 1\n")
 
-    records = await db.read.records.text(str(text_path))
+    records = db.read.records.text(str(text_path))
     rows = await records.rows()
 
     assert len(rows) == 1
@@ -536,11 +538,320 @@ async def test_async_read_records_dicts(tmp_path):
     from moltres.io.records import AsyncRecords
 
     data = [{"id": 1, "name": "Alice"}]
-    records = await db.read.records.dicts(data)
+    # dicts() returns AsyncRecords directly (not lazy) since data is already materialized
+    records = db.read.records.dicts(data)
 
     rows = await records.rows()
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
     assert isinstance(records, AsyncRecords)
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_lazy_records_explicit_collect(tmp_path):
+    """Test AsyncLazyRecords explicit .collect() materialization."""
+    db_path = tmp_path / "async_lazy_records_collect.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    # Create AsyncLazyRecords
+    lazy_records = db.read.records.csv(str(csv_path))
+    assert isinstance(lazy_records, AsyncLazyRecords)
+
+    # Explicitly materialize with .collect()
+    records = await lazy_records.collect()
+    assert isinstance(records, AsyncRecords)
+    rows = await records.rows()
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_lazy_records_auto_materialize_iteration(tmp_path):
+    """Test AsyncLazyRecords auto-materialization for async iteration."""
+    db_path = tmp_path / "async_lazy_records_iter.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # Async iteration should auto-materialize
+    rows = []
+    async for row in lazy_records:
+        rows.append(row)
+        if len(rows) >= 2:
+            break
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_lazy_records_auto_materialize_insert_into(tmp_path):
+    """Test AsyncLazyRecords auto-materialization for insert_into()."""
+    db_path = tmp_path / "async_lazy_records_insert.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create table
+    await db.create_table(
+        "target",
+        [column("id", "INTEGER"), column("name", "TEXT")],
+    ).collect()
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # insert_into() should auto-materialize
+    count = await lazy_records.insert_into("target")
+    assert count == 2
+
+    # Verify data was inserted
+    table_handle = await db.table("target")
+    df = table_handle.select()
+    rows = await df.collect()
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_lazy_records_auto_materialize_create_dataframe(tmp_path):
+    """Test AsyncLazyRecords auto-materialization when used in createDataFrame."""
+    db_path = tmp_path / "async_lazy_records_create_df.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # createDataFrame should auto-materialize AsyncLazyRecords
+    df = await db.createDataFrame(lazy_records, pk="id")
+    rows = await df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_lazy_records_backward_compatibility(tmp_path):
+    """Test that AsyncLazyRecords maintains backward compatibility with AsyncRecords interface."""
+    db_path = tmp_path / "async_lazy_records_compat.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # All AsyncRecords methods should work (auto-materialize)
+    rows = await lazy_records.rows()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+
+    # Async iteration should work
+    async for row in lazy_records:
+        assert row["name"] == "Alice"
+        break
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_table_pyspark_style(tmp_path):
+    """Test PySpark-style await db.read.table() returning an AsyncDataFrame."""
+    db_path = tmp_path / "async_read_table_pyspark.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    from moltres import column, col
+
+    # Create and populate table
+    await db.create_table(
+        "users",
+        [column("id", "INTEGER"), column("name", "TEXT")],
+    ).collect()
+
+    from moltres.io.records import AsyncRecords
+
+    records = AsyncRecords(
+        _data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db
+    )
+    await records.insert_into("users")
+
+    # Read using PySpark-style await db.read.table() - returns AsyncDataFrame
+    df = await db.read.table("users")
+    rows = await df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    # Verify it's an AsyncDataFrame (can be transformed)
+    filtered_df = df.where(col("id") == 1)
+    filtered_rows = await filtered_df.collect()
+    assert len(filtered_rows) == 1
+    assert filtered_rows[0]["name"] == "Alice"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_csv_pyspark_style(tmp_path):
+    """Test PySpark-style await db.read.csv() returning an AsyncDataFrame."""
+    db_path = tmp_path / "async_read_csv_pyspark.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    # Read using PySpark-style await db.read.csv() - returns AsyncDataFrame
+    df = await db.read.csv(str(csv_path))
+    rows = await df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    # Verify it's an AsyncDataFrame (can be transformed)
+    from moltres import col
+
+    filtered_df = df.where(col("id") == 1)
+    filtered_rows = await filtered_df.collect()
+    assert len(filtered_rows) == 1
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_json_pyspark_style(tmp_path):
+    """Test PySpark-style await db.read.json() returning an AsyncDataFrame."""
+    db_path = tmp_path / "async_read_json_pyspark.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create JSON file
+    json_path = tmp_path / "data.json"
+    data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+    with open(json_path, "w") as f:
+        json.dump(data, f)
+
+    # Read using PySpark-style await db.read.json() - returns AsyncDataFrame
+    df = await db.read.json(str(json_path))
+    rows = await df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_readers_backward_compatibility(tmp_path):
+    """Test that db.read.records.* returns AsyncLazyRecords synchronously (backward compatible interface)."""
+    db_path = tmp_path / "async_read_backward_compat.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+
+    # Verify db.read.records.* returns AsyncLazyRecords synchronously
+    records = db.read.records.csv(str(csv_path))
+    assert isinstance(records, AsyncLazyRecords)
+    rows = await records.rows()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+
+    # Verify both APIs work side by side
+    df = await db.read.csv(str(csv_path))
+    df_rows = await df.collect()
+
+    assert len(df_rows) == 1
+    assert df_rows[0]["name"] == "Alice"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_builder_methods_pyspark_style(tmp_path):
+    """Test builder methods (schema, option) with await db.read.* API."""
+    db_path = tmp_path / "async_read_builder_pyspark.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create CSV file with pipe delimiter
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id|name\n")
+        f.write("1|Alice\n")
+
+    # Use builder methods with await db.read API
+    df = await db.read.option("delimiter", "|").csv(str(csv_path))
+    rows = await df.collect()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_format_pyspark_style(tmp_path):
+    """Test PySpark-style await db.read.format().load() API."""
+    db_path = tmp_path / "async_read_format_pyspark.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+
+    # Use format().load() API
+    format_reader = await db.read.format("csv")
+    df = await format_reader.load(str(csv_path))
+    rows = await df.collect()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
 
     await db.close()

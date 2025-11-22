@@ -5,7 +5,7 @@ import json
 import pytest
 
 from moltres import column, col, connect
-from moltres.io.records import Records
+from moltres.io.records import LazyRecords, Records
 from moltres.table.schema import ColumnDef
 
 
@@ -31,6 +31,146 @@ def test_read_table(tmp_path):
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
     assert rows[1]["name"] == "Bob"
+
+
+def test_read_table_pyspark_style(tmp_path):
+    """Test PySpark-style db.read.table() returning a DataFrame."""
+    db_path = tmp_path / "read_table_pyspark.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create and populate table
+    db.create_table(
+        "users",
+        [column("id", "INTEGER"), column("name", "TEXT")],
+    ).collect()
+    from moltres.io.records import Records
+
+    records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
+    records.insert_into("users")
+
+    # Read using PySpark-style db.read.table() - returns DataFrame
+    df = db.read.table("users")
+    rows = df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    # Verify it's a DataFrame (can be transformed)
+    filtered_df = df.where(col("id") == 1)
+    filtered_rows = filtered_df.collect()
+    assert len(filtered_rows) == 1
+    assert filtered_rows[0]["name"] == "Alice"
+
+
+def test_read_csv_pyspark_style(tmp_path):
+    """Test PySpark-style db.read.csv() returning a DataFrame."""
+    db_path = tmp_path / "read_csv_pyspark.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    # Read using PySpark-style db.read.csv() - returns DataFrame
+    df = db.read.csv(str(csv_path))
+    rows = df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+    # Verify it's a DataFrame (can be transformed)
+    filtered_df = df.where(col("id") == 1)
+    filtered_rows = filtered_df.collect()
+    assert len(filtered_rows) == 1
+
+
+def test_read_json_pyspark_style(tmp_path):
+    """Test PySpark-style db.read.json() returning a DataFrame."""
+    db_path = tmp_path / "read_json_pyspark.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create JSON file
+    json_path = tmp_path / "data.json"
+    data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+    with open(json_path, "w") as f:
+        json.dump(data, f)
+
+    # Read using PySpark-style db.read.json() - returns DataFrame
+    df = db.read.json(str(json_path))
+    rows = df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+
+def test_read_readers_backward_compatibility(tmp_path):
+    """Test that db.read.records.* still works for backward compatibility."""
+    db_path = tmp_path / "read_backward_compat.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+
+    # Verify db.read.records.* still works
+    records = db.read.records.csv(str(csv_path))
+    rows = records.rows()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+
+    # Verify both APIs work side by side
+    df = db.read.csv(str(csv_path))
+    df_rows = df.collect()
+
+    assert len(df_rows) == 1
+    assert df_rows[0]["name"] == "Alice"
+
+
+def test_read_builder_methods_pyspark_style(tmp_path):
+    """Test builder methods (schema, option) with db.read.* API."""
+    db_path = tmp_path / "read_builder_pyspark.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create CSV file with pipe delimiter
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id|name\n")
+        f.write("1|Alice\n")
+
+    # Use builder methods with db.read API
+    df = db.read.option("delimiter", "|").csv(str(csv_path))
+    rows = df.collect()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+
+
+def test_read_format_pyspark_style(tmp_path):
+    """Test PySpark-style db.read.format().load() API."""
+    db_path = tmp_path / "read_format_pyspark.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+
+    # Use format().load() API
+    df = db.read.format("csv").load(str(csv_path))
+    rows = df.collect()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
 
 
 def test_read_csv(tmp_path):
@@ -1285,13 +1425,13 @@ def test_read_records_csv(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    # Read CSV as Records using read.records
+    # Read CSV as LazyRecords using read.records
     records = db.read.records.csv(str(csv_path))
     rows = records.rows()
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
-    assert isinstance(records, Records)
+    assert isinstance(records, LazyRecords)
 
 
 def test_read_records_dicts(tmp_path):
@@ -1515,7 +1655,7 @@ def test_read_records_jsonl(tmp_path):
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
-    assert isinstance(records, Records)
+    assert isinstance(records, LazyRecords)
 
 
 def test_read_records_text(tmp_path):
@@ -1533,7 +1673,7 @@ def test_read_records_text(tmp_path):
 
     assert len(rows) == 2
     assert rows[0]["content"] == "line 1"
-    assert isinstance(records, Records)
+    assert isinstance(records, LazyRecords)
 
 
 def test_read_records_parquet(tmp_path):
@@ -1557,6 +1697,133 @@ def test_read_records_parquet(tmp_path):
 
         assert len(rows) == 1
         assert rows[0]["name"] == "Alice"
-        assert isinstance(records, Records)
+        assert isinstance(records, LazyRecords)
     except ImportError:
         pytest.skip("pandas/pyarrow not installed")
+
+
+def test_lazy_records_explicit_collect(tmp_path):
+    """Test LazyRecords explicit .collect() materialization."""
+    db_path = tmp_path / "lazy_records_collect.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    # Create LazyRecords
+    lazy_records = db.read.records.csv(str(csv_path))
+    assert isinstance(lazy_records, LazyRecords)
+
+    # Explicitly materialize with .collect()
+    records = lazy_records.collect()
+    assert isinstance(records, Records)
+    assert len(records) == 2
+    assert records[0]["name"] == "Alice"
+    assert records[1]["name"] == "Bob"
+
+
+def test_lazy_records_auto_materialize_sequence_ops(tmp_path):
+    """Test LazyRecords auto-materialization for Sequence operations."""
+    db_path = tmp_path / "lazy_records_sequence.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # Test __len__ auto-materializes
+    assert len(lazy_records) == 2
+
+    # Test __getitem__ auto-materializes
+    assert lazy_records[0]["name"] == "Alice"
+    assert lazy_records[1]["name"] == "Bob"
+
+    # Test __iter__ auto-materializes
+    rows = list(lazy_records)
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+
+
+def test_lazy_records_auto_materialize_insert_into(tmp_path):
+    """Test LazyRecords auto-materialization for insert_into()."""
+    db_path = tmp_path / "lazy_records_insert.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create table
+    db.create_table(
+        "target",
+        [column("id", "INTEGER"), column("name", "TEXT")],
+    ).collect()
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # insert_into() should auto-materialize
+    count = lazy_records.insert_into("target")
+    assert count == 2
+
+    # Verify data was inserted
+    df = db.table("target").select()
+    rows = df.collect()
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+
+def test_lazy_records_auto_materialize_create_dataframe(tmp_path):
+    """Test LazyRecords auto-materialization when used in createDataFrame."""
+    db_path = tmp_path / "lazy_records_create_df.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # createDataFrame should auto-materialize LazyRecords
+    df = db.createDataFrame(lazy_records, pk="id")
+    rows = df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Bob"
+
+
+def test_lazy_records_backward_compatibility(tmp_path):
+    """Test that LazyRecords maintains backward compatibility with Records interface."""
+    db_path = tmp_path / "lazy_records_compat.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+
+    lazy_records = db.read.records.csv(str(csv_path))
+
+    # All Records methods should work (auto-materialize)
+    assert len(lazy_records) == 1
+    assert lazy_records[0]["name"] == "Alice"
+    rows = lazy_records.rows()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+
+    # Iteration should work
+    for row in lazy_records:
+        assert row["name"] == "Alice"
+        break

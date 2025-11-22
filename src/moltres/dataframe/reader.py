@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, Optional, Sequence
 
-from ..io.records import Records
+from ..io.records import LazyRecords, Records
 from ..logical.operators import file_scan
 from ..table.schema import ColumnDef
 from .dataframe import DataFrame
@@ -192,10 +192,11 @@ class FormatReader:
 
 
 class RecordsLoader:
-    """Builder for loading data from files as Records (convenience methods).
+    """Builder for loading data from files as LazyRecords (lazy Records).
 
     Provides backward compatibility and convenience for cases where Records are preferred
-    over DataFrames. Use db.read.records.csv() etc. to get Records directly.
+    over DataFrames. Use db.read.records.csv() etc. to get LazyRecords directly.
+    LazyRecords materialize on-demand when used.
     """
 
     def __init__(self, database: "Database"):
@@ -218,100 +219,256 @@ class RecordsLoader:
         self._options[key] = value
         return self
 
-    def csv(self, path: str) -> Records:
-        """Read a CSV file as Records.
+    def csv(self, path: str) -> LazyRecords:
+        """Read a CSV file as LazyRecords.
 
         Args:
             path: Path to the CSV file
 
         Returns:
-            Records containing the CSV data
+            LazyRecords containing the CSV data (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return read_csv_stream(path, self._database, self._schema, self._options)
-        return read_csv(path, self._database, self._schema, self._options)
 
-    def json(self, path: str) -> Records:
-        """Read a JSON file (array of objects) as Records.
+        def read_func() -> Records:
+            stream = self._options.get("stream", False)
+            if stream:
+                return read_csv_stream(path, self._database, self._schema, self._options)
+            return read_csv(path, self._database, self._schema, self._options)
+
+        return LazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def json(self, path: str) -> LazyRecords:
+        """Read a JSON file (array of objects) as LazyRecords.
 
         Args:
             path: Path to the JSON file
 
         Returns:
-            Records containing the JSON data
+            LazyRecords containing the JSON data (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return read_json_stream(path, self._database, self._schema, self._options)
-        return read_json(path, self._database, self._schema, self._options)
 
-    def jsonl(self, path: str) -> Records:
-        """Read a JSONL file (one JSON object per line) as Records.
+        def read_func() -> Records:
+            stream = self._options.get("stream", False)
+            if stream:
+                return read_json_stream(path, self._database, self._schema, self._options)
+            return read_json(path, self._database, self._schema, self._options)
+
+        return LazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def jsonl(self, path: str) -> LazyRecords:
+        """Read a JSONL file (one JSON object per line) as LazyRecords.
 
         Args:
             path: Path to the JSONL file
 
         Returns:
-            Records containing the JSONL data
+            LazyRecords containing the JSONL data (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return read_jsonl_stream(path, self._database, self._schema, self._options)
-        return read_jsonl(path, self._database, self._schema, self._options)
 
-    def parquet(self, path: str) -> Records:
-        """Read a Parquet file as Records.
+        def read_func() -> Records:
+            stream = self._options.get("stream", False)
+            if stream:
+                return read_jsonl_stream(path, self._database, self._schema, self._options)
+            return read_jsonl(path, self._database, self._schema, self._options)
+
+        return LazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def parquet(self, path: str) -> LazyRecords:
+        """Read a Parquet file as LazyRecords.
 
         Args:
             path: Path to the Parquet file
 
         Returns:
-            Records containing the Parquet data
+            LazyRecords containing the Parquet data (materializes on-demand)
 
         Raises:
             RuntimeError: If pandas or pyarrow are not installed
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return read_parquet_stream(path, self._database, self._schema, self._options)
-        return read_parquet(path, self._database, self._schema, self._options)
 
-    def text(self, path: str, column_name: str = "value") -> Records:
-        """Read a text file as a single column (one line per row) as Records.
+        def read_func() -> Records:
+            stream = self._options.get("stream", False)
+            if stream:
+                return read_parquet_stream(path, self._database, self._schema, self._options)
+            return read_parquet(path, self._database, self._schema, self._options)
+
+        return LazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
+
+    def text(self, path: str, column_name: str = "value") -> LazyRecords:
+        """Read a text file as a single column (one line per row) as LazyRecords.
 
         Args:
             path: Path to the text file
             column_name: Name of the column to create (default: "value")
 
         Returns:
-            Records containing the text file lines
+            LazyRecords containing the text file lines (materializes on-demand)
         """
-        stream = self._options.get("stream", False)
-        if stream:
-            return read_text_stream(path, self._database, self._schema, self._options, column_name)
-        return read_text(path, self._database, self._schema, self._options, column_name)
+
+        def read_func() -> Records:
+            stream = self._options.get("stream", False)
+            if stream:
+                return read_text_stream(
+                    path, self._database, self._schema, self._options, column_name
+                )
+            return read_text(path, self._database, self._schema, self._options, column_name)
+
+        return LazyRecords(
+            _read_func=read_func,
+            _database=self._database,
+            _schema=self._schema,
+            _options=self._options.copy(),
+        )
 
     def dicts(self, data: Sequence[Dict[str, object]]) -> Records:
         """Create Records from a list of dictionaries.
+
+        Note: This returns Records (not LazyRecords) since the data is already materialized.
 
         Args:
             data: List of dictionaries to convert to Records
 
         Returns:
-            Records containing the data
+            Records containing the data (already materialized)
         """
         return Records(_data=list(data), _database=self._database, _schema=self._schema)
 
 
 class ReadAccessor:
-    """Accessor for read operations."""
+    """Accessor for read operations.
+
+    Provides PySpark-style API: db.read.table(), db.read.csv(), etc.
+    Also provides backward compatibility via db.read.records.*
+    """
 
     def __init__(self, database: "Database"):
         self._database = database
+        self._loader = DataLoader(database)
         self._records = RecordsLoader(database)
 
     @property
     def records(self) -> RecordsLoader:
         """Access to Records-based read methods."""
         return self._records
+
+    # Builder methods that configure the underlying DataLoader
+    def stream(self, enabled: bool = True) -> "ReadAccessor":
+        """Enable or disable streaming mode (chunked reading for large files)."""
+        self._loader.stream(enabled)
+        return self
+
+    def schema(self, schema: Sequence[ColumnDef]) -> "ReadAccessor":
+        """Set an explicit schema for the data source."""
+        self._loader.schema(schema)
+        return self
+
+    def option(self, key: str, value: object) -> "ReadAccessor":
+        """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
+        self._loader.option(key, value)
+        return self
+
+    # DataFrame read methods (delegate to DataLoader)
+    def table(self, name: str) -> DataFrame:
+        """Read from a database table as a DataFrame.
+
+        Args:
+            name: Name of the table to read
+
+        Returns:
+            DataFrame that can be transformed before execution
+
+        Example:
+            >>> df = db.read.table("users")
+            >>> results = df.collect()
+        """
+        return self._loader.table(name)
+
+    def csv(self, path: str) -> DataFrame:
+        """Read a CSV file as a DataFrame.
+
+        Args:
+            path: Path to the CSV file
+
+        Returns:
+            DataFrame containing the CSV data (lazy, materialized on .collect())
+        """
+        return self._loader.csv(path)
+
+    def json(self, path: str) -> DataFrame:
+        """Read a JSON file (array of objects) as a DataFrame.
+
+        Args:
+            path: Path to the JSON file
+
+        Returns:
+            DataFrame containing the JSON data (lazy, materialized on .collect())
+        """
+        return self._loader.json(path)
+
+    def jsonl(self, path: str) -> DataFrame:
+        """Read a JSONL file (one JSON object per line) as a DataFrame.
+
+        Args:
+            path: Path to the JSONL file
+
+        Returns:
+            DataFrame containing the JSONL data (lazy, materialized on .collect())
+        """
+        return self._loader.jsonl(path)
+
+    def parquet(self, path: str) -> DataFrame:
+        """Read a Parquet file as a DataFrame.
+
+        Args:
+            path: Path to the Parquet file
+
+        Returns:
+            DataFrame containing the Parquet data (lazy, materialized on .collect())
+
+        Raises:
+            RuntimeError: If pandas or pyarrow are not installed
+        """
+        return self._loader.parquet(path)
+
+    def text(self, path: str, column_name: str = "value") -> DataFrame:
+        """Read a text file as a single column (one line per row) as a DataFrame.
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            DataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return self._loader.text(path, column_name)
+
+    def format(self, source: str) -> FormatReader:
+        """Specify the data source format.
+
+        Args:
+            source: Format name (e.g., "csv", "json", "parquet")
+
+        Returns:
+            FormatReader for the specified format
+        """
+        return self._loader.format(source)
