@@ -221,7 +221,8 @@ class QueryExecutor:
                 import pandas as pd
             except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
-            return pd.DataFrame(rows, columns=columns)
+            # Convert rows to list of lists for pandas DataFrame constructor
+            return pd.DataFrame(list(rows), columns=list(columns))
         if fmt == "polars":
             try:
                 import polars as pl
