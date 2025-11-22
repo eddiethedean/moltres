@@ -10,7 +10,7 @@ from ..config import MoltresConfig
 
 if TYPE_CHECKING:
     from ..dataframe.async_dataframe import AsyncDataFrame
-    from ..dataframe.async_reader import AsyncDataLoader
+    from ..dataframe.async_reader import AsyncDataLoader, AsyncReadAccessor
     from ..io.records import AsyncRecords
     from .async_actions import (
         AsyncCreateTableOperation,
@@ -119,13 +119,24 @@ class AsyncDatabase:
 
     @property
     def load(self) -> "AsyncDataLoader":
-        """Return an AsyncDataLoader for loading data from files and tables as AsyncRecords.
+        """Return an AsyncDataLoader for loading data from files and tables as AsyncDataFrames.
 
         Note: For SQL operations on tables, use await db.table(name).select() instead.
         """
         from ..dataframe.async_reader import AsyncDataLoader
 
         return AsyncDataLoader(self)
+
+    @property
+    def read(self) -> "AsyncReadAccessor":
+        """Return an AsyncReadAccessor for accessing read operations.
+
+        Use await db.read.records.* for AsyncRecords-based reads (backward compatibility).
+        Use db.load.* for AsyncDataFrame-based reads (PySpark-style).
+        """
+        from ..dataframe.async_reader import AsyncReadAccessor
+
+        return AsyncReadAccessor(self)
 
     # -------------------------------------------------------------- DDL operations
     def create_table(

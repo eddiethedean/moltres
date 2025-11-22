@@ -18,7 +18,7 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical import operators
-from ..logical.plan import LogicalPlan, SortOrder
+from ..logical.plan import FileScan, LogicalPlan, SortOrder
 from ..sql.compiler import compile_plan
 
 if TYPE_CHECKING:
@@ -498,19 +498,150 @@ class AsyncDataFrame:
         if self.database is None:
             raise RuntimeError("Cannot collect a plan without an attached AsyncDatabase")
 
+        # Handle FileScan by materializing file data into a temporary table
+        plan = await self._materialize_filescan(self.plan)
+
         if stream:
             # For SQL queries, use streaming execution
             if self.database is None:
                 raise RuntimeError("Cannot collect a plan without an attached AsyncDatabase")
 
             async def stream_gen() -> AsyncIterator[List[Dict[str, object]]]:
-                async for chunk in self.database.execute_plan_stream(self.plan):  # type: ignore[union-attr]
+                async for chunk in self.database.execute_plan_stream(plan):  # type: ignore[union-attr]
                     yield chunk
 
             return stream_gen()
 
-        result = await self.database.execute_plan(self.plan)
+        result = await self.database.execute_plan(plan)
         return result.rows  # type: ignore[no-any-return]
+
+    async def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
+        """Materialize FileScan nodes by reading files and creating temporary tables.
+
+        When a FileScan is encountered, the file is read, materialized into a temporary
+        table using createDataFrame, and the FileScan is replaced with a TableScan.
+
+        Args:
+            plan: Logical plan that may contain FileScan nodes
+
+        Returns:
+            Logical plan with FileScan nodes replaced by TableScan nodes
+        """
+        from dataclasses import replace
+
+        if self.database is None:
+            raise RuntimeError("Cannot materialize FileScan without an attached AsyncDatabase")
+
+        if isinstance(plan, FileScan):
+            # Read file using existing async reader functions
+            rows = await self._read_file(plan)
+
+            # Materialize into temporary table using createDataFrame
+            # This enables SQL pushdown for subsequent operations
+            # Use auto_pk to create an auto-incrementing primary key for temporary tables
+            temp_df = await self.database.createDataFrame(
+                rows, schema=plan.schema, auto_pk="__moltres_rowid__"
+            )
+
+            # createDataFrame returns an AsyncDataFrame with a TableScan plan
+            # Return the TableScan plan to replace the FileScan
+            return temp_df.plan
+
+        # Recursively handle children
+        from ..logical.plan import (
+            Aggregate,
+            AntiJoin,
+            CTE,
+            Distinct,
+            Except,
+            Explode,
+            Filter,
+            Intersect,
+            Join,
+            Limit,
+            Pivot,
+            Project,
+            RecursiveCTE,
+            Sample,
+            SemiJoin,
+            Sort,
+            Union,
+        )
+
+        if isinstance(
+            plan, (Project, Filter, Limit, Sample, Sort, Distinct, Aggregate, Explode, Pivot)
+        ):
+            child = await self._materialize_filescan(plan.child)
+            return replace(plan, child=child)
+        elif isinstance(plan, (Join, Union, Intersect, Except, SemiJoin, AntiJoin)):
+            left = await self._materialize_filescan(plan.left)
+            right = await self._materialize_filescan(plan.right)
+            return replace(plan, left=left, right=right)
+        elif isinstance(plan, (CTE, RecursiveCTE)):
+            # For CTEs, we need to handle the child
+            if isinstance(plan, CTE):
+                child = await self._materialize_filescan(plan.child)
+                return replace(plan, child=child)
+            else:  # RecursiveCTE
+                initial = await self._materialize_filescan(plan.initial)
+                recursive = await self._materialize_filescan(plan.recursive)
+                return replace(plan, initial=initial, recursive=recursive)
+
+        # For other plan types, return as-is
+        return plan
+
+    async def _read_file(self, filescan: FileScan) -> List[Dict[str, object]]:
+        """Read a file based on FileScan configuration.
+
+        Args:
+            filescan: FileScan logical plan node
+
+        Returns:
+            List of dictionaries representing the file data
+        """
+        if self.database is None:
+            raise RuntimeError("Cannot read file without an attached AsyncDatabase")
+
+        from ..dataframe.readers.async_csv_reader import read_csv
+        from ..dataframe.readers.async_json_reader import read_json, read_jsonl
+        from ..dataframe.readers.async_text_reader import read_text
+
+        if filescan.format == "csv":
+            records = await read_csv(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "json":
+            records = await read_json(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "jsonl":
+            records = await read_jsonl(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "parquet":
+            # Lazy import for parquet
+            try:
+                from ..dataframe.readers.async_parquet_reader import read_parquet
+            except ImportError:
+                raise ImportError(
+                    "Parquet support requires pyarrow. Install with: pip install pyarrow"
+                )
+            records = await read_parquet(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "text":
+            records = await read_text(
+                filescan.path,
+                self.database,
+                filescan.schema,
+                filescan.options,
+                filescan.column_name or "value",
+            )
+        else:
+            raise ValueError(f"Unsupported file format: {filescan.format}")
+
+        # AsyncRecords.rows() returns a coroutine, so we need to await it
+        return await records.rows()
 
     @property
     def na(self) -> "AsyncNullHandling":

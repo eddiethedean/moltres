@@ -10,7 +10,7 @@ from moltres.table.schema import ColumnDef
 
 @pytest.mark.asyncio
 async def test_async_load_csv(tmp_path):
-    """Test async CSV loading returns AsyncRecords."""
+    """Test async CSV loading returns AsyncDataFrame."""
     db_path = tmp_path / "async_load_csv.sqlite"
     db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
@@ -21,9 +21,9 @@ async def test_async_load_csv(tmp_path):
         f.write("1,Alice,95.5\n")
         f.write("2,Bob,87.0\n")
 
-    # Load CSV - returns AsyncRecords
-    records = await db.load.csv(str(csv_path))
-    rows = await records.rows()
+    # Load CSV - returns AsyncDataFrame
+    df = await db.load.csv(str(csv_path))
+    rows = await df.collect()
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
@@ -35,7 +35,7 @@ async def test_async_load_csv(tmp_path):
 
 @pytest.mark.asyncio
 async def test_async_load_json(tmp_path):
-    """Test async JSON loading returns AsyncRecords."""
+    """Test async JSON loading returns AsyncDataFrame."""
     db_path = tmp_path / "async_load_json.sqlite"
     db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
@@ -44,9 +44,9 @@ async def test_async_load_json(tmp_path):
     with open(json_path, "w") as f:
         json.dump([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], f)
 
-    # Load JSON - returns AsyncRecords
-    records = await db.load.json(str(json_path))
-    rows = await records.rows()
+    # Load JSON - returns AsyncDataFrame
+    df = await db.load.json(str(json_path))
+    rows = await df.collect()
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
@@ -68,7 +68,8 @@ async def test_async_records_iteration(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    records = await db.load.csv(str(csv_path))
+    # Use read.records for AsyncRecords
+    records = await db.read.records.csv(str(csv_path))
 
     # Async iteration
     rows = []
@@ -95,7 +96,8 @@ async def test_async_records_insert_into(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    records = await db.load.csv(str(csv_path))
+    # Use read.records for AsyncRecords
+    records = await db.read.records.csv(str(csv_path))
 
     # Create table
     await db.create_table(
@@ -131,7 +133,8 @@ async def test_async_records_direct_insert(tmp_path):
     with open(json_path, "w") as f:
         json.dump([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], f)
 
-    records = await db.load.json(str(json_path))
+    # Use read.records for AsyncRecords
+    records = await db.read.records.json(str(json_path))
 
     # Create table
     table = await db.create_table(
@@ -166,7 +169,8 @@ async def test_async_records_schema(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    records = await db.load.csv(str(csv_path))
+    # Use read.records for AsyncRecords
+    records = await db.read.records.csv(str(csv_path))
 
     # Check schema
     schema = records.schema
@@ -191,8 +195,8 @@ async def test_async_records_streaming(tmp_path):
         for i in range(50):
             f.write(f"{i},user_{i}\n")
 
-    # Load in streaming mode
-    records = await db.load.stream().option("chunk_size", 10).csv(str(csv_path))
+    # Load in streaming mode using read.records
+    records = await db.read.records.stream().option("chunk_size", 10).csv(str(csv_path))
 
     # Async iterate
     count = 0
@@ -230,8 +234,13 @@ async def test_async_records_from_table(tmp_path):
             pk="id",
         )
     ).write.insertInto("source")
-    # Load table as AsyncRecords
-    records = await db.load.table("source")
+    # Load table as AsyncRecords (backward compatibility)
+    # Note: db.load.table() now returns AsyncDataFrame, use read.records for Records
+    from moltres.io.records import AsyncRecords
+
+    df = await db.load.table("source")
+    rows = await df.collect()
+    records = AsyncRecords(_data=rows, _database=db)
 
     # Should work like any AsyncRecords
     rows = await records.rows()
@@ -269,7 +278,7 @@ async def test_async_records_with_explicit_schema(tmp_path):
         ColumnDef(name="name", type_name="TEXT"),
     ]
 
-    records = await db.load.schema(schema).csv(str(csv_path))
+    records = await db.read.records.schema(schema).csv(str(csv_path))
     rows = await records.rows()
 
     assert len(rows) == 1
@@ -294,7 +303,7 @@ async def test_async_records_empty_data(tmp_path):
         ColumnDef(name="name", type_name="TEXT"),
     ]
 
-    records = await db.load.schema(schema).csv(str(csv_path))
+    records = await db.read.records.schema(schema).csv(str(csv_path))
     rows = await records.rows()
 
     assert len(rows) == 0
@@ -314,7 +323,8 @@ async def test_async_records_insert_into_with_table_handle(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    records = await db.load.csv(str(csv_path))
+    # Use read.records for AsyncRecords
+    records = await db.read.records.csv(str(csv_path))
 
     # Create table
     table = await db.create_table(
@@ -353,8 +363,8 @@ async def test_async_read_csv_gzip(tmp_path):
         f.write("1,Alice,95.5\n")
         f.write("2,Bob,87.0\n")
 
-    # Read compressed CSV
-    records = await db.load.csv(str(csv_path))
+    # Read compressed CSV (using read.records for Records)
+    records = await db.read.records.csv(str(csv_path))
     rows = await records.rows()
 
     assert len(rows) == 2
@@ -378,8 +388,8 @@ async def test_async_read_json_gzip(tmp_path):
     with gzip.open(json_path, "wt", encoding="utf-8") as f:
         json.dump(data, f)
 
-    # Read compressed JSON
-    records = await db.load.json(str(json_path))
+    # Read compressed JSON (using read.records for Records)
+    records = await db.read.records.json(str(json_path))
     rows = await records.rows()
 
     assert len(rows) == 2
@@ -403,12 +413,134 @@ async def test_async_read_text_gzip(tmp_path):
         f.write("line 1\n")
         f.write("line 2\n")
 
-    # Read compressed text
-    records = await db.load.text(str(text_path))
+    # Read compressed text (using read.records for Records)
+    records = await db.read.records.text(str(text_path))
     rows = await records.rows()
 
     assert len(rows) == 2
     assert rows[0]["value"] == "line 1"
     assert rows[1]["value"] == "line 2"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_dataframe_read_jsonl(tmp_path):
+    """Test reading JSONL file as AsyncDataFrame."""
+    db_path = tmp_path / "async_df_jsonl.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    jsonl_path = tmp_path / "data.jsonl"
+    with open(jsonl_path, "w") as f:
+        f.write('{"id": 1, "name": "Alice"}\n')
+        f.write('{"id": 2, "name": "Bob"}\n')
+
+    df = await db.load.jsonl(str(jsonl_path))
+    rows = await df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_dataframe_read_text(tmp_path):
+    """Test reading text file as AsyncDataFrame."""
+    db_path = tmp_path / "async_df_text.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    text_path = tmp_path / "data.txt"
+    with open(text_path, "w") as f:
+        f.write("line 1\n")
+        f.write("line 2\n")
+
+    df = await db.load.text(str(text_path))
+    rows = await df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["value"] == "line 1"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_dataframe_transformations(tmp_path):
+    """Test AsyncDataFrame transformations before materialization."""
+    db_path = tmp_path / "async_df_transforms.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name,score\n")
+        f.write("1,Alice,95.5\n")
+        f.write("2,Bob,87.0\n")
+        f.write("3,Charlie,92.0\n")
+
+    from moltres import col
+
+    df = await db.load.csv(str(csv_path))
+    filtered_df = df.where(col("score") > 90)
+    rows = await filtered_df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_records_jsonl(tmp_path):
+    """Test async read.records.jsonl() convenience method."""
+    db_path = tmp_path / "async_read_records_jsonl.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    jsonl_path = tmp_path / "data.jsonl"
+    with open(jsonl_path, "w") as f:
+        f.write('{"id": 1, "name": "Alice"}\n')
+
+    records = await db.read.records.jsonl(str(jsonl_path))
+    rows = await records.rows()
+
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_records_text(tmp_path):
+    """Test async read.records.text() convenience method."""
+    db_path = tmp_path / "async_read_records_text.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    text_path = tmp_path / "data.txt"
+    with open(text_path, "w") as f:
+        f.write("line 1\n")
+
+    records = await db.read.records.text(str(text_path))
+    rows = await records.rows()
+
+    assert len(rows) == 1
+    assert rows[0]["value"] == "line 1"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_read_records_dicts(tmp_path):
+    """Test async read.records.dicts() convenience method."""
+    db_path = tmp_path / "async_read_records_dicts.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    from moltres.io.records import AsyncRecords
+
+    data = [{"id": 1, "name": "Alice"}]
+    records = await db.read.records.dicts(data)
+
+    rows = await records.rows()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice"
+    assert isinstance(records, AsyncRecords)
 
     await db.close()

@@ -333,31 +333,34 @@ df = db.table("customers").select("id", "name", "email")
 
 ### From Files
 
-Moltres supports loading data from various file formats. **File readers return `Records`, not `DataFrame`** - this makes it clear that file data is materialized and not suitable for SQL operations.
+Moltres supports loading data from various file formats. **File readers (`db.load.*`) return lazy `DataFrame` objects** - matching PySpark's API. Files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations.
 
 ```python
-# CSV files - returns Records
-records = db.load.csv("data.csv")
-records = db.load.option("delimiter", "|").csv("pipe_delimited.csv")
-records = db.load.option("header", False).schema([...]).csv("no_header.csv")
+# CSV files - returns DataFrame (lazy)
+df = db.load.csv("data.csv")
+df = db.load.option("delimiter", "|").csv("pipe_delimited.csv")
+df = db.load.option("header", False).schema([...]).csv("no_header.csv")
 
-# JSON files - returns Records
-records = db.load.json("data.json")  # Array of objects
-records = db.load.jsonl("data.jsonl")  # One JSON object per line
+# JSON files - returns DataFrame (lazy)
+df = db.load.json("data.json")  # Array of objects
+df = db.load.jsonl("data.jsonl")  # One JSON object per line
 
-# Parquet files (requires pandas and pyarrow) - returns Records
-records = db.load.parquet("data.parquet")
+# Parquet files (requires pandas and pyarrow) - returns DataFrame (lazy)
+df = db.load.parquet("data.parquet")
 
-# Text files (one line per row) - returns Records
-records = db.load.text("log.txt", column_name="line")
+# Text files (one line per row) - returns DataFrame (lazy)
+df = db.load.text("log.txt", column_name="line")
 
-# Generic format reader - returns Records
-records = db.load.format("csv").option("header", True).load("data.csv")
+# Generic format reader - returns DataFrame (lazy)
+df = db.load.format("csv").option("header", True).load("data.csv")
 
-# Records can be used directly with insert operations
+# Transform before materialization
+df = db.load.csv("data.csv").where(col("score") > 90).select("name", "score")
+rows = df.collect()  # Materializes file and executes SQL operations
+
+# For backward compatibility: use db.read.records.* to get Records directly
+records = db.read.records.csv("data.csv")  # Returns Records (materialized)
 records.insert_into("table_name")  # Executes immediately
-
-# Access data
 rows = records.rows()  # Get all rows as a list
 for row in records:  # Iterate directly
     process(row)
@@ -376,7 +379,9 @@ schema = [
     ColumnDef(name="score", type_name="REAL"),
 ]
 
-records = db.load.schema(schema).csv("data.csv")
+df = db.load.schema(schema).csv("data.csv")
+# Or for Records:
+records = db.read.records.schema(schema).csv("data.csv")
 ```
 
 **File Format Options:**
@@ -384,12 +389,16 @@ records = db.load.schema(schema).csv("data.csv")
 - **JSON**: `multiline` (default: False) - if True, reads as JSONL
 - **Parquet**: Requires `pandas` and `pyarrow`
 
-> **Important:** File readers (`db.load.*`) return `Records`, not `DataFrame`. Records are materialized data containers that can be:
-> - Iterated directly: `for row in records: ...`
-> - Converted to a list: `rows = records.rows()`
-> - Used with insert operations: `records.insert_into("table")` (executes immediately)
+> **Important:** 
+> - **`db.load.*` methods return lazy `DataFrame` objects** - files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations. This matches PySpark's API.
+> - **`db.read.records.*` methods return `Records` objects** - for backward compatibility and when you need materialized data immediately. Records can be:
+>   - Iterated directly: `for row in records: ...`
+>   - Converted to a list: `rows = records.rows()`
+>   - Used with insert operations: `records.insert_into("table")` (executes immediately)
 > 
-> For SQL operations (select, filter, join, etc.), use `db.table(name).select()` to get a DataFrame.
+> **When to use each:**
+> - Use `db.load.*` (DataFrames) when you want to transform data before materialization or need SQL pushdown
+> - Use `db.read.records.*` (Records) when you need materialized data immediately or for backward compatibility
 
 ## 📤 Writing Data
 
@@ -454,8 +463,8 @@ df.write.partitionBy("country", "year").csv("partitioned_data")
 Moltres supports streaming operations for datasets larger than available memory:
 
 ```python
-# Enable streaming mode
-records = db.load.stream().option("chunk_size", 10000).csv("large_file.csv")
+# Enable streaming mode for Records (using read.records)
+records = db.read.records.stream().option("chunk_size", 10000).csv("large_file.csv")
 
 # Process records (streaming Records iterate row-by-row)
 for row in records:
@@ -463,6 +472,11 @@ for row in records:
 
 # Or materialize all at once
 all_rows = records.rows()  # Materializes all data
+
+# For DataFrames, use collect(stream=True)
+df = db.load.csv("large_file.csv")
+for chunk in df.collect(stream=True):  # Returns iterator of row chunks
+    process_chunk(chunk)
 
 # Streaming writes
 df.write.stream().mode("overwrite").save_as_table("large_table")
@@ -773,8 +787,10 @@ df = (
 # Complete ETL pipeline
 db = connect("postgresql://user:pass@localhost/warehouse")
 
-# Extract: Load from CSV (returns Records)
-raw_records = db.load.csv("raw_sales.csv")
+# Extract: Load from CSV (returns DataFrame, or use read.records for Records)
+raw_df = db.load.csv("raw_sales.csv")
+# Or for Records:
+raw_records = db.read.records.csv("raw_sales.csv")
 
 # Load raw data into staging table (lazy operation)
 db.create_table("staging_sales", [

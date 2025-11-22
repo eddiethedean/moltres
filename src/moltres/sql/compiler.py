@@ -30,6 +30,7 @@ from ..logical.plan import (
     Distinct,
     Except,
     Explode,
+    FileScan,
     Filter,
     Intersect,
     Join,
@@ -100,6 +101,15 @@ class SQLCompiler:
 
     def _compile_plan(self, plan: LogicalPlan) -> Select:
         """Compile a logical plan to a SQLAlchemy Select statement."""
+        if isinstance(plan, FileScan):
+            # FileScan should be materialized before compilation
+            # This should not happen if materialization is done correctly
+            raise CompilationError(
+                "FileScan cannot be compiled directly to SQL. "
+                "FileScan nodes must be materialized into temporary tables before compilation. "
+                "This is typically handled automatically by DataFrame.collect()."
+            )
+
         if isinstance(plan, CTE):
             # Compile the child plan and convert it to a CTE
             child_stmt = self._compile_plan(plan.child)

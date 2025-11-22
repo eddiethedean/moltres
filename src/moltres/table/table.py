@@ -10,7 +10,7 @@ from ..config import MoltresConfig
 
 if TYPE_CHECKING:
     from ..dataframe.dataframe import DataFrame
-    from ..dataframe.reader import DataLoader
+    from ..dataframe.reader import DataLoader, ReadAccessor
     from ..io.records import Records
     from .actions import (
         CreateTableOperation,
@@ -134,13 +134,24 @@ class Database:
 
     @property
     def load(self) -> "DataLoader":
-        """Return a DataLoader for loading data from files and tables as Records.
+        """Return a DataLoader for loading data from files and tables as DataFrames.
 
         Note: For SQL operations on tables, use db.table(name).select() instead.
         """
         from ..dataframe.reader import DataLoader
 
         return DataLoader(self)
+
+    @property
+    def read(self) -> "ReadAccessor":
+        """Return a ReadAccessor for accessing read operations.
+
+        Use db.read.records.* for Records-based reads (backward compatibility).
+        Use db.load.* for DataFrame-based reads (PySpark-style).
+        """
+        from ..dataframe.reader import ReadAccessor
+
+        return ReadAccessor(self)
 
     # -------------------------------------------------------------- DDL operations
     def create_table(

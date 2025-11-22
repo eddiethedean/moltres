@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Dict, Optional
 
 from ..expressions.column import Column
+
+if TYPE_CHECKING:
+    from ..table.schema import ColumnDef
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,25 @@ class LogicalPlan:
 class TableScan(LogicalPlan):
     table: str
     alias: str | None = None
+
+
+@dataclass(frozen=True)
+class FileScan(LogicalPlan):
+    """File scan operation for reading data from files.
+
+    Args:
+        path: Path to the file
+        format: File format ("csv", "json", "jsonl", "parquet", "text")
+        schema: Optional explicit schema for the file data
+        options: Dictionary of format-specific read options
+        column_name: Column name for text files (default: "value")
+    """
+
+    path: str
+    format: str  # "csv", "json", "jsonl", "parquet", "text"
+    schema: Optional[Sequence["ColumnDef"]] = None
+    options: Dict[str, object] = field(default_factory=dict)
+    column_name: Optional[str] = None  # For text files
 
 
 @dataclass(frozen=True)

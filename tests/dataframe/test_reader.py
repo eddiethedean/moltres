@@ -4,12 +4,13 @@ import json
 
 import pytest
 
-from moltres import column, connect
+from moltres import column, col, connect
+from moltres.io.records import Records
 from moltres.table.schema import ColumnDef
 
 
 def test_read_table(tmp_path):
-    """Test reading from database table as Records."""
+    """Test reading from database table as DataFrame."""
     db_path = tmp_path / "read_table.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
@@ -23,9 +24,9 @@ def test_read_table(tmp_path):
     records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
     records.insert_into("source")
 
-    # Read using load.table() - returns Records
-    records = db.load.table("source")
-    rows = records.rows()
+    # Read using load.table() - returns DataFrame
+    df = db.load.table("source")
+    rows = df.collect()
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
@@ -33,7 +34,7 @@ def test_read_table(tmp_path):
 
 
 def test_read_csv(tmp_path):
-    """Test reading CSV file."""
+    """Test reading CSV file as DataFrame."""
     db_path = tmp_path / "read_csv.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
@@ -44,9 +45,9 @@ def test_read_csv(tmp_path):
         f.write("1,Alice,95.5\n")
         f.write("2,Bob,87.0\n")
 
-    # Read CSV - returns Records
-    records = db.load.csv(str(csv_path))
-    rows = records.rows()
+    # Read CSV - returns DataFrame
+    df = db.load.csv(str(csv_path))
+    rows = df.collect()
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
@@ -66,8 +67,8 @@ def test_read_csv_with_options(tmp_path):
         f.write("1|Alice\n")
 
     # Read with delimiter option
-    records = db.load.option("delimiter", "|").csv(str(csv_path))
-    rows = records.rows()
+    df = db.load.option("delimiter", "|").csv(str(csv_path))
+    rows = df.collect()
 
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
@@ -89,8 +90,8 @@ def test_read_csv_no_header(tmp_path):
         ColumnDef(name="id", type_name="INTEGER"),
         ColumnDef(name="name", type_name="TEXT"),
     ]
-    records = db.load.schema(schema).option("header", False).csv(str(csv_path))
-    rows = records.rows()
+    df = db.load.schema(schema).option("header", False).csv(str(csv_path))
+    rows = df.collect()
 
     assert len(rows) == 2
     assert rows[0]["id"] == 1
@@ -108,9 +109,9 @@ def test_read_json(tmp_path):
     with open(json_path, "w") as f:
         json.dump(data, f)
 
-    # Read JSON - returns Records
-    records = db.load.json(str(json_path))
-    rows = records.rows()
+    # Read JSON - returns DataFrame
+    df = db.load.json(str(json_path))
+    rows = df.collect()
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
@@ -128,9 +129,9 @@ def test_read_jsonl(tmp_path):
         f.write('{"id": 1, "name": "Alice"}\n')
         f.write('{"id": 2, "name": "Bob"}\n')
 
-    # Read JSONL - returns Records
-    records = db.load.jsonl(str(jsonl_path))
-    rows = records.rows()
+    # Read JSONL - returns DataFrame
+    df = db.load.jsonl(str(jsonl_path))
+    rows = df.collect()
 
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
@@ -148,9 +149,9 @@ def test_read_text(tmp_path):
         f.write("line 2\n")
         f.write("line 3\n")
 
-    # Read text - returns Records
-    records = db.load.text(str(text_path))
-    rows = records.rows()
+    # Read text - returns DataFrame
+    df = db.load.text(str(text_path))
+    rows = df.collect()
 
     assert len(rows) == 3
     assert rows[0]["value"] == "line 1"
@@ -166,8 +167,8 @@ def test_read_text_custom_column(tmp_path):
     with open(text_path, "w") as f:
         f.write("line 1\n")
 
-    records = db.load.text(str(text_path), column_name="line")
-    rows = records.rows()
+    df = db.load.text(str(text_path), column_name="line")
+    rows = df.collect()
 
     assert len(rows) == 1
     assert "line" in rows[0]
@@ -184,8 +185,8 @@ def test_read_format_csv(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    records = db.load.format("csv").load(str(csv_path))
-    rows = records.rows()
+    df = db.load.format("csv").load(str(csv_path))
+    rows = df.collect()
 
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
@@ -200,8 +201,8 @@ def test_read_format_json(tmp_path):
     with open(json_path, "w") as f:
         json.dump([{"id": 1, "name": "Alice"}], f)
 
-    records = db.load.format("json").load(str(json_path))
-    rows = records.rows()
+    df = db.load.format("json").load(str(json_path))
+    rows = df.collect()
 
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
@@ -222,7 +223,7 @@ def test_read_with_explicit_schema(tmp_path):
         ColumnDef(name="name", type_name="TEXT", nullable=False),
     ]
 
-    records = db.load.schema(schema).csv(str(csv_path))
+    records = db.read.records.schema(schema).csv(str(csv_path))
     rows = records.rows()
 
     assert len(rows) == 1
@@ -235,8 +236,10 @@ def test_read_missing_file(tmp_path):
     db_path = tmp_path / "read_missing.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
+    # DataFrame creation is lazy, error occurs on collect()
+    df = db.load.csv(str(tmp_path / "nonexistent.csv"))
     with pytest.raises(FileNotFoundError):
-        db.load.csv(str(tmp_path / "nonexistent.csv"))
+        df.collect()
 
 
 def test_read_empty_csv(tmp_path):
@@ -248,14 +251,15 @@ def test_read_empty_csv(tmp_path):
     with open(csv_path, "w") as f:
         f.write("id,name\n")
 
-    # Should raise error without explicit schema
+    # Should raise error without explicit schema (error occurs on collect())
+    df = db.load.csv(str(csv_path))
     with pytest.raises(ValueError, match="empty"):
-        db.load.csv(str(csv_path))
+        df.collect()
 
     # Should work with explicit schema
     schema = [ColumnDef(name="id", type_name="INTEGER"), ColumnDef(name="name", type_name="TEXT")]
-    records = db.load.schema(schema).csv(str(csv_path))
-    rows = records.rows()
+    df = db.load.schema(schema).csv(str(csv_path))
+    rows = df.collect()
     assert len(rows) == 0
 
 
@@ -277,8 +281,8 @@ def test_read_parquet_requires_dependencies(tmp_path):
         table = pa.Table.from_pandas(df_pd)
         pq.write_table(table, str(parquet_path))
 
-        records = db.load.parquet(str(parquet_path))
-        rows = records.rows()
+        df = db.load.parquet(str(parquet_path))
+        rows = df.collect()
         assert len(rows) == 1
         assert rows[0]["name"] == "Alice"
     except ImportError:
@@ -299,8 +303,8 @@ def test_read_chained_options(tmp_path):
 
     schema = [ColumnDef(name="id", type_name="INTEGER"), ColumnDef(name="name", type_name="TEXT")]
 
-    records = db.load.schema(schema).option("delimiter", "|").csv(str(csv_path))
-    rows = records.rows()
+    df = db.load.schema(schema).option("delimiter", "|").csv(str(csv_path))
+    rows = df.collect()
 
     assert len(rows) == 1
     assert isinstance(rows[0]["id"], int)
@@ -318,8 +322,8 @@ def test_records_insert_into_table(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    # Read CSV as Records
-    records = db.load.csv(str(csv_path))
+    # Read CSV as Records using read.records
+    records = db.read.records.csv(str(csv_path))
 
     # Create table
     db.create_table(
@@ -351,8 +355,8 @@ def test_records_direct_insert(tmp_path):
     with open(json_path, "w") as f:
         json.dump([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], f)
 
-    # Read JSON as Records
-    records = db.load.json(str(json_path))
+    # Read JSON as Records using read.records
+    records = db.read.records.json(str(json_path))
 
     # Create table
     db.create_table(
@@ -384,8 +388,8 @@ def test_records_iteration(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    # Read CSV as Records
-    records = db.load.csv(str(csv_path))
+    # Read CSV as Records using read.records
+    records = db.read.records.csv(str(csv_path))
 
     # Iterate directly
     rows = []
@@ -415,7 +419,7 @@ def test_records_schema_access(tmp_path):
         f.write("id,name,score\n")
         f.write("1,Alice,95.5\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Check schema is available
     schema = records.schema
@@ -441,7 +445,7 @@ def test_records_empty_data(tmp_path):
         ColumnDef(name="name", type_name="TEXT"),
     ]
 
-    records = db.load.schema(schema).csv(str(csv_path))
+    records = db.read.records.schema(schema).csv(str(csv_path))
 
     # Empty Records should work
     assert len(records) == 0
@@ -466,7 +470,7 @@ def test_records_sequence_protocol(tmp_path):
         f.write("2,Bob\n")
         f.write("3,Charlie\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Test Sequence protocol methods
     from collections.abc import Sequence
@@ -512,7 +516,7 @@ def test_records_with_update_operation(tmp_path):
         f.write("id,status\n")
         f.write("1,inactive\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Records can be used in update operations (though update expects different format)
     # For now, test that we can read the records
@@ -534,8 +538,8 @@ def test_records_streaming_mode(tmp_path):
         for i in range(100):
             f.write(f"{i},user_{i}\n")
 
-    # Load in streaming mode
-    records = db.load.stream().option("chunk_size", 10).csv(str(csv_path))
+    # Load in streaming mode using read.records
+    records = db.read.records.stream().option("chunk_size", 10).csv(str(csv_path))
 
     # Should be able to iterate without materializing
     count = 0
@@ -571,8 +575,13 @@ def test_records_from_table(tmp_path):
     records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
     records.insert_into("source")
 
-    # Load table as Records (materializes data)
-    records = db.load.table("source")
+    # Load table as Records using read.records (backward compatibility)
+    # Note: db.load.table() now returns DataFrame, use read.records for Records
+    from moltres.io.records import Records
+
+    df = db.load.table("source")
+    rows = df.collect()
+    records = Records(_data=rows, _database=db)
 
     # Should work like any Records
     assert len(records) == 2
@@ -606,7 +615,7 @@ def test_records_multiple_formats(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    csv_records = db.load.csv(str(csv_path))
+    csv_records = db.read.records.csv(str(csv_path))
     csv_rows = csv_records.rows()
 
     # JSON
@@ -614,7 +623,7 @@ def test_records_multiple_formats(tmp_path):
     with open(json_path, "w") as f:
         json.dump(data, f)
 
-    json_records = db.load.json(str(json_path))
+    json_records = db.read.records.json(str(json_path))
     json_rows = json_records.rows()
 
     # JSONL
@@ -623,7 +632,7 @@ def test_records_multiple_formats(tmp_path):
         for item in data:
             f.write(json.dumps(item) + "\n")
 
-    jsonl_records = db.load.jsonl(str(jsonl_path))
+    jsonl_records = db.read.records.jsonl(str(jsonl_path))
     jsonl_rows = jsonl_records.rows()
 
     # All should produce same data
@@ -642,7 +651,7 @@ def test_records_index_error(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Valid index
     assert records[0]["name"] == "Alice"
@@ -662,7 +671,7 @@ def test_records_insert_into_nonexistent_table(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Should raise error for nonexistent table
     with pytest.raises(Exception):  # Will be ExecutionError or similar
@@ -680,7 +689,7 @@ def test_records_insert_into_with_table_handle(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Create table
     table = db.create_table(
@@ -711,7 +720,7 @@ def test_records_iter_method(tmp_path):
         f.write("1,Alice\n")
         f.write("2,Bob\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Test iter() method
     rows = []
@@ -740,7 +749,7 @@ def test_records_with_explicit_schema_types(tmp_path):
         ColumnDef(name="active", type_name="BOOLEAN"),
     ]
 
-    records = db.load.schema(schema).csv(str(csv_path))
+    records = db.read.records.schema(schema).csv(str(csv_path))
     rows = records.rows()
 
     assert isinstance(rows[0]["id"], int)
@@ -767,9 +776,12 @@ def test_records_chained_operations(tmp_path):
         ColumnDef(name="score", type_name="REAL"),
     ]
 
-    # Chain multiple options
+    # Chain multiple options (using read.records for Records)
     records = (
-        db.load.schema(schema).option("delimiter", "|").option("header", True).csv(str(csv_path))
+        db.read.records.schema(schema)
+        .option("delimiter", "|")
+        .option("header", True)
+        .csv(str(csv_path))
     )
 
     rows = records.rows()
@@ -803,7 +815,7 @@ def test_records_json_multiline(tmp_path):
         f.write('{"id": 2, "name": "Bob"}\n')
 
     # Read as JSON with multiline=True (treats as JSONL)
-    records = db.load.option("multiline", True).json(str(jsonl_path))
+    records = db.read.records.option("multiline", True).json(str(jsonl_path))
     rows = records.rows()
 
     assert len(rows) == 2
@@ -819,7 +831,7 @@ def test_records_text_empty_file(tmp_path):
     with open(text_path, "w"):
         pass  # Empty file
 
-    records = db.load.text(str(text_path))
+    records = db.read.records.text(str(text_path))
     rows = records.rows()
 
     assert len(rows) == 0
@@ -838,7 +850,7 @@ def test_records_large_dataset(tmp_path):
         for i in range(1000):
             f.write(f"{i},user_{i},{i * 1.5}\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Test iteration
     count = 0
@@ -871,7 +883,7 @@ def test_records_schema_preservation(tmp_path):
         ColumnDef(name="score", type_name="REAL", nullable=True),
     ]
 
-    records = db.load.schema(schema).csv(str(csv_path))
+    records = db.read.records.schema(schema).csv(str(csv_path))
 
     # Schema should be preserved
     assert records.schema == schema
@@ -906,7 +918,7 @@ def test_records_with_update_rows(tmp_path):
         f.write("id,status\n")
         f.write("1,inactive\n")
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
 
     # Records can be used with update operations
     # Note: update_rows expects Sequence[Mapping], which Records implements
@@ -929,9 +941,9 @@ def test_records_format_reader(tmp_path):
         f.write("id,name\n")
         f.write("1,Alice\n")
 
-    # Use format().load() API
-    records = db.load.format("csv").load(str(csv_path))
-    rows = records.rows()
+    # Use format().load() API (returns DataFrame, use read.records for Records)
+    df = db.load.format("csv").load(str(csv_path))
+    rows = df.collect()
 
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
@@ -941,8 +953,8 @@ def test_records_format_reader(tmp_path):
     with open(json_path, "w") as f:
         json.dump([{"id": 1, "name": "Bob"}], f)
 
-    records = db.load.format("json").load(str(json_path))
-    rows = records.rows()
+    df = db.load.format("json").load(str(json_path))
+    rows = df.collect()
     assert len(rows) == 1
     assert rows[0]["name"] == "Bob"
 
@@ -962,9 +974,9 @@ def test_records_chained_load_operations(tmp_path):
         ColumnDef(name="name", type_name="TEXT"),
     ]
 
-    # Test different chaining orders
-    records1 = db.load.schema(schema).option("delimiter", "|").csv(str(csv_path))
-    records2 = db.load.option("delimiter", "|").schema(schema).csv(str(csv_path))
+    # Test different chaining orders (using read.records for Records)
+    records1 = db.read.records.schema(schema).option("delimiter", "|").csv(str(csv_path))
+    records2 = db.read.records.option("delimiter", "|").schema(schema).csv(str(csv_path))
 
     rows1 = records1.rows()
     rows2 = records2.rows()
@@ -986,7 +998,7 @@ def test_records_with_special_characters(tmp_path):
         f.write('2,Bob,"It\'s a test"\n')
         f.write('3,Charlie,"Line 1\nLine 2"\n')
 
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
     rows = records.rows()
 
     assert len(rows) == 3
@@ -1004,7 +1016,7 @@ def test_records_json_single_object(tmp_path):
     with open(json_path, "w") as f:
         json.dump({"id": 1, "name": "Alice"}, f)  # Single object, not array
 
-    records = db.load.json(str(json_path))
+    records = db.read.records.json(str(json_path))
     rows = records.rows()
 
     assert len(rows) == 1
@@ -1029,8 +1041,8 @@ def test_records_parquet_streaming(tmp_path):
         table = pa.Table.from_pandas(df_pd)
         pq.write_table(table, str(parquet_path), row_group_size=10)
 
-        # Load in streaming mode
-        records = db.load.stream().parquet(str(parquet_path))
+        # Load in streaming mode (using read.records for Records)
+        records = db.read.records.stream().parquet(str(parquet_path))
 
         # Iterate
         count = 0
@@ -1059,7 +1071,7 @@ def test_records_text_custom_column_streaming(tmp_path):
         for i in range(50):
             f.write(f"line {i}\n")
 
-    records = db.load.stream().text(str(text_path), column_name="content")
+    records = db.read.records.stream().text(str(text_path), column_name="content")
 
     # Iterate
     count = 0
@@ -1091,7 +1103,7 @@ def test_read_csv_gzip(tmp_path):
         f.write("2,Bob,87.0\n")
 
     # Read compressed CSV - should auto-detect compression
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
     rows = records.rows()
 
     assert len(rows) == 2
@@ -1115,7 +1127,7 @@ def test_read_csv_bz2(tmp_path):
         f.write("2,Bob\n")
 
     # Read compressed CSV
-    records = db.load.csv(str(csv_path))
+    records = db.read.records.csv(str(csv_path))
     rows = records.rows()
 
     assert len(rows) == 2
@@ -1136,7 +1148,7 @@ def test_read_json_gzip(tmp_path):
         json.dump(data, f)
 
     # Read compressed JSON
-    records = db.load.json(str(json_path))
+    records = db.read.records.json(str(json_path))
     rows = records.rows()
 
     assert len(rows) == 2
@@ -1158,7 +1170,7 @@ def test_read_jsonl_gzip(tmp_path):
         f.write(json.dumps({"id": 2, "name": "Bob"}) + "\n")
 
     # Read compressed JSONL
-    records = db.load.jsonl(str(jsonl_path))
+    records = db.read.records.jsonl(str(jsonl_path))
     rows = records.rows()
 
     assert len(rows) == 2
@@ -1181,7 +1193,7 @@ def test_read_text_gzip(tmp_path):
         f.write("line 3\n")
 
     # Read compressed text
-    records = db.load.text(str(text_path))
+    records = db.read.records.text(str(text_path))
     rows = records.rows()
 
     assert len(rows) == 3
@@ -1209,9 +1221,342 @@ def test_read_csv_explicit_compression(tmp_path):
         with gzip.open(csv_gz_path, "wb") as f_out:
             f_out.write(f_in.read())
 
-    # Read with explicit compression option
-    records = db.load.option("compression", "gzip").csv(str(csv_gz_path))
+    # Read with explicit compression option (using read.records for Records)
+    records = db.read.records.option("compression", "gzip").csv(str(csv_gz_path))
     rows = records.rows()
 
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
+
+
+def test_dataframe_read_csv(tmp_path):
+    """Test reading CSV file as DataFrame with transformations."""
+    db_path = tmp_path / "df_read_csv.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name,score\n")
+        f.write("1,Alice,95.5\n")
+        f.write("2,Bob,87.0\n")
+        f.write("3,Charlie,92.0\n")
+
+    # Read CSV as DataFrame
+    df = db.load.csv(str(csv_path))
+
+    # Transform before materialization
+    filtered_df = df.where(col("score") > 90)
+    rows = filtered_df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Charlie"
+
+
+def test_dataframe_read_json(tmp_path):
+    """Test reading JSON file as DataFrame."""
+    db_path = tmp_path / "df_read_json.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create JSON file
+    json_path = tmp_path / "data.json"
+    data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+    with open(json_path, "w") as f:
+        json.dump(data, f)
+
+    # Read JSON as DataFrame
+    df = db.load.json(str(json_path))
+    rows = df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+
+
+def test_read_records_csv(tmp_path):
+    """Test new read.records.csv() convenience method."""
+    db_path = tmp_path / "read_records_csv.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    # Read CSV as Records using read.records
+    records = db.read.records.csv(str(csv_path))
+    rows = records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert isinstance(records, Records)
+
+
+def test_read_records_dicts(tmp_path):
+    """Test read.records.dicts() convenience method."""
+    db_path = tmp_path / "read_records_dicts.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create Records from list of dicts
+    data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+    records = db.read.records.dicts(data)
+
+    assert len(records) == 2
+    assert records[0]["name"] == "Alice"
+    assert isinstance(records, Records)
+
+
+def test_dataframe_sql_pushdown(tmp_path):
+    """Test that SQL pushdown works after file read."""
+    db_path = tmp_path / "df_pushdown.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name,score\n")
+        f.write("1,Alice,95.5\n")
+        f.write("2,Bob,87.0\n")
+        f.write("3,Charlie,92.0\n")
+
+    # Read CSV as DataFrame and apply SQL operations
+    df = db.load.csv(str(csv_path))
+
+    # These operations should use SQL pushdown after file is materialized
+    result = (
+        df.where(col("score") > 90).select("name", "score").order_by(col("score").desc()).collect()
+    )
+
+    assert len(result) == 2
+    assert result[0]["name"] == "Alice"
+    assert result[0]["score"] == 95.5
+    assert result[1]["name"] == "Charlie"
+
+
+def test_dataframe_read_jsonl(tmp_path):
+    """Test reading JSONL file as DataFrame."""
+    db_path = tmp_path / "df_read_jsonl.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create JSONL file
+    jsonl_path = tmp_path / "data.jsonl"
+    with open(jsonl_path, "w") as f:
+        f.write('{"id": 1, "name": "Alice"}\n')
+        f.write('{"id": 2, "name": "Bob"}\n')
+
+    # Read JSONL as DataFrame
+    df = db.load.jsonl(str(jsonl_path))
+    rows = df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+
+
+def test_dataframe_read_text(tmp_path):
+    """Test reading text file as DataFrame."""
+    db_path = tmp_path / "df_read_text.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create text file
+    text_path = tmp_path / "data.txt"
+    with open(text_path, "w") as f:
+        f.write("line 1\n")
+        f.write("line 2\n")
+        f.write("line 3\n")
+
+    # Read text as DataFrame
+    df = db.load.text(str(text_path))
+    rows = df.collect()
+
+    assert len(rows) == 3
+    assert rows[0]["value"] == "line 1"
+
+
+def test_dataframe_read_parquet(tmp_path):
+    """Test reading Parquet file as DataFrame."""
+    db_path = tmp_path / "df_read_parquet.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    parquet_path = tmp_path / "data.parquet"
+
+    try:
+        import pandas as pd
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        df_pd = pd.DataFrame([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+        table = pa.Table.from_pandas(df_pd)
+        pq.write_table(table, str(parquet_path))
+
+        # Read Parquet as DataFrame
+        df = db.load.parquet(str(parquet_path))
+        rows = df.collect()
+
+        assert len(rows) == 2
+        assert rows[0]["name"] == "Alice"
+    except ImportError:
+        pytest.skip("pandas/pyarrow not installed")
+
+
+def test_dataframe_read_with_schema(tmp_path):
+    """Test reading file as DataFrame with explicit schema."""
+    db_path = tmp_path / "df_read_schema.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name,score\n")
+        f.write("1,Alice,95.5\n")
+
+    schema = [
+        ColumnDef(name="id", type_name="INTEGER"),
+        ColumnDef(name="name", type_name="TEXT"),
+        ColumnDef(name="score", type_name="REAL"),
+    ]
+
+    df = db.load.schema(schema).csv(str(csv_path))
+    rows = df.collect()
+
+    assert len(rows) == 1
+    assert isinstance(rows[0]["id"], int)
+    assert rows[0]["id"] == 1
+    assert isinstance(rows[0]["score"], float)
+    assert rows[0]["score"] == 95.5
+
+
+def test_dataframe_multiple_transformations(tmp_path):
+    """Test multiple transformations before materialization."""
+    db_path = tmp_path / "df_transforms.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name,score,active\n")
+        f.write("1,Alice,95.5,1\n")
+        f.write("2,Bob,87.0,0\n")
+        f.write("3,Charlie,92.0,1\n")
+        f.write("4,David,88.0,0\n")
+
+    # Multiple transformations before materialization
+    df = (
+        db.load.csv(str(csv_path))
+        .where(col("active") == 1)
+        .where(col("score") > 90)
+        .select("name", "score")
+        .order_by(col("score").desc())
+    )
+    rows = df.collect()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert rows[1]["name"] == "Charlie"
+
+
+def test_dataframe_file_join(tmp_path):
+    """Test joining file data with table data."""
+    db_path = tmp_path / "df_file_join.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create table
+    db.create_table(
+        "users",
+        [column("id", "INTEGER"), column("email", "TEXT")],
+    ).collect()
+    from moltres.io.records import Records
+
+    Records(_data=[{"id": 1, "email": "alice@example.com"}], _database=db).insert_into("users")
+
+    # Create CSV file
+    csv_path = tmp_path / "data.csv"
+    with open(csv_path, "w") as f:
+        f.write("id,name\n")
+        f.write("1,Alice\n")
+        f.write("2,Bob\n")
+
+    # Join file DataFrame with table DataFrame
+    file_df = db.load.csv(str(csv_path))
+    table_df = db.table("users").select()
+
+    result = file_df.join(table_df, on="id").select("name", "email").collect()
+
+    assert len(result) == 1
+    assert result[0]["name"] == "Alice"
+    assert result[0]["email"] == "alice@example.com"
+
+
+def test_filescan_compilation_error(tmp_path):
+    """Test that FileScan raises error when compiled directly."""
+    from moltres.logical.operators import file_scan
+    from moltres.sql.compiler import compile_plan
+    from moltres.utils.exceptions import CompilationError
+
+    # Create a FileScan plan
+    plan = file_scan(path="test.csv", format="csv")
+
+    # Try to compile it directly - should raise error
+    with pytest.raises(CompilationError, match="FileScan cannot be compiled directly"):
+        compile_plan(plan)
+
+
+def test_read_records_jsonl(tmp_path):
+    """Test read.records.jsonl() convenience method."""
+    db_path = tmp_path / "read_records_jsonl.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    jsonl_path = tmp_path / "data.jsonl"
+    with open(jsonl_path, "w") as f:
+        f.write('{"id": 1, "name": "Alice"}\n')
+        f.write('{"id": 2, "name": "Bob"}\n')
+
+    records = db.read.records.jsonl(str(jsonl_path))
+    rows = records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["name"] == "Alice"
+    assert isinstance(records, Records)
+
+
+def test_read_records_text(tmp_path):
+    """Test read.records.text() convenience method."""
+    db_path = tmp_path / "read_records_text.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    text_path = tmp_path / "data.txt"
+    with open(text_path, "w") as f:
+        f.write("line 1\n")
+        f.write("line 2\n")
+
+    records = db.read.records.text(str(text_path), column_name="content")
+    rows = records.rows()
+
+    assert len(rows) == 2
+    assert rows[0]["content"] == "line 1"
+    assert isinstance(records, Records)
+
+
+def test_read_records_parquet(tmp_path):
+    """Test read.records.parquet() convenience method."""
+    db_path = tmp_path / "read_records_parquet.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    parquet_path = tmp_path / "data.parquet"
+
+    try:
+        import pandas as pd
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        df_pd = pd.DataFrame([{"id": 1, "name": "Alice"}])
+        table = pa.Table.from_pandas(df_pd)
+        pq.write_table(table, str(parquet_path))
+
+        records = db.read.records.parquet(str(parquet_path))
+        rows = records.rows()
+
+        assert len(rows) == 1
+        assert rows[0]["name"] == "Alice"
+        assert isinstance(records, Records)
+    except ImportError:
+        pytest.skip("pandas/pyarrow not installed")

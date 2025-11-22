@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 from ..expressions.column import Column
+
+if TYPE_CHECKING:
+    from ..table.schema import ColumnDef
 from .plan import (
     Aggregate,
     AntiJoin,
@@ -13,6 +16,7 @@ from .plan import (
     Distinct,
     Except,
     Explode,
+    FileScan,
     Filter,
     Intersect,
     Join,
@@ -41,6 +45,34 @@ def scan(table: str, alias: str | None = None) -> TableScan:
         TableScan logical plan node
     """
     return TableScan(table=table, alias=alias)
+
+
+def file_scan(
+    path: str,
+    format: str,
+    schema: Optional[Sequence["ColumnDef"]] = None,
+    options: Optional[Dict[str, object]] = None,
+    column_name: Optional[str] = None,
+) -> FileScan:
+    """Create a FileScan logical plan node.
+
+    Args:
+        path: Path to the file
+        format: File format ("csv", "json", "jsonl", "parquet", "text")
+        schema: Optional explicit schema for the file data
+        options: Dictionary of format-specific read options
+        column_name: Column name for text files (default: "value")
+
+    Returns:
+        FileScan logical plan node
+    """
+    return FileScan(
+        path=path,
+        format=format,
+        schema=schema,
+        options=options or {},
+        column_name=column_name,
+    )
 
 
 def project(child: LogicalPlan, columns: Sequence[Column]) -> Project:

@@ -46,7 +46,7 @@ def large_jsonl_file():
 
 def test_stream_csv_read(db, large_csv_file):
     """Test streaming CSV read with chunked processing."""
-    records = db.load.stream().option("chunk_size", 5000).csv(large_csv_file)
+    records = db.read.records.stream().option("chunk_size", 5000).csv(large_csv_file)
 
     # Records from streaming reads can be iterated directly
     # For streaming Records, we iterate row by row (not in chunks)
@@ -67,7 +67,7 @@ def test_stream_csv_read(db, large_csv_file):
 
 def test_stream_csv_read_materialize(db, large_csv_file):
     """Test that streaming read can still materialize all data."""
-    records = db.load.stream().option("chunk_size", 5000).csv(large_csv_file)
+    records = db.read.records.stream().option("chunk_size", 5000).csv(large_csv_file)
 
     # rows() should materialize all data
     rows = records.rows()
@@ -79,7 +79,7 @@ def test_stream_csv_read_materialize(db, large_csv_file):
 
 def test_stream_jsonl_read(db, large_jsonl_file):
     """Test streaming JSONL read with chunked processing."""
-    records = db.load.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
+    records = db.read.records.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
 
     # Iterate over records
     total_rows = 0
@@ -108,8 +108,12 @@ def test_stream_write_table(db):
     rows = [{"id": i, "name": f"item_{i}"} for i in range(20000)]
     db.createDataFrame(rows, pk="id").write.insertInto("source")
 
-    # Read with streaming and insert into target table
-    records = db.load.stream().option("chunk_size", 5000).table("source")
+    # Read with streaming and insert into target table (using read.records for Records)
+    from moltres.io.records import Records
+
+    df = db.load.table("source")
+    rows = df.collect()
+    records = Records(_data=rows, _database=db)
 
     # Create target table
     db.create_table(
@@ -130,7 +134,7 @@ def test_stream_write_table(db):
 
 def test_stream_write_csv(db, large_csv_file):
     """Test that Records can be read and inserted into a table (file write not supported for Records)."""
-    records = db.load.stream().option("chunk_size", 5000).csv(large_csv_file)
+    records = db.read.records.stream().option("chunk_size", 5000).csv(large_csv_file)
 
     # Create a table and insert records
     db.create_table(
@@ -154,7 +158,7 @@ def test_stream_write_csv(db, large_csv_file):
 
 def test_stream_write_jsonl(db, large_jsonl_file):
     """Test that Records can be read and inserted into a table."""
-    records = db.load.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
+    records = db.read.records.stream().option("chunk_size", 5000).jsonl(large_jsonl_file)
 
     # Create a table and insert records
     db.create_table(
@@ -231,8 +235,12 @@ def test_stream_insert_into(db):
     rows = [{"id": i, "name": f"item_{i}"} for i in range(10000)]
     db.createDataFrame(rows, pk="id").write.insertInto("source")
 
-    # Stream insert - Records can be inserted directly
-    records = db.load.stream().option("chunk_size", 2000).table("source")
+    # Stream insert - Records can be inserted directly (using read.records for Records)
+    from moltres.io.records import Records
+
+    df = db.load.table("source")
+    rows = df.collect()
+    records = Records(_data=rows, _database=db)
     records.insert_into("target")
 
     # Verify
@@ -242,8 +250,8 @@ def test_stream_insert_into(db):
 
 def test_non_streaming_backward_compat(db, large_csv_file):
     """Test that non-streaming mode still works with Records."""
-    # Without .stream(), should return materialized Records
-    records = db.load.csv(large_csv_file)
+    # Use read.records for Records (backward compatibility)
+    records = db.read.records.csv(large_csv_file)
     rows = records.rows()
 
     assert isinstance(rows, list)
@@ -260,7 +268,7 @@ def test_stream_with_explicit_schema(db, large_csv_file):
         ColumnDef(name="value", type_name="REAL"),
     ]
 
-    records = db.load.stream().schema(schema).option("chunk_size", 5000).csv(large_csv_file)
+    records = db.read.records.stream().schema(schema).option("chunk_size", 5000).csv(large_csv_file)
 
     # Get all rows to verify types
     all_rows = records.rows()
