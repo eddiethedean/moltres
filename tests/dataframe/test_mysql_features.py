@@ -25,13 +25,13 @@ def test_json_type(mysql_connection):
         [
             json("data"),
         ],
-    )
+    ).collect()
 
     table = db.table("test_json")
     # MySQL requires JSON to be serialized as string
     import json as json_module
 
-    table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}])
+    table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}]).collect()
 
     result = table.select().collect()
     assert len(result) == 1
@@ -55,13 +55,13 @@ def test_uuid_type(mysql_connection):
         [
             uuid("id"),
         ],
-    )
+    ).collect()
 
     import uuid as uuid_module
 
     test_uuid = uuid_module.uuid4()
     table = db.table("test_uuid")
-    table.insert([{"id": str(test_uuid)}])
+    table.insert([{"id": str(test_uuid)}]).collect()
 
     result = table.select().collect()
     assert len(result) == 1
@@ -80,7 +80,7 @@ def test_group_concat_collect_list(mysql_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     table = db.table("test_array")
     table.insert(
@@ -89,7 +89,7 @@ def test_group_concat_collect_list(mysql_connection):
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
         ]
-    )
+    ).collect()
 
     result = (
         db.table("test_array")
@@ -116,7 +116,7 @@ def test_group_concat_collect_set(mysql_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     table = db.table("test_array")
     table.insert(
@@ -125,7 +125,7 @@ def test_group_concat_collect_set(mysql_connection):
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
         ]
-    )
+    ).collect()
 
     result = (
         db.table("test_array")
@@ -149,13 +149,13 @@ def test_json_extract_mysql(mysql_connection):
         [
             json("data"),
         ],
-    )
+    ).collect()
 
     table = db.table("test_json")
     # MySQL requires JSON to be serialized as string
     import json as json_module
 
-    table.insert([{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}])
+    table.insert([{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}]).collect()
 
     result = (
         db.table("test_json")
@@ -184,10 +184,10 @@ def test_array_functions_mysql(mysql_connection):
         [
             column("id", "INTEGER", primary_key=True),
         ],
-    )
+    ).collect()
 
     table = db.table("test_array")
-    table.insert([{"id": 1}])
+    table.insert([{"id": 1}]).collect()
 
     # Test array functions (MySQL uses JSON arrays)
     result = (
@@ -222,10 +222,10 @@ def test_date_add_mysql(mysql_connection):
             column("id", "INTEGER", primary_key=True),
             column("date_col", "DATE"),
         ],
-    )
+    ).collect()
 
     table = db.table("test_dates")
-    table.insert([{"id": 1, "date_col": "2024-01-01"}])
+    table.insert([{"id": 1, "date_col": "2024-01-01"}]).collect()
 
     result = (
         db.table("test_dates")
@@ -250,10 +250,10 @@ def test_date_sub_mysql(mysql_connection):
             column("id", "INTEGER", primary_key=True),
             column("date_col", "DATE"),
         ],
-    )
+    ).collect()
 
     table = db.table("test_dates")
-    table.insert([{"id": 1, "date_col": "2024-01-02"}])
+    table.insert([{"id": 1, "date_col": "2024-01-02"}]).collect()
 
     result = (
         db.table("test_dates")
@@ -302,7 +302,7 @@ def test_on_duplicate_key_update(mysql_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     db.create_table(
         "source",
@@ -310,13 +310,13 @@ def test_on_duplicate_key_update(mysql_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     target_table = db.table("target")
-    target_table.insert([{"id": 1, "value": "old"}])
+    target_table.insert([{"id": 1, "value": "old"}]).collect()
 
     source_table = db.table("source")
-    source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}])
+    source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}]).collect()
 
     # Merge using the correct API: rows (list of dicts), not DataFrame
     source_rows = source_table.select().collect()
@@ -324,7 +324,7 @@ def test_on_duplicate_key_update(mysql_connection):
         source_rows,
         on=["id"],
         when_matched={"value": "new"},  # Update value when matched
-    )
+    ).collect()
 
     assert result >= 1
 

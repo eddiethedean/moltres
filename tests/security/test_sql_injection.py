@@ -39,10 +39,10 @@ def test_sql_injection_column_name(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
-    table.insert([{"id": 1, "name": "Alice"}])
+    table.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Attempt SQL injection via column name - validation happens during SQL compilation
     malicious_columns = [
@@ -70,7 +70,7 @@ def test_sql_injection_parameterized_queries(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
 
@@ -84,7 +84,7 @@ def test_sql_injection_parameterized_queries(tmp_path):
 
     for idx, value in enumerate(malicious_values):
         # This should insert the value as-is, not execute it
-        table.insert([{"id": idx + 1, "name": value}])
+        table.insert([{"id": idx + 1, "name": value}]).collect()
 
     # Verify the values were stored as literals (not executed)
     df = table.select()

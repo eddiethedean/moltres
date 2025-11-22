@@ -31,7 +31,7 @@ async def test_async_complex_query_workflow(tmp_path):
             column("name", "VARCHAR(255)"),
             column("country", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     # Create orders table
     orders_table = await db.create_table(
@@ -42,7 +42,7 @@ async def test_async_complex_query_workflow(tmp_path):
             column("amount", "REAL"),
             column("status", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     # Insert test data
     await customers_table.insert(
@@ -51,7 +51,7 @@ async def test_async_complex_query_workflow(tmp_path):
             {"id": 2, "name": "Bob", "country": "UK"},
             {"id": 3, "name": "Charlie", "country": "USA"},
         ]
-    )
+    ).collect()
 
     await orders_table.insert(
         [
@@ -60,7 +60,7 @@ async def test_async_complex_query_workflow(tmp_path):
             {"id": 103, "customer_id": 2, "amount": 200.0, "status": "completed"},
             {"id": 104, "customer_id": 3, "amount": 75.0, "status": "completed"},
         ]
-    )
+    ).collect()
 
     # Complex query: join, filter, group by, aggregate, order by
     customers_df = (await db.table("customers")).select()
@@ -105,7 +105,7 @@ async def test_async_cte_workflow(tmp_path):
             column("quantity", "INTEGER"),
             column("price", "REAL"),
         ],
-    )
+    ).collect()
 
     await sales_table.insert(
         [
@@ -114,7 +114,7 @@ async def test_async_cte_workflow(tmp_path):
             {"id": 3, "product": "Gadget", "quantity": 3, "price": 10.0},
             {"id": 4, "product": "Gadget", "quantity": 7, "price": 10.0},
         ]
-    )
+    ).collect()
 
     # Calculate totals, then filter
     # Note: CTEs require proper WITH clause support, which may not be fully implemented
@@ -160,7 +160,7 @@ async def test_async_window_function_workflow(tmp_path):
             column("department", "VARCHAR(255)"),
             column("salary", "REAL"),
         ],
-    )
+    ).collect()
 
     await employees_table.insert(
         [
@@ -169,7 +169,7 @@ async def test_async_window_function_workflow(tmp_path):
             {"id": 3, "name": "Charlie", "department": "Sales", "salary": 80000.0},
             {"id": 4, "name": "Diana", "department": "Sales", "salary": 85000.0},
         ]
-    )
+    ).collect()
 
     # Use window function to rank employees by salary
     employees_df = (await db.table("employees")).select()
@@ -210,7 +210,7 @@ async def test_async_subquery_workflow(tmp_path):
             column("name", "VARCHAR(255)"),
             column("price", "REAL"),
         ],
-    )
+    ).collect()
 
     # Create order_items table
     order_items_table = await db.create_table(
@@ -220,14 +220,14 @@ async def test_async_subquery_workflow(tmp_path):
             column("product_id", "INTEGER"),
             column("quantity", "INTEGER"),
         ],
-    )
+    ).collect()
 
     await products_table.insert(
         [
             {"id": 1, "name": "Widget", "price": 10.0},
             {"id": 2, "name": "Gadget", "price": 20.0},
         ]
-    )
+    ).collect()
 
     await order_items_table.insert(
         [
@@ -235,7 +235,7 @@ async def test_async_subquery_workflow(tmp_path):
             {"id": 2, "product_id": 1, "quantity": 3},
             {"id": 3, "product_id": 2, "quantity": 2},
         ]
-    )
+    ).collect()
 
     # Calculate total quantity per product using a join instead of subquery
     # (scalar subqueries in SELECT are complex, use join for simplicity)
@@ -274,7 +274,7 @@ async def test_async_multi_table_operations(tmp_path):
             column("email", "VARCHAR(255)"),
             column("active", "INTEGER"),
         ],
-    )
+    ).collect()
 
     # Insert initial data
     await users_table.insert(
@@ -283,7 +283,7 @@ async def test_async_multi_table_operations(tmp_path):
             {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 1},
             {"id": 3, "name": "Charlie", "email": "charlie@example.com", "active": 0},
         ]
-    )
+    ).collect()
 
     # Query active users
     users_df = (await db.table("users")).select()
@@ -295,7 +295,7 @@ async def test_async_multi_table_operations(tmp_path):
     await users_table.update(
         where=col("name") == "Bob",
         set={"active": 0},
-    )
+    ).collect()
 
     # Query again
     active_users_after = await users_df.where(col("active") == 1).collect()
@@ -304,7 +304,7 @@ async def test_async_multi_table_operations(tmp_path):
     assert active_users_after[0]["name"] == "Alice"
 
     # Delete inactive users
-    deleted_count = await users_table.delete(where=col("active") == 0)
+    deleted_count = await users_table.delete(where=col("active") == 0).collect()
     assert deleted_count == 2  # Bob and Charlie
 
     # Final query
@@ -330,7 +330,7 @@ async def test_async_union_and_distinct_workflow(tmp_path):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     table2 = await db.create_table(
         "table2",
@@ -338,7 +338,7 @@ async def test_async_union_and_distinct_workflow(tmp_path):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     await table1.insert(
         [
@@ -346,7 +346,7 @@ async def test_async_union_and_distinct_workflow(tmp_path):
             {"id": 2, "value": "B"},
             {"id": 3, "value": "C"},
         ]
-    )
+    ).collect()
 
     await table2.insert(
         [
@@ -354,7 +354,7 @@ async def test_async_union_and_distinct_workflow(tmp_path):
             {"id": 5, "value": "C"},
             {"id": 6, "value": "D"},
         ]
-    )
+    ).collect()
 
     # Union and get distinct values
     df1 = (await db.table("table1")).select(col("value"))
@@ -384,12 +384,12 @@ async def test_async_pagination_workflow(tmp_path):
             column("name", "VARCHAR(255)"),
             column("score", "INTEGER"),
         ],
-    )
+    ).collect()
 
     # Insert 20 items (score from 100 down to 81)
     await items_table.insert(
         [{"id": i, "name": f"Item{i}", "score": 101 - i} for i in range(1, 21)]
-    )
+    ).collect()
 
     items_df = (await db.table("items")).select()
 
@@ -427,7 +427,7 @@ async def test_async_aggregation_with_having(tmp_path):
             column("salesperson", "VARCHAR(255)"),
             column("amount", "REAL"),
         ],
-    )
+    ).collect()
 
     await sales_table.insert(
         [
@@ -437,7 +437,7 @@ async def test_async_aggregation_with_having(tmp_path):
             {"id": 4, "salesperson": "Charlie", "amount": 800.0},
             {"id": 5, "salesperson": "Charlie", "amount": 700.0},
         ]
-    )
+    ).collect()
 
     sales_df = (await db.table("sales")).select()
 

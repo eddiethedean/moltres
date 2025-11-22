@@ -102,11 +102,11 @@ def test_stream_write_table(db):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert 20000 rows
     rows = [{"id": i, "name": f"item_{i}"} for i in range(20000)]
-    db.table("source").insert(rows)
+    db.table("source").insert(rows).collect()
 
     # Read with streaming and insert into target table
     records = db.load.stream().option("chunk_size", 5000).table("source")
@@ -118,7 +118,7 @@ def test_stream_write_table(db):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert records into target
     records.insert_into("target")
@@ -140,7 +140,7 @@ def test_stream_write_csv(db, large_csv_file):
             ColumnDef(name="name", type_name="TEXT"),
             ColumnDef(name="value", type_name="REAL"),
         ],
-    )
+    ).collect()
 
     # Insert records into table
     records.insert_into("output")
@@ -164,7 +164,7 @@ def test_stream_write_jsonl(db, large_jsonl_file):
             ColumnDef(name="name", type_name="TEXT"),
             ColumnDef(name="value", type_name="REAL"),
         ],
-    )
+    ).collect()
 
     # Insert records into table
     records.insert_into("output")
@@ -187,11 +187,11 @@ def test_stream_sql_query(db):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="value", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert 15000 rows
     rows = [{"id": i, "value": f"value_{i}"} for i in range(15000)]
-    db.table("test_table").insert(rows)
+    db.table("test_table").insert(rows).collect()
 
     # Query with streaming
     df = db.table("test_table").select()
@@ -217,7 +217,7 @@ def test_stream_insert_into(db):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Create source table with data
     db.create_table(
@@ -226,10 +226,10 @@ def test_stream_insert_into(db):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     rows = [{"id": i, "name": f"item_{i}"} for i in range(10000)]
-    db.table("source").insert(rows)
+    db.table("source").insert(rows).collect()
 
     # Stream insert - Records can be inserted directly
     records = db.load.stream().option("chunk_size", 2000).table("source")

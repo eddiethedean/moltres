@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Optional
 
 try:
     from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -23,6 +24,7 @@ class AsyncConnectionManager:
     def __init__(self, config: EngineConfig):
         self.config = config
         self._engine: AsyncEngine | None = None
+        self._active_transaction: Optional[AsyncConnection] = None
 
     def _create_engine(self) -> AsyncEngine:
         """Create an async SQLAlchemy engine.
@@ -104,14 +106,66 @@ class AsyncConnectionManager:
         return self._engine
 
     @asynccontextmanager
-    async def connect(self) -> AsyncIterator[AsyncConnection]:
+    async def connect(
+        self, transaction: Optional[AsyncConnection] = None
+    ) -> AsyncIterator[AsyncConnection]:
         """Get an async database connection.
+
+        Args:
+            transaction: If provided, use this transaction connection instead of creating a new one.
+                        This allows operations to share a transaction.
 
         Yields:
             AsyncConnection instance
         """
-        async with self.engine.begin() as connection:
-            yield connection
+        if transaction is not None:
+            # Use the provided transaction connection
+            yield transaction
+        else:
+            # Create a new connection with auto-commit (default behavior)
+            async with self.engine.begin() as connection:
+                yield connection
+
+    async def begin_transaction(self) -> AsyncConnection:
+        """Begin a new transaction and return the connection.
+
+        Returns:
+            AsyncConnection that is part of a transaction (not auto-committed)
+        """
+        if self._active_transaction is not None:
+            raise RuntimeError("Transaction already active. Nested transactions not yet supported.")
+        self._active_transaction = await self.engine.connect()
+        await self._active_transaction.begin()
+        return self._active_transaction
+
+    async def commit_transaction(self, connection: AsyncConnection) -> None:
+        """Commit a transaction.
+
+        Args:
+            connection: The transaction connection to commit
+        """
+        if connection is not self._active_transaction:
+            raise RuntimeError("Connection is not the active transaction")
+        await connection.commit()
+        await connection.close()
+        self._active_transaction = None
+
+    async def rollback_transaction(self, connection: AsyncConnection) -> None:
+        """Rollback a transaction.
+
+        Args:
+            connection: The transaction connection to rollback
+        """
+        if connection is not self._active_transaction:
+            raise RuntimeError("Connection is not the active transaction")
+        await connection.rollback()
+        await connection.close()
+        self._active_transaction = None
+
+    @property
+    def active_transaction(self) -> Optional[AsyncConnection]:
+        """Get the active transaction connection if one exists."""
+        return self._active_transaction
 
     async def close(self) -> None:
         """Close the engine and all connections."""

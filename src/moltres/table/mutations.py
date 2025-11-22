@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -14,12 +14,17 @@ if TYPE_CHECKING:
     from ..io.records import Records
 
 
-def insert_rows(handle: TableHandle, rows: Union[Sequence[Mapping[str, object]], "Records"]) -> int:
+def insert_rows(
+    handle: TableHandle,
+    rows: Union[Sequence[Mapping[str, object]], "Records"],
+    transaction: Optional[Any] = None,
+) -> int:
     """Insert rows into a table using batch inserts for better performance.
 
     Args:
         handle: The table handle to insert into
         rows: Sequence of row dictionaries to insert
+        transaction: Optional transaction connection to use
 
     Returns:
         Number of rows affected
@@ -42,17 +47,24 @@ def insert_rows(handle: TableHandle, rows: Union[Sequence[Mapping[str, object]],
 
     # Use batch insert for better performance
     params_list: list[Dict[str, object]] = [dict(row) for row in rows]
-    result = handle.database.executor.execute_many(sql, params_list)
+    result = handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 
 
-def update_rows(handle: TableHandle, *, where: Column, values: Mapping[str, object]) -> int:
+def update_rows(
+    handle: TableHandle,
+    *,
+    where: Column,
+    values: Mapping[str, object],
+    transaction: Optional[Any] = None,
+) -> int:
     """Update rows in a table matching the given condition.
 
     Args:
         handle: The table handle to update
         where: Column expression for the WHERE clause
         values: Dictionary of column names to new values
+        transaction: Optional transaction connection to use
 
     Returns:
         Number of rows affected
@@ -74,16 +86,17 @@ def update_rows(handle: TableHandle, *, where: Column, values: Mapping[str, obje
     condition_sql = _compile_condition(where, handle)
     table_sql = quote_identifier(handle.name, quote)
     sql = f"UPDATE {table_sql} SET {', '.join(assignments)} WHERE {condition_sql}"
-    result = handle.database.executor.execute(sql, params=params)
+    result = handle.database.executor.execute(sql, params=params, transaction=transaction)
     return result.rowcount or 0
 
 
-def delete_rows(handle: TableHandle, *, where: Column) -> int:
+def delete_rows(handle: TableHandle, *, where: Column, transaction: Optional[Any] = None) -> int:
     """Delete rows from a table matching the given condition.
 
     Args:
         handle: The table handle to delete from
         where: Column expression for the WHERE clause
+        transaction: Optional transaction connection to use
 
     Returns:
         Number of rows affected
@@ -91,7 +104,7 @@ def delete_rows(handle: TableHandle, *, where: Column) -> int:
     condition_sql = _compile_condition(where, handle)
     table_sql = quote_identifier(handle.name, handle.database.dialect.quote_char)
     sql = f"DELETE FROM {table_sql} WHERE {condition_sql}"
-    result = handle.database.executor.execute(sql)
+    result = handle.database.executor.execute(sql, transaction=transaction)
     return result.rowcount or 0
 
 
@@ -107,6 +120,7 @@ def merge_rows(
     on: Sequence[str],
     when_matched: Optional[Mapping[str, object]] = None,
     when_not_matched: Optional[Mapping[str, object]] = None,
+    transaction: Optional[Any] = None,
 ) -> int:
     """Merge (upsert) rows into a table with conflict resolution.
 
@@ -223,7 +237,7 @@ def merge_rows(
                 params[f"update_{col_name}"] = value
         params_list.append(params)
 
-    result = handle.database.executor.execute_many(sql, params_list)
+    result = handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 
 

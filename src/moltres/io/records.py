@@ -131,7 +131,7 @@ class Records(Sequence[Mapping[str, object]]):
             table_handle = table
 
         rows = self.rows()
-        return table_handle.insert(rows)
+        return table_handle.insert(rows).collect()
 
 
 @dataclass
@@ -218,4 +218,4 @@ class AsyncRecords:
             table_handle = table
 
         rows = await self.rows()
-        return await table_handle.insert(rows)
+        return await table_handle.insert(rows).collect()

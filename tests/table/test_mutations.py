@@ -17,13 +17,13 @@ def test_insert_update_delete(tmp_path):
             {"id": 1, "name": "Alice", "active": 1},
             {"id": 2, "name": "Bob", "active": 0},
         ]
-    )
+    ).collect()
     assert inserted == 2
 
-    updated = table.update(where=col("id") == 2, set={"name": "Bobby", "active": 1})
+    updated = table.update(where=col("id") == 2, set={"name": "Bobby", "active": 1}).collect()
     assert updated == 1
 
-    deleted = table.delete(where=col("id") == 1)
+    deleted = table.delete(where=col("id") == 1).collect()
     assert deleted == 1
 
     rows = read_table(db, "customers")

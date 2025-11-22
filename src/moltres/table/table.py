@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 
@@ -11,14 +12,24 @@ if TYPE_CHECKING:
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.reader import DataLoader
     from ..io.records import Records
+    from .actions import (
+        CreateTableOperation,
+        DeleteMutation,
+        DropTableOperation,
+        InsertMutation,
+        MergeMutation,
+        UpdateMutation,
+    )
+    from .batch import OperationBatch
+from sqlalchemy.engine import Connection
+
 from ..engine.connection import ConnectionManager
 from ..engine.dialects import DialectSpec, get_dialect
 from ..engine.execution import QueryExecutor, QueryResult
 from ..expressions.column import Column
 from ..logical.plan import LogicalPlan
 from ..sql.compiler import compile_plan
-from ..sql.ddl import compile_create_table, compile_drop_table
-from .schema import ColumnDef, TableSchema
+from .schema import ColumnDef
 
 
 @dataclass
@@ -33,20 +44,72 @@ class TableHandle:
 
         return DataFrame.from_table(self, columns=list(columns))
 
-    def insert(self, rows: Union[Sequence[Mapping[str, object]], "Records"]) -> int:
-        from .mutations import insert_rows
+    def insert(self, rows: Union[Sequence[Mapping[str, object]], "Records"]) -> "InsertMutation":
+        """Create a lazy insert operation.
 
-        return insert_rows(self, rows)
+        Args:
+            rows: Sequence of row dictionaries to insert
 
-    def update(self, *, where: Column, set: Mapping[str, object]) -> int:
-        from .mutations import update_rows
+        Returns:
+            InsertMutation that executes on collect()
 
-        return update_rows(self, where=where, values=set)
+        Example:
+            >>> mutation = table.insert([{"id": 1, "name": "Alice"}])
+            >>> rowcount = mutation.collect()  # Executes the insert
+        """
+        from .actions import InsertMutation
+        from .batch import get_active_batch
 
-    def delete(self, where: Column) -> int:
-        from .mutations import delete_rows
+        op = InsertMutation(handle=self, rows=rows)
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
 
-        return delete_rows(self, where=where)
+    def update(self, *, where: Column, set: Mapping[str, object]) -> "UpdateMutation":
+        """Create a lazy update operation.
+
+        Args:
+            where: Column expression for the WHERE clause
+            set: Dictionary of column names to new values
+
+        Returns:
+            UpdateMutation that executes on collect()
+
+        Example:
+            >>> mutation = table.update(where=col("id") == 1, set={"name": "Bob"})
+            >>> rowcount = mutation.collect()  # Executes the update
+        """
+        from .actions import UpdateMutation
+        from .batch import get_active_batch
+
+        op = UpdateMutation(handle=self, where=where, values=set)
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
+
+    def delete(self, where: Column) -> "DeleteMutation":
+        """Create a lazy delete operation.
+
+        Args:
+            where: Column expression for the WHERE clause
+
+        Returns:
+            DeleteMutation that executes on collect()
+
+        Example:
+            >>> mutation = table.delete(where=col("id") == 1)
+            >>> rowcount = mutation.collect()  # Executes the delete
+        """
+        from .actions import DeleteMutation
+        from .batch import get_active_batch
+
+        op = DeleteMutation(handle=self, where=where)
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
 
     def merge(
         self,
@@ -55,8 +118,8 @@ class TableHandle:
         on: Sequence[str],
         when_matched: Optional[Mapping[str, object]] = None,
         when_not_matched: Optional[Mapping[str, object]] = None,
-    ) -> int:
-        """Merge (upsert) rows into the table with conflict resolution.
+    ) -> "MergeMutation":
+        """Create a lazy merge (upsert) operation.
 
         This implements MERGE/UPSERT operations with dialect-specific SQL:
         - PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
@@ -72,21 +135,67 @@ class TableHandle:
                              If None, uses values from rows
 
         Returns:
-            Number of rows affected (inserted or updated)
+            MergeMutation that executes on collect()
 
         Example:
-            >>> # Upsert users by email
-            >>> table.merge(
+            >>> mutation = table.merge(
             ...     [{"email": "user@example.com", "name": "Updated Name"}],
             ...     on=["email"],
             ...     when_matched={"name": "Updated Name", "updated_at": "NOW()"}
             ... )
+            >>> rowcount = mutation.collect()  # Executes the merge
         """
-        from .mutations import merge_rows
+        from .actions import MergeMutation
+        from .batch import get_active_batch
 
-        return merge_rows(
-            self, rows, on=on, when_matched=when_matched, when_not_matched=when_not_matched
+        op = MergeMutation(
+            handle=self,
+            rows=rows,
+            on=on,
+            when_matched=when_matched,
+            when_not_matched=when_not_matched,
         )
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
+
+
+class Transaction:
+    """Transaction context for grouping multiple operations."""
+
+    def __init__(self, database: "Database", connection: Connection):
+        self.database = database
+        self.connection = connection
+        self._committed = False
+        self._rolled_back = False
+
+    def commit(self) -> None:
+        """Explicitly commit the transaction."""
+        if self._committed or self._rolled_back:
+            raise RuntimeError("Transaction already committed or rolled back")
+        self.database.connection_manager.commit_transaction(self.connection)
+        self._committed = True
+
+    def rollback(self) -> None:
+        """Explicitly rollback the transaction."""
+        if self._committed or self._rolled_back:
+            raise RuntimeError("Transaction already committed or rolled back")
+        self.database.connection_manager.rollback_transaction(self.connection)
+        self._rolled_back = True
+
+    def __enter__(self) -> "Transaction":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if exc_type is not None:
+            # Exception occurred, rollback
+            if not self._rolled_back and not self._committed:
+                self.rollback()
+        else:
+            # No exception, commit
+            if not self._committed and not self._rolled_back:
+                self.commit()
 
 
 class Database:
@@ -162,8 +271,8 @@ class Database:
         *,
         if_not_exists: bool = True,
         temporary: bool = False,
-    ) -> TableHandle:
-        """Create a new table with the specified schema.
+    ) -> "CreateTableOperation":
+        """Create a lazy create table operation.
 
         Args:
             name: Name of the table to create
@@ -172,40 +281,59 @@ class Database:
             temporary: If True, create a temporary table (default: False)
 
         Returns:
-            TableHandle for the newly created table
+            CreateTableOperation that executes on collect()
 
         Raises:
             ValidationError: If table name or columns are invalid
-            ExecutionError: If table creation fails
+
+        Example:
+            >>> op = db.create_table("users", [column("id", "INTEGER")])
+            >>> table = op.collect()  # Executes the CREATE TABLE
         """
         from ..utils.exceptions import ValidationError
+        from .actions import CreateTableOperation
 
+        # Validate early (at operation creation time)
         if not columns:
             raise ValidationError(f"Cannot create table '{name}' with no columns")
 
-        schema = TableSchema(
+        op = CreateTableOperation(
+            database=self,
             name=name,
             columns=columns,
             if_not_exists=if_not_exists,
             temporary=temporary,
         )
-        sql = compile_create_table(schema, self._dialect)
-        self._executor.execute(sql)
-        return self.table(name)
+        # Add to active batch if one exists
+        from .batch import get_active_batch
 
-    def drop_table(self, name: str, *, if_exists: bool = True) -> None:
-        """Drop a table by name.
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
+
+    def drop_table(self, name: str, *, if_exists: bool = True) -> "DropTableOperation":
+        """Create a lazy drop table operation.
 
         Args:
             name: Name of the table to drop
             if_exists: If True, don't error if table doesn't exist (default: True)
 
-        Raises:
-            ValidationError: If table name is invalid
-            ExecutionError: If table dropping fails (when if_exists=False and table doesn't exist)
+        Returns:
+            DropTableOperation that executes on collect()
+
+        Example:
+            >>> op = db.drop_table("users")
+            >>> op.collect()  # Executes the DROP TABLE
         """
-        sql = compile_drop_table(name, self._dialect, if_exists=if_exists)
-        self._executor.execute(sql)
+        from .actions import DropTableOperation
+        from .batch import get_active_batch
+
+        op = DropTableOperation(database=self, name=name, if_exists=if_exists)
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
 
     # -------------------------------------------------------------- query utils
     def compile_plan(self, plan: LogicalPlan) -> Any:
@@ -228,6 +356,54 @@ class Database:
     @property
     def dialect(self) -> DialectSpec:
         return self._dialect
+
+    def batch(self) -> "OperationBatch":
+        """Create a batch context for grouping multiple operations.
+
+        All operations within the batch context are executed together in a single transaction
+        when the context exits. If any exception occurs, all operations are rolled back.
+
+        Returns:
+            OperationBatch context manager
+
+        Example:
+            >>> with db.batch():
+            ...     db.create_table("users", [...])
+            ...     table.insert([...])
+            ...     # All operations execute together on exit
+        """
+        from .batch import OperationBatch
+
+        return OperationBatch(self)
+
+    @contextmanager
+    def transaction(self) -> Iterator[Transaction]:
+        """Create a transaction context for grouping multiple operations.
+
+        All operations within the transaction context share the same transaction.
+        If any exception occurs, the transaction is automatically rolled back.
+        Otherwise, it is committed on successful exit.
+
+        Yields:
+            Transaction object that can be used for explicit commit/rollback
+
+        Example:
+            >>> with db.transaction() as txn:
+            ...     table.insert([...]).collect()
+            ...     table.update(...).collect()
+            ...     # If any operation fails, all are rolled back
+            ...     # Otherwise, all are committed on exit
+        """
+        connection = self._connections.begin_transaction()
+        txn = Transaction(self, connection)
+        try:
+            yield txn
+            if not txn._committed and not txn._rolled_back:
+                txn.commit()
+        except Exception:
+            if not txn._rolled_back:
+                txn.rollback()
+            raise
 
     # ----------------------------------------------------------------- internals
     @property

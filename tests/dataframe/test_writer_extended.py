@@ -19,15 +19,15 @@ def test_insert_into_existing_table(tmp_path):
             column("id", "INTEGER", primary_key=True),
             column("name", "TEXT"),
         ],
-    )
-    target.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    target.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Create source DataFrame
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
-    )
-    source.insert([{"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}])
+    ).collect()
+    source.insert([{"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}]).collect()
 
     # Insert into existing table
     df = db.table("source").select()
@@ -46,8 +46,8 @@ def test_insert_into_nonexistent_table(tmp_path):
     db_path = tmp_path / "insert_into_error.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER")])
-    source.insert([{"id": 1}])
+    source = db.create_table("source", [column("id", "INTEGER")]).collect()
+    source.insert([{"id": 1}]).collect()
 
     df = db.table("source").select()
     with pytest.raises(ValueError, match="does not exist"):
@@ -62,13 +62,13 @@ def test_save_csv(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT"), column("score", "REAL")],
-    )
+    ).collect()
     source.insert(
         [
             {"id": 1, "name": "Alice", "score": 95.5},
             {"id": 2, "name": "Bob", "score": 87.0},
         ]
-    )
+    ).collect()
 
     df = db.table("source").select()
     csv_path = tmp_path / "output.csv"
@@ -88,8 +88,8 @@ def test_save_csv_with_options(tmp_path):
     db_path = tmp_path / "save_csv_options.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")])
-    source.insert([{"id": 1, "name": "Alice"}])
+    source = db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     df = db.table("source").select()
     csv_path = tmp_path / "output.csv"
@@ -107,8 +107,8 @@ def test_save_json(tmp_path):
     db_path = tmp_path / "save_json.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")])
-    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+    source = db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
 
     df = db.table("source").select()
     json_path = tmp_path / "output.json"
@@ -128,8 +128,8 @@ def test_save_jsonl(tmp_path):
     db_path = tmp_path / "save_jsonl.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")])
-    source.insert([{"id": 1, "name": "Alice"}])
+    source = db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     df = db.table("source").select()
     jsonl_path = tmp_path / "output.jsonl"
@@ -149,8 +149,8 @@ def test_save_with_format_inference(tmp_path):
     db_path = tmp_path / "save_format.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER")])
-    source.insert([{"id": 1}])
+    source = db.create_table("source", [column("id", "INTEGER")]).collect()
+    source.insert([{"id": 1}]).collect()
 
     df = db.table("source").select()
 
@@ -170,8 +170,8 @@ def test_save_with_explicit_format(tmp_path):
     db_path = tmp_path / "save_explicit.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER")])
-    source.insert([{"id": 1}])
+    source = db.create_table("source", [column("id", "INTEGER")]).collect()
+    source.insert([{"id": 1}]).collect()
 
     df = db.table("source").select()
     output_path = tmp_path / "data.txt"
@@ -187,14 +187,14 @@ def test_save_partitioned_csv(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("country", "TEXT"), column("value", "INTEGER")],
-    )
+    ).collect()
     source.insert(
         [
             {"id": 1, "country": "US", "value": 100},
             {"id": 2, "country": "US", "value": 200},
             {"id": 3, "country": "UK", "value": 150},
         ]
-    )
+    ).collect()
 
     df = db.table("source").select()
     output_path = tmp_path / "partitioned"
@@ -222,13 +222,15 @@ def test_save_partitioned_json(tmp_path):
     db_path = tmp_path / "partitioned_json.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER"), column("category", "TEXT")])
+    source = db.create_table(
+        "source", [column("id", "INTEGER"), column("category", "TEXT")]
+    ).collect()
     source.insert(
         [
             {"id": 1, "category": "A"},
             {"id": 2, "category": "B"},
         ]
-    )
+    ).collect()
 
     df = db.table("source").select()
     output_path = tmp_path / "partitioned_json"
@@ -246,8 +248,8 @@ def test_save_parquet_requires_dependencies(tmp_path):
     db_path = tmp_path / "parquet_test.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table("source", [column("id", "INTEGER")])
-    source.insert([{"id": 1}])
+    source = db.create_table("source", [column("id", "INTEGER")]).collect()
+    source.insert([{"id": 1}]).collect()
 
     df = db.table("source").select()
     parquet_path = tmp_path / "output.parquet"
@@ -267,9 +269,9 @@ def test_insert_into_alias(tmp_path):
     db_path = tmp_path / "insert_into_alias.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    target = db.create_table("target", [column("id", "INTEGER")])
-    source = db.create_table("source", [column("id", "INTEGER")])
-    source.insert([{"id": 1}])
+    target = db.create_table("target", [column("id", "INTEGER")]).collect()
+    source = db.create_table("source", [column("id", "INTEGER")]).collect()
+    source.insert([{"id": 1}]).collect()
 
     df = db.table("source").select()
     df.write.insert_into("target")

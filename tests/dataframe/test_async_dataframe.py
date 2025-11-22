@@ -25,7 +25,7 @@ async def test_async_dataframe_collect(tmp_path):
             column("name", "TEXT"),
             column("age", "INTEGER"),
         ],
-    )
+    ).collect()
 
     await table.insert(
         [
@@ -33,7 +33,7 @@ async def test_async_dataframe_collect(tmp_path):
             {"id": 2, "name": "Bob", "age": 25},
             {"id": 3, "name": "Charlie", "age": 35},
         ]
-    )
+    ).collect()
 
     # Query with filters - use db.table().select() for SQL operations
     table_handle = await db.table("users")
@@ -62,9 +62,9 @@ async def test_async_dataframe_select(tmp_path):
             column("b", "INTEGER"),
             column("c", "INTEGER"),
         ],
-    )
+    ).collect()
 
-    await table.insert([{"a": 1, "b": 2, "c": 3}])
+    await table.insert([{"a": 1, "b": 2, "c": 3}]).collect()
 
     # Use db.table().select() for SQL operations
     table_handle = await db.table("data")
@@ -88,10 +88,10 @@ async def test_async_dataframe_limit(tmp_path):
 
     from moltres.table.schema import column
 
-    table = await db.create_table("numbers", [column("n", "INTEGER")])
+    table = await db.create_table("numbers", [column("n", "INTEGER")]).collect()
 
     rows = [{"n": i} for i in range(10)]
-    await table.insert(rows)
+    await table.insert(rows).collect()
 
     # Use db.table().select() for SQL operations
     table_handle = await db.table("numbers")

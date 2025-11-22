@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection, Engine
@@ -17,6 +18,7 @@ class ConnectionManager:
     def __init__(self, config: EngineConfig):
         self.config = config
         self._engine: Engine | None = None
+        self._active_transaction: Optional[Connection] = None
 
     def _create_engine(self) -> Engine:
         kwargs: dict[str, object] = {"echo": self.config.echo, "future": self.config.future}
@@ -39,6 +41,61 @@ class ConnectionManager:
         return self._engine
 
     @contextmanager
-    def connect(self) -> Iterator[Connection]:
-        with self.engine.begin() as connection:
-            yield connection
+    def connect(self, transaction: Optional[Connection] = None) -> Iterator[Connection]:
+        """Get a database connection.
+
+        Args:
+            transaction: If provided, use this transaction connection instead of creating a new one.
+                        This allows operations to share a transaction.
+
+        Yields:
+            Database connection
+        """
+        if transaction is not None:
+            # Use the provided transaction connection
+            yield transaction
+        else:
+            # Create a new connection with auto-commit (default behavior)
+            with self.engine.begin() as connection:
+                yield connection
+
+    def begin_transaction(self) -> Connection:
+        """Begin a new transaction and return the connection.
+
+        Returns:
+            Connection that is part of a transaction (not auto-committed)
+        """
+        if self._active_transaction is not None:
+            raise RuntimeError("Transaction already active. Nested transactions not yet supported.")
+        self._active_transaction = self.engine.connect()
+        self._active_transaction.begin()
+        return self._active_transaction
+
+    def commit_transaction(self, connection: Connection) -> None:
+        """Commit a transaction.
+
+        Args:
+            connection: The transaction connection to commit
+        """
+        if connection is not self._active_transaction:
+            raise RuntimeError("Connection is not the active transaction")
+        connection.commit()
+        connection.close()
+        self._active_transaction = None
+
+    def rollback_transaction(self, connection: Connection) -> None:
+        """Rollback a transaction.
+
+        Args:
+            connection: The transaction connection to rollback
+        """
+        if connection is not self._active_transaction:
+            raise RuntimeError("Connection is not the active transaction")
+        connection.rollback()
+        connection.close()
+        self._active_transaction = None
+
+    @property
+    def active_transaction(self) -> Optional[Connection]:
+        """Get the active transaction connection if one exists."""
+        return self._active_transaction

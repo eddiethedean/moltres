@@ -100,12 +100,18 @@ class AsyncQueryExecutor:
             )
             raise ExecutionError(f"Failed to execute async query: {exc}") from exc
 
-    async def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> AsyncQueryResult:
+    async def execute(
+        self,
+        sql: str,
+        params: Optional[Dict[str, Any]] = None,
+        transaction: Optional[Any] = None,
+    ) -> AsyncQueryResult:
         """Execute a non-SELECT SQL statement (INSERT, UPDATE, DELETE, etc.).
 
         Args:
             sql: The SQL statement to execute
             params: Optional parameter dictionary for parameterized queries
+            transaction: Optional transaction connection to use (if None, uses auto-commit)
 
         Returns:
             AsyncQueryResult with rowcount of affected rows
@@ -115,7 +121,7 @@ class AsyncQueryExecutor:
         """
         logger.debug("Executing async statement: %s", sql[:200] if len(sql) > 200 else sql)
         try:
-            async with self._connections.connect() as conn:
+            async with self._connections.connect(transaction=transaction) as conn:
                 result = await conn.execute(text(sql), params or {})
                 rowcount = result.rowcount or 0
                 logger.debug("Async statement affected %d rows", rowcount)
@@ -125,7 +131,10 @@ class AsyncQueryExecutor:
             raise ExecutionError(f"Failed to execute async statement: {exc}") from exc
 
     async def execute_many(
-        self, sql: str, params_list: Sequence[Dict[str, Any]]
+        self,
+        sql: str,
+        params_list: Sequence[Dict[str, Any]],
+        transaction: Optional[Any] = None,
     ) -> AsyncQueryResult:
         """Execute a SQL statement multiple times with different parameter sets.
 
@@ -152,7 +161,7 @@ class AsyncQueryExecutor:
         )
         total_rowcount = 0
         try:
-            async with self._connections.connect() as conn:
+            async with self._connections.connect(transaction=transaction) as conn:
                 for params in params_list:
                     result = await conn.execute(text(sql), params or {})
                     total_rowcount += result.rowcount or 0
@@ -213,10 +222,10 @@ class AsyncQueryExecutor:
             return [dict(zip(columns, row)) for row in rows]
         if fmt == "pandas":
             try:
-                import pandas as pd  # type: ignore[import-untyped]
+                import pandas as pd
             except ModuleNotFoundError as exc:
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
-            return pd.DataFrame(rows, columns=columns)
+            return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
                 import polars as pl

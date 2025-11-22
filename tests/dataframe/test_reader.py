@@ -17,8 +17,8 @@ def test_read_table(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
-    )
-    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
 
     # Read using load.table() - returns Records
     records = db.load.table("source")
@@ -325,7 +325,7 @@ def test_records_insert_into_table(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert records into table
     count = records.insert_into("target")
@@ -358,10 +358,10 @@ def test_records_direct_insert(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert records directly (Records implements Sequence protocol)
-    count = table.insert(records)
+    count = table.insert(records).collect()
     assert count == 2
 
     # Verify data was inserted
@@ -497,8 +497,8 @@ def test_records_with_update_operation(tmp_path):
             ColumnDef(name="name", type_name="TEXT"),
             ColumnDef(name="status", type_name="TEXT"),
         ],
-    )
-    table.insert([{"id": 1, "name": "Alice", "status": "active"}])
+    ).collect()
+    table.insert([{"id": 1, "name": "Alice", "status": "active"}]).collect()
 
     # Create CSV with updates
     csv_path = tmp_path / "updates.csv"
@@ -559,8 +559,8 @@ def test_records_from_table(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
-    table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+    ).collect()
+    table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
 
     # Load table as Records (materializes data)
     records = db.load.table("source")
@@ -578,7 +578,7 @@ def test_records_from_table(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
     count = records.insert_into("target")
     assert count == 2
 
@@ -680,7 +680,7 @@ def test_records_insert_into_with_table_handle(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert using TableHandle
     count = records.insert_into(table)
@@ -885,8 +885,8 @@ def test_records_with_update_rows(tmp_path):
             ColumnDef(name="name", type_name="TEXT"),
             ColumnDef(name="status", type_name="TEXT"),
         ],
-    )
-    table.insert([{"id": 1, "name": "Alice", "status": "active"}])
+    ).collect()
+    table.insert([{"id": 1, "name": "Alice", "status": "active"}]).collect()
 
     # Create CSV with updates
     csv_path = tmp_path / "updates.csv"

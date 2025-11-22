@@ -112,12 +112,12 @@ class AsyncDataFrameWriter:
             chunk_iter = await self._df.collect(stream=True)
             async for chunk in chunk_iter:
                 if chunk:
-                    await table.insert(chunk)
+                    await table.insert(chunk).collect()
         else:
             rows = await self._df.collect()
             if rows:
                 table = await db.table(table_name)
-                await table.insert(rows)
+                await table.insert(rows).collect()
 
     insert_into = insertInto
 
@@ -323,13 +323,13 @@ class AsyncDataFrameWriter:
         # Handle overwrite mode
         if self._mode == "overwrite":
             try:
-                await db.drop_table(table_name, if_exists=True)
+                await db.drop_table(table_name, if_exists=True).collect()
             except Exception:
                 pass  # Ignore errors if table doesn't exist
-            await db.create_table(table_name, final_schema, if_not_exists=False)
+            await db.create_table(table_name, final_schema, if_not_exists=False).collect()
         elif not table_exists:
             # Create table if it doesn't exist
-            await db.create_table(table_name, final_schema, if_not_exists=True)
+            await db.create_table(table_name, final_schema, if_not_exists=True).collect()
 
         # Compile DataFrame plan to SELECT statement
         from ..sql.compiler import compile_plan
@@ -411,26 +411,26 @@ class AsyncDataFrameWriter:
         if self._mode == "overwrite":
             # Drop and recreate table
             try:
-                await db.drop_table(table_name, if_exists=True)
+                await db.drop_table(table_name, if_exists=True).collect()
             except Exception:
                 pass  # Ignore errors if table doesn't exist
 
         # Create table if needed
         if not table_exists or self._mode == "overwrite":
-            await db.create_table(table_name, schema, if_not_exists=False)
+            await db.create_table(table_name, schema, if_not_exists=False).collect()
 
         # Insert data
         table = await db.table(table_name)
         if self._stream and chunk_iter:
             # Stream inserts
             if rows:  # Insert first chunk
-                await table.insert(rows)
+                await table.insert(rows).collect()
             async for chunk in chunk_iter:
                 if chunk:
-                    await table.insert(chunk)
+                    await table.insert(chunk).collect()
         else:
             if rows:
-                await table.insert(rows)
+                await table.insert(rows).collect()
 
     async def _table_exists(self, db: "AsyncDatabase", table_name: str) -> bool:
         """Check if a table exists in the database."""
@@ -552,7 +552,7 @@ class AsyncDataFrameWriter:
     async def _save_parquet(self, path: str) -> None:
         """Save AsyncDataFrame as Parquet file."""
         try:
-            import pandas as pd  # type: ignore[import-untyped]
+            import pandas as pd
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"

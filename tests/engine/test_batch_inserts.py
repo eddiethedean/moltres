@@ -18,7 +18,7 @@ def test_batch_insert_performance(tmp_path):
             column("name", "TEXT"),
             column("value", "REAL"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
 
@@ -28,7 +28,7 @@ def test_batch_insert_performance(tmp_path):
         for i in range(1, 101)  # 100 rows
     ]
 
-    result = table.insert(rows)
+    result = table.insert(rows).collect()
     assert result == 100
 
     # Verify all rows were inserted
@@ -52,10 +52,10 @@ def test_batch_insert_empty_list(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
-    result = table.insert([])
+    result = table.insert([]).collect()
     assert result == 0
 
 
@@ -72,13 +72,13 @@ def test_batch_insert_large_dataset(tmp_path):
             column("id", "INTEGER"),
             column("data", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
 
     # Insert 1000 rows
     rows = [{"id": i, "data": f"data_{i}"} for i in range(1000)]
-    result = table.insert(rows)
+    result = table.insert(rows).collect()
     assert result == 1000
 
     # Verify

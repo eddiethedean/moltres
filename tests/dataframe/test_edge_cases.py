@@ -20,7 +20,7 @@ def test_limit_zero(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
     table.insert(
@@ -28,7 +28,7 @@ def test_limit_zero(tmp_path):
             {"id": 1, "name": "Alice"},
             {"id": 2, "name": "Bob"},
         ]
-    )
+    ).collect()
 
     df = table.select().limit(0)
     results = df.collect()
@@ -69,7 +69,7 @@ def test_empty_table_query(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
     df = table.select()
@@ -91,7 +91,7 @@ def test_null_values(tmp_path):
             column("name", "TEXT", nullable=True),
             column("value", "REAL", nullable=True),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
     table.insert(
@@ -100,7 +100,7 @@ def test_null_values(tmp_path):
             {"id": 2, "name": None, "value": None},
             {"id": 3, "name": "Bob", "value": None},
         ]
-    )
+    ).collect()
 
     df = table.select()
     results = df.collect()
@@ -153,8 +153,8 @@ def test_join_different_databases(tmp_path):
 
     from moltres.table.schema import column
 
-    db1.create_table("table1", [column("id", "INTEGER")])
-    db2.create_table("table2", [column("id", "INTEGER")])
+    db1.create_table("table1", [column("id", "INTEGER")]).collect()
+    db2.create_table("table2", [column("id", "INTEGER")]).collect()
 
     df1 = db1.table("table1").select()
     df2 = db2.table("table2").select()

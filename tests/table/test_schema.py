@@ -91,11 +91,11 @@ def test_create_table_integration(tmp_path):
             column("name", "TEXT", nullable=False),
             column("email", "TEXT", nullable=True),
         ],
-    )
+    ).collect()
 
     assert table.name == "customers"
 
-    table.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}])
+    table.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}]).collect()
     rows = table.select().collect()
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
@@ -113,9 +113,9 @@ def test_create_table_with_defaults_integration(tmp_path):
             column("price", "REAL", default=0.0),
             column("active", "INTEGER", default=1),
         ],
-    )
+    ).collect()
 
-    table.insert([{"id": 1, "name": "Widget"}])
+    table.insert([{"id": 1, "name": "Widget"}]).collect()
     rows = table.select().collect()
     assert rows[0]["price"] == 0.0
     assert rows[0]["active"] == 1
@@ -136,7 +136,7 @@ def test_decimal_type_with_precision_scale(tmp_path):
             decimal("price", precision=10, scale=2),
             decimal("discount", precision=5, scale=2),
         ],
-    )
+    ).collect()
 
     # Insert test data
     table.insert(
@@ -144,7 +144,7 @@ def test_decimal_type_with_precision_scale(tmp_path):
             {"id": 1, "price": 99.99, "discount": 0.10},
             {"id": 2, "price": 149.50, "discount": 0.15},
         ]
-    )
+    ).collect()
 
     # Verify data
     result = table.select().collect()
@@ -160,13 +160,13 @@ def test_decimal_type_with_precision_scale(tmp_path):
             column("cost", "DECIMAL", precision=10, scale=2),
             column("tax_rate", "NUMERIC", precision=5, scale=4),
         ],
-    )
+    ).collect()
 
     table2.insert(
         [
             {"id": 1, "cost": 100.50, "tax_rate": 0.0825},
         ]
-    )
+    ).collect()
 
     result2 = table2.select().collect()
     assert len(result2) == 1
@@ -187,7 +187,7 @@ def test_uuid_type(tmp_path):
             uuid("id", primary_key=True),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert test data with UUID strings
     import uuid as uuid_module
@@ -197,7 +197,7 @@ def test_uuid_type(tmp_path):
         [
             {"id": user_id, "name": "Alice"},
         ]
-    )
+    ).collect()
 
     # Verify data
     result = table.select().collect()
@@ -212,7 +212,7 @@ def test_uuid_type(tmp_path):
             column("id", "UUID", primary_key=True),
             column("user_id", "UUID"),
         ],
-    )
+    ).collect()
 
     session_id = str(uuid_module.uuid4())
     user_id2 = str(uuid_module.uuid4())
@@ -220,7 +220,7 @@ def test_uuid_type(tmp_path):
         [
             {"id": session_id, "user_id": user_id2},
         ]
-    )
+    ).collect()
 
     result2 = table2.select().collect()
     assert len(result2) == 1
@@ -243,7 +243,7 @@ def test_json_type(tmp_path):
             json("data"),
             json("metadata", jsonb=False),  # Explicit JSON
         ],
-    )
+    ).collect()
 
     # Insert test data with JSON strings
     import json as json_module
@@ -254,7 +254,7 @@ def test_json_type(tmp_path):
         [
             {"id": 1, "data": product_data, "metadata": metadata},
         ]
-    )
+    ).collect()
 
     # Verify data
     result = table.select().collect()
@@ -270,14 +270,14 @@ def test_json_type(tmp_path):
             column("id", "INTEGER", primary_key=True),
             column("settings", "JSON"),
         ],
-    )
+    ).collect()
 
     settings = json_module.dumps({"theme": "dark", "lang": "en"})
     table2.insert(
         [
             {"id": 1, "settings": settings},
         ]
-    )
+    ).collect()
 
     result2 = table2.select().collect()
     assert len(result2) == 1
@@ -300,7 +300,7 @@ def test_interval_type(tmp_path):
             column("start_time", "TIMESTAMP"),
             column("duration", "INTERVAL"),  # Duration as interval
         ],
-    )
+    ).collect()
 
     # Insert test data
     import datetime
@@ -310,7 +310,7 @@ def test_interval_type(tmp_path):
         [
             {"id": 1, "start_time": start, "duration": "1 HOUR"},
         ]
-    )
+    ).collect()
 
     # Verify data
     result = table.select().collect()
@@ -338,11 +338,11 @@ def test_drop_table_integration(tmp_path):
     db_path = tmp_path / "drop_test.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    table = db.create_table("temp", [column("id", "INTEGER")])
-    table.insert([{"id": 1}])
+    table = db.create_table("temp", [column("id", "INTEGER")]).collect()
+    table.insert([{"id": 1}]).collect()
     rows = table.select().collect()
     assert len(rows) == 1
 
-    db.drop_table("temp")
+    db.drop_table("temp").collect()
     result = db.execute_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='temp'")
     assert len(result.rows) == 0

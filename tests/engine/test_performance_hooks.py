@@ -23,10 +23,10 @@ def test_performance_hook_registration(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
-    table.insert([{"id": 1, "name": "Alice"}])
+    table.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Register hooks
     start_hook = Mock()
@@ -61,7 +61,7 @@ def test_performance_hook_unregistration(tmp_path):
 
     from moltres.table.schema import column
 
-    db.create_table("test", [column("id", "INTEGER")])
+    db.create_table("test", [column("id", "INTEGER")]).collect()
     table = db.table("test")
 
     hook = Mock()
@@ -94,7 +94,7 @@ def test_performance_hook_slow_query_detection(tmp_path):
 
     from moltres.table.schema import column
 
-    db.create_table("test", [column("id", "INTEGER")])
+    db.create_table("test", [column("id", "INTEGER")]).collect()
     table = db.table("test")
 
     slow_queries = []
@@ -120,7 +120,7 @@ def test_performance_hook_error_handling(tmp_path):
 
     from moltres.table.schema import column
 
-    db.create_table("test", [column("id", "INTEGER")])
+    db.create_table("test", [column("id", "INTEGER")]).collect()
     table = db.table("test")
 
     def failing_hook(sql: str, elapsed: float, metadata: dict):

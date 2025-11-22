@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Mapping, Optional, Sequence, Union
 
@@ -11,14 +12,26 @@ if TYPE_CHECKING:
     from ..dataframe.async_dataframe import AsyncDataFrame
     from ..dataframe.async_reader import AsyncDataLoader
     from ..io.records import AsyncRecords
+    from .async_actions import (
+        AsyncCreateTableOperation,
+        AsyncDeleteMutation,
+        AsyncDropTableOperation,
+        AsyncInsertMutation,
+        AsyncMergeMutation,
+        AsyncUpdateMutation,
+    )
+try:
+    from sqlalchemy.ext.asyncio.engine import AsyncConnection
+except ImportError:
+    AsyncConnection = None  # type: ignore[assignment, misc]
+
 from ..engine.async_connection import AsyncConnectionManager
 from ..engine.async_execution import AsyncQueryExecutor, AsyncQueryResult
 from ..engine.dialects import DialectSpec, get_dialect
 from ..expressions.column import Column
 from ..logical.plan import LogicalPlan
 from ..sql.compiler import compile_plan
-from ..sql.ddl import compile_create_table, compile_drop_table
-from .schema import ColumnDef, TableSchema
+from .schema import ColumnDef
 
 
 @dataclass
@@ -33,30 +46,69 @@ class AsyncTableHandle:
 
         return AsyncDataFrame.from_table(self, columns=list(columns))
 
-    async def insert(self, rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]) -> int:
-        from .async_mutations import insert_rows_async
+    def insert(
+        self, rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]
+    ) -> "AsyncInsertMutation":
+        """Create a lazy async insert operation.
 
-        return await insert_rows_async(self, rows)
+        Args:
+            rows: Sequence of row dictionaries to insert
 
-    async def update(self, *, where: Column, set: Mapping[str, object]) -> int:
-        from .async_mutations import update_rows_async
+        Returns:
+            AsyncInsertMutation that executes on collect()
 
-        return await update_rows_async(self, where=where, values=set)
+        Example:
+            >>> mutation = table.insert([{"id": 1, "name": "Alice"}])
+            >>> rowcount = await mutation.collect()  # Executes the insert
+        """
+        from .async_actions import AsyncInsertMutation
 
-    async def delete(self, where: Column) -> int:
-        from .async_mutations import delete_rows_async
+        return AsyncInsertMutation(handle=self, rows=rows)
 
-        return await delete_rows_async(self, where=where)
+    def update(self, *, where: Column, set: Mapping[str, object]) -> "AsyncUpdateMutation":
+        """Create a lazy async update operation.
 
-    async def merge(
+        Args:
+            where: Column expression for the WHERE clause
+            set: Dictionary of column names to new values
+
+        Returns:
+            AsyncUpdateMutation that executes on collect()
+
+        Example:
+            >>> mutation = table.update(where=col("id") == 1, set={"name": "Bob"})
+            >>> rowcount = await mutation.collect()  # Executes the update
+        """
+        from .async_actions import AsyncUpdateMutation
+
+        return AsyncUpdateMutation(handle=self, where=where, values=set)
+
+    def delete(self, where: Column) -> "AsyncDeleteMutation":
+        """Create a lazy async delete operation.
+
+        Args:
+            where: Column expression for the WHERE clause
+
+        Returns:
+            AsyncDeleteMutation that executes on collect()
+
+        Example:
+            >>> mutation = table.delete(where=col("id") == 1)
+            >>> rowcount = await mutation.collect()  # Executes the delete
+        """
+        from .async_actions import AsyncDeleteMutation
+
+        return AsyncDeleteMutation(handle=self, where=where)
+
+    def merge(
         self,
         rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"],
         *,
         on: Sequence[str],
         when_matched: Optional[Mapping[str, object]] = None,
         when_not_matched: Optional[Mapping[str, object]] = None,
-    ) -> int:
-        """Merge (upsert) rows into the table with conflict resolution (async).
+    ) -> "AsyncMergeMutation":
+        """Create a lazy async merge (upsert) operation.
 
         This implements MERGE/UPSERT operations with dialect-specific SQL:
         - PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
@@ -72,21 +124,62 @@ class AsyncTableHandle:
                              If None, uses values from rows
 
         Returns:
-            Number of rows affected (inserted or updated)
+            AsyncMergeMutation that executes on collect()
 
         Example:
-            >>> # Upsert users by email
-            >>> await table.merge(
+            >>> mutation = table.merge(
             ...     [{"email": "user@example.com", "name": "Updated Name"}],
             ...     on=["email"],
             ...     when_matched={"name": "Updated Name", "updated_at": "NOW()"}
             ... )
+            >>> rowcount = await mutation.collect()  # Executes the merge
         """
-        from .async_mutations import merge_rows_async
+        from .async_actions import AsyncMergeMutation
 
-        return await merge_rows_async(
-            self, rows, on=on, when_matched=when_matched, when_not_matched=when_not_matched
+        return AsyncMergeMutation(
+            handle=self,
+            rows=rows,
+            on=on,
+            when_matched=when_matched,
+            when_not_matched=when_not_matched,
         )
+
+
+class AsyncTransaction:
+    """Async transaction context for grouping multiple operations."""
+
+    def __init__(self, database: "AsyncDatabase", connection: AsyncConnection):
+        self.database = database
+        self.connection = connection
+        self._committed = False
+        self._rolled_back = False
+
+    async def commit(self) -> None:
+        """Explicitly commit the transaction."""
+        if self._committed or self._rolled_back:
+            raise RuntimeError("Transaction already committed or rolled back")
+        await self.database.connection_manager.commit_transaction(self.connection)
+        self._committed = True
+
+    async def rollback(self) -> None:
+        """Explicitly rollback the transaction."""
+        if self._committed or self._rolled_back:
+            raise RuntimeError("Transaction already committed or rolled back")
+        await self.database.connection_manager.rollback_transaction(self.connection)
+        self._rolled_back = True
+
+    async def __aenter__(self) -> "AsyncTransaction":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if exc_type is not None:
+            # Exception occurred, rollback
+            if not self._rolled_back and not self._committed:
+                await self.rollback()
+        else:
+            # No exception, commit
+            if not self._committed and not self._rolled_back:
+                await self.commit()
 
 
 class AsyncDatabase:
@@ -138,15 +231,15 @@ class AsyncDatabase:
         return AsyncDataLoader(self)
 
     # -------------------------------------------------------------- DDL operations
-    async def create_table(
+    def create_table(
         self,
         name: str,
         columns: Sequence[ColumnDef],
         *,
         if_not_exists: bool = True,
         temporary: bool = False,
-    ) -> AsyncTableHandle:
-        """Create a new table with the specified schema.
+    ) -> "AsyncCreateTableOperation":
+        """Create a lazy async create table operation.
 
         Args:
             name: Name of the table to create
@@ -155,40 +248,47 @@ class AsyncDatabase:
             temporary: If True, create a temporary table (default: False)
 
         Returns:
-            AsyncTableHandle for the newly created table
+            AsyncCreateTableOperation that executes on collect()
 
         Raises:
             ValidationError: If table name or columns are invalid
-            ExecutionError: If table creation fails
+
+        Example:
+            >>> op = db.create_table("users", [column("id", "INTEGER")])
+            >>> table = await op.collect()  # Executes the CREATE TABLE
         """
         from ..utils.exceptions import ValidationError
+        from .async_actions import AsyncCreateTableOperation
 
+        # Validate early (at operation creation time)
         if not columns:
             raise ValidationError(f"Cannot create table '{name}' with no columns")
 
-        schema = TableSchema(
+        return AsyncCreateTableOperation(
+            database=self,
             name=name,
             columns=columns,
             if_not_exists=if_not_exists,
             temporary=temporary,
         )
-        sql = compile_create_table(schema, self._dialect)
-        await self._executor.execute(sql)
-        return await self.table(name)
 
-    async def drop_table(self, name: str, *, if_exists: bool = True) -> None:
-        """Drop a table by name.
+    def drop_table(self, name: str, *, if_exists: bool = True) -> "AsyncDropTableOperation":
+        """Create a lazy async drop table operation.
 
         Args:
             name: Name of the table to drop
             if_exists: If True, don't error if table doesn't exist (default: True)
 
-        Raises:
-            ValidationError: If table name is invalid
-            ExecutionError: If table dropping fails (when if_exists=False and table doesn't exist)
+        Returns:
+            AsyncDropTableOperation that executes on collect()
+
+        Example:
+            >>> op = db.drop_table("users")
+            >>> await op.collect()  # Executes the DROP TABLE
         """
-        sql = compile_drop_table(name, self._dialect, if_exists=if_exists)
-        await self._executor.execute(sql)
+        from .async_actions import AsyncDropTableOperation
+
+        return AsyncDropTableOperation(database=self, name=name, if_exists=if_exists)
 
     # -------------------------------------------------------------- query utils
     def compile_plan(self, plan: LogicalPlan) -> Any:
@@ -217,6 +317,35 @@ class AsyncDatabase:
     @property
     def dialect(self) -> DialectSpec:
         return self._dialect
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator[AsyncTransaction]:
+        """Create an async transaction context for grouping multiple operations.
+
+        All operations within the transaction context share the same transaction.
+        If any exception occurs, the transaction is automatically rolled back.
+        Otherwise, it is committed on successful exit.
+
+        Yields:
+            AsyncTransaction object that can be used for explicit commit/rollback
+
+        Example:
+            >>> async with db.transaction() as txn:
+            ...     await table.insert([...]).collect()
+            ...     await table.update(...).collect()
+            ...     # If any operation fails, all are rolled back
+            ...     # Otherwise, all are committed on exit
+        """
+        connection = await self._connections.begin_transaction()
+        txn = AsyncTransaction(self, connection)
+        try:
+            yield txn
+            if not txn._committed and not txn._rolled_back:
+                await txn.commit()
+        except Exception:
+            if not txn._rolled_back:
+                await txn.rollback()
+            raise
 
     async def close(self) -> None:
         """Close the database connection and cleanup resources."""

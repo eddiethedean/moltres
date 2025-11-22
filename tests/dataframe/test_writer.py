@@ -16,13 +16,13 @@ def test_write_append_mode(tmp_path):
             column("id", "INTEGER", primary_key=True),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
     source.insert(
         [
             {"id": 1, "name": "Alice"},
             {"id": 2, "name": "Bob"},
         ]
-    )
+    ).collect()
 
     # Write to new table
     df = db.table("source").select()
@@ -36,7 +36,7 @@ def test_write_append_mode(tmp_path):
     assert rows[1]["name"] == "Bob"
 
     # Append more data
-    source.insert([{"id": 3, "name": "Charlie"}])
+    source.insert([{"id": 3, "name": "Charlie"}]).collect()
     df2 = db.table("source").select().where(col("id") == 3)
     df2.write.mode("append").save_as_table("target")
 
@@ -57,8 +57,8 @@ def test_write_overwrite_mode(tmp_path):
             column("id", "INTEGER", primary_key=True),
             column("value", "INTEGER"),
         ],
-    )
-    source.insert([{"id": 1, "value": 100}])
+    ).collect()
+    source.insert([{"id": 1, "value": 100}]).collect()
 
     # Write initial data
     df = db.table("source").select()
@@ -71,7 +71,7 @@ def test_write_overwrite_mode(tmp_path):
     assert rows[0]["value"] == 100
 
     # Overwrite with new data
-    source.insert([{"id": 2, "value": 200}])
+    source.insert([{"id": 2, "value": 200}]).collect()
     df2 = db.table("source").select()
     df2.write.mode("overwrite").save_as_table("target")
 
@@ -91,8 +91,8 @@ def test_write_error_if_exists_mode(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER")],
-    )
-    source.insert([{"id": 1}])
+    ).collect()
+    source.insert([{"id": 1}]).collect()
 
     # Write once (creates table)
     df = db.table("source").select()
@@ -118,8 +118,8 @@ def test_write_with_explicit_schema(tmp_path):
             column("name", "TEXT"),
             column("score", "REAL"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice", "score": 95.5}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice", "score": 95.5}]).collect()
 
     # Write with explicit schema
     explicit_schema = [
@@ -149,7 +149,7 @@ def test_write_empty_dataframe(tmp_path):
     db.create_table(
         "source",
         [column("id", "INTEGER")],
-    )
+    ).collect()
 
     # Create empty DataFrame
     df = db.table("source").select().where(col("id") == 999)
@@ -177,8 +177,8 @@ def test_write_with_transformed_columns(tmp_path):
             column("first_name", "TEXT"),
             column("last_name", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "first_name": "John", "last_name": "Doe"}])
+    ).collect()
+    source.insert([{"id": 1, "first_name": "John", "last_name": "Doe"}]).collect()
 
     # Create DataFrame with transformed columns
     df = db.table("source").select(
@@ -205,8 +205,8 @@ def test_write_chained_api(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER")],
-    )
-    source.insert([{"id": 1}])
+    ).collect()
+    source.insert([{"id": 1}]).collect()
 
     df = db.table("source").select()
     df.write.mode("append").option("test", "value").save_as_table("target")
@@ -228,8 +228,8 @@ def test_write_with_primary_key_chaining(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
 
     # Write with primary key specified via chaining
     df = db.table("source").select()
@@ -244,7 +244,7 @@ def test_write_with_primary_key_chaining(tmp_path):
     import pytest
 
     with pytest.raises(Exception):  # Should fail due to primary key constraint
-        target.insert([{"id": 1, "name": "Duplicate"}])
+        target.insert([{"id": 1, "name": "Duplicate"}]).collect()
 
 
 def test_write_with_primary_key_parameter(tmp_path):
@@ -258,8 +258,8 @@ def test_write_with_primary_key_parameter(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Write with primary key specified via parameter
     df = db.table("source").select()
@@ -283,8 +283,8 @@ def test_write_with_composite_primary_key(tmp_path):
             column("order_id", "INTEGER"),
             column("amount", "REAL"),
         ],
-    )
-    source.insert([{"user_id": 1, "order_id": 100, "amount": 50.0}])
+    ).collect()
+    source.insert([{"user_id": 1, "order_id": 100, "amount": 50.0}]).collect()
 
     # Write with composite primary key
     df = db.table("source").select()
@@ -307,8 +307,8 @@ def test_write_primary_key_with_explicit_schema(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Write with explicit schema and primary key
     explicit_schema = [
@@ -336,8 +336,8 @@ def test_write_primary_key_validation_error(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Try to use non-existent column as primary key
     df = db.table("source").select()
@@ -359,8 +359,8 @@ def test_write_primary_key_parameter_overrides_chaining(tmp_path):
             column("name", "TEXT"),
             column("email", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}]).collect()
 
     # Chain primaryKey but override with parameter
     df = db.table("source").select()
@@ -385,8 +385,8 @@ def test_write_primary_key_with_filtered_query(tmp_path):
             column("name", "TEXT"),
             column("status", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice", "status": "active"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice", "status": "active"}]).collect()
 
     # Select only name and status (excluding id)
     df = db.table("source").select("name", "status")
@@ -415,8 +415,8 @@ def test_write_optimized_simple_select(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
 
     # Write using optimization (should use INSERT INTO ... SELECT)
     df = db.table("source").select()
@@ -440,14 +440,14 @@ def test_write_optimized_with_filter(tmp_path):
             column("id", "INTEGER"),
             column("status", "TEXT"),
         ],
-    )
+    ).collect()
     source.insert(
         [
             {"id": 1, "status": "active"},
             {"id": 2, "status": "inactive"},
             {"id": 3, "status": "active"},
         ]
-    )
+    ).collect()
 
     # Write filtered data using optimization
     df = db.table("source").select().where(col("status") == "active")
@@ -472,8 +472,8 @@ def test_write_optimized_with_project(tmp_path):
             column("name", "TEXT"),
             column("email", "TEXT"),
         ],
-    )
-    source.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}]).collect()
 
     # Write with selected columns only
     df = db.table("source").select(col("name"), col("email"))
@@ -499,7 +499,7 @@ def test_write_optimized_with_join(tmp_path):
             column("id", "INTEGER", primary_key=True),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
     orders = db.create_table(
         "orders",
         [
@@ -507,10 +507,10 @@ def test_write_optimized_with_join(tmp_path):
             column("customer_id", "INTEGER"),
             column("amount", "REAL"),
         ],
-    )
+    ).collect()
 
-    customers.insert([{"id": 1, "name": "Alice"}])
-    orders.insert([{"id": 100, "customer_id": 1, "amount": 50.0}])
+    customers.insert([{"id": 1, "name": "Alice"}]).collect()
+    orders.insert([{"id": 100, "customer_id": 1, "amount": 50.0}]).collect()
 
     # Write joined data using optimization
     # Select with aliases before join to avoid column qualification issues
@@ -542,14 +542,14 @@ def test_write_optimized_with_aggregate(tmp_path):
             column("customer_id", "INTEGER"),
             column("amount", "REAL"),
         ],
-    )
+    ).collect()
     orders.insert(
         [
             {"customer_id": 1, "amount": 10.0},
             {"customer_id": 1, "amount": 20.0},
             {"customer_id": 2, "amount": 15.0},
         ]
-    )
+    ).collect()
 
     # Write aggregated data using optimization
     df = (
@@ -577,15 +577,15 @@ def test_write_optimized_overwrite_mode(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("value", "INTEGER")],
-    )
-    source.insert([{"id": 1, "value": 100}])
+    ).collect()
+    source.insert([{"id": 1, "value": 100}]).collect()
 
     # Write initial data
     df = db.table("source").select()
     df.write.save_as_table("target")
 
     # Overwrite with new data using optimization
-    source.insert([{"id": 2, "value": 200}])
+    source.insert([{"id": 2, "value": 200}]).collect()
     df2 = db.table("source").select()
     df2.write.mode("overwrite").save_as_table("target")
 
@@ -603,15 +603,15 @@ def test_write_optimized_append_mode(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
-    )
-    source.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Write initial data
     df = db.table("source").select()
     df.write.save_as_table("target")
 
     # Append more data using optimization
-    source.insert([{"id": 2, "name": "Bob"}])
+    source.insert([{"id": 2, "name": "Bob"}]).collect()
     df2 = db.table("source").select().where(col("id") == 2)
     df2.write.mode("append").save_as_table("target")
 
@@ -629,8 +629,8 @@ def test_write_optimized_with_explicit_schema(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
-    )
-    source.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Write with explicit schema using optimization
     schema = [ColumnDef("id", "INTEGER"), ColumnDef("name", "TEXT")]
@@ -652,8 +652,8 @@ def test_write_optimized_with_primary_key(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
-    )
-    source.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Write with primary key using optimization
     df = db.table("source").select()
@@ -674,8 +674,8 @@ def test_write_fallback_to_materialization(tmp_path):
     source = db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
-    )
-    source.insert([{"id": 1, "name": "Alice"}])
+    ).collect()
+    source.insert([{"id": 1, "name": "Alice"}]).collect()
 
     # Use streaming mode (should fall back to materialization)
     df = db.table("source").select()
@@ -696,7 +696,7 @@ def test_write_optimized_empty_result_set(tmp_path):
     db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
-    )
+    ).collect()
     # Don't insert any data
 
     # Write empty result set with explicit schema

@@ -38,11 +38,11 @@ orders_table = db.create_table(
         ColumnDef(name="customer_id", type_name="INTEGER"),
         ColumnDef(name="amount", type_name="REAL"),
     ],
-)
+).collect()
 orders_table.insert([
     {"customer_id": 1, "amount": 100.0},
     {"customer_id": 2, "amount": 200.0},
-])
+]).collect()
 
 customers_table = db.create_table(
     "customers",
@@ -54,11 +54,11 @@ customers_table = db.create_table(
         ColumnDef(name="country", type_name="TEXT"),
         ColumnDef(name="updated_at", type_name="TEXT"),
     ],
-)
+).collect()
 customers_table.insert([
     {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1, "country": "US"},
     {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 1, "country": "UK"},
-])
+]).collect()
 """
     # Replace temp_db_path in setup
     # Use as_posix() to convert Windows paths to forward slashes (required for SQLite URLs)

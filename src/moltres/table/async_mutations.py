@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -21,7 +21,9 @@ else:
 
 
 async def insert_rows_async(
-    handle: AsyncTableHandle, rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]
+    handle: AsyncTableHandle,
+    rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"],
+    transaction: Optional[Any] = None,
 ) -> int:
     """Insert rows into a table using batch inserts for better performance.
 
@@ -57,12 +59,16 @@ async def insert_rows_async(
 
     # Use batch insert for better performance
     params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]
-    result = await handle.database.executor.execute_many(sql, params_list)
+    result = await handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 
 
 async def update_rows_async(
-    handle: AsyncTableHandle, *, where: Column, values: Mapping[str, object]
+    handle: AsyncTableHandle,
+    *,
+    where: Column,
+    values: Mapping[str, object],
+    transaction: Optional[Any] = None,
 ) -> int:
     """Update rows in a table matching the given condition.
 
@@ -91,11 +97,13 @@ async def update_rows_async(
     condition_sql = _compile_condition(where, handle)
     table_sql = quote_identifier(handle.name, quote)
     sql = f"UPDATE {table_sql} SET {', '.join(assignments)} WHERE {condition_sql}"
-    result = await handle.database.executor.execute(sql, params=params)
+    result = await handle.database.executor.execute(sql, params=params, transaction=transaction)
     return result.rowcount or 0
 
 
-async def delete_rows_async(handle: AsyncTableHandle, *, where: Column) -> int:
+async def delete_rows_async(
+    handle: AsyncTableHandle, *, where: Column, transaction: Optional[Any] = None
+) -> int:
     """Delete rows from a table matching the given condition.
 
     Args:
@@ -108,7 +116,7 @@ async def delete_rows_async(handle: AsyncTableHandle, *, where: Column) -> int:
     condition_sql = _compile_condition(where, handle)
     table_sql = quote_identifier(handle.name, handle.database.dialect.quote_char)
     sql = f"DELETE FROM {table_sql} WHERE {condition_sql}"
-    result = await handle.database.executor.execute(sql)
+    result = await handle.database.executor.execute(sql, transaction=transaction)
     return result.rowcount or 0
 
 
@@ -124,6 +132,7 @@ async def merge_rows_async(
     on: Sequence[str],
     when_matched: Optional[Mapping[str, object]] = None,
     when_not_matched: Optional[Mapping[str, object]] = None,
+    transaction: Optional[Any] = None,
 ) -> int:
     """Merge (upsert) rows into a table with conflict resolution (async).
 
@@ -238,7 +247,7 @@ async def merge_rows_async(
                 params[f"update_{col_name}"] = value
         params_list.append(params)
 
-    result = await handle.database.executor.execute_many(sql, params_list)
+    result = await handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 
 

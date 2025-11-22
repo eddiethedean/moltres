@@ -106,12 +106,12 @@ class DataFrameWriter:
             chunk_iter = self._df.collect(stream=True)
             for chunk in chunk_iter:
                 if chunk:
-                    table.insert(chunk)
+                    table.insert(chunk).collect()
         else:
             rows = self._df.collect()
             if rows:
                 table = db.table(table_name)
-                table.insert(rows)
+                table.insert(rows).collect()
 
     insert_into = insertInto
 
@@ -223,26 +223,26 @@ class DataFrameWriter:
         # Handle overwrite mode
         if self._mode == "overwrite":
             if table_exists:
-                db.drop_table(table_name, if_exists=True)
-            db.create_table(table_name, schema, if_not_exists=False)
+                db.drop_table(table_name, if_exists=True).collect()
+            db.create_table(table_name, schema, if_not_exists=False).collect()
         elif not table_exists:
             # Create table if it doesn't exist
-            db.create_table(table_name, schema, if_not_exists=True)
+            db.create_table(table_name, schema, if_not_exists=True).collect()
 
         # Insert data (if any)
         if self._stream:
             # Streaming write: insert first chunk, then remaining chunks
             table = db.table(table_name)
             if rows:  # First chunk already read
-                table.insert(rows)
+                table.insert(rows).collect()
             # Insert remaining chunks
             if chunk_iter is not None:
                 for chunk in chunk_iter:
                     if chunk:
-                        table.insert(chunk)
+                        table.insert(chunk).collect()
         elif rows:
             table = db.table(table_name)
-            table.insert(rows)
+            table.insert(rows).collect()
 
     def _infer_schema_from_plan(self) -> Optional[Sequence[ColumnDef]]:
         """Infer schema from DataFrame plan without materializing data.
@@ -357,11 +357,11 @@ class DataFrameWriter:
         # Handle overwrite mode
         if self._mode == "overwrite":
             if table_exists:
-                db.drop_table(table_name, if_exists=True)
-            db.create_table(table_name, final_schema, if_not_exists=False)
+                db.drop_table(table_name, if_exists=True).collect()
+            db.create_table(table_name, final_schema, if_not_exists=False).collect()
         elif not table_exists:
             # Create table if it doesn't exist
-            db.create_table(table_name, final_schema, if_not_exists=True)
+            db.create_table(table_name, final_schema, if_not_exists=True).collect()
 
         # Compile DataFrame plan to SELECT statement
         from ..sql.compiler import compile_plan
@@ -616,7 +616,7 @@ class DataFrameWriter:
     def _save_parquet(self, path: str) -> None:
         """Save DataFrame as Parquet file."""
         try:
-            import pandas as pd  # type: ignore[import-untyped]
+            import pandas as pd
         except ImportError as exc:
             raise RuntimeError(
                 "Parquet format requires pandas. Install with: pip install pandas"

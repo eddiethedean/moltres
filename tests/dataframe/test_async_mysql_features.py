@@ -32,11 +32,11 @@ async def test_async_json_type(mysql_async_connection):
         [
             json("data"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_json")
     # MySQL requires JSON to be serialized as string
-    await table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}])
+    await table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}]).collect()
 
     result = await table.select().collect()
     assert len(result) == 1
@@ -59,13 +59,13 @@ async def test_async_uuid_type(mysql_async_connection):
         [
             uuid("id"),
         ],
-    )
+    ).collect()
 
     import uuid as uuid_module
 
     test_uuid = uuid_module.uuid4()
     table = await db.table("test_uuid")
-    await table.insert([{"id": str(test_uuid)}])
+    await table.insert([{"id": str(test_uuid)}]).collect()
 
     result = await table.select().collect()
     assert len(result) == 1
@@ -85,7 +85,7 @@ async def test_async_group_concat_collect_list(mysql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_array")
     await table.insert(
@@ -94,7 +94,7 @@ async def test_async_group_concat_collect_list(mysql_async_connection):
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
         ]
-    )
+    ).collect()
 
     table_handle = await db.table("test_array")
     result = await (
@@ -122,7 +122,7 @@ async def test_async_group_concat_collect_set(mysql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_array")
     await table.insert(
@@ -131,7 +131,7 @@ async def test_async_group_concat_collect_set(mysql_async_connection):
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
         ]
-    )
+    ).collect()
 
     table_handle = await db.table("test_array")
     result = await (
@@ -157,11 +157,13 @@ async def test_async_json_extract_mysql(mysql_async_connection):
         [
             json("data"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_json")
     # MySQL requires JSON to be serialized as string
-    await table.insert([{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}])
+    await table.insert(
+        [{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}]
+    ).collect()
 
     table_handle = await db.table("test_json")
     result = await table_handle.select(
@@ -188,10 +190,10 @@ async def test_async_array_functions_mysql(mysql_async_connection):
         [
             column("id", "INTEGER", primary_key=True),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_array")
-    await table.insert([{"id": 1}])
+    await table.insert([{"id": 1}]).collect()
 
     # Test array functions (MySQL uses JSON arrays)
     table_handle = await db.table("test_array")
@@ -224,10 +226,10 @@ async def test_async_date_add_mysql(mysql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("date_col", "DATE"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_dates")
-    await table.insert([{"id": 1, "date_col": "2024-01-01"}])
+    await table.insert([{"id": 1, "date_col": "2024-01-01"}]).collect()
 
     table_handle = await db.table("test_dates")
     result = await table_handle.select(
@@ -252,10 +254,10 @@ async def test_async_date_sub_mysql(mysql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("date_col", "DATE"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_dates")
-    await table.insert([{"id": 1, "date_col": "2024-01-02"}])
+    await table.insert([{"id": 1, "date_col": "2024-01-02"}]).collect()
 
     table_handle = await db.table("test_dates")
     result = await table_handle.select(
@@ -279,13 +281,13 @@ async def test_async_lateral_join_mysql(mysql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("data", "JSON"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_lateral")
     # MySQL requires JSON arrays to be serialized as string
     import json as json_module
 
-    await table.insert([{"id": 1, "data": json_module.dumps([1, 2, 3])}])
+    await table.insert([{"id": 1, "data": json_module.dumps([1, 2, 3])}]).collect()
 
     # LATERAL join with JSON_TABLE (MySQL 8.0+)
     # Note: explode() is not yet fully implemented
@@ -305,7 +307,7 @@ async def test_async_on_duplicate_key_update(mysql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     await db.create_table(
         "source",
@@ -313,13 +315,13 @@ async def test_async_on_duplicate_key_update(mysql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     target_table = await db.table("target")
-    await target_table.insert([{"id": 1, "value": "old"}])
+    await target_table.insert([{"id": 1, "value": "old"}]).collect()
 
     source_table = await db.table("source")
-    await source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}])
+    await source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}]).collect()
 
     # Merge using the correct API: rows (list of dicts), not DataFrame
     source_rows = await source_table.select().collect()
@@ -327,7 +329,7 @@ async def test_async_on_duplicate_key_update(mysql_async_connection):
         source_rows,
         on=["id"],
         when_matched={"value": "new"},  # Update value when matched
-    )
+    ).collect()
 
     assert result >= 1
 

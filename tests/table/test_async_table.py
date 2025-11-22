@@ -26,7 +26,7 @@ async def test_async_table_operations(tmp_path):
             column("name", "TEXT"),
             column("price", "REAL"),
         ],
-    )
+    ).collect()
 
     # Insert rows
     await table.insert(
@@ -34,13 +34,13 @@ async def test_async_table_operations(tmp_path):
             {"id": 1, "name": "Widget", "price": 10.0},
             {"id": 2, "name": "Gadget", "price": 20.0},
         ]
-    )
+    ).collect()
 
     # Update rows
     updated = await table.update(
         where=col("id") == 1,
         set={"price": 15.0},
-    )
+    ).collect()
     assert updated == 1
 
     # Query
@@ -52,7 +52,7 @@ async def test_async_table_operations(tmp_path):
     assert results[0]["price"] == 15.0
 
     # Delete rows
-    deleted = await table.delete(where=col("id") == 2)
+    deleted = await table.delete(where=col("id") == 2).collect()
     assert deleted == 1
 
     # Verify deletion
@@ -71,10 +71,10 @@ async def test_async_drop_table(tmp_path):
     from moltres.table.schema import column
 
     # Create and drop table
-    await db.create_table("temp", [column("x", "INTEGER")])
-    await db.drop_table("temp", if_exists=True)
+    await db.create_table("temp", [column("x", "INTEGER")]).collect()
+    await db.drop_table("temp", if_exists=True).collect()
 
     # Should not raise error
-    await db.drop_table("temp", if_exists=True)
+    await db.drop_table("temp", if_exists=True).collect()
 
     await db.close()

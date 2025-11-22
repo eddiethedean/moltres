@@ -104,7 +104,7 @@ async def test_async_records_insert_into(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert records
     count = await records.insert_into("target")
@@ -140,12 +140,12 @@ async def test_async_records_direct_insert(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert records directly
     # Note: AsyncRecords needs to be materialized first for insert
     rows = await records.rows()
-    count = await table.insert(rows)
+    count = await table.insert(rows).collect()
     assert count == 2
 
     # Verify
@@ -224,8 +224,8 @@ async def test_async_records_from_table(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
-    await table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+    ).collect()
+    await table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
 
     # Load table as AsyncRecords
     records = await db.load.table("source")
@@ -243,7 +243,7 @@ async def test_async_records_from_table(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
     count = await records.insert_into("target")
     assert count == 2
 
@@ -320,7 +320,7 @@ async def test_async_records_insert_into_with_table_handle(tmp_path):
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert using AsyncTableHandle
     count = await records.insert_into(table)

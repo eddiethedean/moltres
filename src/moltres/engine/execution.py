@@ -113,12 +113,15 @@ class QueryExecutor:
                 ) from exc
             raise ExecutionError(f"Failed to execute query: {exc}") from exc
 
-    def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
+    def execute(
+        self, sql: str, params: Optional[Dict[str, Any]] = None, transaction: Optional[Any] = None
+    ) -> QueryResult:
         """Execute a non-SELECT SQL statement (INSERT, UPDATE, DELETE, etc.).
 
         Args:
             sql: The SQL statement to execute
             params: Optional parameter dictionary for parameterized queries
+            transaction: Optional transaction connection to use (if None, uses auto-commit)
 
         Returns:
             QueryResult with rowcount of affected rows
@@ -128,7 +131,7 @@ class QueryExecutor:
         """
         logger.debug("Executing statement: %s", sql[:200] if len(sql) > 200 else sql)
         try:
-            with self._connections.connect() as conn:
+            with self._connections.connect(transaction=transaction) as conn:
                 result = conn.execute(text(sql), params or {})
                 rowcount = result.rowcount or 0
                 logger.debug("Statement affected %d rows", rowcount)
@@ -137,7 +140,12 @@ class QueryExecutor:
             logger.error("SQL execution failed: %s", exc, exc_info=True)
             raise ExecutionError(f"Failed to execute statement: {exc}") from exc
 
-    def execute_many(self, sql: str, params_list: Sequence[Dict[str, Any]]) -> QueryResult:
+    def execute_many(
+        self,
+        sql: str,
+        params_list: Sequence[Dict[str, Any]],
+        transaction: Optional[Any] = None,
+    ) -> QueryResult:
         """Execute a SQL statement multiple times with different parameter sets.
 
         This is more efficient than calling execute() in a loop for batch inserts.
@@ -145,6 +153,7 @@ class QueryExecutor:
         Args:
             sql: The SQL statement to execute
             params_list: Sequence of parameter dictionaries, one per execution
+            transaction: Optional transaction connection to use (if None, uses auto-commit)
 
         Returns:
             QueryResult with total rowcount across all executions
@@ -162,7 +171,7 @@ class QueryExecutor:
         )
         total_rowcount = 0
         try:
-            with self._connections.connect() as conn:
+            with self._connections.connect(transaction=transaction) as conn:
                 for params in params_list:
                     result = conn.execute(text(sql), params or {})
                     total_rowcount += result.rowcount or 0
@@ -209,10 +218,10 @@ class QueryExecutor:
             return [dict(zip(columns, row)) for row in rows]
         if fmt == "pandas":
             try:
-                import pandas as pd  # type: ignore
+                import pandas as pd
             except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
                 raise RuntimeError("Pandas support requested but pandas is not installed") from exc
-            return pd.DataFrame(rows, columns=columns)
+            return pd.DataFrame(rows, columns=columns)  # type: ignore[call-overload]
         if fmt == "polars":
             try:
                 import polars as pl

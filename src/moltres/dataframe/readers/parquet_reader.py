@@ -34,7 +34,7 @@ def read_parquet(
         RuntimeError: If pandas or pyarrow are not installed
     """
     try:
-        import pandas as pd  # type: ignore[import-untyped]  # noqa: F401
+        import pandas as pd  # noqa: F401
     except ImportError as exc:
         raise RuntimeError(
             "Parquet format requires pandas. Install with: pip install pandas"

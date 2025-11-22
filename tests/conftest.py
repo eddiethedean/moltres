@@ -8,6 +8,11 @@ from typing import Generator
 
 import pytest
 
+try:
+    import pytest_asyncio
+except ImportError:
+    pytest_asyncio = None
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
@@ -36,7 +41,7 @@ def sample_table(sqlite_db):
             column("email", "TEXT", nullable=True),
             column("age", "INTEGER", nullable=True),
         ],
-    )
+    ).collect()
 
     table = sqlite_db.table("users")
     table.insert(
@@ -45,7 +50,7 @@ def sample_table(sqlite_db):
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": None, "age": 35},
         ]
-    )
+    ).collect()
 
     return table
 
@@ -64,7 +69,7 @@ def create_sample_table(db, table_name: str = "users"):
             column("email", "VARCHAR(255)", nullable=True),
             column("age", "INTEGER", nullable=True),
         ],
-    )
+    ).collect()
 
     table = db.table(table_name)
     table.insert(
@@ -73,7 +78,7 @@ def create_sample_table(db, table_name: str = "users"):
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": None, "age": 35},
         ]
-    )
+    ).collect()
 
     return table
 
@@ -81,10 +86,16 @@ def create_sample_table(db, table_name: str = "users"):
 @pytest.fixture(scope="function")
 def postgresql_db() -> Generator:
     """Create an ephemeral PostgreSQL database for testing."""
+    import os
+
     try:
         from testing.postgresql import Postgresql
     except ImportError:
         pytest.skip("testing.postgresql not available")
+
+    # Set LC_ALL if not already set (required for PostgreSQL on macOS)
+    if "LC_ALL" not in os.environ:
+        os.environ["LC_ALL"] = "en_US.UTF-8"
 
     postgres = Postgresql()
     yield postgres
@@ -110,14 +121,175 @@ def postgresql_connection(postgresql_db) -> Generator:
 @pytest.fixture(scope="function")
 def mysql_db() -> Generator:
     """Create an ephemeral MySQL database for testing."""
+    import os
+    import shutil
+    import subprocess
+
     try:
         from testing.mysqld import Mysqld
     except ImportError:
         pytest.skip("testing.mysqld not available")
 
-    mysql = Mysqld()
-    yield mysql
-    mysql.stop()
+    # Check for MySQL tools
+    mysql_install_db = shutil.which("mysql_install_db")
+    mysqld = shutil.which("mysqld")
+
+    if not mysqld:
+        pytest.skip("MySQL mysqld command not found")
+
+    # Detect MySQL version
+    mysql_version = None
+    if mysqld:
+        try:
+            result = subprocess.run(
+                [mysqld, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                version_output = result.stdout or result.stderr
+                # Extract version number (e.g., "mysqld  Ver 8.0.35")
+                import re
+
+                match = re.search(r"(\d+)\.(\d+)", version_output)
+                if match:
+                    major, minor = int(match.group(1)), int(match.group(2))
+                    mysql_version = (major, minor)
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+            pass
+
+    # MySQL 8.0+ requires mysqld --initialize instead of mysql_install_db
+    use_initialize = mysql_version and mysql_version >= (8, 0)
+
+    # Patch Mysqld for MySQL 8.0+ if needed
+    original_initialize_method = None
+    original_initialize_database = None
+    if use_initialize and not mysql_install_db:
+        # Patch initialize() to skip mysql_install_db lookup for MySQL 8.0+
+        original_initialize_method = Mysqld.initialize
+
+        def patched_initialize(self):
+            """Patched initialize that skips mysql_install_db for MySQL 8.0+."""
+            self.my_cnf = self.settings.get("my_cnf", {})
+            self.my_cnf.setdefault("socket", os.path.join(self.base_dir, "tmp", "mysql.sock"))
+            self.my_cnf.setdefault("datadir", os.path.join(self.base_dir, "var"))
+            self.my_cnf.setdefault("pid-file", os.path.join(self.base_dir, "tmp", "mysqld.pid"))
+            self.my_cnf.setdefault("tmpdir", os.path.join(self.base_dir, "tmp"))
+
+            # Skip mysql_install_db lookup for MySQL 8.0+
+            self.mysql_install_db = None
+
+            # Still need mysqld
+            self.mysqld = self.settings.get("mysqld")
+            if self.mysqld is None:
+                # Use shutil.which as fallback since find_program may not be available
+                import shutil
+
+                found_mysqld = shutil.which("mysqld")
+                if found_mysqld:
+                    self.mysqld = found_mysqld
+                else:
+                    # Try to use find_program if available
+                    try:
+                        from testing.mysqld import find_program
+
+                        self.mysqld = find_program("mysqld", ["bin", "libexec", "sbin"])
+                    except (ImportError, AttributeError):
+                        # If find_program not available, use the mysqld we found earlier
+                        self.mysqld = mysqld
+
+        # Patch initialize_database to use mysqld --initialize
+        original_initialize_database = Mysqld.initialize_database
+
+        def patched_initialize_database(self):
+            """Patched initialize_database that uses mysqld --initialize for MySQL 8.0+."""
+            # Get the original method's logic for setting up my.cnf
+            if "port" not in self.my_cnf and "skip-networking" not in self.my_cnf:
+                from testing.common.database import get_unused_port
+
+                self.my_cnf["port"] = get_unused_port()
+
+            # Write my.cnf
+            etc_dir = os.path.join(self.base_dir, "etc")
+            os.makedirs(etc_dir, exist_ok=True)
+            with open(os.path.join(etc_dir, "my.cnf"), "wt") as my_cnf:
+                my_cnf.write("[mysqld]\n")
+                for key, value in self.my_cnf.items():
+                    if value:
+                        my_cnf.write("%s=%s\n" % (key, value))
+                    else:
+                        my_cnf.write("%s\n" % key)
+
+            # Initialize database using mysqld --initialize (MySQL 8.0+)
+            # Use the datadir from my_cnf (set by initialize method)
+            mysql_data_dir = self.my_cnf.get("datadir", os.path.join(self.base_dir, "var"))
+
+            # Check if data directory exists and has files (from previous failed attempt)
+            if os.path.exists(mysql_data_dir):
+                # Check if it has mysql subdirectory with files
+                mysql_subdir = os.path.join(mysql_data_dir, "mysql")
+                if os.path.exists(mysql_subdir):
+                    import shutil
+
+                    try:
+                        shutil.rmtree(mysql_subdir)
+                    except OSError:
+                        pass
+                # Also check for any files directly in datadir
+                try:
+                    if os.listdir(mysql_data_dir):
+                        # Remove all files in datadir
+                        import shutil
+
+                        for item in os.listdir(mysql_data_dir):
+                            item_path = os.path.join(mysql_data_dir, item)
+                            if os.path.isdir(item_path):
+                                shutil.rmtree(item_path)
+                            else:
+                                os.remove(item_path)
+                except OSError:
+                    pass
+            else:
+                os.makedirs(mysql_data_dir, exist_ok=True)
+
+            args = [
+                mysqld,
+                "--defaults-file=%s/etc/my.cnf" % self.base_dir,
+                "--datadir=%s" % mysql_data_dir,
+                "--initialize-insecure",  # Initialize without password for testing
+            ]
+            result = subprocess.run(args, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to initialize MySQL database: {result.stderr}")
+
+        # Apply the patches
+        Mysqld.initialize = patched_initialize
+        Mysqld.initialize_database = patched_initialize_database
+
+    try:
+        mysql = Mysqld()
+        yield mysql
+        mysql.stop()
+    except RuntimeError as e:
+        error_msg = str(e)
+        if "mysql_install_db" in error_msg and use_initialize:
+            # MySQL 8.0+ detected but testing.mysqld is trying to use mysql_install_db
+            # This indicates testing.mysqld version may not support MySQL 8.0+
+            pytest.skip(
+                f"MySQL 8.0+ initialization failed: {e}. "
+                "testing.mysqld may need updating for MySQL 8.0+ support. "
+                "Consider: pip install --upgrade testing.mysqld"
+            )
+        elif "mysql_install_db" in error_msg:
+            pytest.skip(f"MySQL initialization failed: {e}")
+        raise
+    finally:
+        # Restore original methods if we patched them
+        if original_initialize_method is not None:
+            Mysqld.initialize = original_initialize_method
+        if original_initialize_database is not None:
+            Mysqld.initialize_database = original_initialize_database
 
 
 @pytest.fixture(scope="function")
@@ -148,7 +320,7 @@ def seed_customers_orders(db):
             column("name", "VARCHAR(255)", nullable=False),
             column("active", "INTEGER", nullable=True),
         ],
-    )
+    ).collect()
 
     # Create orders table
     db.create_table(
@@ -158,7 +330,7 @@ def seed_customers_orders(db):
             column("customer_id", "INTEGER", nullable=True),
             column("amount", "INTEGER", nullable=True),
         ],
-    )
+    ).collect()
 
     # Insert test data
     customers_table = db.table("customers")
@@ -167,7 +339,7 @@ def seed_customers_orders(db):
             {"id": 1, "name": "Alice", "active": 1},
             {"id": 2, "name": "Bob", "active": 0},
         ]
-    )
+    ).collect()
 
     orders_table = db.table("orders")
     orders_table.insert(
@@ -175,7 +347,7 @@ def seed_customers_orders(db):
             {"id": 100, "customer_id": 1, "amount": 50},
             {"id": 101, "customer_id": 2, "amount": 75},
         ]
-    )
+    ).collect()
 
 
 async def seed_customers_orders_async(db):
@@ -220,9 +392,11 @@ async def seed_customers_orders_async(db):
     )
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def postgresql_async_connection(postgresql_db):
     """Create an async Moltres Database connection to ephemeral PostgreSQL."""
+    if pytest_asyncio is None:
+        pytest.skip("pytest_asyncio not available")
     try:
         from moltres import async_connect
     except ImportError:
@@ -240,9 +414,11 @@ async def postgresql_async_connection(postgresql_db):
             await db.close()
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def mysql_async_connection(mysql_db):
     """Create an async Moltres Database connection to ephemeral MySQL."""
+    if pytest_asyncio is None:
+        pytest.skip("pytest_asyncio not available")
     try:
         from moltres import async_connect
     except ImportError:

@@ -34,11 +34,11 @@ async def test_async_jsonb_type(postgresql_async_connection):
         [
             json("data", jsonb=True),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_jsonb")
     # Serialize dict to JSON string for insertion
-    await table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}])
+    await table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}]).collect()
 
     result = await table.select().collect()
     assert len(result) == 1
@@ -61,13 +61,13 @@ async def test_async_uuid_type(postgresql_async_connection):
         [
             uuid("id"),
         ],
-    )
+    ).collect()
 
     import uuid as uuid_module
 
     test_uuid = uuid_module.uuid4()
     table = await db.table("test_uuid")
-    await table.insert([{"id": str(test_uuid)}])
+    await table.insert([{"id": str(test_uuid)}]).collect()
 
     result = await table.select().collect()
     assert len(result) == 1
@@ -91,7 +91,7 @@ async def test_async_array_agg_collect_list(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_array")
     await table.insert(
@@ -100,7 +100,7 @@ async def test_async_array_agg_collect_list(postgresql_async_connection):
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
         ]
-    )
+    ).collect()
 
     table_handle = await db.table("test_array")
     result = await (
@@ -128,7 +128,7 @@ async def test_async_array_agg_collect_set(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR(255)"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_array")
     await table.insert(
@@ -137,7 +137,7 @@ async def test_async_array_agg_collect_set(postgresql_async_connection):
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
         ]
-    )
+    ).collect()
 
     table_handle = await db.table("test_array")
     result = await (
@@ -163,11 +163,13 @@ async def test_async_json_extract_postgresql(postgresql_async_connection):
         [
             json("data", jsonb=True),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_json")
     # Serialize dict to JSON string for insertion
-    await table.insert([{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}])
+    await table.insert(
+        [{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}]
+    ).collect()
 
     table_handle = await db.table("test_json")
     result = await table_handle.select(
@@ -195,11 +197,11 @@ async def test_async_array_functions(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("arr", "VARCHAR"),  # Store as text, will cast to array
         ],
-    )
+    ).collect()
 
     # PostgreSQL array literal
     table = await db.table("test_array")
-    await table.insert([{"id": 1, "arr": "{1,2,3}"}])
+    await table.insert([{"id": 1, "arr": "{1,2,3}"}]).collect()
 
     # Test array functions
     table_handle = await db.table("test_array")
@@ -228,7 +230,7 @@ async def test_async_percentile_cont(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "REAL"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_percentile")
     await table.insert(
@@ -239,7 +241,7 @@ async def test_async_percentile_cont(postgresql_async_connection):
             {"id": 4, "value": 40.0},
             {"id": 5, "value": 50.0},
         ]
-    )
+    ).collect()
 
     # For global aggregation without group_by, we need to use a different approach
     # Use a dummy group_by with a constant or aggregate directly
@@ -263,7 +265,7 @@ async def test_async_percentile_disc(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "REAL"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_percentile")
     await table.insert(
@@ -274,7 +276,7 @@ async def test_async_percentile_disc(postgresql_async_connection):
             {"id": 4, "value": 40.0},
             {"id": 5, "value": 50.0},
         ]
-    )
+    ).collect()
 
     # For global aggregation without group_by, we need to use a different approach
     # Use a dummy group_by with a constant or aggregate directly
@@ -298,10 +300,10 @@ async def test_async_lateral_join(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("data", "VARCHAR"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_lateral")
-    await table.insert([{"id": 1, "data": '{"items": [1, 2, 3]}'}])
+    await table.insert([{"id": 1, "data": '{"items": [1, 2, 3]}'}]).collect()
 
     # LATERAL join with jsonb_array_elements
     # Note: explode() is not yet fully implemented for PostgreSQL
@@ -321,7 +323,7 @@ async def test_async_merge_statement(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR"),
         ],
-    )
+    ).collect()
 
     await db.create_table(
         "source",
@@ -329,13 +331,13 @@ async def test_async_merge_statement(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "VARCHAR"),
         ],
-    )
+    ).collect()
 
     target_table = await db.table("target")
-    await target_table.insert([{"id": 1, "value": "old"}])
+    await target_table.insert([{"id": 1, "value": "old"}]).collect()
 
     source_table = await db.table("source")
-    await source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}])
+    await source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}]).collect()
 
     # Merge using the correct API: rows (list of dicts), not DataFrame
     source_rows = await source_table.select().collect()
@@ -343,7 +345,7 @@ async def test_async_merge_statement(postgresql_async_connection):
         source_rows,
         on=["id"],
         when_matched={"value": "new"},  # Update value when matched
-    )
+    ).collect()
 
     assert result >= 1
 
@@ -364,11 +366,11 @@ async def test_async_tablesample(postgresql_async_connection):
             column("id", "INTEGER", primary_key=True),
             column("value", "INTEGER"),
         ],
-    )
+    ).collect()
 
     table = await db.table("test_sample")
     # Insert 100 rows
-    await table.insert([{"id": i, "value": i} for i in range(1, 101)])
+    await table.insert([{"id": i, "value": i} for i in range(1, 101)]).collect()
 
     # Test sample() with 10% fraction
     table_handle = await db.table("test_sample")

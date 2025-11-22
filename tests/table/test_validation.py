@@ -48,10 +48,10 @@ def test_insert_empty_rows(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
-    result = table.insert([])
+    result = table.insert([]).collect()
     assert result == 0
 
 
@@ -68,7 +68,7 @@ def test_insert_missing_columns(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
 
@@ -83,14 +83,14 @@ def test_insert_missing_columns(tmp_path):
                 {"id": 1, "name": "Alice"},
                 {"id": 2},  # Missing 'name' - inconsistent with first row
             ]
-        )
+        ).collect()
 
     # Valid insert - all rows have same structure
-    result = table.insert([{"id": 1, "name": "Alice"}])
+    result = table.insert([{"id": 1, "name": "Alice"}]).collect()
     assert result == 1
 
     # Valid insert with fewer columns (SQLite allows this)
-    result = table.insert([{"id": 2}])
+    result = table.insert([{"id": 2}]).collect()
     assert result == 1
 
 
@@ -107,10 +107,10 @@ def test_update_empty_set(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     table = db.table("test")
-    table.insert([{"id": 1, "name": "Alice"}])
+    table.insert([{"id": 1, "name": "Alice"}]).collect()
 
     with pytest.raises(ValidationError, match="at least one value"):
-        table.update(where=col("id") == 1, set={})
+        table.update(where=col("id") == 1, set={}).collect()

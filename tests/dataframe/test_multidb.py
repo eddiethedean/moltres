@@ -96,7 +96,7 @@ def test_insert_update_delete_multidb(request, db_fixture):
             column("name", "VARCHAR(255)", nullable=False),
             column("active", "INTEGER", nullable=True),
         ],
-    )
+    ).collect()
 
     table = db.table("test_table")
     inserted = table.insert(
@@ -104,13 +104,13 @@ def test_insert_update_delete_multidb(request, db_fixture):
             {"id": 1, "name": "Alice", "active": 1},
             {"id": 2, "name": "Bob", "active": 0},
         ]
-    )
+    ).collect()
     assert inserted == 2
 
-    updated = table.update(where=col("id") == 2, set={"name": "Bobby", "active": 1})
+    updated = table.update(where=col("id") == 2, set={"name": "Bobby", "active": 1}).collect()
     assert updated == 1
 
-    deleted = table.delete(where=col("id") == 1)
+    deleted = table.delete(where=col("id") == 1).collect()
     assert deleted == 1
 
     rows = read_table(db, "test_table")
@@ -147,7 +147,7 @@ def test_distinct_multidb(request, db_fixture):
             column("id", "INTEGER", nullable=False, primary_key=True),
             column("value", "VARCHAR(255)", nullable=False),
         ],
-    )
+    ).collect()
 
     table = db.table("test_distinct")
     table.insert(
@@ -157,7 +157,7 @@ def test_distinct_multidb(request, db_fixture):
             {"id": 3, "value": "A"},
             {"id": 4, "value": "B"},
         ]
-    )
+    ).collect()
 
     result = db.table("test_distinct").select("value").distinct().order_by(col("value")).collect()
 

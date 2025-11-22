@@ -25,10 +25,10 @@ async def test_async_fetch(tmp_path):
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
-    )
+    ).collect()
 
     # Insert data
-    await table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+    await table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
 
     # Query data
     # Use db.table().select() for SQL operations
@@ -57,11 +57,11 @@ async def test_async_batch_insert(tmp_path):
             column("id", "INTEGER"),
             column("value", "INTEGER"),
         ],
-    )
+    ).collect()
 
     # Insert many rows
     rows = [{"id": i, "value": i * 2} for i in range(100)]
-    count = await table.insert(rows)
+    count = await table.insert(rows).collect()
 
     assert count == 100
 
@@ -86,11 +86,11 @@ async def test_async_streaming(tmp_path):
     table = await db.create_table(
         "numbers",
         [column("n", "INTEGER")],
-    )
+    ).collect()
 
     # Insert many rows
     rows = [{"n": i} for i in range(1000)]
-    await table.insert(rows)
+    await table.insert(rows).collect()
 
     # Stream query results
     # Use db.table().select() for SQL operations

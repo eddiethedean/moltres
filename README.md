@@ -191,23 +191,23 @@ df = (
 # Execute and get results (SQL is compiled and executed here)
 results = df.collect()  # Returns list of dicts by default
 
-# CRUD operations with DataFrame-style syntax
+# CRUD operations with DataFrame-style syntax (lazy execution)
 customers = db.table("customers")
 
-# Insert rows (batch optimized)
+# Insert rows (batch optimized) - requires .collect() to execute
 customers.insert([
     {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1},
     {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 0},
-])
+]).collect()
 
-# Update rows (executes UPDATE SQL directly)
+# Update rows - requires .collect() to execute
 customers.update(
     where=col("active") == 0,
     set={"active": 1, "updated_at": "2024-01-01"}
-)
+).collect()
 
-# Delete rows (executes DELETE SQL directly)
-customers.delete(where=col("email").is_null())
+# Delete rows - requires .collect() to execute
+customers.delete(where=col("email").is_null()).collect()
 ```
 
 ### Async Support
@@ -275,7 +275,7 @@ Python has powerful DataFrame tools (Pandas, Polars) and powerful SQL tools (SQL
 
 ### Lazy Evaluation
 
-All DataFrame operations are lazy—they build a logical plan that only executes when you call `collect()`. The plan is compiled to SQL and executed on your database:
+All DataFrame operations are lazy—they build a logical plan that only executes when you call `collect()`. CRUD operations (insert, update, delete, merge) and DDL operations (create_table, drop_table) are also lazy and require `.collect()` to execute. The plan is compiled to SQL and executed on your database:
 
 ```python
 # This doesn't execute any SQL yet
@@ -342,10 +342,10 @@ records = db.load.text("log.txt", column_name="line")
 # Generic format reader - returns Records
 records = db.load.format("csv").option("header", True).load("data.csv")
 
-# Records can be used directly with insert operations
-table.insert(records)  # Records implements Sequence protocol
-# Or use the convenience method
-records.insert_into("table_name")
+# Records can be used directly with insert operations (lazy operation)
+table.insert(records).collect()  # Records implements Sequence protocol, requires .collect() to execute
+# Or use the convenience method (calls .collect() internally)
+records.insert_into("table_name")  # Executes immediately
 
 # Access data
 rows = records.rows()  # Get all rows as a list
@@ -377,7 +377,7 @@ records = db.load.schema(schema).csv("data.csv")
 > **Important:** File readers (`db.load.*`) return `Records`, not `DataFrame`. Records are materialized data containers that can be:
 > - Iterated directly: `for row in records: ...`
 > - Converted to a list: `rows = records.rows()`
-> - Used with insert operations: `table.insert(records)` or `records.insert_into("table")`
+> - Used with insert operations: `table.insert(records).collect()` or `records.insert_into("table")` (insert_into executes immediately)
 > 
 > For SQL operations (select, filter, join, etc.), use `db.table(name).select()` to get a DataFrame.
 
@@ -479,7 +479,7 @@ from moltres import column, connect
 
 db = connect("sqlite:///example.db")
 
-# Create a table with schema definition
+# Create a table with schema definition (lazy operation)
 customers = db.create_table(
     "customers",
     [
@@ -488,16 +488,16 @@ customers = db.create_table(
         column("email", "TEXT", nullable=True),
         column("active", "INTEGER", default=1),
     ],
-)
+).collect()  # Execute the create_table operation
 
-# Insert data
+# Insert data (lazy operation)
 customers.insert([
     {"id": 1, "name": "Alice", "email": "alice@example.com"},
     {"id": 2, "name": "Bob", "email": "bob@example.com"},
-])
+]).collect()  # Execute the insert operation
 
-# Drop tables
-db.drop_table("customers")
+# Drop tables (lazy operation)
+db.drop_table("customers").collect()  # Execute the drop_table operation
 ```
 
 The `column()` helper accepts:
@@ -509,25 +509,67 @@ The `column()` helper accepts:
 
 ## ✏️ Data Mutations
 
-Insert, update, and delete operations run eagerly:
+Insert, update, delete, and DDL operations are **lazy**—they build an operation plan that only executes when you call `.collect()`. This allows you to compose multiple operations and execute them together, optionally within a transaction:
 
 ```python
 from moltres import col
 
 customers = db.table("customers")
 
-# Insert rows (batch optimized)
-customers.insert([
+# Insert rows (batch optimized) - lazy operation
+mutation = customers.insert([
     {"id": 1, "name": "Alice", "active": 1},
     {"id": 2, "name": "Bob", "active": 0},
 ])
+# Execute the insert
+rowcount = mutation.collect()
 
-# Update rows
-customers.update(where=col("id") == 2, set={"active": 1})
+# Update rows - lazy operation
+mutation = customers.update(where=col("id") == 2, set={"active": 1})
+# Execute the update
+rowcount = mutation.collect()
 
-# Delete rows
-customers.delete(where=col("active") == 0)
+# Delete rows - lazy operation
+mutation = customers.delete(where=col("active") == 0)
+# Execute the delete
+rowcount = mutation.collect()
+
+# Merge/upsert operations - lazy operation
+mutation = customers.merge(
+    [{"email": "user@example.com", "name": "Updated Name"}],
+    on=["email"],
+    when_matched={"name": "Updated Name"}
+)
+# Execute the merge
+rowcount = mutation.collect()
 ```
+
+**Note:** DataFrame write operations (like `df.write.save_as_table()`) remain **eager** and execute immediately, matching PySpark's behavior.
+
+### Transaction Support
+
+All operations within a transaction context share the same database connection and transaction. If any operation fails, all changes are automatically rolled back:
+
+```python
+# Execute multiple operations in a single transaction
+with db.transaction() as txn:
+    # All operations share the same transaction
+    customers.insert([{"id": 1, "name": "Alice"}]).collect()
+    orders.insert([{"id": 1, "customer_id": 1, "amount": 100.0}]).collect()
+    # If any operation fails, all changes are rolled back
+    # If all succeed, transaction commits automatically
+```
+
+You can also explicitly control the transaction:
+
+```python
+with db.transaction() as txn:
+    customers.insert([{"id": 1, "name": "Alice"}]).collect()
+    txn.commit()  # Explicit commit
+    # Or txn.rollback() to rollback
+```
+
+**Note:** By default, each `.collect()` call executes in its own auto-commit transaction. Use `db.transaction()` to group multiple operations into a single atomic transaction.
 
 ## 📊 Result Formats
 
@@ -686,14 +728,14 @@ db = connect("postgresql://user:pass@localhost/warehouse")
 # Extract: Load from CSV (returns Records)
 raw_records = db.load.csv("raw_sales.csv")
 
-# Load raw data into staging table
+# Load raw data into staging table (lazy operation)
 db.create_table("staging_sales", [
     column("order_id", "INTEGER"),
     column("product", "TEXT"),
     column("amount", "REAL"),
     column("date", "DATE"),
-])
-raw_records.insert_into("staging_sales")
+]).collect()  # Execute the create_table operation
+raw_records.insert_into("staging_sales")  # Executes immediately
 
 # Transform: Clean and aggregate using SQL operations
 cleaned = (
