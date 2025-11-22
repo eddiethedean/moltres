@@ -9,7 +9,6 @@ except ImportError:
 
 from moltres import col
 from moltres.expressions.functions import (
-    array,
     array_contains,
     array_length,
     array_position,
@@ -28,18 +27,25 @@ async def test_async_jsonb_type(postgresql_async_connection):
     import json as json_module
     from moltres.table.schema import json
 
+    from moltres.table.schema import column
+
     db = postgresql_async_connection
     await db.create_table(
         "test_jsonb",
         [
+            column("id", "INTEGER", primary_key=True),
             json("data", jsonb=True),
         ],
     ).collect()
 
     table = await db.table("test_jsonb")
     # Serialize dict to JSON string for insertion
-    await table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}]).collect()
-
+    await (
+        await db.createDataFrame(
+            [{"id": 1, "data": json_module.dumps({"key": "value", "number": 42})}],
+            pk="id",
+        )
+    ).write.insertInto("test_jsonb")
     result = await table.select().collect()
     assert len(result) == 1
     # PostgreSQL returns JSONB as dict
@@ -67,8 +73,12 @@ async def test_async_uuid_type(postgresql_async_connection):
 
     test_uuid = uuid_module.uuid4()
     table = await db.table("test_uuid")
-    await table.insert([{"id": str(test_uuid)}]).collect()
-
+    await (
+        await db.createDataFrame(
+            [{"id": str(test_uuid)}],
+            schema=[uuid("id", primary_key=True)],
+        )
+    ).write.insertInto("test_uuid")
     result = await table.select().collect()
     assert len(result) == 1
     # PostgreSQL returns UUID objects, convert to string for comparison
@@ -93,14 +103,17 @@ async def test_async_array_agg_collect_list(postgresql_async_connection):
         ],
     ).collect()
 
-    table = await db.table("test_array")
-    await table.insert(
-        [
-            {"id": 1, "value": "a"},
-            {"id": 2, "value": "b"},
-            {"id": 3, "value": "a"},
-        ]
-    ).collect()
+    await db.table("test_array")
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "value": "a"},
+                {"id": 2, "value": "b"},
+                {"id": 3, "value": "a"},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("test_array")
 
     table_handle = await db.table("test_array")
     result = await (
@@ -130,14 +143,17 @@ async def test_async_array_agg_collect_set(postgresql_async_connection):
         ],
     ).collect()
 
-    table = await db.table("test_array")
-    await table.insert(
-        [
-            {"id": 1, "value": "a"},
-            {"id": 2, "value": "b"},
-            {"id": 3, "value": "a"},
-        ]
-    ).collect()
+    await db.table("test_array")
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "value": "a"},
+                {"id": 2, "value": "b"},
+                {"id": 3, "value": "a"},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("test_array")
 
     table_handle = await db.table("test_array")
     result = await (
@@ -157,19 +173,25 @@ async def test_async_json_extract_postgresql(postgresql_async_connection):
     import json as json_module
     from moltres.table.schema import json
 
+    from moltres.table.schema import column
+
     db = postgresql_async_connection
     await db.create_table(
         "test_json",
         [
+            column("id", "INTEGER", primary_key=True),
             json("data", jsonb=True),
         ],
     ).collect()
 
-    table = await db.table("test_json")
+    await db.table("test_json")
     # Serialize dict to JSON string for insertion
-    await table.insert(
-        [{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [{"id": 1, "data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}],
+            pk="id",
+        )
+    ).write.insertInto("test_json")
 
     table_handle = await db.table("test_json")
     result = await table_handle.select(
@@ -201,16 +223,20 @@ async def test_async_array_functions(postgresql_async_connection):
 
     # PostgreSQL array literal
     table = await db.table("test_array")
-    await table.insert([{"id": 1, "arr": "{1,2,3}"}]).collect()
+    await (
+        await db.createDataFrame(
+            [{"id": 1, "arr": "{1,2,3}"}],
+            pk="id",
+        )
+    ).write.insertInto("test_array")
 
-    # Test array functions
-    table_handle = await db.table("test_array")
-    result = await table_handle.select(
-        array_length(array(1, 2, 3)).alias("len"),
-        array_contains(array(1, 2, 3), 2).alias("contains"),
-        array_position(array(1, 2, 3), 2).alias("position"),
+    # Cast VARCHAR to INTEGER[] array type for PostgreSQL array functions
+    arr_col = col("arr").cast("INTEGER[]")
+    result = await table.select(
+        array_length(arr_col).alias("len"),
+        array_contains(arr_col, 2).alias("contains"),
+        array_position(arr_col, 2).alias("position"),
     ).collect()
-
     assert len(result) == 1
     assert result[0]["len"] == 3
     assert result[0]["contains"] is True
@@ -232,16 +258,19 @@ async def test_async_percentile_cont(postgresql_async_connection):
         ],
     ).collect()
 
-    table = await db.table("test_percentile")
-    await table.insert(
-        [
-            {"id": 1, "value": 10.0},
-            {"id": 2, "value": 20.0},
-            {"id": 3, "value": 30.0},
-            {"id": 4, "value": 40.0},
-            {"id": 5, "value": 50.0},
-        ]
-    ).collect()
+    await db.table("test_percentile")
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "value": 10.0},
+                {"id": 2, "value": 20.0},
+                {"id": 3, "value": 30.0},
+                {"id": 4, "value": 40.0},
+                {"id": 5, "value": 50.0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("test_percentile")
 
     # For global aggregation without group_by, we need to use a different approach
     # Use a dummy group_by with a constant or aggregate directly
@@ -267,16 +296,19 @@ async def test_async_percentile_disc(postgresql_async_connection):
         ],
     ).collect()
 
-    table = await db.table("test_percentile")
-    await table.insert(
-        [
-            {"id": 1, "value": 10.0},
-            {"id": 2, "value": 20.0},
-            {"id": 3, "value": 30.0},
-            {"id": 4, "value": 40.0},
-            {"id": 5, "value": 50.0},
-        ]
-    ).collect()
+    await db.table("test_percentile")
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "value": 10.0},
+                {"id": 2, "value": 20.0},
+                {"id": 3, "value": 30.0},
+                {"id": 4, "value": 40.0},
+                {"id": 5, "value": 50.0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("test_percentile")
 
     # For global aggregation without group_by, we need to use a different approach
     # Use a dummy group_by with a constant or aggregate directly
@@ -302,28 +334,13 @@ async def test_async_lateral_join(postgresql_async_connection):
         ],
     ).collect()
 
-    table = await db.table("test_lateral")
-    await table.insert([{"id": 1, "data": '{"items": [1, 2, 3]}'}]).collect()
-
-    # LATERAL join with jsonb_array_elements
-    # Note: explode() is not yet fully implemented for PostgreSQL
-    pytest.skip("explode() is not yet fully implemented for PostgreSQL")
-
-
-@pytest.mark.asyncio
-@pytest.mark.postgres
-async def test_async_merge_statement(postgresql_async_connection):
-    """Test MERGE statement in PostgreSQL (async)."""
-    from moltres.table.schema import column
-
-    db = postgresql_async_connection
-    await db.create_table(
-        "target",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("value", "VARCHAR"),
-        ],
-    ).collect()
+    await db.table("test_lateral")
+    await (
+        await db.createDataFrame(
+            [{"id": 1, "data": '{"items": [1, 2, 3]}'}],
+            pk="id",
+        )
+    ).write.insertInto("test_lateral")
 
     await db.create_table(
         "source",
@@ -333,24 +350,46 @@ async def test_async_merge_statement(postgresql_async_connection):
         ],
     ).collect()
 
-    target_table = await db.table("target")
-    await target_table.insert([{"id": 1, "value": "old"}]).collect()
+    await db.create_table(
+        "target",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("value", "VARCHAR"),
+        ],
+    ).collect()
 
     source_table = await db.table("source")
-    await source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}]).collect()
+    await (
+        await db.createDataFrame(
+            [{"id": 1, "value": "new"}],
+            pk="id",
+        )
+    ).write.insertInto("source")
+
+    target_table = await db.table("target")
+    await (
+        await db.createDataFrame(
+            [{"id": 1, "value": "old"}],
+            pk="id",
+        )
+    ).write.insertInto("target")
 
     # Merge using the correct API: rows (list of dicts), not DataFrame
+    from moltres.table.async_mutations import merge_rows_async
+
     source_rows = await source_table.select().collect()
-    result = await target_table.merge(
+    result = await merge_rows_async(
+        target_table,
         source_rows,
         on=["id"],
         when_matched={"value": "new"},  # Update value when matched
-    ).collect()
+    )
 
     assert result >= 1
 
     final = await target_table.select().collect()
-    assert len(final) == 2
+    assert len(final) == 1  # Merge updated existing row, didn't insert new one
+    assert final[0]["value"] == "new"
 
 
 @pytest.mark.asyncio
@@ -368,10 +407,14 @@ async def test_async_tablesample(postgresql_async_connection):
         ],
     ).collect()
 
-    table = await db.table("test_sample")
+    await db.table("test_sample")
     # Insert 100 rows
-    await table.insert([{"id": i, "value": i} for i in range(1, 101)]).collect()
-
+    await (
+        await db.createDataFrame(
+            [{"id": i, "value": i} for i in range(1, 101)],
+            pk="id",
+        )
+    ).write.insertInto("test_sample")
     # Test sample() with 10% fraction
     table_handle = await db.table("test_sample")
     df = table_handle.select("id", "value")

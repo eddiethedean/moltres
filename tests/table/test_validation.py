@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from moltres import col, connect
+from moltres.io.records import Records
 from moltres.utils.exceptions import ValidationError
 
 
@@ -50,8 +51,8 @@ def test_insert_empty_rows(tmp_path):
         ],
     ).collect()
 
-    table = db.table("test")
-    result = table.insert([]).collect()
+    records = Records(_data=[], _database=db)
+    result = records.insert_into("test")
     assert result == 0
 
 
@@ -70,7 +71,7 @@ def test_insert_missing_columns(tmp_path):
         ],
     ).collect()
 
-    table = db.table("test")
+    db.table("test")
 
     # Note: SQLite allows inserting rows with fewer columns (missing columns get NULL)
     # So inserting {"id": 1} is actually valid - it will insert id=1, name=NULL
@@ -78,19 +79,23 @@ def test_insert_missing_columns(tmp_path):
 
     # Inconsistent rows in same batch should fail
     with pytest.raises(ValidationError, match="does not match expected columns"):
-        table.insert(
-            [
+        records = Records(
+            _data=[
                 {"id": 1, "name": "Alice"},
                 {"id": 2},  # Missing 'name' - inconsistent with first row
-            ]
-        ).collect()
+            ],
+            _database=db,
+        )
+        records.insert_into("test")
 
     # Valid insert - all rows have same structure
-    result = table.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    result = records.insert_into("test")
     assert result == 1
 
     # Valid insert with fewer columns (SQLite allows this)
-    result = table.insert([{"id": 2}]).collect()
+    records = Records(_data=[{"id": 2}], _database=db)
+    result = records.insert_into("test")
     assert result == 1
 
 
@@ -109,8 +114,9 @@ def test_update_empty_set(tmp_path):
         ],
     ).collect()
 
-    table = db.table("test")
-    table.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("test")
 
+    df = db.table("test").select()
     with pytest.raises(ValidationError, match="at least one value"):
-        table.update(where=col("id") == 1, set={}).collect()
+        df.write.update("test", where=col("id") == 1, set={})

@@ -1,6 +1,7 @@
 """Tests for DataFrame write operations."""
 
 from moltres import col, column, connect
+from moltres.io.records import Records
 from moltres.table.schema import ColumnDef
 
 
@@ -10,19 +11,21 @@ def test_write_append_mode(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create source table
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER", primary_key=True),
             column("name", "TEXT"),
         ],
     ).collect()
-    source.insert(
-        [
+    records = Records(
+        _data=[
             {"id": 1, "name": "Alice"},
             {"id": 2, "name": "Bob"},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    records.insert_into("source")
 
     # Write to new table
     df = db.table("source").select()
@@ -36,7 +39,8 @@ def test_write_append_mode(tmp_path):
     assert rows[1]["name"] == "Bob"
 
     # Append more data
-    source.insert([{"id": 3, "name": "Charlie"}]).collect()
+    records2 = Records(_data=[{"id": 3, "name": "Charlie"}], _database=db)
+    records2.insert_into("source")
     df2 = db.table("source").select().where(col("id") == 3)
     df2.write.mode("append").save_as_table("target")
 
@@ -51,14 +55,15 @@ def test_write_overwrite_mode(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create and populate initial table
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER", primary_key=True),
             column("value", "INTEGER"),
         ],
     ).collect()
-    source.insert([{"id": 1, "value": 100}]).collect()
+    records = Records(_data=[{"id": 1, "value": 100}], _database=db)
+    records.insert_into("source")
 
     # Write initial data
     df = db.table("source").select()
@@ -71,7 +76,8 @@ def test_write_overwrite_mode(tmp_path):
     assert rows[0]["value"] == 100
 
     # Overwrite with new data
-    source.insert([{"id": 2, "value": 200}]).collect()
+    records2 = Records(_data=[{"id": 2, "value": 200}], _database=db)
+    records2.insert_into("source")
     df2 = db.table("source").select()
     df2.write.mode("overwrite").save_as_table("target")
 
@@ -88,11 +94,12 @@ def test_write_error_if_exists_mode(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create table first
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER")],
     ).collect()
-    source.insert([{"id": 1}]).collect()
+    records = Records(_data=[{"id": 1}], _database=db)
+    records.insert_into("source")
 
     # Write once (creates table)
     df = db.table("source").select()
@@ -111,7 +118,7 @@ def test_write_with_explicit_schema(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create source with different types
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
@@ -119,7 +126,8 @@ def test_write_with_explicit_schema(tmp_path):
             column("score", "REAL"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice", "score": 95.5}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice", "score": 95.5}], _database=db)
+    records.insert_into("source")
 
     # Write with explicit schema
     explicit_schema = [
@@ -170,7 +178,7 @@ def test_write_with_transformed_columns(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create source
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
@@ -178,7 +186,8 @@ def test_write_with_transformed_columns(tmp_path):
             column("last_name", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "first_name": "John", "last_name": "Doe"}]).collect()
+    records = Records(_data=[{"id": 1, "first_name": "John", "last_name": "Doe"}], _database=db)
+    records.insert_into("source")
 
     # Create DataFrame with transformed columns
     df = db.table("source").select(
@@ -202,11 +211,12 @@ def test_write_chained_api(tmp_path):
     db_path = tmp_path / "write_chained.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER")],
     ).collect()
-    source.insert([{"id": 1}]).collect()
+    records = Records(_data=[{"id": 1}], _database=db)
+    records.insert_into("source")
 
     df = db.table("source").select()
     df.write.mode("append").option("test", "value").save_as_table("target")
@@ -222,14 +232,15 @@ def test_write_with_primary_key_chaining(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create source table
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
+    records.insert_into("source")
 
     # Write with primary key specified via chaining
     df = db.table("source").select()
@@ -244,7 +255,8 @@ def test_write_with_primary_key_chaining(tmp_path):
     import pytest
 
     with pytest.raises(Exception):  # Should fail due to primary key constraint
-        target.insert([{"id": 1, "name": "Duplicate"}]).collect()
+        records_target = Records(_data=[{"id": 1, "name": "Duplicate"}], _database=db)
+        records_target.insert_into("target")
 
 
 def test_write_with_primary_key_parameter(tmp_path):
@@ -252,14 +264,15 @@ def test_write_with_primary_key_parameter(tmp_path):
     db_path = tmp_path / "write_pk_param.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("source")
 
     # Write with primary key specified via parameter
     df = db.table("source").select()
@@ -276,7 +289,7 @@ def test_write_with_composite_primary_key(tmp_path):
     db_path = tmp_path / "write_composite_pk.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("user_id", "INTEGER"),
@@ -284,7 +297,8 @@ def test_write_with_composite_primary_key(tmp_path):
             column("amount", "REAL"),
         ],
     ).collect()
-    source.insert([{"user_id": 1, "order_id": 100, "amount": 50.0}]).collect()
+    records = Records(_data=[{"user_id": 1, "order_id": 100, "amount": 50.0}], _database=db)
+    records.insert_into("source")
 
     # Write with composite primary key
     df = db.table("source").select()
@@ -301,14 +315,15 @@ def test_write_primary_key_with_explicit_schema(tmp_path):
     db_path = tmp_path / "write_pk_schema.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("source")
 
     # Write with explicit schema and primary key
     explicit_schema = [
@@ -330,14 +345,15 @@ def test_write_primary_key_validation_error(tmp_path):
     db_path = tmp_path / "write_pk_validation.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("source")
 
     # Try to use non-existent column as primary key
     df = db.table("source").select()
@@ -352,7 +368,7 @@ def test_write_primary_key_parameter_overrides_chaining(tmp_path):
     db_path = tmp_path / "write_pk_override.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
@@ -360,7 +376,10 @@ def test_write_primary_key_parameter_overrides_chaining(tmp_path):
             column("email", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}]).collect()
+    records = Records(
+        _data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db
+    )
+    records.insert_into("source")
 
     # Chain primaryKey but override with parameter
     df = db.table("source").select()
@@ -378,7 +397,7 @@ def test_write_primary_key_with_filtered_query(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create source with primary key
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER", primary_key=True),
@@ -386,7 +405,8 @@ def test_write_primary_key_with_filtered_query(tmp_path):
             column("status", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice", "status": "active"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice", "status": "active"}], _database=db)
+    records.insert_into("source")
 
     # Select only name and status (excluding id)
     df = db.table("source").select("name", "status")
@@ -409,14 +429,15 @@ def test_write_optimized_simple_select(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create source table
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
             column("name", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
+    records.insert_into("source")
 
     # Write using optimization (should use INSERT INTO ... SELECT)
     df = db.table("source").select()
@@ -434,20 +455,22 @@ def test_write_optimized_with_filter(tmp_path):
     db_path = tmp_path / "write_optimized_filter.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
             column("status", "TEXT"),
         ],
     ).collect()
-    source.insert(
-        [
+    records = Records(
+        _data=[
             {"id": 1, "status": "active"},
             {"id": 2, "status": "inactive"},
             {"id": 3, "status": "active"},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    records.insert_into("source")
 
     # Write filtered data using optimization
     df = db.table("source").select().where(col("status") == "active")
@@ -465,7 +488,7 @@ def test_write_optimized_with_project(tmp_path):
     db_path = tmp_path / "write_optimized_project.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [
             column("id", "INTEGER"),
@@ -473,7 +496,10 @@ def test_write_optimized_with_project(tmp_path):
             column("email", "TEXT"),
         ],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}]).collect()
+    records = Records(
+        _data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db
+    )
+    records.insert_into("source")
 
     # Write with selected columns only
     df = db.table("source").select(col("name"), col("email"))
@@ -493,14 +519,14 @@ def test_write_optimized_with_join(tmp_path):
     db_path = tmp_path / "write_optimized_join.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    customers = db.create_table(
+    db.create_table(
         "customers",
         [
             column("id", "INTEGER", primary_key=True),
             column("name", "TEXT"),
         ],
     ).collect()
-    orders = db.create_table(
+    db.create_table(
         "orders",
         [
             column("id", "INTEGER", primary_key=True),
@@ -509,8 +535,10 @@ def test_write_optimized_with_join(tmp_path):
         ],
     ).collect()
 
-    customers.insert([{"id": 1, "name": "Alice"}]).collect()
-    orders.insert([{"id": 100, "customer_id": 1, "amount": 50.0}]).collect()
+    records_customers = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records_customers.insert_into("customers")
+    records_orders = Records(_data=[{"id": 100, "customer_id": 1, "amount": 50.0}], _database=db)
+    records_orders.insert_into("orders")
 
     # Write joined data using optimization
     # Select with aliases before join to avoid column qualification issues
@@ -536,20 +564,22 @@ def test_write_optimized_with_aggregate(tmp_path):
 
     from moltres.expressions.functions import sum as sum_
 
-    orders = db.create_table(
+    db.create_table(
         "orders",
         [
             column("customer_id", "INTEGER"),
             column("amount", "REAL"),
         ],
     ).collect()
-    orders.insert(
-        [
+    records = Records(
+        _data=[
             {"customer_id": 1, "amount": 10.0},
             {"customer_id": 1, "amount": 20.0},
             {"customer_id": 2, "amount": 15.0},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    records.insert_into("orders")
 
     # Write aggregated data using optimization
     df = (
@@ -574,18 +604,20 @@ def test_write_optimized_overwrite_mode(tmp_path):
     db_path = tmp_path / "write_optimized_overwrite.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER"), column("value", "INTEGER")],
     ).collect()
-    source.insert([{"id": 1, "value": 100}]).collect()
+    records = Records(_data=[{"id": 1, "value": 100}], _database=db)
+    records.insert_into("source")
 
     # Write initial data
     df = db.table("source").select()
     df.write.save_as_table("target")
 
     # Overwrite with new data using optimization
-    source.insert([{"id": 2, "value": 200}]).collect()
+    records2 = Records(_data=[{"id": 2, "value": 200}], _database=db)
+    records2.insert_into("source")
     df2 = db.table("source").select()
     df2.write.mode("overwrite").save_as_table("target")
 
@@ -600,18 +632,20 @@ def test_write_optimized_append_mode(tmp_path):
     db_path = tmp_path / "write_optimized_append.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("source")
 
     # Write initial data
     df = db.table("source").select()
     df.write.save_as_table("target")
 
     # Append more data using optimization
-    source.insert([{"id": 2, "name": "Bob"}]).collect()
+    records2 = Records(_data=[{"id": 2, "name": "Bob"}], _database=db)
+    records2.insert_into("source")
     df2 = db.table("source").select().where(col("id") == 2)
     df2.write.mode("append").save_as_table("target")
 
@@ -626,11 +660,12 @@ def test_write_optimized_with_explicit_schema(tmp_path):
     db_path = tmp_path / "write_optimized_schema.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("source")
 
     # Write with explicit schema using optimization
     schema = [ColumnDef("id", "INTEGER"), ColumnDef("name", "TEXT")]
@@ -649,11 +684,12 @@ def test_write_optimized_with_primary_key(tmp_path):
     db_path = tmp_path / "write_optimized_pk.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("source")
 
     # Write with primary key using optimization
     df = db.table("source").select()
@@ -671,11 +707,12 @@ def test_write_fallback_to_materialization(tmp_path):
     db_path = tmp_path / "write_fallback.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("source")
 
     # Use streaming mode (should fall back to materialization)
     df = db.table("source").select()
@@ -707,4 +744,117 @@ def test_write_optimized_empty_result_set(tmp_path):
     # Verify table was created (even though empty)
     target = db.table("target")
     rows = target.select().collect()
+    assert len(rows) == 0
+
+
+def test_write_update(tmp_path):
+    """Test DataFrame write update() method."""
+    db_path = tmp_path / "write_update.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create and populate table
+    db.create_table(
+        "users",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("name", "TEXT"),
+            column("active", "INTEGER"),
+        ],
+    ).collect()
+
+    records = Records(
+        _data=[
+            {"id": 1, "name": "Alice", "active": 0},
+            {"id": 2, "name": "Bob", "active": 0},
+            {"id": 3, "name": "Charlie", "active": 1},
+        ],
+        _database=db,
+    )
+    records.insert_into("users")
+
+    # Update using DataFrame write API
+    df = db.table("users").select()
+    df.write.update("users", where=col("id") == 1, set={"name": "Alice Updated", "active": 1})
+
+    # Verify update
+    rows = db.table("users").select().where(col("id") == 1).collect()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Alice Updated"
+    assert rows[0]["active"] == 1
+
+    # Update multiple rows
+    df.write.update("users", where=col("active") == 0, set={"active": 1})
+
+    # Verify all inactive users are now active
+    rows = db.table("users").select().where(col("active") == 1).collect()
+    assert len(rows) == 3
+
+
+def test_write_delete(tmp_path):
+    """Test DataFrame write delete() method."""
+    db_path = tmp_path / "write_delete.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create and populate table
+    db.create_table(
+        "users",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("name", "TEXT"),
+            column("active", "INTEGER"),
+        ],
+    ).collect()
+
+    records = Records(
+        _data=[
+            {"id": 1, "name": "Alice", "active": 0},
+            {"id": 2, "name": "Bob", "active": 1},
+            {"id": 3, "name": "Charlie", "active": 1},
+        ],
+        _database=db,
+    )
+    records.insert_into("users")
+
+    # Delete using DataFrame write API
+    df = db.table("users").select()
+    df.write.delete("users", where=col("id") == 1)
+
+    # Verify delete
+    rows = db.table("users").select().collect()
+    assert len(rows) == 2
+    assert all(row["id"] != 1 for row in rows)
+
+    # Delete multiple rows
+    df.write.delete("users", where=col("active") == 1)
+
+    # Verify all active users are deleted
+    rows = db.table("users").select().collect()
+    assert len(rows) == 0
+
+
+def test_write_update_delete_with_transaction(tmp_path):
+    """Test that update and delete work within transactions."""
+    db_path = tmp_path / "write_txn.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create and populate table
+    db.create_table(
+        "users",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("name", "TEXT"),
+        ],
+    ).collect()
+
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("users")
+
+    # Use transaction context
+    df = db.table("users").select()
+    with db.transaction():
+        df.write.update("users", where=col("id") == 1, set={"name": "Bob"})
+        df.write.delete("users", where=col("id") == 1)
+
+    # Verify changes were committed
+    rows = db.table("users").select().collect()
     assert len(rows) == 0

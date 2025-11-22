@@ -37,13 +37,14 @@ def test_fillna_with_single_value(tmp_path):
     ).collect()
 
     table = db.table("test")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "name": "Alice", "value": 10.5},
             {"id": 2, "name": None, "value": None},
             {"id": 3, "name": "Bob", "value": None},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("test")
 
     # Fill nulls in 'value' column with 0.0
     # Note: fillna() with subset only selects those columns, so we need to select all first
@@ -80,13 +81,14 @@ def test_fillna_with_dict(tmp_path):
     ).collect()
 
     table = db.table("test")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "name": "Alice", "value": 10.5},
             {"id": 2, "name": None, "value": None},
             {"id": 3, "name": "Bob", "value": None},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("test")
 
     # Fill nulls with different values per column
     df = table.select()
@@ -119,14 +121,15 @@ def test_percent_rank_window_function(tmp_path):
     ).collect()
 
     table = db.table("scores")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "student": "Alice", "score": 95.0},
             {"id": 2, "student": "Bob", "score": 87.0},
             {"id": 3, "student": "Charlie", "score": 92.0},
             {"id": 4, "student": "Diana", "score": 95.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("scores")
 
     df = table.select()
     # Use ascending order for window function (descending may not be fully supported in window context)
@@ -163,13 +166,14 @@ def test_cume_dist_window_function(tmp_path):
     ).collect()
 
     table = db.table("scores")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "student": "Alice", "score": 95.0},
             {"id": 2, "student": "Bob", "score": 87.0},
             {"id": 3, "student": "Charlie", "score": 92.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("scores")
 
     df = table.select()
     result_df = df.select(
@@ -204,13 +208,14 @@ def test_nth_value_window_function(tmp_path):
     ).collect()
 
     table = db.table("sales")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "product": "A", "amount": 100.0},
             {"id": 2, "product": "B", "amount": 200.0},
             {"id": 3, "product": "C", "amount": 150.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("sales")
 
     df = table.select()
     result_df = df.select(
@@ -250,14 +255,15 @@ def test_ntile_window_function(tmp_path):
     ).collect()
 
     table = db.table("scores")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "student": "Alice", "score": 95.0},
             {"id": 2, "student": "Bob", "score": 87.0},
             {"id": 3, "student": "Charlie", "score": 92.0},
             {"id": 4, "student": "Diana", "score": 88.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("scores")
 
     df = table.select()
     result_df = df.select(
@@ -292,13 +298,14 @@ def test_regexp_extract(tmp_path):
     ).collect()
 
     table = db.table("text_data")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "text": "Email: alice@example.com"},
             {"id": 2, "text": "Contact: bob@test.org"},
             {"id": 3, "text": "No email here"},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("text_data")
 
     # Note: SQLite doesn't have native regexp_extract, so this may need dialect-specific handling
     # For now, test that the expression builds correctly
@@ -337,12 +344,13 @@ def test_regexp_replace(tmp_path):
     ).collect()
 
     table = db.table("text_data")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "text": "Hello World"},
             {"id": 2, "text": "Hello Python"},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("text_data")
 
     # Note: SQLite doesn't have native regexp_replace, so this may need dialect-specific handling
     df = table.select()
@@ -378,12 +386,13 @@ def test_split_string_function(tmp_path):
     ).collect()
 
     table = db.table("text_data")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "text": "apple,banana,cherry"},
             {"id": 2, "text": "red:green:blue"},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("text_data")
 
     # Note: SQLite doesn't have native split, so this may need dialect-specific handling
     df = table.select()
@@ -424,15 +433,16 @@ def test_stddev_aggregate(tmp_path):
     ).collect()
 
     table = db.table("values")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "category": "A", "value": 10.0},
             {"id": 2, "category": "A", "value": 20.0},
             {"id": 3, "category": "A", "value": 30.0},
             {"id": 4, "category": "B", "value": 5.0},
             {"id": 5, "category": "B", "value": 15.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("values")
 
     df = table.select()
     result_df = df.group_by("category").agg(stddev(col("value")).alias("stddev_value"))
@@ -471,15 +481,16 @@ def test_variance_aggregate(tmp_path):
     ).collect()
 
     table = db.table("values")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "category": "A", "value": 10.0},
             {"id": 2, "category": "A", "value": 20.0},
             {"id": 3, "category": "A", "value": 30.0},
             {"id": 4, "category": "B", "value": 5.0},
             {"id": 5, "category": "B", "value": 15.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("values")
 
     df = table.select()
     result_df = df.group_by("category").agg(variance(col("value")).alias("variance_value"))
@@ -518,15 +529,16 @@ def test_corr_aggregate(tmp_path):
 
     table = db.table("data")
     # Insert data with positive correlation
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "x": 1.0, "y": 2.0},
             {"id": 2, "x": 2.0, "y": 4.0},
             {"id": 3, "x": 3.0, "y": 6.0},
             {"id": 4, "x": 4.0, "y": 8.0},
             {"id": 5, "x": 5.0, "y": 10.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("data")
 
     df = table.select()
     # For aggregate without grouping, create an aggregate with empty grouping
@@ -571,15 +583,16 @@ def test_covar_aggregate(tmp_path):
 
     table = db.table("data")
     # Insert data with positive covariance
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "x": 1.0, "y": 2.0},
             {"id": 2, "x": 2.0, "y": 4.0},
             {"id": 3, "x": 3.0, "y": 6.0},
             {"id": 4, "x": 4.0, "y": 8.0},
             {"id": 5, "x": 5.0, "y": 10.0},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("data")
 
     df = table.select()
     # For aggregate without grouping, create an aggregate with empty grouping

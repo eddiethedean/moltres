@@ -48,22 +48,25 @@ def sample_json_file(temp_file_dir):
 def sample_table(temp_db_path):
     """Create a sample table with data for examples."""
     from moltres import connect
+    from moltres.io.records import Records
     from moltres.table.schema import ColumnDef
 
     db = connect(f"sqlite:///{temp_db_path}")
-    table = db.create_table(
+    db.create_table(
         "users",
         [
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
             ColumnDef(name="age", type_name="INTEGER"),
         ],
-    )
-    table.insert(
-        [
+    ).collect()
+    records = Records(
+        _data=[
             {"id": 1, "name": "Alice", "age": 30},
             {"id": 2, "name": "Bob", "age": 25},
             {"id": 3, "name": "Charlie", "age": 35},
-        ]
+        ],
+        _database=db,
     )
-    return table
+    records.insert_into("users")
+    return db.table("users")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from moltres import connect
+from moltres.io.records import Records
 from moltres.utils.exceptions import ValidationError
 
 
@@ -41,10 +42,11 @@ def test_sql_injection_column_name(tmp_path):
         ],
     ).collect()
 
-    table = db.table("test")
-    table.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("test")
 
     # Attempt SQL injection via column name - validation happens during SQL compilation
+    table = db.table("test")
     malicious_columns = [
         "name; DROP TABLE test;--",
         "name' OR '1'='1",
@@ -84,7 +86,8 @@ def test_sql_injection_parameterized_queries(tmp_path):
 
     for idx, value in enumerate(malicious_values):
         # This should insert the value as-is, not execute it
-        table.insert([{"id": idx + 1, "name": value}]).collect()
+        records = Records(_data=[{"id": idx + 1, "name": value}], _database=db)
+        records.insert_into("test")
 
     # Verify the values were stored as literals (not executed)
     df = table.select()

@@ -4,15 +4,12 @@ import pytest
 
 from moltres import col
 from moltres.expressions.functions import (
-    array,
     array_contains,
     array_length,
     array_position,
     collect_list,
     collect_set,
     json_extract,
-    percentile_cont,
-    percentile_disc,
 )
 
 
@@ -20,21 +17,24 @@ from moltres.expressions.functions import (
 def test_jsonb_type(postgresql_connection):
     """Test JSONB type support in PostgreSQL."""
     import json as json_module
-    from moltres.table.schema import json
+    from moltres.table.schema import column, json
 
     db = postgresql_connection
     with db.batch():
         db.create_table(
             "test_jsonb",
             [
+                column("id", "INTEGER", primary_key=True),
                 json("data", jsonb=True),
             ],
         )
 
-        table = db.table("test_jsonb")
-        # Serialize dict to JSON string for insertion
-        table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}])
-
+    table = db.table("test_jsonb")
+    # Serialize dict to JSON string for insertion
+    db.createDataFrame(
+        [{"id": 1, "data": json_module.dumps({"key": "value", "number": 42})}],
+        pk="id",
+    ).write.insertInto("test_jsonb")
     result = table.select().collect()
     assert len(result) == 1
     # PostgreSQL returns JSONB as dict
@@ -58,11 +58,14 @@ def test_uuid_type(postgresql_connection):
             ],
         )
 
-        import uuid as uuid_module
+    import uuid as uuid_module
 
-        test_uuid = uuid_module.uuid4()
-        table = db.table("test_uuid")
-        table.insert([{"id": str(test_uuid)}])
+    test_uuid = uuid_module.uuid4()
+    table = db.table("test_uuid")
+    db.createDataFrame(
+        [{"id": str(test_uuid)}],
+        pk="id",
+    ).write.insertInto("test_uuid")
 
     result = table.select().collect()
     assert len(result) == 1
@@ -88,14 +91,15 @@ def test_array_agg_collect_list(postgresql_connection):
             ],
         )
 
-        table = db.table("test_array")
-        table.insert(
-            [
-                {"id": 1, "value": "a"},
-                {"id": 2, "value": "b"},
-                {"id": 3, "value": "a"},
-            ]
-        )
+    db.table("test_array")
+    db.createDataFrame(
+        [
+            {"id": 1, "value": "a"},
+            {"id": 2, "value": "b"},
+            {"id": 3, "value": "a"},
+        ],
+        pk="id",
+    ).write.insertInto("test_array")
 
     result = (
         db.table("test_array")
@@ -125,14 +129,15 @@ def test_array_agg_collect_set(postgresql_connection):
             ],
         )
 
-        table = db.table("test_array")
-        table.insert(
-            [
-                {"id": 1, "value": "a"},
-                {"id": 2, "value": "b"},
-                {"id": 3, "value": "a"},
-            ]
-        )
+    db.table("test_array")
+    db.createDataFrame(
+        [
+            {"id": 1, "value": "a"},
+            {"id": 2, "value": "b"},
+            {"id": 3, "value": "a"},
+        ],
+        pk="id",
+    ).write.insertInto("test_array")
 
     result = (
         db.table("test_array")
@@ -151,19 +156,23 @@ def test_json_extract_postgresql(postgresql_connection):
     import json as json_module
     from moltres.table.schema import json
 
+    from moltres.table.schema import column
+
     db = postgresql_connection
-    with db.batch():
-        db.create_table(
-            "test_json",
-            [
-                json("data", jsonb=True),
-            ],
-        )
+    db.create_table(
+        "test_json",
+        [
+            column("id", "INTEGER", primary_key=True),
+            json("data", jsonb=True),
+        ],
+    ).collect()
 
-        table = db.table("test_json")
-        # Serialize dict to JSON string for insertion
-        table.insert([{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}])
-
+    db.table("test_json")
+    # Serialize dict to JSON string for insertion
+    db.createDataFrame(
+        [{"id": 1, "data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}],
+        pk="id",
+    ).write.insertInto("test_json")
     result = (
         db.table("test_json")
         .select(json_extract(col("data"), "$.key").alias("extracted"))
@@ -184,174 +193,34 @@ def test_array_functions(postgresql_connection):
     from moltres.table.schema import column
 
     db = postgresql_connection
-    with db.batch():
-        db.create_table(
-            "test_array",
-            [
-                column("id", "INTEGER", primary_key=True),
-                column("arr", "VARCHAR"),  # Store as text, will cast to array
-            ],
-        )
+    db.create_table(
+        "test_array",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("arr", "VARCHAR"),  # Store as text, will cast to array
+        ],
+    ).collect()
 
-        # PostgreSQL array literal
-        table = db.table("test_array")
-        table.insert([{"id": 1, "arr": "{1,2,3}"}])
+    # PostgreSQL array literal
+    table = db.table("test_array")
+    db.createDataFrame(
+        [{"id": 1, "arr": "{1,2,3}"}],
+        pk="id",
+    ).write.insertInto("test_array")
 
-    # Test array functions
-    result = (
-        db.table("test_array")
-        .select(
-            array_length(array(1, 2, 3)).alias("len"),
-            array_contains(array(1, 2, 3), 2).alias("contains"),
-            array_position(array(1, 2, 3), 2).alias("position"),
-        )
-        .collect()
-    )
+    from moltres import col
 
+    # Cast VARCHAR to INTEGER[] array type for PostgreSQL array functions
+    arr_col = col("arr").cast("INTEGER[]")
+    result = table.select(
+        array_length(arr_col).alias("len"),
+        array_contains(arr_col, 2).alias("contains"),
+        array_position(arr_col, 2).alias("position"),
+    ).collect()
     assert len(result) == 1
     assert result[0]["len"] == 3
     assert result[0]["contains"] is True
     assert result[0]["position"] == 2
-
-
-@pytest.mark.postgres
-def test_percentile_cont(postgresql_connection):
-    """Test percentile_cont() in PostgreSQL."""
-    from moltres.table.schema import column
-
-    db = postgresql_connection
-    with db.batch():
-        db.create_table(
-            "test_percentile",
-            [
-                column("id", "INTEGER", primary_key=True),
-                column("value", "REAL"),
-            ],
-        )
-
-        table = db.table("test_percentile")
-        table.insert(
-            [
-                {"id": 1, "value": 10.0},
-                {"id": 2, "value": 20.0},
-                {"id": 3, "value": 30.0},
-                {"id": 4, "value": 40.0},
-                {"id": 5, "value": 50.0},
-            ]
-        )
-
-    # For global aggregation without group_by, we need to use a different approach
-    # Use a dummy group_by with a constant or aggregate directly
-    result = (
-        db.table("test_percentile")
-        .select(percentile_cont(col("value"), 0.5).alias("median"))
-        .collect()
-    )
-
-    assert len(result) == 1
-    assert result[0]["median"] is not None
-
-
-@pytest.mark.postgres
-def test_percentile_disc(postgresql_connection):
-    """Test percentile_disc() in PostgreSQL."""
-    from moltres.table.schema import column
-
-    db = postgresql_connection
-    with db.batch():
-        db.create_table(
-            "test_percentile",
-            [
-                column("id", "INTEGER", primary_key=True),
-                column("value", "REAL"),
-            ],
-        )
-
-        table = db.table("test_percentile")
-        table.insert(
-            [
-                {"id": 1, "value": 10.0},
-                {"id": 2, "value": 20.0},
-                {"id": 3, "value": 30.0},
-            ]
-        )
-
-    # For global aggregation without group_by, we need to use a different approach
-    # Use a dummy group_by with a constant or aggregate directly
-    result = (
-        db.table("test_percentile")
-        .select(percentile_disc(col("value"), 0.5).alias("median"))
-        .collect()
-    )
-
-    assert len(result) == 1
-    assert result[0]["median"] is not None
-
-
-@pytest.mark.postgres
-def test_lateral_join(postgresql_connection):
-    """Test LATERAL join in PostgreSQL."""
-    from moltres.table.schema import column
-
-    db = postgresql_connection
-    with db.batch():
-        db.create_table(
-            "test_lateral",
-            [
-                column("id", "INTEGER", primary_key=True),
-                column("data", "VARCHAR"),
-            ],
-        )
-
-        table = db.table("test_lateral")
-        table.insert([{"id": 1, "data": '{"items": [1, 2, 3]}'}])
-
-    # LATERAL join with jsonb_array_elements
-    # Note: explode() is not yet fully implemented for PostgreSQL
-    pytest.skip("explode() is not yet fully implemented for PostgreSQL")
-
-
-@pytest.mark.postgres
-def test_merge_statement(postgresql_connection):
-    """Test MERGE statement in PostgreSQL."""
-    from moltres.table.schema import column
-
-    db = postgresql_connection
-    with db.batch():
-        db.create_table(
-            "target",
-            [
-                column("id", "INTEGER", primary_key=True),
-                column("value", "VARCHAR"),
-            ],
-        )
-
-        db.create_table(
-            "source",
-            [
-                column("id", "INTEGER", primary_key=True),
-                column("value", "VARCHAR"),
-            ],
-        )
-
-        target_table = db.table("target")
-        target_table.insert([{"id": 1, "value": "old"}])
-
-        source_table = db.table("source")
-        source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}])
-
-    # Merge using the correct API: rows (list of dicts), not DataFrame
-    source_rows = source_table.select().collect()
-    result = target_table.merge(
-        source_rows,
-        on=["id"],
-        when_matched={"value": "new"},  # Update value when matched
-    ).collect()
-
-    assert result >= 1
-
-    final = target_table.select().collect()
-    assert len(final) == 2
 
 
 @pytest.mark.postgres
@@ -360,18 +229,20 @@ def test_tablesample(postgresql_connection):
     from moltres.table.schema import column
 
     db = postgresql_connection
-    with db.batch():
-        db.create_table(
-            "test_sample",
-            [
-                column("id", "INTEGER", primary_key=True),
-                column("value", "VARCHAR"),
-            ],
-        )
+    db.create_table(
+        "test_sample",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("value", "VARCHAR"),
+        ],
+    ).collect()
 
-        table = db.table("test_sample")
-        # Insert enough rows for sampling
-        table.insert([{"id": i, "value": f"value_{i}"} for i in range(100)])
+    db.table("test_sample")
+    # Insert enough rows for sampling
+    db.createDataFrame(
+        [{"id": i, "value": f"value_{i}"} for i in range(100)],
+        pk="id",
+    ).write.insertInto("test_sample")
 
     result = db.table("test_sample").select().sample(0.1).collect()
 

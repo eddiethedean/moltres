@@ -30,11 +30,30 @@ def compile_create_table(schema: TableSchema, dialect: DialectSpec) -> str:
     column_defs = []
     primary_keys = []
 
+    # Count primary key columns to determine if we should use composite key or single key
+    pk_columns = [col for col in schema.columns if col.primary_key]
+    has_composite_pk = len(pk_columns) > 1
+    # For SQLite, only use inline PRIMARY KEY for single INTEGER PRIMARY KEY
+    # Composite keys should always use separate PRIMARY KEY clause
+    use_inline_pk = (
+        dialect.name == "sqlite"
+        and not has_composite_pk
+        and len(pk_columns) == 1
+        and pk_columns[0].type_name.upper() == "INTEGER"
+    )
+
     for col_def in schema.columns:
         col_sql = _compile_column_def(col_def, quote, dialect)
-        column_defs.append(col_sql)
-        if col_def.primary_key:
-            primary_keys.append(quote_identifier(col_def.name, quote))
+
+        if use_inline_pk and col_def.primary_key:
+            # Special case: Single INTEGER PRIMARY KEY for SQLite - inline in column definition
+            col_sql = col_sql + " PRIMARY KEY"
+            column_defs.append(col_sql)
+        else:
+            column_defs.append(col_sql)
+            if col_def.primary_key:
+                # Add to separate PRIMARY KEY clause (for composite keys or non-INTEGER keys)
+                primary_keys.append(quote_identifier(col_def.name, quote))
 
     parts.append("(")
     parts.append(", ".join(column_defs))
@@ -167,5 +186,9 @@ def _compile_column_def(
     if col_def.default is not None:
         default_sql = format_literal(col_def.default)
         parts.append(f"DEFAULT {default_sql}")
+
+    # Handle AUTO_INCREMENT for MySQL (INTEGER PRIMARY KEY should auto-increment)
+    if dialect.name == "mysql" and col_def.primary_key and type_sql.upper() == "INTEGER":
+        parts.append("AUTO_INCREMENT")
 
     return " ".join(parts)

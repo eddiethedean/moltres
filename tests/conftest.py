@@ -43,16 +43,19 @@ def sample_table(sqlite_db):
         ],
     ).collect()
 
-    table = sqlite_db.table("users")
-    table.insert(
-        [
+    from moltres.io.records import Records
+
+    records = Records(
+        _data=[
             {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": None, "age": 35},
-        ]
-    ).collect()
+        ],
+        _database=sqlite_db,
+    )
+    records.insert_into("users")
 
-    return table
+    return sqlite_db.table("users")
 
 
 def create_sample_table(db, table_name: str = "users"):
@@ -71,16 +74,19 @@ def create_sample_table(db, table_name: str = "users"):
         ],
     ).collect()
 
-    table = db.table(table_name)
-    table.insert(
-        [
+    from moltres.io.records import Records
+
+    records = Records(
+        _data=[
             {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": None, "age": 35},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    records.insert_into(table_name)
 
-    return table
+    return db.table(table_name)
 
 
 @pytest.fixture(scope="function")
@@ -333,21 +339,25 @@ def seed_customers_orders(db):
     ).collect()
 
     # Insert test data
-    customers_table = db.table("customers")
-    customers_table.insert(
-        [
+    from moltres.io.records import Records
+
+    customers_records = Records(
+        _data=[
             {"id": 1, "name": "Alice", "active": 1},
             {"id": 2, "name": "Bob", "active": 0},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    customers_records.insert_into("customers")
 
-    orders_table = db.table("orders")
-    orders_table.insert(
-        [
+    orders_records = Records(
+        _data=[
             {"id": 100, "customer_id": 1, "amount": 50},
             {"id": 101, "customer_id": 2, "amount": 75},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    orders_records.insert_into("orders")
 
 
 async def seed_customers_orders_async(db):
@@ -375,21 +385,25 @@ async def seed_customers_orders_async(db):
     )
 
     # Insert test data
-    customers_table = await db.table("customers")
-    await customers_table.insert(
-        [
+    from moltres.io.records import AsyncRecords
+
+    customers_records = AsyncRecords(
+        _data=[
             {"id": 1, "name": "Alice", "active": 1},
             {"id": 2, "name": "Bob", "active": 0},
-        ]
+        ],
+        _database=db,
     )
+    await customers_records.insert_into("customers")
 
-    orders_table = await db.table("orders")
-    await orders_table.insert(
-        [
+    orders_records = AsyncRecords(
+        _data=[
             {"id": 100, "customer_id": 1, "amount": 50},
             {"id": 101, "customer_id": 2, "amount": 75},
-        ]
+        ],
+        _database=db,
     )
+    await orders_records.insert_into("orders")
 
 
 @pytest_asyncio.fixture(scope="function")

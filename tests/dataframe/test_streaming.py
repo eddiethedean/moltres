@@ -106,7 +106,7 @@ def test_stream_write_table(db):
 
     # Insert 20000 rows
     rows = [{"id": i, "name": f"item_{i}"} for i in range(20000)]
-    db.table("source").insert(rows).collect()
+    db.createDataFrame(rows, pk="id").write.insertInto("source")
 
     # Read with streaming and insert into target table
     records = db.load.stream().option("chunk_size", 5000).table("source")
@@ -191,7 +191,7 @@ def test_stream_sql_query(db):
 
     # Insert 15000 rows
     rows = [{"id": i, "value": f"value_{i}"} for i in range(15000)]
-    db.table("test_table").insert(rows).collect()
+    db.createDataFrame(rows, pk="id").write.insertInto("test_table")
 
     # Query with streaming
     df = db.table("test_table").select()
@@ -229,7 +229,7 @@ def test_stream_insert_into(db):
     ).collect()
 
     rows = [{"id": i, "name": f"item_{i}"} for i in range(10000)]
-    db.table("source").insert(rows).collect()
+    db.createDataFrame(rows, pk="id").write.insertInto("source")
 
     # Stream insert - Records can be inserted directly
     records = db.load.stream().option("chunk_size", 2000).table("source")

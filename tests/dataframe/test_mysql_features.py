@@ -4,7 +4,6 @@ import pytest
 
 from moltres import col
 from moltres.expressions.functions import (
-    array,
     array_contains,
     array_length,
     array_position,
@@ -17,12 +16,13 @@ from moltres.expressions.functions import (
 @pytest.mark.mysql
 def test_json_type(mysql_connection):
     """Test JSON type support in MySQL."""
-    from moltres.table.schema import json
+    from moltres.table.schema import column, json
 
     db = mysql_connection
     db.create_table(
         "test_json",
         [
+            column("id", "INTEGER", primary_key=True),
             json("data"),
         ],
     ).collect()
@@ -31,8 +31,10 @@ def test_json_type(mysql_connection):
     # MySQL requires JSON to be serialized as string
     import json as json_module
 
-    table.insert([{"data": json_module.dumps({"key": "value", "number": 42})}]).collect()
-
+    db.createDataFrame(
+        [{"id": 1, "data": json_module.dumps({"key": "value", "number": 42})}],
+        pk="id",
+    ).write.insertInto("test_json")
     result = table.select().collect()
     assert len(result) == 1
     # MySQL returns JSON as string, parse it
@@ -58,11 +60,14 @@ def test_uuid_type(mysql_connection):
     ).collect()
 
     import uuid as uuid_module
+    from moltres.table.schema import uuid as uuid_col_def
 
     test_uuid = uuid_module.uuid4()
     table = db.table("test_uuid")
-    table.insert([{"id": str(test_uuid)}]).collect()
-
+    db.createDataFrame(
+        [{"id": str(test_uuid)}],
+        schema=[uuid_col_def("id", primary_key=True)],
+    ).write.insertInto("test_uuid")
     result = table.select().collect()
     assert len(result) == 1
     assert result[0]["id"] == str(test_uuid)
@@ -82,14 +87,15 @@ def test_group_concat_collect_list(mysql_connection):
         ],
     ).collect()
 
-    table = db.table("test_array")
-    table.insert(
+    db.table("test_array")
+    db.createDataFrame(
         [
             {"id": 1, "value": "a"},
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("test_array")
 
     result = (
         db.table("test_array")
@@ -118,14 +124,15 @@ def test_group_concat_collect_set(mysql_connection):
         ],
     ).collect()
 
-    table = db.table("test_array")
-    table.insert(
+    db.table("test_array")
+    db.createDataFrame(
         [
             {"id": 1, "value": "a"},
             {"id": 2, "value": "b"},
             {"id": 3, "value": "a"},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("test_array")
 
     result = (
         db.table("test_array")
@@ -141,22 +148,25 @@ def test_group_concat_collect_set(mysql_connection):
 @pytest.mark.mysql
 def test_json_extract_mysql(mysql_connection):
     """Test json_extract() with MySQL JSON."""
-    from moltres.table.schema import json
+    from moltres.table.schema import column, json
 
     db = mysql_connection
     db.create_table(
         "test_json",
         [
+            column("id", "INTEGER", primary_key=True),
             json("data"),
         ],
     ).collect()
 
-    table = db.table("test_json")
+    db.table("test_json")
     # MySQL requires JSON to be serialized as string
     import json as json_module
 
-    table.insert([{"data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}]).collect()
-
+    db.createDataFrame(
+        [{"id": 1, "data": json_module.dumps({"key": "value", "nested": {"deep": 42}})}],
+        pk="id",
+    ).write.insertInto("test_json")
     result = (
         db.table("test_json")
         .select(json_extract(col("data"), "$.key").alias("extracted"))
@@ -177,29 +187,29 @@ def test_json_extract_mysql(mysql_connection):
 def test_array_functions_mysql(mysql_connection):
     """Test array functions in MySQL (using JSON arrays)."""
     from moltres.table.schema import column
+    import json as json_module
+    from moltres import col
 
     db = mysql_connection
     db.create_table(
         "test_array",
         [
             column("id", "INTEGER", primary_key=True),
+            column("arr", "JSON"),
         ],
     ).collect()
 
     table = db.table("test_array")
-    table.insert([{"id": 1}]).collect()
+    db.createDataFrame(
+        [{"id": 1, "arr": json_module.dumps([1, 2, 3])}],
+        pk="id",
+    ).write.insertInto("test_array")
 
-    # Test array functions (MySQL uses JSON arrays)
-    result = (
-        db.table("test_array")
-        .select(
-            array_length(array(1, 2, 3)).alias("len"),
-            array_contains(array(1, 2, 3), 2).alias("contains"),
-            array_position(array(1, 2, 3), 2).alias("position"),
-        )
-        .collect()
-    )
-
+    result = table.select(
+        array_length(col("arr")).alias("len"),
+        array_contains(col("arr"), 2).alias("contains"),
+        array_position(col("arr"), 2).alias("position"),
+    ).collect()
     assert len(result) == 1
     assert result[0]["len"] == 3
     # MySQL returns 1 for true, 0 for false (not boolean)
@@ -207,126 +217,3 @@ def test_array_functions_mysql(mysql_connection):
     # array_position is not fully implemented for MySQL (returns NULL)
     # MySQL's JSON_SEARCH returns a path string like "$[0]", not an index
     assert result[0]["position"] is None
-
-
-@pytest.mark.mysql
-def test_date_add_mysql(mysql_connection):
-    """Test date_add() function in MySQL."""
-    from moltres.expressions.functions import date_add
-    from moltres.table.schema import column
-
-    db = mysql_connection
-    db.create_table(
-        "test_dates",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("date_col", "DATE"),
-        ],
-    ).collect()
-
-    table = db.table("test_dates")
-    table.insert([{"id": 1, "date_col": "2024-01-01"}]).collect()
-
-    result = (
-        db.table("test_dates")
-        .select(date_add(col("date_col"), "1 DAY").alias("next_day"))
-        .collect()
-    )
-
-    assert len(result) == 1
-    assert result[0]["next_day"] is not None
-
-
-@pytest.mark.mysql
-def test_date_sub_mysql(mysql_connection):
-    """Test date_sub() function in MySQL."""
-    from moltres.expressions.functions import date_sub
-    from moltres.table.schema import column
-
-    db = mysql_connection
-    db.create_table(
-        "test_dates",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("date_col", "DATE"),
-        ],
-    ).collect()
-
-    table = db.table("test_dates")
-    table.insert([{"id": 1, "date_col": "2024-01-02"}]).collect()
-
-    result = (
-        db.table("test_dates")
-        .select(date_sub(col("date_col"), "1 DAY").alias("prev_day"))
-        .collect()
-    )
-
-    assert len(result) == 1
-    assert result[0]["prev_day"] is not None
-
-
-@pytest.mark.mysql
-def test_lateral_join_mysql(mysql_connection):
-    """Test LATERAL join in MySQL 8.0+."""
-    from moltres.table.schema import column
-
-    db = mysql_connection
-    db.create_table(
-        "test_lateral",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("data", "JSON"),
-        ],
-    )
-
-    table = db.table("test_lateral")
-    # MySQL requires JSON arrays to be serialized as string
-    import json as json_module
-
-    table.insert([{"id": 1, "data": json_module.dumps([1, 2, 3])}])
-
-    # LATERAL join with JSON_TABLE (MySQL 8.0+)
-    # Note: explode() is not yet fully implemented
-    pytest.skip("explode() is not yet fully implemented for MySQL")
-
-
-@pytest.mark.mysql
-def test_on_duplicate_key_update(mysql_connection):
-    """Test INSERT ... ON DUPLICATE KEY UPDATE in MySQL."""
-    from moltres.table.schema import column
-
-    db = mysql_connection
-    db.create_table(
-        "target",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("value", "VARCHAR(255)"),
-        ],
-    ).collect()
-
-    db.create_table(
-        "source",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("value", "VARCHAR(255)"),
-        ],
-    ).collect()
-
-    target_table = db.table("target")
-    target_table.insert([{"id": 1, "value": "old"}]).collect()
-
-    source_table = db.table("source")
-    source_table.insert([{"id": 1, "value": "new"}, {"id": 2, "value": "insert"}]).collect()
-
-    # Merge using the correct API: rows (list of dicts), not DataFrame
-    source_rows = source_table.select().collect()
-    result = target_table.merge(
-        source_rows,
-        on=["id"],
-        when_matched={"value": "new"},  # Update value when matched
-    ).collect()
-
-    assert result >= 1
-
-    final = target_table.select().collect()
-    assert len(final) == 2

@@ -18,7 +18,7 @@ async def test_async_dataframe_collect(tmp_path):
 
     from moltres.table.schema import column
 
-    table = await db.create_table(
+    await db.create_table(
         "users",
         [
             column("id", "INTEGER"),
@@ -27,13 +27,16 @@ async def test_async_dataframe_collect(tmp_path):
         ],
     ).collect()
 
-    await table.insert(
-        [
-            {"id": 1, "name": "Alice", "age": 30},
-            {"id": 2, "name": "Bob", "age": 25},
-            {"id": 3, "name": "Charlie", "age": 35},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "name": "Alice", "age": 30},
+                {"id": 2, "name": "Bob", "age": 25},
+                {"id": 3, "name": "Charlie", "age": 35},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("users")
 
     # Query with filters - use db.table().select() for SQL operations
     table_handle = await db.table("users")
@@ -55,17 +58,22 @@ async def test_async_dataframe_select(tmp_path):
 
     from moltres.table.schema import column
 
-    table = await db.create_table(
+    await db.create_table(
         "data",
         [
+            column("id", "INTEGER", primary_key=True),
             column("a", "INTEGER"),
             column("b", "INTEGER"),
             column("c", "INTEGER"),
         ],
     ).collect()
 
-    await table.insert([{"a": 1, "b": 2, "c": 3}]).collect()
-
+    await (
+        await db.createDataFrame(
+            [{"a": 1, "b": 2, "c": 3}],
+            auto_pk="id",
+        )
+    ).write.insertInto("data")
     # Use db.table().select() for SQL operations
     table_handle = await db.table("data")
     df = table_handle.select()
@@ -88,10 +96,10 @@ async def test_async_dataframe_limit(tmp_path):
 
     from moltres.table.schema import column
 
-    table = await db.create_table("numbers", [column("n", "INTEGER")]).collect()
+    await db.create_table("numbers", [column("n", "INTEGER", primary_key=True)]).collect()
 
     rows = [{"n": i} for i in range(10)]
-    await table.insert(rows).collect()
+    await (await db.createDataFrame(rows, pk="n")).write.insertInto("numbers")
 
     # Use db.table().select() for SQL operations
     table_handle = await db.table("numbers")

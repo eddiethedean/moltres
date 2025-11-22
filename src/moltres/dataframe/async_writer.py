@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Dict, List, Optional, Sequence, cast
+from typing import TYPE_CHECKING, AsyncIterator, Dict, List, Mapping, Optional, Sequence, cast
 
 try:
     import aiofiles  # type: ignore[import-untyped]
@@ -13,6 +13,8 @@ except ImportError as exc:
         "Async writing requires aiofiles. Install with: pip install moltres[async]"
     ) from exc
 
+from ..expressions.column import Column
+from ..table.async_mutations import delete_rows_async, insert_rows_async, update_rows_async
 from ..table.schema import ColumnDef
 from .async_dataframe import AsyncDataFrame
 
@@ -106,20 +108,88 @@ class AsyncDataFrameWriter:
                 f"Table '{table_name}' does not exist. Use save_as_table() to create it."
             )
 
+        # Get active transaction if available
+        transaction = db.connection_manager.active_transaction
+        table_handle = await db.table(table_name)
+
         if self._stream:
             # Stream inserts in batches
-            table = await db.table(table_name)
             chunk_iter = await self._df.collect(stream=True)
             async for chunk in chunk_iter:
                 if chunk:
-                    await table.insert(chunk).collect()
+                    await insert_rows_async(table_handle, chunk, transaction=transaction)
         else:
             rows = await self._df.collect()
             if rows:
-                table = await db.table(table_name)
-                await table.insert(rows).collect()
+                await insert_rows_async(table_handle, rows, transaction=transaction)
 
     insert_into = insertInto
+
+    async def update(
+        self,
+        table_name: str,
+        *,
+        where: Column,
+        set: Mapping[str, object],
+    ) -> None:
+        """Update rows in a table matching the WHERE condition.
+
+        Executes immediately (eager execution like PySpark writes).
+
+        Args:
+            table_name: Name of the table to update
+            where: Column expression for the WHERE clause
+            set: Dictionary of column names to new values
+
+        Example:
+            >>> df = await db.table("users").select()
+            >>> await df.write.update("users", where=col("id") == 1, set={"name": "Bob"})
+        """
+        if self._df.database is None:
+            raise RuntimeError("Cannot update table without an attached AsyncDatabase")
+
+        db = self._df.database
+        if not await self._table_exists(db, table_name):
+            raise ValueError(f"Table '{table_name}' does not exist")
+
+        # Get active transaction if available
+        transaction = db.connection_manager.active_transaction
+
+        # Use the mutation helper function
+        table_handle = await db.table(table_name)
+        await update_rows_async(table_handle, where=where, values=set, transaction=transaction)
+
+    async def delete(
+        self,
+        table_name: str,
+        *,
+        where: Column,
+    ) -> None:
+        """Delete rows from a table matching the WHERE condition.
+
+        Executes immediately (eager execution like PySpark writes).
+
+        Args:
+            table_name: Name of the table to delete from
+            where: Column expression for the WHERE clause
+
+        Example:
+            >>> df = await db.table("users").select()
+            >>> await df.write.delete("users", where=col("id") == 1)
+        """
+        if self._df.database is None:
+            raise RuntimeError("Cannot delete from table without an attached AsyncDatabase")
+
+        db = self._df.database
+        if not await self._table_exists(db, table_name):
+            raise ValueError(f"Table '{table_name}' does not exist")
+
+        # Get active transaction if available
+        transaction = db.connection_manager.active_transaction
+
+        # Use the mutation helper function
+        table_handle = await db.table(table_name)
+        await delete_rows_async(table_handle, where=where, transaction=transaction)
 
     async def save(self, path: str, format: Optional[str] = None) -> None:
         """Save AsyncDataFrame to a file or directory in the specified format."""
@@ -420,17 +490,18 @@ class AsyncDataFrameWriter:
             await db.create_table(table_name, schema, if_not_exists=False).collect()
 
         # Insert data
-        table = await db.table(table_name)
+        table_handle = await db.table(table_name)
+        transaction = db.connection_manager.active_transaction
         if self._stream and chunk_iter:
             # Stream inserts
             if rows:  # Insert first chunk
-                await table.insert(rows).collect()
+                await insert_rows_async(table_handle, rows, transaction=transaction)
             async for chunk in chunk_iter:
                 if chunk:
-                    await table.insert(chunk).collect()
+                    await insert_rows_async(table_handle, chunk, transaction=transaction)
         else:
             if rows:
-                await table.insert(rows).collect()
+                await insert_rows_async(table_handle, rows, transaction=transaction)
 
     async def _table_exists(self, db: "AsyncDatabase", table_name: str) -> bool:
         """Check if a table exists in the database."""

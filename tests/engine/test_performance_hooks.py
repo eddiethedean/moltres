@@ -8,6 +8,7 @@ import pytest
 
 from moltres import connect
 from moltres.engine import register_performance_hook, unregister_performance_hook
+from moltres.io.records import Records
 
 
 def test_performance_hook_registration(tmp_path):
@@ -25,8 +26,8 @@ def test_performance_hook_registration(tmp_path):
         ],
     ).collect()
 
-    table = db.table("test")
-    table.insert([{"id": 1, "name": "Alice"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records.insert_into("test")
 
     # Register hooks
     start_hook = Mock()
@@ -36,6 +37,7 @@ def test_performance_hook_registration(tmp_path):
     register_performance_hook("query_end", end_hook)
 
     # Execute query
+    table = db.table("test")
     df = table.select()
     df.collect()  # Execute to trigger hooks
 

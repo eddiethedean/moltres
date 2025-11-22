@@ -8,11 +8,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 if TYPE_CHECKING:
     from .actions import (
         CreateTableOperation,
-        DeleteMutation,
         DropTableOperation,
-        InsertMutation,
-        MergeMutation,
-        UpdateMutation,
     )
     from .table import Database
 
@@ -27,10 +23,6 @@ class OperationBatch:
         self.database = database
         self._operations: List[
             Union[
-                "InsertMutation",
-                "UpdateMutation",
-                "DeleteMutation",
-                "MergeMutation",
                 "CreateTableOperation",
                 "DropTableOperation",
             ]
@@ -39,10 +31,6 @@ class OperationBatch:
     def add(
         self,
         operation: Union[
-            "InsertMutation",
-            "UpdateMutation",
-            "DeleteMutation",
-            "MergeMutation",
             "CreateTableOperation",
             "DropTableOperation",
         ],

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Union
 
 from ..config import MoltresConfig
 
@@ -14,11 +14,7 @@ if TYPE_CHECKING:
     from ..io.records import Records
     from .actions import (
         CreateTableOperation,
-        DeleteMutation,
         DropTableOperation,
-        InsertMutation,
-        MergeMutation,
-        UpdateMutation,
     )
     from .batch import OperationBatch
 from sqlalchemy.engine import Connection
@@ -26,7 +22,6 @@ from sqlalchemy.engine import Connection
 from ..engine.connection import ConnectionManager
 from ..engine.dialects import DialectSpec, get_dialect
 from ..engine.execution import QueryExecutor, QueryResult
-from ..expressions.column import Column
 from ..logical.plan import LogicalPlan
 from ..sql.compiler import compile_plan
 from .schema import ColumnDef
@@ -43,122 +38,6 @@ class TableHandle:
         from ..dataframe.dataframe import DataFrame
 
         return DataFrame.from_table(self, columns=list(columns))
-
-    def insert(self, rows: Union[Sequence[Mapping[str, object]], "Records"]) -> "InsertMutation":
-        """Create a lazy insert operation.
-
-        Args:
-            rows: Sequence of row dictionaries to insert
-
-        Returns:
-            InsertMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.insert([{"id": 1, "name": "Alice"}])
-            >>> rowcount = mutation.collect()  # Executes the insert
-        """
-        from .actions import InsertMutation
-        from .batch import get_active_batch
-
-        op = InsertMutation(handle=self, rows=rows)
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
-
-    def update(self, *, where: Column, set: Mapping[str, object]) -> "UpdateMutation":
-        """Create a lazy update operation.
-
-        Args:
-            where: Column expression for the WHERE clause
-            set: Dictionary of column names to new values
-
-        Returns:
-            UpdateMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.update(where=col("id") == 1, set={"name": "Bob"})
-            >>> rowcount = mutation.collect()  # Executes the update
-        """
-        from .actions import UpdateMutation
-        from .batch import get_active_batch
-
-        op = UpdateMutation(handle=self, where=where, values=set)
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
-
-    def delete(self, where: Column) -> "DeleteMutation":
-        """Create a lazy delete operation.
-
-        Args:
-            where: Column expression for the WHERE clause
-
-        Returns:
-            DeleteMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.delete(where=col("id") == 1)
-            >>> rowcount = mutation.collect()  # Executes the delete
-        """
-        from .actions import DeleteMutation
-        from .batch import get_active_batch
-
-        op = DeleteMutation(handle=self, where=where)
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
-
-    def merge(
-        self,
-        rows: Union[Sequence[Mapping[str, object]], "Records"],
-        *,
-        on: Sequence[str],
-        when_matched: Optional[Mapping[str, object]] = None,
-        when_not_matched: Optional[Mapping[str, object]] = None,
-    ) -> "MergeMutation":
-        """Create a lazy merge (upsert) operation.
-
-        This implements MERGE/UPSERT operations with dialect-specific SQL:
-        - PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
-        - SQLite: INSERT ... ON CONFLICT ... DO UPDATE
-        - MySQL: INSERT ... ON DUPLICATE KEY UPDATE
-
-        Args:
-            rows: Sequence of row dictionaries to merge
-            on: Sequence of column names that form the conflict key (primary key or unique constraint)
-            when_matched: Optional dictionary of column updates when a conflict occurs
-                         If None, no update is performed (insert only if not exists)
-            when_not_matched: Optional dictionary of default values when inserting new rows
-                             If None, uses values from rows
-
-        Returns:
-            MergeMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.merge(
-            ...     [{"email": "user@example.com", "name": "Updated Name"}],
-            ...     on=["email"],
-            ...     when_matched={"name": "Updated Name", "updated_at": "NOW()"}
-            ... )
-            >>> rowcount = mutation.collect()  # Executes the merge
-        """
-        from .actions import MergeMutation
-        from .batch import get_active_batch
-
-        op = MergeMutation(
-            handle=self,
-            rows=rows,
-            on=on,
-            when_matched=when_matched,
-            when_not_matched=when_not_matched,
-        )
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
 
 
 class Transaction:
@@ -369,7 +248,6 @@ class Database:
         Example:
             >>> with db.batch():
             ...     db.create_table("users", [...])
-            ...     table.insert([...])
             ...     # All operations execute together on exit
         """
         from .batch import OperationBatch
@@ -389,8 +267,8 @@ class Database:
 
         Example:
             >>> with db.transaction() as txn:
-            ...     table.insert([...]).collect()
-            ...     table.update(...).collect()
+            ...     df.write.insertInto("table")
+            ...     df.write.update("table", where=..., set={...})
             ...     # If any operation fails, all are rolled back
             ...     # Otherwise, all are committed on exit
         """
@@ -404,6 +282,132 @@ class Database:
             if not txn._rolled_back:
                 txn.rollback()
             raise
+
+    # ----------------------------------------------------------------- internals
+    def createDataFrame(
+        self,
+        data: Union[Sequence[dict[str, object]], Sequence[tuple], Records],
+        schema: Optional[Sequence[ColumnDef]] = None,
+        pk: Optional[Union[str, Sequence[str]]] = None,
+        auto_pk: Optional[Union[str, Sequence[str]]] = None,
+    ) -> "DataFrame":
+        """Create a DataFrame from Python data (list of dicts, list of tuples, or Records).
+
+        Creates a temporary table, inserts the data, and returns a DataFrame querying from that table.
+
+        Args:
+            data: Input data in one of supported formats:
+                - List of dicts: [{"col1": val1, "col2": val2}, ...]
+                - List of tuples: Requires schema parameter with column names
+                - Records object: Extracts data and schema if available
+            schema: Optional explicit schema. If not provided, schema is inferred from data.
+            pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
+            auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
+
+        Returns:
+            DataFrame querying from the created temporary table
+
+        Raises:
+            ValueError: If data is empty and no schema provided, or if primary key requirements are not met
+            ValidationError: If list of tuples provided without schema, or other validation errors
+
+        Example:
+            >>> # Create DataFrame from list of dicts
+            >>> df = db.createDataFrame([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], pk="id")
+            >>> # Create DataFrame with auto-incrementing primary key
+            >>> df = db.createDataFrame([{"name": "Alice"}, {"name": "Bob"}], auto_pk="id")
+            >>> # Create DataFrame from Records
+            >>> from moltres.io.records import Records
+            >>> records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> df = db.createDataFrame(records, pk="id")
+        """
+        from ..dataframe.create_dataframe import (
+            ensure_primary_key,
+            generate_unique_table_name,
+            get_schema_from_records,
+            normalize_data_to_rows,
+        )
+        from ..dataframe.dataframe import DataFrame
+        from ..dataframe.readers.schema_inference import infer_schema_from_rows
+        from ..io.records import Records
+        from ..utils.exceptions import ValidationError
+
+        # Normalize data to list of dicts
+        if isinstance(data, Records):
+            rows = normalize_data_to_rows(data)
+            # Use schema from Records if available and no explicit schema provided
+            if schema is None:
+                schema = get_schema_from_records(data)
+        elif isinstance(data, list) and data and isinstance(data[0], tuple):
+            # Handle list of tuples - requires schema
+            if schema is None:
+                from ..utils.exceptions import ValidationError
+
+                raise ValidationError(
+                    "List of tuples requires a schema with column names. "
+                    "Provide schema parameter or use list of dicts instead."
+                )
+            # Convert tuples to dicts using schema column names
+            column_names = [col.name for col in schema]
+            rows = []
+            for row_tuple in data:
+                if len(row_tuple) != len(column_names):
+                    raise ValueError(
+                        f"Tuple length {len(row_tuple)} does not match schema column count {len(column_names)}"
+                    )
+                rows.append(dict(zip(column_names, row_tuple)))
+        else:
+            rows = normalize_data_to_rows(data)
+
+        # Validate data is not empty (unless schema provided)
+        if not rows and schema is None:
+            raise ValueError("Cannot create DataFrame from empty data without a schema")
+
+        # Infer or use schema
+        if schema is None:
+            if not rows:
+                raise ValueError("Cannot infer schema from empty data. Provide schema parameter.")
+            inferred_schema_list = list(infer_schema_from_rows(rows))
+        else:
+            inferred_schema_list = list(schema)
+
+        # Ensure primary key
+        inferred_schema_list, new_auto_increment_cols = ensure_primary_key(
+            inferred_schema_list,
+            pk=pk,
+            auto_pk=auto_pk,
+            dialect_name=self._dialect_name,
+        )
+
+        # Generate unique table name
+        table_name = generate_unique_table_name()
+
+        # Create temporary table
+        table_handle = self.create_table(
+            table_name,
+            inferred_schema_list,
+            temporary=True,
+            if_not_exists=True,
+        ).collect()
+
+        # Insert data (exclude new auto-increment columns from INSERT)
+        if rows:
+            # Filter rows to only include columns that exist in schema and are not new auto-increment columns
+            filtered_rows = []
+            for row in rows:
+                filtered_row = {
+                    k: v
+                    for k, v in row.items()
+                    if k not in new_auto_increment_cols
+                    and any(col.name == k for col in inferred_schema_list)
+                }
+                filtered_rows.append(filtered_row)
+
+            records_to_insert = Records(_data=filtered_rows, _database=self)
+            records_to_insert.insert_into(table_handle)
+
+        # Return DataFrame querying from the temporary table
+        return DataFrame.from_table(table_handle)
 
     # ----------------------------------------------------------------- internals
     @property

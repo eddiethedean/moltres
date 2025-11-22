@@ -2,6 +2,7 @@
 
 from moltres import column, connect
 from moltres.engine.dialects import get_dialect
+from moltres.io.records import Records
 from moltres.sql.ddl import compile_create_table, compile_drop_table
 from moltres.table.schema import TableSchema
 
@@ -95,7 +96,10 @@ def test_create_table_integration(tmp_path):
 
     assert table.name == "customers"
 
-    table.insert([{"id": 1, "name": "Alice", "email": "alice@example.com"}]).collect()
+    records = Records(
+        _data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db
+    )
+    records.insert_into("customers")
     rows = table.select().collect()
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
@@ -115,7 +119,8 @@ def test_create_table_with_defaults_integration(tmp_path):
         ],
     ).collect()
 
-    table.insert([{"id": 1, "name": "Widget"}]).collect()
+    records = Records(_data=[{"id": 1, "name": "Widget"}], _database=db)
+    records.insert_into("products")
     rows = table.select().collect()
     assert rows[0]["price"] == 0.0
     assert rows[0]["active"] == 1
@@ -139,12 +144,14 @@ def test_decimal_type_with_precision_scale(tmp_path):
     ).collect()
 
     # Insert test data
-    table.insert(
-        [
+    records = Records(
+        _data=[
             {"id": 1, "price": 99.99, "discount": 0.10},
             {"id": 2, "price": 149.50, "discount": 0.15},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    records.insert_into("prices")
 
     # Verify data
     result = table.select().collect()
@@ -162,11 +169,8 @@ def test_decimal_type_with_precision_scale(tmp_path):
         ],
     ).collect()
 
-    table2.insert(
-        [
-            {"id": 1, "cost": 100.50, "tax_rate": 0.0825},
-        ]
-    ).collect()
+    records2 = Records(_data=[{"id": 1, "cost": 100.50, "tax_rate": 0.0825}], _database=db)
+    records2.insert_into("products")
 
     result2 = table2.select().collect()
     assert len(result2) == 1
@@ -193,11 +197,8 @@ def test_uuid_type(tmp_path):
     import uuid as uuid_module
 
     user_id = str(uuid_module.uuid4())
-    table.insert(
-        [
-            {"id": user_id, "name": "Alice"},
-        ]
-    ).collect()
+    records = Records(_data=[{"id": user_id, "name": "Alice"}], _database=db)
+    records.insert_into("users")
 
     # Verify data
     result = table.select().collect()
@@ -216,11 +217,8 @@ def test_uuid_type(tmp_path):
 
     session_id = str(uuid_module.uuid4())
     user_id2 = str(uuid_module.uuid4())
-    table2.insert(
-        [
-            {"id": session_id, "user_id": user_id2},
-        ]
-    ).collect()
+    records2 = Records(_data=[{"id": session_id, "user_id": user_id2}], _database=db)
+    records2.insert_into("sessions")
 
     result2 = table2.select().collect()
     assert len(result2) == 1
@@ -250,11 +248,8 @@ def test_json_type(tmp_path):
 
     product_data = json_module.dumps({"name": "Widget", "price": 10.5})
     metadata = json_module.dumps({"category": "electronics"})
-    table.insert(
-        [
-            {"id": 1, "data": product_data, "metadata": metadata},
-        ]
-    ).collect()
+    records = Records(_data=[{"id": 1, "data": product_data, "metadata": metadata}], _database=db)
+    records.insert_into("products")
 
     # Verify data
     result = table.select().collect()
@@ -273,11 +268,8 @@ def test_json_type(tmp_path):
     ).collect()
 
     settings = json_module.dumps({"theme": "dark", "lang": "en"})
-    table2.insert(
-        [
-            {"id": 1, "settings": settings},
-        ]
-    ).collect()
+    records2 = Records(_data=[{"id": 1, "settings": settings}], _database=db)
+    records2.insert_into("config")
 
     result2 = table2.select().collect()
     assert len(result2) == 1
@@ -306,11 +298,8 @@ def test_interval_type(tmp_path):
     import datetime
 
     start = datetime.datetime(2024, 1, 1, 10, 0, 0)
-    table.insert(
-        [
-            {"id": 1, "start_time": start, "duration": "1 HOUR"},
-        ]
-    ).collect()
+    records = Records(_data=[{"id": 1, "start_time": start, "duration": "1 HOUR"}], _database=db)
+    records.insert_into("events")
 
     # Verify data
     result = table.select().collect()
@@ -339,7 +328,8 @@ def test_drop_table_integration(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     table = db.create_table("temp", [column("id", "INTEGER")]).collect()
-    table.insert([{"id": 1}]).collect()
+    records = Records(_data=[{"id": 1}], _database=db)
+    records.insert_into("temp")
     rows = table.select().collect()
     assert len(rows) == 1
 

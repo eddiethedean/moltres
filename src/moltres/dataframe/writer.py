@@ -5,8 +5,10 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Dict, Iterator, List, Mapping, Optional, Sequence, Union, cast
 
+from ..expressions.column import Column
+from ..table.mutations import delete_rows, insert_rows, update_rows
 from ..table.schema import ColumnDef
 from .dataframe import DataFrame
 
@@ -100,20 +102,88 @@ class DataFrameWriter:
                 f"Table '{table_name}' does not exist. Use save_as_table() to create it."
             )
 
+        # Get active transaction if available
+        transaction = db.connection_manager.active_transaction
+        table_handle = db.table(table_name)
+
         if self._stream:
             # Stream inserts in batches
-            table = db.table(table_name)
             chunk_iter = self._df.collect(stream=True)
             for chunk in chunk_iter:
                 if chunk:
-                    table.insert(chunk).collect()
+                    insert_rows(table_handle, chunk, transaction=transaction)
         else:
             rows = self._df.collect()
             if rows:
-                table = db.table(table_name)
-                table.insert(rows).collect()
+                insert_rows(table_handle, rows, transaction=transaction)
 
     insert_into = insertInto
+
+    def update(
+        self,
+        table_name: str,
+        *,
+        where: Column,
+        set: Mapping[str, object],
+    ) -> None:
+        """Update rows in a table matching the WHERE condition.
+
+        Executes immediately (eager execution like PySpark writes).
+
+        Args:
+            table_name: Name of the table to update
+            where: Column expression for the WHERE clause
+            set: Dictionary of column names to new values
+
+        Example:
+            >>> df = db.table("users").select()
+            >>> df.write.update("users", where=col("id") == 1, set={"name": "Bob"})
+        """
+        if self._df.database is None:
+            raise RuntimeError("Cannot update table without an attached Database")
+
+        db = self._df.database
+        if not self._table_exists(db, table_name):
+            raise ValueError(f"Table '{table_name}' does not exist")
+
+        # Get active transaction if available
+        transaction = db.connection_manager.active_transaction
+
+        # Use the mutation helper function
+        table_handle = db.table(table_name)
+        update_rows(table_handle, where=where, values=set, transaction=transaction)
+
+    def delete(
+        self,
+        table_name: str,
+        *,
+        where: Column,
+    ) -> None:
+        """Delete rows from a table matching the WHERE condition.
+
+        Executes immediately (eager execution like PySpark writes).
+
+        Args:
+            table_name: Name of the table to delete from
+            where: Column expression for the WHERE clause
+
+        Example:
+            >>> df = db.table("users").select()
+            >>> df.write.delete("users", where=col("id") == 1)
+        """
+        if self._df.database is None:
+            raise RuntimeError("Cannot delete from table without an attached Database")
+
+        db = self._df.database
+        if not self._table_exists(db, table_name):
+            raise ValueError(f"Table '{table_name}' does not exist")
+
+        # Get active transaction if available
+        transaction = db.connection_manager.active_transaction
+
+        # Use the mutation helper function
+        table_handle = db.table(table_name)
+        delete_rows(table_handle, where=where, transaction=transaction)
 
     def save(self, path: str, format: Optional[str] = None) -> None:
         """Save DataFrame to a file or directory in the specified format."""
@@ -230,19 +300,19 @@ class DataFrameWriter:
             db.create_table(table_name, schema, if_not_exists=True).collect()
 
         # Insert data (if any)
+        table_handle = db.table(table_name)
+        transaction = db.connection_manager.active_transaction
         if self._stream:
             # Streaming write: insert first chunk, then remaining chunks
-            table = db.table(table_name)
             if rows:  # First chunk already read
-                table.insert(rows).collect()
+                insert_rows(table_handle, rows, transaction=transaction)
             # Insert remaining chunks
             if chunk_iter is not None:
                 for chunk in chunk_iter:
                     if chunk:
-                        table.insert(chunk).collect()
+                        insert_rows(table_handle, chunk, transaction=transaction)
         elif rows:
-            table = db.table(table_name)
-            table.insert(rows).collect()
+            insert_rows(table_handle, rows, transaction=transaction)
 
     def _infer_schema_from_plan(self) -> Optional[Sequence[ColumnDef]]:
         """Infer schema from DataFrame plan without materializing data.

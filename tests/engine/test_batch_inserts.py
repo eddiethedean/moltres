@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from moltres import connect
+from moltres.io.records import Records
 from moltres.table.schema import column
 
 
@@ -28,7 +29,8 @@ def test_batch_insert_performance(tmp_path):
         for i in range(1, 101)  # 100 rows
     ]
 
-    result = table.insert(rows).collect()
+    records = Records(_data=rows, _database=db)
+    result = records.insert_into("test")
     assert result == 100
 
     # Verify all rows were inserted
@@ -54,8 +56,8 @@ def test_batch_insert_empty_list(tmp_path):
         ],
     ).collect()
 
-    table = db.table("test")
-    result = table.insert([]).collect()
+    records = Records(_data=[], _database=db)
+    result = records.insert_into("test")
     assert result == 0
 
 
@@ -78,7 +80,8 @@ def test_batch_insert_large_dataset(tmp_path):
 
     # Insert 1000 rows
     rows = [{"id": i, "data": f"data_{i}"} for i in range(1000)]
-    result = table.insert(rows).collect()
+    records = Records(_data=rows, _database=db)
+    result = records.insert_into("test")
     assert result == 1000
 
     # Verify

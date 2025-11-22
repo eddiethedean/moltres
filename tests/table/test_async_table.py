@@ -8,6 +8,7 @@ except ImportError:
     pytest.skip("aiosqlite not installed", allow_module_level=True)
 
 from moltres import async_connect, col
+from moltres.io.records import AsyncRecords
 
 
 @pytest.mark.asyncio
@@ -19,7 +20,7 @@ async def test_async_table_operations(tmp_path):
     from moltres.table.schema import column
 
     # Create table
-    table = await db.create_table(
+    await db.create_table(
         "products",
         [
             column("id", "INTEGER"),
@@ -28,32 +29,28 @@ async def test_async_table_operations(tmp_path):
         ],
     ).collect()
 
-    # Insert rows
-    await table.insert(
-        [
+    # Insert rows using AsyncRecords
+    records = AsyncRecords(
+        _data=[
             {"id": 1, "name": "Widget", "price": 10.0},
             {"id": 2, "name": "Gadget", "price": 20.0},
-        ]
-    ).collect()
+        ],
+        _database=db,
+    )
+    await records.insert_into("products")
 
-    # Update rows
-    updated = await table.update(
-        where=col("id") == 1,
-        set={"price": 15.0},
-    ).collect()
-    assert updated == 1
-
-    # Query
-    # Use db.table().select() for SQL operations
+    # Update rows using DataFrame write API
     table_handle = await db.table("products")
     df = table_handle.select()
+    await df.write.update("products", where=col("id") == 1, set={"price": 15.0})
+
+    # Query
     results = await df.collect()
     assert len(results) == 2
     assert results[0]["price"] == 15.0
 
-    # Delete rows
-    deleted = await table.delete(where=col("id") == 2).collect()
-    assert deleted == 1
+    # Delete rows using DataFrame write API
+    await df.write.delete("products", where=col("id") == 2)
 
     # Verify deletion
     results = await df.collect()

@@ -30,6 +30,7 @@ def test_readme_quick_start_example(temp_db_path, temp_file_dir):
     executor = ExampleExecutor(temp_db_path, temp_file_dir)
     setup_code = """
 from moltres.table.schema import ColumnDef
+from moltres.io.records import Records
 
 db = connect(f"sqlite:///{temp_db_path}")
 orders_table = db.create_table(
@@ -39,10 +40,14 @@ orders_table = db.create_table(
         ColumnDef(name="amount", type_name="REAL"),
     ],
 ).collect()
-orders_table.insert([
+orders_records = Records(
+    _data=[
     {"customer_id": 1, "amount": 100.0},
     {"customer_id": 2, "amount": 200.0},
-]).collect()
+    ],
+    _database=db,
+)
+orders_records.insert_into("orders")
 
 customers_table = db.create_table(
     "customers",
@@ -55,10 +60,14 @@ customers_table = db.create_table(
         ColumnDef(name="updated_at", type_name="TEXT"),
     ],
 ).collect()
-customers_table.insert([
+customers_records = Records(
+    _data=[
     {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1, "country": "US"},
     {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 1, "country": "UK"},
-]).collect()
+    ],
+    _database=db,
+)
+customers_records.insert_into("customers")
 """
     # Replace temp_db_path in setup
     # Use as_posix() to convert Windows paths to forward slashes (required for SQLite URLs)

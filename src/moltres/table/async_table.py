@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Sequence, Union
 
 from ..config import MoltresConfig
 
@@ -14,11 +14,7 @@ if TYPE_CHECKING:
     from ..io.records import AsyncRecords
     from .async_actions import (
         AsyncCreateTableOperation,
-        AsyncDeleteMutation,
         AsyncDropTableOperation,
-        AsyncInsertMutation,
-        AsyncMergeMutation,
-        AsyncUpdateMutation,
     )
 try:
     from sqlalchemy.ext.asyncio.engine import AsyncConnection
@@ -28,7 +24,6 @@ except ImportError:
 from ..engine.async_connection import AsyncConnectionManager
 from ..engine.async_execution import AsyncQueryExecutor, AsyncQueryResult
 from ..engine.dialects import DialectSpec, get_dialect
-from ..expressions.column import Column
 from ..logical.plan import LogicalPlan
 from ..sql.compiler import compile_plan
 from .schema import ColumnDef
@@ -45,104 +40,6 @@ class AsyncTableHandle:
         from ..dataframe.async_dataframe import AsyncDataFrame
 
         return AsyncDataFrame.from_table(self, columns=list(columns))
-
-    def insert(
-        self, rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]
-    ) -> "AsyncInsertMutation":
-        """Create a lazy async insert operation.
-
-        Args:
-            rows: Sequence of row dictionaries to insert
-
-        Returns:
-            AsyncInsertMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.insert([{"id": 1, "name": "Alice"}])
-            >>> rowcount = await mutation.collect()  # Executes the insert
-        """
-        from .async_actions import AsyncInsertMutation
-
-        return AsyncInsertMutation(handle=self, rows=rows)
-
-    def update(self, *, where: Column, set: Mapping[str, object]) -> "AsyncUpdateMutation":
-        """Create a lazy async update operation.
-
-        Args:
-            where: Column expression for the WHERE clause
-            set: Dictionary of column names to new values
-
-        Returns:
-            AsyncUpdateMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.update(where=col("id") == 1, set={"name": "Bob"})
-            >>> rowcount = await mutation.collect()  # Executes the update
-        """
-        from .async_actions import AsyncUpdateMutation
-
-        return AsyncUpdateMutation(handle=self, where=where, values=set)
-
-    def delete(self, where: Column) -> "AsyncDeleteMutation":
-        """Create a lazy async delete operation.
-
-        Args:
-            where: Column expression for the WHERE clause
-
-        Returns:
-            AsyncDeleteMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.delete(where=col("id") == 1)
-            >>> rowcount = await mutation.collect()  # Executes the delete
-        """
-        from .async_actions import AsyncDeleteMutation
-
-        return AsyncDeleteMutation(handle=self, where=where)
-
-    def merge(
-        self,
-        rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"],
-        *,
-        on: Sequence[str],
-        when_matched: Optional[Mapping[str, object]] = None,
-        when_not_matched: Optional[Mapping[str, object]] = None,
-    ) -> "AsyncMergeMutation":
-        """Create a lazy async merge (upsert) operation.
-
-        This implements MERGE/UPSERT operations with dialect-specific SQL:
-        - PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
-        - SQLite: INSERT ... ON CONFLICT ... DO UPDATE
-        - MySQL: INSERT ... ON DUPLICATE KEY UPDATE
-
-        Args:
-            rows: Sequence of row dictionaries to merge
-            on: Sequence of column names that form the conflict key (primary key or unique constraint)
-            when_matched: Optional dictionary of column updates when a conflict occurs
-                         If None, no update is performed (insert only if not exists)
-            when_not_matched: Optional dictionary of default values when inserting new rows
-                             If None, uses values from rows
-
-        Returns:
-            AsyncMergeMutation that executes on collect()
-
-        Example:
-            >>> mutation = table.merge(
-            ...     [{"email": "user@example.com", "name": "Updated Name"}],
-            ...     on=["email"],
-            ...     when_matched={"name": "Updated Name", "updated_at": "NOW()"}
-            ... )
-            >>> rowcount = await mutation.collect()  # Executes the merge
-        """
-        from .async_actions import AsyncMergeMutation
-
-        return AsyncMergeMutation(
-            handle=self,
-            rows=rows,
-            on=on,
-            when_matched=when_matched,
-            when_not_matched=when_not_matched,
-        )
 
 
 class AsyncTransaction:
@@ -331,8 +228,8 @@ class AsyncDatabase:
 
         Example:
             >>> async with db.transaction() as txn:
-            ...     await table.insert([...]).collect()
-            ...     await table.update(...).collect()
+            ...     await df.write.insertInto("table")
+            ...     await df.write.update("table", where=..., set={...})
             ...     # If any operation fails, all are rolled back
             ...     # Otherwise, all are committed on exit
         """
@@ -346,6 +243,134 @@ class AsyncDatabase:
             if not txn._rolled_back:
                 await txn.rollback()
             raise
+
+    async def createDataFrame(
+        self,
+        data: Union[Sequence[dict[str, object]], Sequence[tuple], "AsyncRecords"],
+        schema: Optional[Sequence[ColumnDef]] = None,
+        pk: Optional[Union[str, Sequence[str]]] = None,
+        auto_pk: Optional[Union[str, Sequence[str]]] = None,
+    ) -> "AsyncDataFrame":
+        """Create an AsyncDataFrame from Python data (list of dicts, list of tuples, or AsyncRecords).
+
+        Creates a temporary table, inserts the data, and returns an AsyncDataFrame querying from that table.
+
+        Args:
+            data: Input data in one of supported formats:
+                - List of dicts: [{"col1": val1, "col2": val2}, ...]
+                - List of tuples: Requires schema parameter with column names
+                - AsyncRecords object: Extracts data and schema if available
+            schema: Optional explicit schema. If not provided, schema is inferred from data.
+            pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
+            auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
+
+        Returns:
+            AsyncDataFrame querying from the created temporary table
+
+        Raises:
+            ValueError: If data is empty and no schema provided, or if primary key requirements are not met
+            ValidationError: If list of tuples provided without schema, or other validation errors
+
+        Example:
+            >>> # Create AsyncDataFrame from list of dicts
+            >>> df = await db.createDataFrame([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], pk="id")
+            >>> # Create AsyncDataFrame with auto-incrementing primary key
+            >>> df = await db.createDataFrame([{"name": "Alice"}, {"name": "Bob"}], auto_pk="id")
+        """
+        from ..dataframe.async_dataframe import AsyncDataFrame
+        from ..dataframe.create_dataframe import (
+            ensure_primary_key,
+            generate_unique_table_name,
+            get_schema_from_records,
+        )
+        from ..dataframe.readers.schema_inference import infer_schema_from_rows
+        from ..io.records import AsyncRecords
+        from ..utils.exceptions import ValidationError
+
+        # Normalize data to list of dicts
+        if isinstance(data, AsyncRecords):
+            rows = await data.rows()  # Materialize async records
+            # Use schema from AsyncRecords if available and no explicit schema provided
+            if schema is None:
+                schema = get_schema_from_records(data)
+        elif isinstance(data, list):
+            if not data:
+                rows = []
+            elif isinstance(data[0], dict):
+                rows = [dict(row) for row in data]
+            elif isinstance(data[0], tuple):
+                # Handle list of tuples - requires schema
+                if schema is None:
+                    raise ValidationError(
+                        "List of tuples requires a schema with column names. "
+                        "Provide schema parameter or use list of dicts instead."
+                    )
+                # Convert tuples to dicts using schema column names
+                column_names = [col.name for col in schema]
+                rows = []
+                for row_tuple in data:
+                    if len(row_tuple) != len(column_names):
+                        raise ValueError(
+                            f"Tuple length {len(row_tuple)} does not match schema column count {len(column_names)}"
+                        )
+                    rows.append(dict(zip(column_names, row_tuple)))
+            else:
+                raise ValueError(f"Unsupported data type in list: {type(data[0])}")
+        else:
+            raise ValueError(
+                f"Unsupported data type: {type(data)}. "
+                "Supported types: list of dicts, list of tuples (with schema), AsyncRecords"
+            )
+
+        # Validate data is not empty (unless schema provided)
+        if not rows and schema is None:
+            raise ValueError("Cannot create DataFrame from empty data without a schema")
+
+        # Infer or use schema
+        if schema is None:
+            if not rows:
+                raise ValueError("Cannot infer schema from empty data. Provide schema parameter.")
+            inferred_schema_list = list(infer_schema_from_rows(rows))
+        else:
+            inferred_schema_list = list(schema)
+
+        # Ensure primary key
+        inferred_schema_list, new_auto_increment_cols = ensure_primary_key(
+            inferred_schema_list,
+            pk=pk,
+            auto_pk=auto_pk,
+            dialect_name=self._dialect_name,
+        )
+
+        # Generate unique table name
+        table_name = generate_unique_table_name()
+
+        # Create temporary table
+        table_handle = await self.create_table(
+            table_name,
+            inferred_schema_list,
+            temporary=True,
+            if_not_exists=True,
+        ).collect()
+
+        # Insert data (exclude new auto-increment columns from INSERT)
+        if rows:
+            # Filter rows to only include columns that exist in schema and are not new auto-increment columns
+            filtered_rows = []
+            for row in rows:
+                filtered_row = {
+                    k: v
+                    for k, v in row.items()
+                    if k not in new_auto_increment_cols
+                    and any(col.name == k for col in inferred_schema_list)
+                }
+                filtered_rows.append(filtered_row)
+
+            records_to_insert = AsyncRecords(_data=filtered_rows, _database=self)
+            await records_to_insert.insert_into(table_handle)
+
+        # Return AsyncDataFrame querying from the temporary table
+        return AsyncDataFrame.from_table(table_handle)
 
     async def close(self) -> None:
         """Close the database connection and cleanup resources."""

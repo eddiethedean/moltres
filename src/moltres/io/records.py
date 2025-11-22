@@ -121,9 +121,15 @@ class Records(Sequence[Mapping[str, object]]):
 
         Raises:
             RuntimeError: If no database is attached
+
+        Note:
+            For DataFrame-based operations, consider creating a DataFrame from the data
+            and using df.write.insertInto() instead.
         """
         if self._database is None:
             raise RuntimeError("Cannot insert Records without an attached Database")
+
+        from ..table.mutations import insert_rows
 
         if isinstance(table, str):
             table_handle = self._database.table(table)
@@ -131,7 +137,8 @@ class Records(Sequence[Mapping[str, object]]):
             table_handle = table
 
         rows = self.rows()
-        return table_handle.insert(rows).collect()
+        transaction = self._database.connection_manager.active_transaction
+        return insert_rows(table_handle, rows, transaction=transaction)
 
 
 @dataclass
@@ -208,9 +215,15 @@ class AsyncRecords:
 
         Raises:
             RuntimeError: If no database is attached
+
+        Note:
+            For DataFrame-based operations, consider creating a DataFrame from the data
+            and using df.write.insertInto() instead.
         """
         if self._database is None:
             raise RuntimeError("Cannot insert AsyncRecords without an attached AsyncDatabase")
+
+        from ..table.async_mutations import insert_rows_async
 
         if isinstance(table, str):
             table_handle = await self._database.table(table)
@@ -218,4 +231,5 @@ class AsyncRecords:
             table_handle = table
 
         rows = await self.rows()
-        return await table_handle.insert(rows).collect()
+        transaction = self._database.connection_manager.active_transaction
+        return await insert_rows_async(table_handle, rows, transaction=transaction)

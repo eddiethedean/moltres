@@ -14,11 +14,14 @@ def test_read_table(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create and populate table
-    source = db.create_table(
+    db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
     ).collect()
-    source.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
+    from moltres.io.records import Records
+
+    records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
+    records.insert_into("source")
 
     # Read using load.table() - returns Records
     records = db.load.table("source")
@@ -352,7 +355,7 @@ def test_records_direct_insert(tmp_path):
     records = db.load.json(str(json_path))
 
     # Create table
-    table = db.create_table(
+    db.create_table(
         "target",
         [
             ColumnDef(name="id", type_name="INTEGER"),
@@ -360,8 +363,8 @@ def test_records_direct_insert(tmp_path):
         ],
     ).collect()
 
-    # Insert records directly (Records implements Sequence protocol)
-    count = table.insert(records).collect()
+    # Insert records directly using Records.insert_into()
+    count = records.insert_into("target")
     assert count == 2
 
     # Verify data was inserted
@@ -490,7 +493,7 @@ def test_records_with_update_operation(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create and populate table
-    table = db.create_table(
+    db.create_table(
         "users",
         [
             ColumnDef(name="id", type_name="INTEGER"),
@@ -498,7 +501,10 @@ def test_records_with_update_operation(tmp_path):
             ColumnDef(name="status", type_name="TEXT"),
         ],
     ).collect()
-    table.insert([{"id": 1, "name": "Alice", "status": "active"}]).collect()
+    from moltres.io.records import Records
+
+    records = Records(_data=[{"id": 1, "name": "Alice", "status": "active"}], _database=db)
+    records.insert_into("users")
 
     # Create CSV with updates
     csv_path = tmp_path / "updates.csv"
@@ -553,14 +559,17 @@ def test_records_from_table(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create and populate table
-    table = db.create_table(
+    db.create_table(
         "source",
         [
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
     ).collect()
-    table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
+    from moltres.io.records import Records
+
+    records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
+    records.insert_into("source")
 
     # Load table as Records (materializes data)
     records = db.load.table("source")
@@ -878,7 +887,7 @@ def test_records_with_update_rows(tmp_path):
     db = connect(f"sqlite:///{db_path}")
 
     # Create table
-    table = db.create_table(
+    db.create_table(
         "users",
         [
             ColumnDef(name="id", type_name="INTEGER"),
@@ -886,7 +895,10 @@ def test_records_with_update_rows(tmp_path):
             ColumnDef(name="status", type_name="TEXT"),
         ],
     ).collect()
-    table.insert([{"id": 1, "name": "Alice", "status": "active"}]).collect()
+    from moltres.io.records import Records
+
+    records = Records(_data=[{"id": 1, "name": "Alice", "status": "active"}], _database=db)
+    records.insert_into("users")
 
     # Create CSV with updates
     csv_path = tmp_path / "updates.csv"

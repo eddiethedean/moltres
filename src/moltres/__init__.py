@@ -72,7 +72,10 @@ def connect(dsn: str | None = None, **options: object) -> Database:
         >>> # Create table first
         >>> from moltres.table.schema import ColumnDef
         >>> table = db.create_table("users", [ColumnDef("id", "INTEGER"), ColumnDef("active", "BOOLEAN")])  # doctest: +SKIP
-        >>> table.insert([{"id": 1, "active": True}])  # doctest: +SKIP
+        >>> # Insert data using Records
+        >>> from moltres.io.records import Records
+        >>> records = Records(_data=[{"id": 1, "active": True}], _database=db)  # doctest: +SKIP
+        >>> records.insert_into("users")  # doctest: +SKIP
         >>> df = db.table("users").select().where(col("active") == True)  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> len(results)  # doctest: +SKIP
@@ -133,7 +136,9 @@ def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
         ...     db = async_connect("sqlite+aiosqlite:///:memory:")  # doctest: +SKIP
         ...     from moltres.table.schema import ColumnDef  # doctest: +SKIP
         ...     table = await db.create_table("users", [ColumnDef("id", "INTEGER")])  # doctest: +SKIP
-        ...     await table.insert([{"id": 1}])  # doctest: +SKIP
+        ...     from moltres.io.records import AsyncRecords  # doctest: +SKIP
+        ...     records = AsyncRecords(_data=[{"id": 1}], _database=db)  # doctest: +SKIP
+        ...     await records.insert_into("users")  # doctest: +SKIP
         ...     table_handle = await db.table("users")  # doctest: +SKIP
         ...     df = table_handle.select()  # doctest: +SKIP
         ...     results = await df.collect()  # doctest: +SKIP

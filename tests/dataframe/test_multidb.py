@@ -99,18 +99,24 @@ def test_insert_update_delete_multidb(request, db_fixture):
     ).collect()
 
     table = db.table("test_table")
-    inserted = table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "name": "Alice", "active": 1},
             {"id": 2, "name": "Bob", "active": 0},
-        ]
-    ).collect()
-    assert inserted == 2
+        ],
+        pk="id",
+    ).write.insertInto("test_table")
 
-    updated = table.update(where=col("id") == 2, set={"name": "Bobby", "active": 1}).collect()
+    # Verify insertion
+    rows = table.select().collect()
+    assert len(rows) == 2
+
+    from moltres.table.mutations import update_rows, delete_rows
+
+    updated = update_rows(table, where=col("id") == 2, values={"name": "Bobby", "active": 1})
     assert updated == 1
 
-    deleted = table.delete(where=col("id") == 1).collect()
+    deleted = delete_rows(table, where=col("id") == 1)
     assert deleted == 1
 
     rows = read_table(db, "test_table")
@@ -149,15 +155,16 @@ def test_distinct_multidb(request, db_fixture):
         ],
     ).collect()
 
-    table = db.table("test_distinct")
-    table.insert(
+    db.table("test_distinct")
+    db.createDataFrame(
         [
             {"id": 1, "value": "A"},
             {"id": 2, "value": "B"},
             {"id": 3, "value": "A"},
             {"id": 4, "value": "B"},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("test_distinct")
 
     result = db.table("test_distinct").select("value").distinct().order_by(col("value")).collect()
 

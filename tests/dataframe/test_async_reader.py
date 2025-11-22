@@ -145,8 +145,7 @@ async def test_async_records_direct_insert(tmp_path):
     # Insert records directly
     # Note: AsyncRecords needs to be materialized first for insert
     rows = await records.rows()
-    count = await table.insert(rows).collect()
-    assert count == 2
+    await (await db.createDataFrame(rows, pk="id")).write.insertInto("target")
 
     # Verify
     df = table.select()
@@ -218,15 +217,19 @@ async def test_async_records_from_table(tmp_path):
     db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
     # Create and populate table
-    table = await db.create_table(
+    await db.create_table(
         "source",
         [
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ],
     ).collect()
-    await table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
-
+    await (
+        await db.createDataFrame(
+            [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+            pk="id",
+        )
+    ).write.insertInto("source")
     # Load table as AsyncRecords
     records = await db.load.table("source")
 

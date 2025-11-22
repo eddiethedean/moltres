@@ -24,7 +24,7 @@ async def test_async_complex_query_workflow(tmp_path):
     from moltres.table.schema import column
 
     # Create customers table
-    customers_table = await db.create_table(
+    await db.create_table(
         "customers",
         [
             column("id", "INTEGER", primary_key=True),
@@ -34,7 +34,7 @@ async def test_async_complex_query_workflow(tmp_path):
     ).collect()
 
     # Create orders table
-    orders_table = await db.create_table(
+    await db.create_table(
         "orders",
         [
             column("id", "INTEGER", primary_key=True),
@@ -45,22 +45,28 @@ async def test_async_complex_query_workflow(tmp_path):
     ).collect()
 
     # Insert test data
-    await customers_table.insert(
-        [
-            {"id": 1, "name": "Alice", "country": "USA"},
-            {"id": 2, "name": "Bob", "country": "UK"},
-            {"id": 3, "name": "Charlie", "country": "USA"},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "name": "Alice", "country": "USA"},
+                {"id": 2, "name": "Bob", "country": "UK"},
+                {"id": 3, "name": "Charlie", "country": "USA"},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("customers")
 
-    await orders_table.insert(
-        [
-            {"id": 101, "customer_id": 1, "amount": 100.0, "status": "completed"},
-            {"id": 102, "customer_id": 1, "amount": 50.0, "status": "pending"},
-            {"id": 103, "customer_id": 2, "amount": 200.0, "status": "completed"},
-            {"id": 104, "customer_id": 3, "amount": 75.0, "status": "completed"},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 101, "customer_id": 1, "amount": 100.0, "status": "completed"},
+                {"id": 102, "customer_id": 1, "amount": 50.0, "status": "pending"},
+                {"id": 103, "customer_id": 2, "amount": 200.0, "status": "completed"},
+                {"id": 104, "customer_id": 3, "amount": 75.0, "status": "completed"},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("orders")
 
     # Complex query: join, filter, group by, aggregate, order by
     customers_df = (await db.table("customers")).select()
@@ -97,7 +103,7 @@ async def test_async_cte_workflow(tmp_path):
     from moltres.table.schema import column
 
     # Create sales table
-    sales_table = await db.create_table(
+    await db.create_table(
         "sales",
         [
             column("id", "INTEGER", primary_key=True),
@@ -107,14 +113,17 @@ async def test_async_cte_workflow(tmp_path):
         ],
     ).collect()
 
-    await sales_table.insert(
-        [
-            {"id": 1, "product": "Widget", "quantity": 10, "price": 5.0},
-            {"id": 2, "product": "Widget", "quantity": 5, "price": 5.0},
-            {"id": 3, "product": "Gadget", "quantity": 3, "price": 10.0},
-            {"id": 4, "product": "Gadget", "quantity": 7, "price": 10.0},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "product": "Widget", "quantity": 10, "price": 5.0},
+                {"id": 2, "product": "Widget", "quantity": 5, "price": 5.0},
+                {"id": 3, "product": "Gadget", "quantity": 3, "price": 10.0},
+                {"id": 4, "product": "Gadget", "quantity": 7, "price": 10.0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("sales")
 
     # Calculate totals, then filter
     # Note: CTEs require proper WITH clause support, which may not be fully implemented
@@ -152,7 +161,7 @@ async def test_async_window_function_workflow(tmp_path):
     from moltres.expressions.functions import row_number
 
     # Create employees table
-    employees_table = await db.create_table(
+    await db.create_table(
         "employees",
         [
             column("id", "INTEGER", primary_key=True),
@@ -162,14 +171,17 @@ async def test_async_window_function_workflow(tmp_path):
         ],
     ).collect()
 
-    await employees_table.insert(
-        [
-            {"id": 1, "name": "Alice", "department": "Engineering", "salary": 100000.0},
-            {"id": 2, "name": "Bob", "department": "Engineering", "salary": 95000.0},
-            {"id": 3, "name": "Charlie", "department": "Sales", "salary": 80000.0},
-            {"id": 4, "name": "Diana", "department": "Sales", "salary": 85000.0},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "name": "Alice", "department": "Engineering", "salary": 100000.0},
+                {"id": 2, "name": "Bob", "department": "Engineering", "salary": 95000.0},
+                {"id": 3, "name": "Charlie", "department": "Sales", "salary": 80000.0},
+                {"id": 4, "name": "Diana", "department": "Sales", "salary": 85000.0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("employees")
 
     # Use window function to rank employees by salary
     employees_df = (await db.table("employees")).select()
@@ -203,7 +215,7 @@ async def test_async_subquery_workflow(tmp_path):
     from moltres.table.schema import column
 
     # Create products table
-    products_table = await db.create_table(
+    await db.create_table(
         "products",
         [
             column("id", "INTEGER", primary_key=True),
@@ -213,7 +225,7 @@ async def test_async_subquery_workflow(tmp_path):
     ).collect()
 
     # Create order_items table
-    order_items_table = await db.create_table(
+    await db.create_table(
         "order_items",
         [
             column("id", "INTEGER", primary_key=True),
@@ -222,20 +234,26 @@ async def test_async_subquery_workflow(tmp_path):
         ],
     ).collect()
 
-    await products_table.insert(
-        [
-            {"id": 1, "name": "Widget", "price": 10.0},
-            {"id": 2, "name": "Gadget", "price": 20.0},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "name": "Widget", "price": 10.0},
+                {"id": 2, "name": "Gadget", "price": 20.0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("products")
 
-    await order_items_table.insert(
-        [
-            {"id": 1, "product_id": 1, "quantity": 5},
-            {"id": 2, "product_id": 1, "quantity": 3},
-            {"id": 3, "product_id": 2, "quantity": 2},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "product_id": 1, "quantity": 5},
+                {"id": 2, "product_id": 1, "quantity": 3},
+                {"id": 3, "product_id": 2, "quantity": 2},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("order_items")
 
     # Calculate total quantity per product using a join instead of subquery
     # (scalar subqueries in SELECT are complex, use join for simplicity)
@@ -277,13 +295,16 @@ async def test_async_multi_table_operations(tmp_path):
     ).collect()
 
     # Insert initial data
-    await users_table.insert(
-        [
-            {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1},
-            {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 1},
-            {"id": 3, "name": "Charlie", "email": "charlie@example.com", "active": 0},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1},
+                {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 1},
+                {"id": 3, "name": "Charlie", "email": "charlie@example.com", "active": 0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("users")
 
     # Query active users
     users_df = (await db.table("users")).select()
@@ -292,10 +313,13 @@ async def test_async_multi_table_operations(tmp_path):
     assert len(active_users) == 2
 
     # Update: deactivate Bob
-    await users_table.update(
+    from moltres.table.async_mutations import update_rows_async, delete_rows_async
+
+    await update_rows_async(
+        users_table,
         where=col("name") == "Bob",
-        set={"active": 0},
-    ).collect()
+        values={"active": 0},
+    )
 
     # Query again
     active_users_after = await users_df.where(col("active") == 1).collect()
@@ -304,7 +328,7 @@ async def test_async_multi_table_operations(tmp_path):
     assert active_users_after[0]["name"] == "Alice"
 
     # Delete inactive users
-    deleted_count = await users_table.delete(where=col("active") == 0).collect()
+    deleted_count = await delete_rows_async(users_table, where=col("active") == 0)
     assert deleted_count == 2  # Bob and Charlie
 
     # Final query
@@ -324,7 +348,7 @@ async def test_async_union_and_distinct_workflow(tmp_path):
     from moltres.table.schema import column
 
     # Create two tables with overlapping data
-    table1 = await db.create_table(
+    await db.create_table(
         "table1",
         [
             column("id", "INTEGER", primary_key=True),
@@ -332,7 +356,7 @@ async def test_async_union_and_distinct_workflow(tmp_path):
         ],
     ).collect()
 
-    table2 = await db.create_table(
+    await db.create_table(
         "table2",
         [
             column("id", "INTEGER", primary_key=True),
@@ -340,21 +364,27 @@ async def test_async_union_and_distinct_workflow(tmp_path):
         ],
     ).collect()
 
-    await table1.insert(
-        [
-            {"id": 1, "value": "A"},
-            {"id": 2, "value": "B"},
-            {"id": 3, "value": "C"},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "value": "A"},
+                {"id": 2, "value": "B"},
+                {"id": 3, "value": "C"},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("table1")
 
-    await table2.insert(
-        [
-            {"id": 4, "value": "B"},
-            {"id": 5, "value": "C"},
-            {"id": 6, "value": "D"},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 4, "value": "B"},
+                {"id": 5, "value": "C"},
+                {"id": 6, "value": "D"},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("table2")
 
     # Union and get distinct values
     df1 = (await db.table("table1")).select(col("value"))
@@ -377,7 +407,7 @@ async def test_async_pagination_workflow(tmp_path):
     from moltres.table.schema import column
 
     # Create items table
-    items_table = await db.create_table(
+    await db.create_table(
         "items",
         [
             column("id", "INTEGER", primary_key=True),
@@ -387,9 +417,12 @@ async def test_async_pagination_workflow(tmp_path):
     ).collect()
 
     # Insert 20 items (score from 100 down to 81)
-    await items_table.insert(
-        [{"id": i, "name": f"Item{i}", "score": 101 - i} for i in range(1, 21)]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [{"id": i, "name": f"Item{i}", "score": 101 - i} for i in range(1, 21)],
+            pk="id",
+        )
+    ).write.insertInto("items")
 
     items_df = (await db.table("items")).select()
 
@@ -420,7 +453,7 @@ async def test_async_aggregation_with_having(tmp_path):
     from moltres.table.schema import column
 
     # Create sales table
-    sales_table = await db.create_table(
+    await db.create_table(
         "sales",
         [
             column("id", "INTEGER", primary_key=True),
@@ -429,15 +462,18 @@ async def test_async_aggregation_with_having(tmp_path):
         ],
     ).collect()
 
-    await sales_table.insert(
-        [
-            {"id": 1, "salesperson": "Alice", "amount": 1000.0},
-            {"id": 2, "salesperson": "Alice", "amount": 500.0},
-            {"id": 3, "salesperson": "Bob", "amount": 200.0},
-            {"id": 4, "salesperson": "Charlie", "amount": 800.0},
-            {"id": 5, "salesperson": "Charlie", "amount": 700.0},
-        ]
-    ).collect()
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "salesperson": "Alice", "amount": 1000.0},
+                {"id": 2, "salesperson": "Alice", "amount": 500.0},
+                {"id": 3, "salesperson": "Bob", "amount": 200.0},
+                {"id": 4, "salesperson": "Charlie", "amount": 800.0},
+                {"id": 5, "salesperson": "Charlie", "amount": 700.0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("sales")
 
     sales_df = (await db.table("sales")).select()
 

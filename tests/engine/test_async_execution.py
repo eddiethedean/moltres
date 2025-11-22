@@ -8,6 +8,7 @@ except ImportError:
     pytest.skip("aiosqlite not installed", allow_module_level=True)
 
 from moltres import async_connect
+from moltres.io.records import AsyncRecords
 
 
 @pytest.mark.asyncio
@@ -19,7 +20,7 @@ async def test_async_fetch(tmp_path):
     # Create table
     from moltres.table.schema import column
 
-    table = await db.create_table(
+    await db.create_table(
         "users",
         [
             column("id", "INTEGER"),
@@ -28,7 +29,10 @@ async def test_async_fetch(tmp_path):
     ).collect()
 
     # Insert data
-    await table.insert([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]).collect()
+    records = AsyncRecords(
+        _data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db
+    )
+    await records.insert_into("users")
 
     # Query data
     # Use db.table().select() for SQL operations
@@ -51,7 +55,7 @@ async def test_async_batch_insert(tmp_path):
 
     from moltres.table.schema import column
 
-    table = await db.create_table(
+    await db.create_table(
         "items",
         [
             column("id", "INTEGER"),
@@ -61,7 +65,8 @@ async def test_async_batch_insert(tmp_path):
 
     # Insert many rows
     rows = [{"id": i, "value": i * 2} for i in range(100)]
-    count = await table.insert(rows).collect()
+    records = AsyncRecords(_data=rows, _database=db)
+    count = await records.insert_into("items")
 
     assert count == 100
 
@@ -83,14 +88,15 @@ async def test_async_streaming(tmp_path):
 
     from moltres.table.schema import column
 
-    table = await db.create_table(
+    await db.create_table(
         "numbers",
         [column("n", "INTEGER")],
     ).collect()
 
     # Insert many rows
     rows = [{"n": i} for i in range(1000)]
-    await table.insert(rows).collect()
+    records = AsyncRecords(_data=rows, _database=db)
+    await records.insert_into("numbers")
 
     # Stream query results
     # Use db.table().select() for SQL operations

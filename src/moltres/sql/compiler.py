@@ -1191,6 +1191,29 @@ class ExpressionCompiler:
                     sa_type = sa_types.CHAR
             elif type_name_upper == "BOOLEAN" or type_name_upper == "BOOL":
                 sa_type = sa_types.Boolean
+            elif "[]" in type_name_upper:
+                # PostgreSQL array types like INTEGER[], TEXT[], etc.
+                # Extract base type before []
+                base_type = type_name_upper.split("[")[0]
+                if self.dialect.name == "postgresql":
+                    from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
+                    from sqlalchemy import types as sa_types_array
+
+                    # Map base types to SQLAlchemy types
+                    if base_type == "INTEGER" or base_type == "INT":
+                        sa_type = PG_ARRAY(sa_types_array.Integer)
+                    elif base_type == "TEXT" or base_type == "VARCHAR" or base_type == "STRING":
+                        sa_type = PG_ARRAY(sa_types_array.Text)
+                    elif base_type == "REAL" or base_type == "FLOAT":
+                        sa_type = PG_ARRAY(sa_types_array.Float)
+                    elif base_type == "BOOLEAN" or base_type == "BOOL":
+                        sa_type = PG_ARRAY(sa_types_array.Boolean)
+                    else:
+                        # Fallback to TEXT array
+                        sa_type = PG_ARRAY(sa_types_array.Text)
+                else:
+                    # For non-PostgreSQL dialects, fallback to String
+                    sa_type = sa_types.String
             else:
                 # Fallback to String for unknown types
                 sa_type = sa_types.String

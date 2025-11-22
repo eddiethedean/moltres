@@ -214,11 +214,14 @@ def test_merge_upsert_basic(tmp_path):
     table = db.table("users")
 
     # Merge: update existing user
-    count = table.merge(
+    from moltres.table.mutations import merge_rows
+
+    count = merge_rows(
+        table,
         [{"id": 1, "email": "alice@example.com", "name": "Alice Updated", "status": "active"}],
         on=["email"],
         when_matched={"name": "Alice Updated", "status": "active"},
-    ).collect()
+    )
     assert count >= 0  # May be 1 (updated) or 2 (inserted + updated) depending on implementation
 
     # Verify update
@@ -244,10 +247,13 @@ def test_merge_upsert_insert_new(tmp_path):
     table = db.table("users")
 
     # Merge: insert new user
-    count = table.merge(
+    from moltres.table.mutations import merge_rows
+
+    count = merge_rows(
+        table,
         [{"id": 2, "email": "bob@example.com", "name": "Bob"}],
         on=["email"],
-    ).collect()
+    )
     assert count >= 0
 
     # Verify both users exist
@@ -352,10 +358,13 @@ def test_merge_upsert_without_when_matched(tmp_path):
     table = db.table("users")
 
     # Merge without when_matched - should not update existing
-    count = table.merge(
+    from moltres.table.mutations import merge_rows
+
+    count = merge_rows(
+        table,
         [{"id": 1, "email": "alice@example.com", "name": "Should Not Update"}],
         on=["email"],
-    ).collect()
+    )
     assert count >= 0
 
     # Name should remain unchanged (or be updated depending on dialect behavior)

@@ -23,12 +23,13 @@ def test_limit_zero(tmp_path):
     ).collect()
 
     table = db.table("test")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "name": "Alice"},
             {"id": 2, "name": "Bob"},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("test")
 
     df = table.select().limit(0)
     results = df.collect()
@@ -94,13 +95,14 @@ def test_null_values(tmp_path):
     ).collect()
 
     table = db.table("test")
-    table.insert(
+    db.createDataFrame(
         [
             {"id": 1, "name": "Alice", "value": 10.5},
             {"id": 2, "name": None, "value": None},
             {"id": 3, "name": "Bob", "value": None},
-        ]
-    ).collect()
+        ],
+        pk="id",
+    ).write.insertInto("test")
 
     df = table.select()
     results = df.collect()
