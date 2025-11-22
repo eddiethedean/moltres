@@ -24,6 +24,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `intersect()` and `except()` operations for set operations (SQL INTERSECT/EXCEPT) [tested]
 - [x] `pivot()` / `unpivot()` for data reshaping (SQL PIVOT/UNPIVOT where supported) [tested]
 - [x] `explode()` / `flatten()` for array/JSON column expansion (SQL JSON functions) [tested]
+- [ ] `UNNEST()` / table-valued functions for array/JSON expansion in FROM clause (`UNNEST(array)`, `jsonb_array_elements()`, `jsonb_each()` in FROM) - dialect-specific (PostgreSQL, BigQuery, Snowflake, SQL Server)
 - [x] `sample()` for random sampling (SQL TABLESAMPLE where supported) [tested]
 - [x] `fillna()` for null handling (SQL COALESCE/CASE expressions) [tested]
 - [x] `na.drop()` / `na.fill()` for null value operations (SQL WHERE/COALESCE) [tested]
@@ -41,6 +42,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `percent_rank()`, `cume_dist()` window functions (SQL standard window functions) [tested]
 - [x] `nth_value()` window function (SQL standard window function) [tested]
 - [x] `ntile()` window function for quantile bucketing (SQL standard window function) [tested]
+- [ ] `QUALIFY` clause for filtering window function results without subqueries (SQL standard, PostgreSQL 12+, BigQuery, Snowflake)
 
 ### Column Expressions
 - [x] `cast()` - Type casting [tested]
@@ -50,6 +52,8 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `between()` - Range checking [tested]
 - [x] `greatest()` / `least()` functions for multiple values (SQL standard functions - already implemented) [tested]
 - [x] Array/JSON functions (`array()`, `array_length()`, `json_extract()`, `array_contains()`, `array_position()`) - SQL standard/dialect-specific [tested - note: array_position has limitations in SQLite]
+- [ ] Advanced JSON functions (`jsonb_set()`, `jsonb_insert()`, `jsonb_delete_path()`, `jsonb_path_query()`, `jsonb_each()`, `jsonb_object_keys()`, `jsonb_array_elements()`, etc.) - dialect-specific (PostgreSQL JSONB, MySQL 8.0+, SQL Server)
+- [ ] Full-text search functions (`to_tsvector()`, `to_tsquery()`, `ts_rank()`, `MATCH...AGAINST`, `ts_headline()`, etc.) - dialect-specific (PostgreSQL tsvector/tsquery, MySQL FULLTEXT, SQL Server CONTAINS/FREETEXT)
 - [x] Regular expression functions (`regexp_extract()`, `regexp_replace()`, etc.) - SQL standard/dialect-specific [tested]
 - [x] More string functions (`split()`, `array_join()`, `repeat()`, etc.) - SQL standard/dialect-specific [tested - split()]
 - [x] Type casting improvements (`cast()` with more type support) - SQL standard [tested]
@@ -78,6 +82,8 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] `stddev()` / `variance()` statistical functions (SQL STDDEV/VARIANCE - standard aggregate functions) [tested - SQLite incompatible]
 - [ ] `skewness()` / `kurtosis()` higher-order statistics (dialect-specific, may require custom SQL)
 - [x] `corr()` / `covar()` correlation functions (SQL CORR/COVAR - standard aggregate functions) [tested - SQLite incompatible]
+- [ ] `FILTER` clause for conditional aggregation (`COUNT(*) FILTER (WHERE condition)`, `SUM(amount) FILTER (WHERE status = 'active')`) - SQL standard (PostgreSQL, MySQL 8.0+, SQL Server, Oracle)
+- [ ] Array aggregation with ordering (`ARRAY_AGG(column ORDER BY column)`, `JSONB_AGG` with ordering) - dialect-specific (PostgreSQL, MySQL 8.0+, SQL Server)
 
 ### Data Types
 - [ ] Better support for complex types (arrays, maps, structs) - SQL standard/dialect-specific
@@ -85,6 +91,10 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] UUID type support (dialect-specific, e.g., PostgreSQL UUID) [tested]
 - [x] JSON/JSONB type support (dialect-specific, e.g., PostgreSQL JSONB) [tested]
 - [x] Date/Time interval types (SQL INTERVAL - standard) [tested]
+- [ ] SQLAlchemy TypeEngine integration - Leverage SQLAlchemy's type system for better type mapping and coercion
+- [ ] Type coercion utilities - Automatic type conversion based on SQLAlchemy TypeEngine
+- [ ] Dialect-specific type mapping - Use SQLAlchemy's dialect-specific type mapping for better database compatibility
+- [ ] Custom type adapters - Support for registering custom SQLAlchemy TypeEngine adapters
 
 ## 📊 File Formats
 
@@ -128,6 +138,8 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] PostgreSQL support [tested - via SQLAlchemy]
 - [x] MySQL support (basic) [tested - via SQLAlchemy]
 - [x] ANSI SQL fallback for other SQLAlchemy-supported databases [tested - via SQLAlchemy]
+- [ ] SQLAlchemy dialect-specific features - Leverage SQLAlchemy's dialect system for better database-specific optimizations
+- [ ] Dialect event system - Database-specific event hooks using SQLAlchemy's dialect event system
 - [ ] Better MySQL-specific optimizations
 - [ ] Oracle database support
 - [ ] SQL Server support
@@ -142,22 +154,102 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Subqueries in SELECT, FROM, WHERE clauses (SQL standard) [tested]
 - [x] EXISTS / NOT EXISTS subqueries (SQL standard) [tested]
 - [x] LATERAL joins (SQL standard, PostgreSQL/MySQL support) [tested]
+- [ ] `DISTINCT ON` for selecting distinct rows based on specific columns (PostgreSQL-specific) - alternative to window functions + filtering
 - [ ] PIVOT / UNPIVOT SQL operations (dialect-specific, e.g., SQL Server, Oracle)
 - [x] MERGE / UPSERT operations (SQL standard MERGE, PostgreSQL INSERT ... ON CONFLICT) [tested]
 - [ ] Stored procedure support (dialect-specific via SQLAlchemy)
 
+### Schema Management (DDL Operations)
+- [x] `create_table()` - Create tables with column definitions [tested]
+- [x] `drop_table()` - Drop tables [tested]
+- [x] Primary key constraints (`PRIMARY KEY`) - via column definition [tested]
+- [ ] Foreign key constraints (`FOREIGN KEY ... REFERENCES`) - SQL standard constraint for referential integrity
+- [ ] Foreign key cascade operations (`ON DELETE CASCADE`, `ON UPDATE CASCADE`, `ON DELETE SET NULL`, etc.) - SQL standard for automatic constraint handling
+- [ ] Named constraints - Giving names to constraints (PRIMARY KEY, FOREIGN KEY, UNIQUE, CHECK) for easier management via `ALTER TABLE`
+- [ ] Constraint deferrability (`DEFERRABLE`, `INITIALLY DEFERRED`, `INITIALLY IMMEDIATE`) - dialect-specific (PostgreSQL, SQL Server, Oracle)
+- [ ] Unique constraints (`UNIQUE`) - SQL standard constraint for ensuring unique values
+- [ ] Partial unique constraints (`UNIQUE ... WHERE condition`) - dialect-specific (PostgreSQL)
+- [ ] Check constraints (`CHECK`) - SQL standard constraint for validating data
+- [ ] Exclusion constraints (`EXCLUDE`) - dialect-specific (PostgreSQL, for advanced constraint scenarios)
+- [ ] Not null constraints (`NOT NULL`) - via column definition (basic support exists, expand to table-level)
+- [ ] Default values (`DEFAULT`) - via column definition (basic support exists, expand expression support)
+- [ ] Indexes (`CREATE INDEX`, `CREATE UNIQUE INDEX`) - SQL standard for query performance optimization
+- [ ] Drop indexes (`DROP INDEX`) - SQL standard for index management
+- [ ] Composite indexes (multi-column indexes) - SQL standard for complex query patterns
+- [ ] Partial indexes (`CREATE INDEX ... WHERE`) - dialect-specific (PostgreSQL, SQL Server)
+- [ ] Expression indexes (`CREATE INDEX ON ... (expression)`) - dialect-specific (PostgreSQL, MySQL 8.0+)
+- [ ] Full-text search indexes (`CREATE INDEX ... USING GIN/GIST`, `FULLTEXT INDEX`) - dialect-specific (PostgreSQL tsvector/GIN, MySQL FULLTEXT, SQL Server)
+- [ ] Spatial indexes (`CREATE INDEX ... USING GIST` for geometry/geography) - dialect-specific (PostgreSQL PostGIS, MySQL, SQL Server)
+- [ ] Index options (`INCLUDE` columns, `FILLFACTOR`, `TABLESPACE`, etc.) - dialect-specific options for index optimization
+- [ ] Views (`CREATE VIEW`, `CREATE OR REPLACE VIEW`, `DROP VIEW`) - SQL standard for query abstraction
+- [ ] View options (`WITH CHECK OPTION`, `WITH LOCAL/CASCADED CHECK OPTION` for updatable views) - SQL standard for view security
+- [ ] Materialized views (`CREATE MATERIALIZED VIEW`) - dialect-specific (PostgreSQL, Oracle, SQL Server)
+- [ ] Materialized view refresh (`REFRESH MATERIALIZED VIEW`) - dialect-specific for updating materialized views
+- [ ] Triggers (`CREATE TRIGGER`, `DROP TRIGGER`) - dialect-specific (PostgreSQL, MySQL, SQL Server, Oracle)
+- [ ] Trigger conditions (`WHEN` clause in triggers) - dialect-specific for conditional trigger execution
+- [ ] Rules (`CREATE RULE`, `DROP RULE`) - dialect-specific (PostgreSQL, alternative to triggers)
+- [ ] Sequences (`CREATE SEQUENCE`, `DROP SEQUENCE`, `ALTER SEQUENCE`) - dialect-specific (PostgreSQL, Oracle, SQL Server)
+- [ ] Sequence options (`INCREMENT`, `MINVALUE`, `MAXVALUE`, `CYCLE`, `CACHE`, etc.) - dialect-specific sequence configuration
+- [ ] Alter table operations (`ALTER TABLE ADD COLUMN`, `DROP COLUMN`, `ALTER COLUMN`, `RENAME COLUMN`) - SQL standard for schema evolution
+- [ ] Alter table constraints (`ALTER TABLE ADD CONSTRAINT`, `DROP CONSTRAINT`) - SQL standard for constraint management
+- [ ] Table partitioning (range, list, hash partitioning) - dialect-specific (PostgreSQL, MySQL, SQL Server, Oracle)
+- [ ] Partition management (`ALTER TABLE ... ATTACH/DETACH PARTITION`, `CREATE TABLE ... PARTITION OF`) - dialect-specific partition operations
+- [ ] Temporary tables (global vs local) - SQL standard/dialect-specific (basic support exists, expand to global temporary tables)
+- [ ] Table inheritance (`CREATE TABLE ... INHERITS`) - dialect-specific (PostgreSQL)
+- [ ] Table options (`ENGINE=InnoDB`, `TABLESPACE`, `STORAGE`, etc.) - dialect-specific table storage options
+- [ ] Comments on schema objects (`COMMENT ON TABLE`, `COMMENT ON COLUMN`) - dialect-specific (PostgreSQL, Oracle, SQL Server)
+- [ ] Table statistics (`ANALYZE TABLE`, `UPDATE STATISTICS`) - dialect-specific for query optimizer hints
+- [ ] Database/Schema creation (`CREATE DATABASE`, `CREATE SCHEMA`, `DROP DATABASE`, `DROP SCHEMA`) - SQL standard/dialect-specific
+- [ ] Schema options (`DEFAULT CHARACTER SET`, `COLLATE`, etc.) - dialect-specific schema configuration
+- [ ] User-defined types (`CREATE TYPE`, `CREATE DOMAIN`) - dialect-specific (PostgreSQL, SQL Server, Oracle)
+- [ ] Grant/Revoke permissions (`GRANT`, `REVOKE`) - SQL standard for access control (dialect-specific)
+- [ ] Row-level security policies (`CREATE POLICY`, `ALTER POLICY`, `DROP POLICY`) - dialect-specific (PostgreSQL, SQL Server)
+
+### Schema Inspection & Reflection
+- [ ] Table reflection (`db.reflect_table(name)`) - Automatically introspect table schemas from database (using SQLAlchemy Inspector)
+- [ ] Database reflection (`db.reflect()`) - Introspect all tables, views, indexes in database schema
+- [ ] Schema introspection utilities (`db.get_table_names()`, `db.get_view_names()`, `db.get_indexes(table_name)`) - SQLAlchemy Inspector-based schema discovery
+- [ ] Column metadata introspection (`db.get_columns(table_name)`, `db.get_primary_keys(table_name)`, `db.get_foreign_keys(table_name)`) - Detailed column and constraint information
+- [ ] Type mapping from database types - Automatically map database types to Moltres types using SQLAlchemy TypeEngine
+- [ ] Schema comparison utilities - Compare live database schema with Moltres schema definitions
+- [ ] Table metadata caching - Cache reflected table metadata for performance
+
+### Transaction Control
+- [ ] Explicit transaction control (`BEGIN`, `COMMIT`, `ROLLBACK`) - SQL standard transaction management (basic support via SQLAlchemy, expand API)
+- [ ] Transaction context manager (`with db.transaction():`) - Automatic rollback on exception, commit on success
+- [ ] Nested transaction context manager (`with db.transaction(savepoint=True):`) - Automatic savepoint management for nested transactions
+- [ ] Read-only transactions (`with db.transaction(readonly=True):`) - SQL standard for read-only transaction mode (useful for analytics/reporting)
+- [ ] Transaction timeout (`with db.transaction(timeout=30):`) - Per-transaction timeout configuration (dialect-specific)
+- [ ] Savepoints (`SAVEPOINT`, `ROLLBACK TO SAVEPOINT`, `RELEASE SAVEPOINT`) - SQL standard for nested transactions
+- [ ] Transaction isolation levels (`SET TRANSACTION ISOLATION LEVEL`) - SQL standard for controlling transaction behavior (READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, SERIALIZABLE)
+- [ ] Session-level configuration (`SET LOCAL` variables, `SET session variables`) - SQL standard for session-scoped settings (e.g., timezone, search_path)
+- [ ] Transaction state inspection (`db.is_in_transaction()`, `db.get_transaction_status()`) - Check current transaction state
+- [ ] Connection/session health checking - Verify connection health beyond pool_pre_ping (check for dead connections, stale sessions)
+- [ ] Transaction retry logic - Automatic retry with exponential backoff for transient errors (deadlocks, connection timeouts)
+- [ ] Batch operations context (`with db.batch():`) - Optimize multiple DataFrame operations within a single transaction
+- [ ] Locking (`SELECT ... FOR UPDATE`, `SELECT ... FOR SHARE`, `SELECT ... FOR KEY SHARE`) - SQL standard/dialect-specific row-level locking
+- [ ] Table locking (`LOCK TABLE ... IN ... MODE`) - dialect-specific (PostgreSQL, MySQL, SQL Server)
+- [ ] Advisory locks (`pg_advisory_lock`, `pg_advisory_xact_lock`) - dialect-specific (PostgreSQL)
+- [ ] Multi-statement transactions - Ensuring multiple DataFrame operations execute within a single transaction
+
 ### Performance
 - [x] Performance monitoring hooks (`register_performance_hook()`) [tested]
+- [ ] SQLAlchemy event system integration - Engine events (connect, disconnect, execute), connection events, pool events for comprehensive monitoring
+- [ ] Connection pool event hooks (`pool_connect`, `pool_checkout`, `pool_checkin`, `pool_invalidate`) - Monitor pool usage and connection lifecycle
+- [ ] Execution event hooks (`before_execute`, `after_execute`) - Hook into SQLAlchemy Core execution lifecycle for custom logic
+- [ ] Result metadata access - Access column types, names, and metadata from query results (SQLAlchemy Result metadata)
 - [x] Connection pooling (`pool_size`, `pool_pre_ping`, `pool_recycle`, etc.) [tested]
 - [x] Batch inserts for better performance [tested]
 - [x] Streaming support for large datasets [tested]
 - [x] Environment variable configuration (12-factor app friendly) [tested]
 - [x] Query plan optimization (SQL EXPLAIN integration) [tested]
-- [ ] Index hints (dialect-specific, e.g., MySQL USE INDEX, PostgreSQL)
+- [ ] Index hints in queries (dialect-specific, e.g., MySQL `USE INDEX`, PostgreSQL `/*+ ... */`)
 - [ ] Query result caching (application-level, not SQL feature)
 - [ ] Connection pool monitoring (SQLAlchemy pool metrics)
+- [ ] Connection pool statistics (`pool.size()`, `pool.checked_in()`, `pool.checked_out()`, `pool.overflow()`) - Access pool statistics for monitoring
 - [x] Query timeout configuration (SQLAlchemy/dialect-specific) [tested]
 - [ ] Batch size auto-tuning (application-level optimization)
+- [ ] Index creation utilities for common query patterns (helper methods for creating indexes on frequently queried columns)
 
 ## 🔧 Developer Experience
 
