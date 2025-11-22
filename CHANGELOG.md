@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-11-22
+
+### Added
+- **Lazy CRUD and DDL Operations** - All DataFrame CRUD and DDL operations are now lazy, requiring an explicit `.collect()` call for execution:
+  - `insert()`, `update()`, `delete()`, `merge()` now return lazy `Mutation` objects
+  - `create_table()`, `drop_table()` now return lazy `DDLOperation` objects
+  - Operations build a logical plan that only executes when `.collect()` is called
+  - DataFrame write operations remain eager (similar to PySpark's behavior)
+  - New `to_sql()` method on lazy operations for SQL inspection without execution
+- **Transaction Management** - All operations within a single `.collect()` call are part of a single session that rolls back all changes if any failure occurs:
+  - Automatic transaction management for lazy operations
+  - Rollback on any exception during execution
+  - Explicit transaction support via `db.transaction()` context manager
+- **Batch Operation API** - New `db.batch()` context manager to queue multiple lazy operations and execute them together within a single transaction:
+  - Queue multiple insert, update, delete, and DDL operations
+  - Execute all queued operations atomically in a single transaction
+  - Automatic rollback if any operation fails
+  - Supports both synchronous and asynchronous batch operations
+- **Type Checking Improvements** - Enhanced type safety and CI compatibility:
+  - Added `pandas-stubs>=2.1` to dev dependencies for proper mypy type checking
+  - Fixed pandas DataFrame constructor type compatibility issues
+  - Improved type annotations for lazy operation classes
+
+### Changed
+- **Breaking Change**: CRUD and DDL operations now require `.collect()` to execute:
+  - `table.insert([...])` → `table.insert([...]).collect()`
+  - `table.update(...)` → `table.update(...).collect()`
+  - `table.delete(...)` → `table.delete(...).collect()`
+  - `db.create_table(...)` → `db.create_table(...).collect()`
+  - `db.drop_table(...)` → `db.drop_table(...).collect()`
+- Improved composability of operations by making them lazy
+- Enhanced transaction safety with automatic rollback on failures
+- Better alignment with PySpark's lazy evaluation model
+
+### Fixed
+- Fixed mypy type checking errors related to pandas DataFrame constructor
+- Fixed unused type ignore comments after adding pandas-stubs
+- Fixed transaction management to ensure atomicity of operations
+- Fixed async operation handling in batch context
+
+### Internal
+- Added `OperationBatch` and `async_OperationBatch` classes for batch operation management
+- Created `Mutation` and `DDLOperation` base classes for lazy operations
+- Enhanced test coverage for lazy operations and batch API
+- Improved code quality with proper type annotations and mypy strict checking
+
 ## [0.7.0] - 2025-01-22
 
 ### Added
@@ -228,7 +274,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/eddiethedean/moltres/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/eddiethedean/moltres/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/eddiethedean/moltres/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/eddiethedean/moltres/compare/v0.4.0...v0.5.0

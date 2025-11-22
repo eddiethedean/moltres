@@ -84,6 +84,13 @@ Moltres is the **only** Python library that provides:
 
 ## 🆕 What's New
 
+### Version 0.8.0
+
+- **Lazy CRUD and DDL Operations** - All DataFrame CRUD and DDL operations are now lazy, requiring an explicit `.collect()` call for execution. This improves composability and aligns with PySpark's lazy evaluation model.
+- **Transaction Management** - All operations within a single `.collect()` call are part of a single session that rolls back all changes if any failure occurs.
+- **Batch Operation API** - New `db.batch()` context manager to queue multiple lazy operations and execute them together within a single transaction.
+- **Type Checking Improvements** - Added pandas-stubs for proper mypy type checking and fixed type compatibility issues.
+
 ### Version 0.7.0
 
 - **PostgreSQL and MySQL Testing Infrastructure** - Comprehensive test support for multiple database backends with ephemeral database instances, database fixtures, and extensive test coverage
@@ -570,6 +577,31 @@ with db.transaction() as txn:
 ```
 
 **Note:** By default, each `.collect()` call executes in its own auto-commit transaction. Use `db.transaction()` to group multiple operations into a single atomic transaction.
+
+### Batch Operations
+
+The batch API allows you to queue multiple lazy operations and execute them together in a single transaction:
+
+```python
+# Queue multiple operations and execute them atomically
+with db.batch():
+    # All operations are queued and executed together on exit
+    db.create_table("users", [
+        ColumnDef(name="id", type_name="INTEGER"),
+        ColumnDef(name="name", type_name="TEXT"),
+    ])
+    users = db.table("users")
+    users.insert([{"id": 1, "name": "Alice"}])
+    users.insert([{"id": 2, "name": "Bob"}])
+    # All operations execute together in a single transaction
+    # If any operation fails, all changes are rolled back
+```
+
+The batch context manager automatically:
+- Queues all lazy operations created within the context
+- Executes them together in a single transaction when exiting the context
+- Rolls back all changes if any operation fails
+- Supports both synchronous and asynchronous operations
 
 ## 📊 Result Formats
 
