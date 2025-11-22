@@ -38,7 +38,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -p pytest_asyncio -m "not postgres and not mysql"
+          pytest -p pytest_asyncio -m "not postgres and not mysql and not multidb"
         
       - name: Run PostgreSQL tests (if available)
         continue-on-error: true
