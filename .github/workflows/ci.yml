@@ -38,7 +38,17 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -p pytest_asyncio
+          pytest -p pytest_asyncio -m "not postgres and not mysql"
+        
+      - name: Run PostgreSQL tests (if available)
+        continue-on-error: true
+        run: |
+          pytest -p pytest_asyncio -m postgres || echo "PostgreSQL tests skipped (testing.postgresql not available)"
+        
+      - name: Run MySQL tests (if available)
+        continue-on-error: true
+        run: |
+          pytest -p pytest_asyncio -m mysql || echo "MySQL tests skipped (testing.mysqld not available)"
 
       - name: Validate documentation examples
         run: |

@@ -113,6 +113,11 @@ def _compile_column_def(
     name = quote_identifier(col_def.name, quote_char)
     type_sql = col_def.type_name.upper()
 
+    # Handle VARCHAR type - MySQL requires a length
+    if type_sql == "VARCHAR" and dialect.name == "mysql":
+        # MySQL requires VARCHAR to have a length, default to 255 if not specified
+        type_sql = "VARCHAR(255)"
+
     # Handle UUID type with dialect-specific implementations
     if type_sql == "UUID":
         if dialect.name == "postgresql":

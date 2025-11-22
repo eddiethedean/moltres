@@ -44,16 +44,38 @@ class AsyncConnectionManager:
             raise ValueError(f"Invalid DSN format: {dsn}")
 
         scheme = dsn_parts[0]
-        if "+" not in scheme:
+        # Check if scheme already has an async driver
+        has_async_driver = "+" in scheme and any(
+            driver in scheme for driver in ["asyncpg", "aiomysql", "aiosqlite"]
+        )
+
+        if not has_async_driver:
             # Auto-detect and add async driver based on database type
-            if scheme == "postgresql":
-                dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-            elif scheme in ("mysql", "mariadb"):
-                dsn = dsn.replace("mysql://", "mysql+aiomysql://", 1).replace(
-                    "mariadb://", "mariadb+aiomysql://", 1
-                )
-            elif scheme == "sqlite":
-                dsn = dsn.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
+            # Handle schemes with sync drivers (e.g., mysql+pymysql -> mysql+aiomysql)
+            base_scheme = scheme.split("+")[
+                0
+            ]  # Get base scheme (e.g., "mysql" from "mysql+pymysql")
+
+            if base_scheme == "postgresql":
+                # Replace any existing driver with asyncpg
+                if "+" in scheme:
+                    dsn = dsn.replace(scheme, "postgresql+asyncpg", 1)
+                else:
+                    dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif base_scheme in ("mysql", "mariadb"):
+                # Replace any existing driver with aiomysql
+                if "+" in scheme:
+                    dsn = dsn.replace(scheme, f"{base_scheme}+aiomysql", 1)
+                else:
+                    dsn = dsn.replace("mysql://", "mysql+aiomysql://", 1).replace(
+                        "mariadb://", "mariadb+aiomysql://", 1
+                    )
+            elif base_scheme == "sqlite":
+                # Replace any existing driver with aiosqlite
+                if "+" in scheme:
+                    dsn = dsn.replace(scheme, "sqlite+aiosqlite", 1)
+                else:
+                    dsn = dsn.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
             else:
                 raise ValueError(
                     f"DSN '{dsn}' does not specify an async driver. "

@@ -106,6 +106,23 @@ class Database:
     def executor(self) -> QueryExecutor:
         return self._executor
 
+    def close(self) -> None:
+        """Close all database connections and dispose of the engine.
+
+        This should be called when done with the database connection,
+        especially for ephemeral test databases.
+
+        Note: After calling close(), the Database instance should not be used.
+        """
+        if hasattr(self._connections, "_engine") and self._connections._engine is not None:
+            try:
+                self._connections._engine.dispose(close=True)
+            except Exception:
+                # Ignore errors during disposal (e.g., if already disposed)
+                pass
+            finally:
+                self._connections._engine = None
+
     def table(self, name: str) -> TableHandle:
         """Get a handle to a table in the database.
 
@@ -217,4 +234,12 @@ class Database:
     def _dialect_name(self) -> str:
         if self.config.engine.dialect:
             return self.config.engine.dialect
-        return self.config.engine.dsn.split(":", 1)[0]
+        # Extract dialect from DSN, normalizing driver variants (e.g., "mysql+pymysql" -> "mysql")
+        dsn = self.config.engine.dsn
+        if not dsn:
+            return "ansi"
+        dialect_part = dsn.split(":", 1)[0]
+        # Normalize driver variants: "mysql+pymysql" -> "mysql", "postgresql+psycopg2" -> "postgresql"
+        if "+" in dialect_part:
+            dialect_part = dialect_part.split("+", 1)[0]
+        return dialect_part

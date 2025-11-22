@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-01-22
+
+### Added
+- **PostgreSQL and MySQL Testing Infrastructure** - Comprehensive test support for multiple database backends:
+  - Added `testing.postgresql` and `testing.mysqld` dependencies for ephemeral database instances in tests
+  - New pytest markers: `@pytest.mark.postgres`, `@pytest.mark.mysql`, `@pytest.mark.multidb`
+  - Database fixtures: `postgresql_db`, `postgresql_connection`, `mysql_db`, `mysql_connection`
+  - Async database fixtures: `postgresql_async_connection`, `mysql_async_connection`
+  - Test helpers: `seed_customers_orders()` for consistent test data across databases
+  - New test suites: `test_postgresql_features.py`, `test_mysql_features.py`, `test_multidb.py`
+  - Async test suites: `test_async_postgresql_features.py`, `test_async_mysql_features.py`, `test_async_integration.py`
+- **Type Overloads for collect() Methods** - Enhanced type safety with `@overload` decorators:
+  - `collect(stream=False)` returns `List[Dict[str, object]]`
+  - `collect(stream=True)` returns `Iterator[List[Dict[str, object]]]` or `AsyncIterator[...]`
+  - Improved type inference for better IDE support and type checking
+
+### Changed
+- Enhanced type annotations throughout the codebase with proper `@overload` decorators
+- Improved type safety in SQL compiler with explicit type casting using `typing_cast`
+- Better type inference for DataFrame operations with overloaded method signatures
+
+### Fixed
+- Fixed mypy type checking errors related to `ColumnElement[Any]` return types in expression compiler
+- Fixed ruff linting errors for name conflicts between `typing.cast` and `sqlalchemy.cast`
+- Fixed async DSN parsing to correctly convert `mysql+pymysql://` to `mysql+aiomysql://` for async connections
+- Fixed database connection cleanup - added `close()` methods to `Database` and `AsyncDatabase` classes
+- Fixed test hanging issues by ensuring proper engine disposal in pytest fixtures
+- Fixed column qualification after joins to handle unqualified column names correctly
+- Fixed PostgreSQL JSON extraction to use `->>` operator for direct JSONB path extraction
+- Fixed PostgreSQL array literal syntax to use `ARRAY[...]` format
+- Fixed MySQL JSON array functions to handle literal values correctly
+- Fixed MySQL `JSON_CONTAINS` to properly quote values with `json_quote()`
+
+### Internal
+- Added comprehensive type stubs and type annotations for better IDE support
+- Improved code quality with ruff formatting and mypy strict type checking
+- Enhanced test coverage with 301 passing tests across multiple database backends
+
 ## [0.6.0] - 2025-01-21
 
 ### Added
@@ -190,7 +228,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/eddiethedean/moltres/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/eddiethedean/moltres/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/eddiethedean/moltres/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/eddiethedean/moltres/compare/v0.3.0...v0.4.0

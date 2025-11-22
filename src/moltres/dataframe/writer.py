@@ -103,12 +103,12 @@ class DataFrameWriter:
         if self._stream:
             # Stream inserts in batches
             table = db.table(table_name)
-            chunk_iter = cast(Iterator[List[Dict[str, object]]], self._df.collect(stream=True))
+            chunk_iter = self._df.collect(stream=True)
             for chunk in chunk_iter:
                 if chunk:
                     table.insert(chunk)
         else:
-            rows = cast(List[Dict[str, object]], self._df.collect())
+            rows = self._df.collect()
             if rows:
                 table = db.table(table_name)
                 table.insert(rows)
@@ -195,14 +195,14 @@ class DataFrameWriter:
         chunk_iter: Optional[Iterator[List[Dict[str, object]]]] = None
         if self._stream:
             # For streaming, we need to peek at first chunk for schema inference
-            chunk_iter = cast(Iterator[List[Dict[str, object]]], self._df.collect(stream=True))
+            chunk_iter = self._df.collect(stream=True)
             try:
                 first_chunk = next(chunk_iter)
                 rows = first_chunk
             except StopIteration:
                 rows = []
         else:
-            rows = cast(List[Dict[str, object]], self._df.collect())
+            rows = self._df.collect()
 
         # Infer or get schema (uses rows if needed, but allows empty if schema is explicit)
         try:
@@ -504,7 +504,7 @@ class DataFrameWriter:
             self._save_csv_stream(path)
             return
 
-        rows = cast(List[Dict[str, object]], self._df.collect())
+        rows = self._df.collect()
         if not rows:
             # Create empty file with headers if we have schema
             if self._schema:
@@ -540,7 +540,7 @@ class DataFrameWriter:
         header = self._options.get("header", True)
         delimiter = self._options.get("delimiter", ",")
 
-        chunk_iter = cast(Iterator[List[Dict[str, object]]], self._df.collect(stream=True))
+        chunk_iter = self._df.collect(stream=True)
         first_chunk: List[Dict[str, object]] = []
         try:
             first_chunk = next(chunk_iter)
@@ -567,7 +567,7 @@ class DataFrameWriter:
 
     def _save_json(self, path: str) -> None:
         """Save DataFrame as JSON file (array of objects)."""
-        rows = cast(List[Dict[str, object]], self._df.collect())
+        rows = self._df.collect()
 
         # Handle partitioning
         if self._partition_by:
@@ -588,7 +588,7 @@ class DataFrameWriter:
             self._save_jsonl_stream(path)
             return
 
-        rows = cast(List[Dict[str, object]], self._df.collect())
+        rows = self._df.collect()
 
         # Handle partitioning
         if self._partition_by:
@@ -608,7 +608,7 @@ class DataFrameWriter:
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         with open(path_obj, "w", encoding="utf-8") as f:
-            chunk_iter = cast(Iterator[List[Dict[str, object]]], self._df.collect(stream=True))
+            chunk_iter = self._df.collect(stream=True)
             for chunk in chunk_iter:
                 for row in chunk:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -630,7 +630,7 @@ class DataFrameWriter:
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
             ) from exc
 
-        rows = cast(List[Dict[str, object]], self._df.collect())
+        rows = self._df.collect()
 
         # Handle partitioning
         if self._partition_by:

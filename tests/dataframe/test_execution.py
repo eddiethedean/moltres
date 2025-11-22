@@ -46,11 +46,12 @@ def test_join_and_groupby_flow(tmp_path):
     db = connect(f"sqlite:///{db_path}")
     _seed_customers(db)
 
-    orders_df = db.table("orders").select()
-    customers_df = db.table("customers").select()
+    orders_df = db.table("orders").select(col("id").alias("order_id"), col("customer_id"))
+    customers_df = db.table("customers").select(col("id").alias("customer_id"), col("name"))
+    # After selecting with aliases, join on the aliased columns
     df = (
-        orders_df.join(customers_df, on=[("customer_id", "id")])
-        .select(col("orders.id").alias("order_id"), col("customers.name").alias("customer"))
+        orders_df.join(customers_df, on=[("customer_id", "customer_id")])
+        .select(col("order_id"), col("name").alias("customer"))
         .order_by(col("order_id"))
     )
     rows = df.collect()

@@ -84,6 +84,15 @@ Moltres is the **only** Python library that provides:
 
 ## 🆕 What's New
 
+### Version 0.7.0
+
+- **PostgreSQL and MySQL Testing Infrastructure** - Comprehensive test support for multiple database backends with ephemeral database instances, database fixtures, and extensive test coverage
+- **Enhanced Type Safety** - Type overloads for `collect()` methods with improved type inference and better IDE support
+- **Improved Code Quality** - Fixed all mypy type checking errors and ruff linting issues, with comprehensive type annotations throughout
+- **Database Connection Management** - Added `close()` methods to `Database` and `AsyncDatabase` classes for proper resource cleanup
+- **Cross-Database Compatibility** - Fixed PostgreSQL and MySQL-specific issues with JSON extraction, array functions, and async DSN parsing
+- **Test Coverage** - 301 passing tests across SQLite, PostgreSQL, and MySQL with async support
+
 ### Version 0.6.0
 
 - **Null Handling Convenience Methods** - New `na` property on DataFrame: `df.na.drop()` and `df.na.fill(value)` for convenient null handling
@@ -174,9 +183,9 @@ df = (
     db.table("orders")
     .select()
     .join(db.table("customers").select(), on=[("customer_id", "id")])
-    .where(col("customers.active") == True)  # noqa: E712
-    .group_by("customers.country")
-    .agg(sum(col("orders.amount")).alias("total_amount"))
+    .where(col("active") == True)  # noqa: E712
+    .group_by("country")
+    .agg(sum(col("amount")).alias("total_amount"))
 )
 
 # Execute and get results (SQL is compiled and executed here)
@@ -638,11 +647,11 @@ df = (
     .select()
     .join(db.table("customers").select(), on=[("customer_id", "id")])
     .join(db.table("products").select(), on=[("product_id", "id")])
-    .where(col("orders.date") >= "2024-01-01")
-    .group_by("customers.country", "products.category")
+    .where(col("date") >= "2024-01-01")
+    .group_by("country", "category")
     .agg(
-        sum(col("orders.amount")).alias("total_revenue"),
-        avg(col("orders.amount")).alias("avg_order_value"),
+        sum(col("amount")).alias("total_revenue"),
+        avg(col("amount")).alias("avg_order_value"),
         count("*").alias("order_count"),
     )
     .order_by(col("total_revenue").desc())

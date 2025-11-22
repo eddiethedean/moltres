@@ -513,11 +513,11 @@ def test_write_optimized_with_join(tmp_path):
     orders.insert([{"id": 100, "customer_id": 1, "amount": 50.0}])
 
     # Write joined data using optimization
-    df = (
-        db.table("orders")
-        .select()
-        .join(db.table("customers").select(), on=[("customer_id", "id")])
-        .select(col("orders.id").alias("order_id"), col("customers.name").alias("customer"))
+    # Select with aliases before join to avoid column qualification issues
+    orders_df = db.table("orders").select(col("id").alias("order_id"), col("customer_id"))
+    customers_df = db.table("customers").select(col("id").alias("customer_id"), col("name"))
+    df = orders_df.join(customers_df, on=[("customer_id", "customer_id")]).select(
+        col("order_id"), col("name").alias("customer")
     )
     df.write.save_as_table("target")
 

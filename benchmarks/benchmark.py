@@ -7,14 +7,14 @@ from typing import Dict, Tuple
 from pathlib import Path
 
 try:
-    import pandas as pd
+    import pandas as pd  # type: ignore[import-untyped]
 
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
 
 try:
-    import ibis  # noqa: F401
+    import ibis  # type: ignore[import-not-found]  # noqa: F401
 
     IBIS_AVAILABLE = True
 except ImportError:

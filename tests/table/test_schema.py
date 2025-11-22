@@ -319,10 +319,14 @@ def test_interval_type(tmp_path):
     # Test date_add and date_sub functions
     from moltres import col
 
-    df = db.table("events").select(
-        col("id"),
-        date_add(col("start_time"), "1 DAY").alias("next_day"),
-        date_sub(col("start_time"), "1 HOUR").alias("prev_hour"),
+    df = (
+        db.table("events")
+        .select()
+        .select(
+            col("id"),
+            date_add(col("start_time"), "1 DAY").alias("next_day"),
+            date_sub(col("start_time"), "1 HOUR").alias("prev_hour"),
+        )
     )
 
     result2 = df.collect()

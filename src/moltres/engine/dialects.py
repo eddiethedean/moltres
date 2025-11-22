@@ -16,6 +16,8 @@ DIALECTS: dict[str, DialectSpec] = {
     "ansi": DialectSpec(name="ansi"),
     "postgresql": DialectSpec(name="postgresql", quote_char='"'),
     "sqlite": DialectSpec(name="sqlite", quote_char='"'),
+    "mysql": DialectSpec(name="mysql", quote_char="`"),
+    "mysql+pymysql": DialectSpec(name="mysql", quote_char="`"),
 }
 
 

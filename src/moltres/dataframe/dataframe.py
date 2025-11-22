@@ -3,7 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    overload,
+)
 
 from ..expressions.column import Column, col
 from ..logical import operators
@@ -737,6 +748,12 @@ class DataFrame:
             else:
                 plan_lines.append(str(row))
         return "\n".join(plan_lines)
+
+    @overload
+    def collect(self, stream: Literal[False] = False) -> List[Dict[str, object]]: ...
+
+    @overload
+    def collect(self, stream: Literal[True]) -> Iterator[List[Dict[str, object]]]: ...
 
     def collect(
         self, stream: bool = False

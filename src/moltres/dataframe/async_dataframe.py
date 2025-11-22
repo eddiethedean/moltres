@@ -8,10 +8,12 @@ from typing import (
     AsyncIterator,
     Dict,
     List,
+    Literal,
     Optional,
     Sequence,
     Tuple,
     Union,
+    overload,
 )
 
 from ..expressions.column import Column, col
@@ -178,6 +180,23 @@ class AsyncDataFrame:
         if count < 0:
             raise ValueError("limit() requires a non-negative integer")
         return self._with_plan(operators.limit(self.plan, count))
+
+    def sample(self, fraction: float, seed: Optional[int] = None) -> "AsyncDataFrame":
+        """Sample a fraction of rows from the DataFrame.
+
+        Args:
+            fraction: Fraction of rows to sample (0.0 to 1.0)
+            seed: Optional random seed for reproducible sampling
+
+        Returns:
+            New AsyncDataFrame with sampled rows
+
+        Example:
+            >>> df = await db.table("users").select().sample(0.1)  # Sample 10% of rows
+            >>> # SQL (PostgreSQL): SELECT * FROM users TABLESAMPLE BERNOULLI(10)
+            >>> # SQL (SQLite): SELECT * FROM users ORDER BY RANDOM() LIMIT (COUNT(*) * 0.1)
+        """
+        return self._with_plan(operators.sample(self.plan, fraction, seed))
 
     def union(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
         """Union this DataFrame with another DataFrame (distinct rows only)."""
@@ -453,6 +472,12 @@ class AsyncDataFrame:
         if isinstance(stmt, Select):
             return str(stmt.compile(compile_kwargs={"literal_binds": True}))
         return str(stmt)
+
+    @overload
+    async def collect(self, stream: Literal[False] = False) -> List[Dict[str, object]]: ...
+
+    @overload
+    async def collect(self, stream: Literal[True]) -> AsyncIterator[List[Dict[str, object]]]: ...
 
     async def collect(
         self, stream: bool = False

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.6.0"
+version = "0.7.0"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -58,6 +58,10 @@ dev = [
     "aiofiles>=23.0",
     "aiosqlite>=0.19.0",
     "greenlet>=3.0.0",
+    "testing.postgresql>=2.0.2",
+    "testing.mysqld>=1.4.0",
+    "psycopg2-binary>=2.9.0",
+    "pymysql>=1.0.0",
 ]
 
 [tool.pytest.ini_options]
@@ -67,6 +71,9 @@ testpaths = ["tests"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
 markers = [
     "asyncio: marks tests as async (deselect with '-m \"not asyncio\"')",
+    "postgres: marks tests as requiring PostgreSQL database",
+    "mysql: marks tests as requiring MySQL database",
+    "multidb: marks tests that run against multiple databases",
 ]
 
 [tool.ruff]
@@ -101,11 +108,19 @@ show_error_context = true
 mypy_path = "stubs"
 
 [[tool.mypy.overrides]]
+module = "tests.examples.*"
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
 module = [
     "tests.*",
+    "benchmarks.*",
     "scripts.*",
 ]
-ignore_errors = true
+ignore_errors = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
 
 # Note: pyarrow type stubs are provided in stubs/pyarrow/
 # The stubs directory is automatically discovered by mypy
