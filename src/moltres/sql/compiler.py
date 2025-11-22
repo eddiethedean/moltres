@@ -7,7 +7,18 @@ from typing import Any, Optional, Union
 
 from typing import cast as typing_cast
 
-from sqlalchemy import select, table, func, case, null, and_, or_, not_, literal, cast as sqlalchemy_cast
+from sqlalchemy import (
+    select,
+    table,
+    func,
+    case,
+    null,
+    and_,
+    or_,
+    not_,
+    literal,
+    cast as sqlalchemy_cast,
+)
 from sqlalchemy.sql import Select, ColumnElement
 
 from ..engine.dialects import DialectSpec, get_dialect
