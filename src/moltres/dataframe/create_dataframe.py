@@ -291,6 +291,7 @@ def create_temp_table_from_streaming(
     if TYPE_CHECKING:
         pass
 
+    use_temp_tables = database._dialect_name != "sqlite"
     # Handle empty files: if no generator but schema is available, create empty table
     if records._generator is None:
         if records._schema:
@@ -302,8 +303,10 @@ def create_temp_table_from_streaming(
             )
             table_name = generate_unique_table_name()
             table_handle = database.create_table(
-                table_name, final_schema_list, temporary=True, if_not_exists=True
+                table_name, final_schema_list, temporary=use_temp_tables, if_not_exists=True
             ).collect()
+            if not use_temp_tables:
+                database._register_ephemeral_table(table_name)
             return table_name, tuple(final_schema_list)
         else:
             raise ValueError(
@@ -338,8 +341,10 @@ def create_temp_table_from_streaming(
         )
         table_name = generate_unique_table_name()
         table_handle = database.create_table(
-            table_name, final_schema_list, temporary=True, if_not_exists=True
+            table_name, final_schema_list, temporary=use_temp_tables, if_not_exists=True
         ).collect()
+        if not use_temp_tables:
+            database._register_ephemeral_table(table_name)
         return table_name, tuple(final_schema_list)
 
     # Infer or use schema
@@ -364,8 +369,10 @@ def create_temp_table_from_streaming(
 
     # Create temporary table
     table_handle = database.create_table(
-        table_name, final_schema_list, temporary=True, if_not_exists=True
+        table_name, final_schema_list, temporary=use_temp_tables, if_not_exists=True
     ).collect()
+    if not use_temp_tables:
+        database._register_ephemeral_table(table_name)
 
     # Filter first chunk to exclude new auto-increment columns
     filtered_first_chunk = []
@@ -403,6 +410,8 @@ def create_temp_table_from_streaming(
         # Clean up temp table on error
         try:
             database.drop_table(table_name, if_exists=True).collect()
+            if not use_temp_tables:
+                database._unregister_ephemeral_table(table_name)
         except Exception:
             pass  # Ignore cleanup errors
         raise RuntimeError(f"Failed to insert data into temporary table: {e}") from e
@@ -437,6 +446,7 @@ async def create_temp_table_from_streaming_async(
     if TYPE_CHECKING:
         pass
 
+    use_temp_tables = database._dialect_name != "sqlite"
     # Handle empty files: if no generator but schema is available, create empty table
     if records._generator is None:
         if records._schema:
@@ -448,8 +458,10 @@ async def create_temp_table_from_streaming_async(
             )
             table_name = generate_unique_table_name()
             table_handle = await database.create_table(
-                table_name, final_schema_list, temporary=True, if_not_exists=True
+                table_name, final_schema_list, temporary=use_temp_tables, if_not_exists=True
             ).collect()
+            if not use_temp_tables:
+                database._register_ephemeral_table(table_name)
             return table_name, tuple(final_schema_list)
         else:
             raise ValueError(
@@ -484,8 +496,10 @@ async def create_temp_table_from_streaming_async(
         )
         table_name = generate_unique_table_name()
         table_handle = await database.create_table(
-            table_name, final_schema_list, temporary=True, if_not_exists=True
+            table_name, final_schema_list, temporary=use_temp_tables, if_not_exists=True
         ).collect()
+        if not use_temp_tables:
+            database._register_ephemeral_table(table_name)
         return table_name, tuple(final_schema_list)
 
     # Infer or use schema
@@ -510,8 +524,10 @@ async def create_temp_table_from_streaming_async(
 
     # Create temporary table
     table_handle = await database.create_table(
-        table_name, final_schema_list, temporary=True, if_not_exists=True
+        table_name, final_schema_list, temporary=use_temp_tables, if_not_exists=True
     ).collect()
+    if not use_temp_tables:
+        database._register_ephemeral_table(table_name)
 
     # Filter first chunk to exclude new auto-increment columns
     filtered_first_chunk = []
@@ -549,6 +565,8 @@ async def create_temp_table_from_streaming_async(
         # Clean up temp table on error
         try:
             await database.drop_table(table_name, if_exists=True).collect()
+            if not use_temp_tables:
+                database._unregister_ephemeral_table(table_name)
         except Exception:
             pass  # Ignore cleanup errors
         raise RuntimeError(f"Failed to insert data into temporary table: {e}") from e

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+import uuid
 from typing import Generator
 
 import pytest
+from sqlalchemy import create_engine, text
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 try:
     import pytest_asyncio
@@ -89,9 +92,35 @@ def create_sample_table(db, table_name: str = "users"):
     return db.table(table_name)
 
 
-@pytest.fixture(scope="function")
+def _dsn_with_search_path(dsn: str, schema: str) -> str:
+    """Inject a custom search_path into an existing PostgreSQL DSN."""
+    parsed = urlparse(dsn)
+    query_items = parse_qsl(parsed.query, keep_blank_values=True)
+    query = {}
+    for key, value in query_items:
+        query.setdefault(key, []).append(value)
+
+    search_path_option = f"-csearch_path={schema}"
+    options_values = query.get("options", [])
+    if options_values:
+        options_values[0] = f"{options_values[0]} {search_path_option}".strip()
+    else:
+        query["options"] = [search_path_option]
+
+    encoded_query = urlencode(query, doseq=True)
+    return urlunparse(parsed._replace(query=encoded_query))
+
+
+def _dsn_with_database(dsn: str, database: str) -> str:
+    """Replace the database component of a DSN with a new name."""
+    parsed = urlparse(dsn)
+    path = f"/{database}"
+    return urlunparse(parsed._replace(path=path))
+
+
+@pytest.fixture(scope="session")
 def postgresql_db() -> Generator:
-    """Create an ephemeral PostgreSQL database for testing."""
+    """Create a reusable PostgreSQL database server for testing."""
     import os
     import shutil
 
@@ -111,18 +140,47 @@ def postgresql_db() -> Generator:
     if "LC_ALL" not in os.environ:
         os.environ["LC_ALL"] = "en_US.UTF-8"
 
-    postgres = Postgresql()
-    yield postgres
-    postgres.stop()
+    try:
+        postgres = Postgresql()
+    except RuntimeError as exc:  # pragma: no cover - environment specific
+        pytest.skip(f"PostgreSQL fixture unavailable: {exc}")
+    try:
+        yield postgres
+    finally:
+        postgres.stop()
+
+
+@pytest.fixture(scope="session")
+def postgresql_admin_engine(postgresql_db):
+    """Session-scoped SQLAlchemy engine for schema management."""
+    engine = create_engine(postgresql_db.url())
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture(scope="function")
-def postgresql_connection(postgresql_db) -> Generator:
+def postgresql_schema(postgresql_admin_engine):
+    """Provision a unique schema per test function to isolate table names."""
+    schema = f"test_{uuid.uuid4().hex}"
+    with postgresql_admin_engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA "{schema}"'))
+        conn.execute(text(f'SET search_path TO "{schema}"'))
+    try:
+        yield schema
+    finally:
+        with postgresql_admin_engine.begin() as conn:
+            conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+
+
+@pytest.fixture(scope="function")
+def postgresql_connection(postgresql_db, postgresql_schema) -> Generator:
     """Create a Moltres Database connection to ephemeral PostgreSQL."""
     from moltres import connect
 
     # Extract connection info from postgresql_db
-    dsn = postgresql_db.url()
+    dsn = _dsn_with_search_path(postgresql_db.url(), postgresql_schema)
     # Convert to SQLAlchemy format: postgresql://user:pass@host:port/dbname
     db = connect(dsn)
     try:
@@ -132,9 +190,9 @@ def postgresql_connection(postgresql_db) -> Generator:
         db.close()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def mysql_db() -> Generator:
-    """Create an ephemeral MySQL database for testing."""
+    """Create a reusable MySQL database server for testing."""
     import os
     import shutil
     import subprocess
@@ -286,8 +344,8 @@ def mysql_db() -> Generator:
 
     try:
         mysql = Mysqld()
-        yield mysql
-        mysql.stop()
+    except PermissionError as exc:  # pragma: no cover - environment specific
+        pytest.skip(f"MySQL fixture unavailable: {exc}")
     except RuntimeError as e:
         error_msg = str(e)
         if "mysql_install_db" in error_msg and use_initialize:
@@ -301,6 +359,11 @@ def mysql_db() -> Generator:
         elif "mysql_install_db" in error_msg:
             pytest.skip(f"MySQL initialization failed: {e}")
         raise
+    else:
+        try:
+            yield mysql
+        finally:
+            mysql.stop()
     finally:
         # Restore original methods if we patched them
         if original_initialize_method is not None:
@@ -309,13 +372,36 @@ def mysql_db() -> Generator:
             Mysqld.initialize_database = original_initialize_database
 
 
+@pytest.fixture(scope="session")
+def mysql_admin_engine(mysql_db):
+    """Session-scoped SQLAlchemy engine for MySQL schema management."""
+    engine = create_engine(mysql_db.url())
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
 @pytest.fixture(scope="function")
-def mysql_connection(mysql_db) -> Generator:
-    """Create a Moltres Database connection to ephemeral MySQL."""
+def mysql_database(mysql_admin_engine):
+    """Provision a unique database per test function to isolate tables."""
+    database = f"test_{uuid.uuid4().hex}"
+    with mysql_admin_engine.begin() as conn:
+        conn.execute(text(f"CREATE DATABASE `{database}`"))
+    try:
+        yield database
+    finally:
+        with mysql_admin_engine.begin() as conn:
+            conn.execute(text(f"DROP DATABASE IF EXISTS `{database}`"))
+
+
+@pytest.fixture(scope="function")
+def mysql_connection(mysql_db, mysql_database) -> Generator:
+    """Create a Moltres Database connection to reusable MySQL."""
     from moltres import connect
 
     # Extract connection info from mysql_db
-    dsn = mysql_db.url()
+    dsn = _dsn_with_database(mysql_db.url(), mysql_database)
     # Convert to SQLAlchemy format: mysql://user:pass@host:port/dbname
     db = connect(dsn)
     try:
@@ -418,7 +504,7 @@ async def seed_customers_orders_async(db):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def postgresql_async_connection(postgresql_db):
+async def postgresql_async_connection(postgresql_db, postgresql_schema):
     """Create an async Moltres Database connection to ephemeral PostgreSQL."""
     if pytest_asyncio is None:
         pytest.skip("pytest_asyncio not available")
@@ -428,7 +514,7 @@ async def postgresql_async_connection(postgresql_db):
         pytest.skip("async_connect not available (async dependencies not installed)")
 
     # Extract connection info from postgresql_db
-    dsn = postgresql_db.url()
+    dsn = _dsn_with_search_path(postgresql_db.url(), postgresql_schema)
     # async_connect will automatically convert postgresql:// to postgresql+asyncpg://
     db = async_connect(dsn)
     try:
@@ -440,8 +526,8 @@ async def postgresql_async_connection(postgresql_db):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def mysql_async_connection(mysql_db):
-    """Create an async Moltres Database connection to ephemeral MySQL."""
+async def mysql_async_connection(mysql_db, mysql_database):
+    """Create an async Moltres Database connection to reusable MySQL."""
     if pytest_asyncio is None:
         pytest.skip("pytest_asyncio not available")
     try:
@@ -450,7 +536,7 @@ async def mysql_async_connection(mysql_db):
         pytest.skip("async_connect not available (async dependencies not installed)")
 
     # Extract connection info from mysql_db
-    dsn = mysql_db.url()
+    dsn = _dsn_with_database(mysql_db.url(), mysql_database)
     # async_connect will automatically convert mysql:// to mysql+aiomysql://
     db = async_connect(dsn)
     try:

@@ -1,5 +1,9 @@
 """Tests for DataFrame write operations."""
 
+from __future__ import annotations
+
+import pytest
+
 from moltres import col, column, connect
 from moltres.io.records import Records
 from moltres.table.schema import ColumnDef
@@ -106,10 +110,101 @@ def test_write_error_if_exists_mode(tmp_path):
     df.write.save_as_table("target")
 
     # Try to write again with error_if_exists
-    import pytest
-
     with pytest.raises(ValueError, match="already exists"):
         df.write.mode("error_if_exists").save_as_table("target")
+
+
+def test_write_ignore_mode_skips_existing_table(tmp_path):
+    """mode('ignore') should no-op when target table already exists."""
+    db_path = tmp_path / "write_ignore.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    db.create_table("source", [column("id", "INTEGER")]).collect()
+    Records(_data=[{"id": 1}, {"id": 2}], _database=db).insert_into("source")
+
+    df = db.table("source").select()
+    df.write.save_as_table("target")
+
+    Records(_data=[{"id": 3}], _database=db).insert_into("source")
+    df_new = db.table("source").select().where(col("id") == 3)
+    df_new.write.mode("ignore").save_as_table("target")
+
+    rows = db.table("target").select().collect()
+    assert {row["id"] for row in rows} == {1, 2}
+
+
+def test_writer_format_and_options(tmp_path):
+    """format() and options() should drive save() semantics."""
+    db_path = tmp_path / "writer_format.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+    Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
+
+    df = db.table("source").select()
+    output_path = tmp_path / "custom_output"
+    df.write.format("csv").options({"header": False}, delimiter="|").save(str(output_path))
+
+    content = output_path.read_text(encoding="utf-8").strip()
+    assert content == "1|Alice"
+
+
+def test_writer_bucket_sort_not_implemented(tmp_path):
+    """bucketBy/sortBy should surface helpful NotImplemented errors."""
+    db_path = tmp_path / "writer_bucket.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    db.create_table("source", [column("id", "INTEGER")]).collect()
+    Records(_data=[{"id": 1}], _database=db).insert_into("source")
+
+    df = db.table("source").select()
+
+    with pytest.raises(NotImplementedError):
+        df.write.bucketBy(2, "id").save_as_table("target_bucket")
+
+    with pytest.raises(NotImplementedError):
+        df.write.sortBy("id").csv(tmp_path / "sorted.csv")
+
+
+def test_writer_streams_by_default_when_materializing(tmp_path, monkeypatch):
+    """When materialization is required, writes should request streaming chunks."""
+    db_path = tmp_path / "writer_stream.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    db.create_table("source", [column("id", "INTEGER")]).collect()
+    Records(_data=[{"id": i} for i in range(3)], _database=db).insert_into("source")
+
+    df = db.table("source").select()
+    writer = df.write
+    # Force fallback path
+    monkeypatch.setattr(writer, "_can_use_insert_select", lambda: False)
+
+    calls: list[bool] = []
+
+    original_collect_rows = writer._collect_rows
+
+    def fake_collect_rows(use_stream: bool):
+        calls.append(use_stream)
+        return original_collect_rows(use_stream)
+
+    monkeypatch.setattr(writer, "_collect_rows", fake_collect_rows)
+
+    writer.save_as_table("target_stream")
+
+    assert any(calls), "_collect_rows() was never invoked"
+    assert calls[0] is True, "Streaming should be enabled by default when materializing"
+
+
+def test_writer_text_output(tmp_path):
+    """text() should persist the 'value' column as plain text."""
+    db_path = tmp_path / "writer_text.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    db.create_table("source", [column("value", "TEXT")]).collect()
+    Records(_data=[{"value": "alpha"}, {"value": "beta"}], _database=db).insert_into("source")
+    df = db.table("source").select()
+
+    output_path = tmp_path / "lines.txt"
+    df.write.text(str(output_path))
+
+    lines = output_path.read_text(encoding="utf-8").splitlines()
+    assert lines == ["alpha", "beta"]
 
 
 def test_write_with_explicit_schema(tmp_path):

@@ -1271,6 +1271,23 @@ Moltres has made significant strides in PySpark API compatibility. Recent update
 
 **Overall API Compatibility: ~98%** for core DataFrame operations
 
+### DataFrame Writer Parity (2025 assessment)
+
+| Surface | PySpark | Moltres (today) | Gap |
+|---------|---------|-----------------|-----|
+| Builder knobs | `.mode()`, `.format()`, `.option()`, `.options()`, `.partitionBy()`, `.bucketBy()`, `.sortBy()` | `.mode()` (append/overwrite/error), `.option()`, `.partitionBy()`, `.stream()`, `.primaryKey()` | Missing `.format()`, `.options()`, `.bucketBy()`, `.sortBy()`, `mode("ignore")`; `.stream()` is opt-in |
+| File sinks | `.save()`, `.csv()`, `.json()`, `.text()`, `.orc()`, `.parquet()` | `.save()`, `.csv()`, `.json()`, `.jsonl()`, `.parquet()` | Need `.text()`, `.orc()`, `.format()+save()` parity |
+| Table sinks | `.saveAsTable()`, `.insertInto()`, `.jdbc()` | `.save_as_table()`, `.insertInto()`, `.update()`, `.delete()` | Need `.format("jdbc").save()` convenience; Moltres has extra CRUD helpers |
+| Save modes | append, overwrite, ignore, errorIfExists | append, overwrite, error_if_exists | Need `ignore` semantics + camelCase alias |
+| Memory posture | Distributed streaming by default | Materializes entire DF unless `.stream(True)` | Default chunked writes required for parity |
+
+**Key actions in-flight:**
+1. Document the parity findings (this section).
+2. Expand the writer builder API to include `.format()`, `.options()`, `.bucketBy()`, `.sortBy()`, and support `mode("ignore")`.
+3. Refactor sink helpers so `.save()` + `.format()` mirror PySpark and automatically stream rows in chunks when materialization is required (matching the new read-side safety guarantees).
+4. Add missing sinks (`.text()`, `.orc()`, `.format("jdbc")`) and ensure overwrite/ignore semantics align with Spark.
+5. Update tests/docs to reflect the enhanced API surface.
+
 ---
 
 ## 13. Feature Gaps Analysis
