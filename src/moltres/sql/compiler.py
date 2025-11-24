@@ -953,7 +953,7 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             # SQLite doesn't have ceil() function, use workaround
             if self.dialect.name == "sqlite":
-                from sqlalchemy import case, literal, cast, types as sa_types
+                from sqlalchemy import cast, types as sa_types
 
                 # SQLite ceil workaround:
                 # CASE WHEN x > CAST(x AS INTEGER) THEN CAST(x AS INTEGER) + 1 ELSE CAST(x AS INTEGER) END
@@ -1051,7 +1051,7 @@ class ExpressionCompiler:
                 result = func.sign(col_expr)
             else:
                 # SQLite doesn't have SIGN, use CASE WHEN
-                from sqlalchemy import case, literal, literal_column
+                from sqlalchemy import literal_column
 
                 result = case(
                     (col_expr > 0, literal(1)),
