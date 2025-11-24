@@ -1343,7 +1343,7 @@ class ExpressionCompiler:
                 result = func.quarter(col_expr)
             else:
                 # SQLite: strftime('%m') then calculate quarter
-                from sqlalchemy import case, literal_column, types as sa_types
+                from sqlalchemy import literal_column, types as sa_types
 
                 month = func.cast(func.strftime("%m", col_expr), sa_types.Integer)
                 result = case(
