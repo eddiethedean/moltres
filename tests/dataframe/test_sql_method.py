@@ -4,7 +4,6 @@ import pytest
 from builtins import sum as builtin_sum
 
 from moltres import col, connect
-from moltres.expressions.functions import sum, avg, count
 
 
 def test_sql_basic_query(tmp_path):
@@ -36,7 +35,9 @@ def test_sql_parameterized_query(tmp_path):
     engine = db.connection_manager.engine
 
     with engine.begin() as conn:
-        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, status TEXT)")
+        conn.exec_driver_sql(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER, status TEXT)"
+        )
         conn.exec_driver_sql(
             "INSERT INTO users (id, name, age, status) VALUES (1, 'Alice', 30, 'active'), (2, 'Bob', 25, 'inactive'), (3, 'Charlie', 35, 'active')"
         )
@@ -57,7 +58,9 @@ def test_sql_chaining_operations(tmp_path):
     engine = db.connection_manager.engine
 
     with engine.begin() as conn:
-        conn.exec_driver_sql("CREATE TABLE orders (id INTEGER PRIMARY KEY, amount REAL, status TEXT)")
+        conn.exec_driver_sql(
+            "CREATE TABLE orders (id INTEGER PRIMARY KEY, amount REAL, status TEXT)"
+        )
         conn.exec_driver_sql(
             "INSERT INTO orders (id, amount, status) VALUES (1, 100.0, 'pending'), (2, 200.0, 'completed'), (3, 150.0, 'pending')"
         )
@@ -104,9 +107,13 @@ def test_sql_with_joins(tmp_path):
 
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
-        conn.exec_driver_sql("CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, amount REAL)")
+        conn.exec_driver_sql(
+            "CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, amount REAL)"
+        )
         conn.exec_driver_sql("INSERT INTO users (id, name) VALUES (1, 'Alice'), (2, 'Bob')")
-        conn.exec_driver_sql("INSERT INTO orders (id, user_id, amount) VALUES (1, 1, 100.0), (2, 1, 200.0), (3, 2, 150.0)")
+        conn.exec_driver_sql(
+            "INSERT INTO orders (id, user_id, amount) VALUES (1, 1, 100.0), (2, 1, 200.0), (3, 2, 150.0)"
+        )
 
     # SQL with join, then chain operations
     df = (
@@ -200,7 +207,9 @@ async def test_async_sql_basic_query(tmp_path):
     engine = db.connection_manager.engine
 
     async with engine.begin() as conn:
-        await conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        await conn.exec_driver_sql(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+        )
         await conn.exec_driver_sql(
             "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30), (2, 'Bob', 25)"
         )
@@ -228,7 +237,9 @@ async def test_async_sql_parameterized_query(tmp_path):
     engine = db.connection_manager.engine
 
     async with engine.begin() as conn:
-        await conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, status TEXT)")
+        await conn.exec_driver_sql(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, status TEXT)"
+        )
         await conn.exec_driver_sql(
             "INSERT INTO users (id, name, status) VALUES (1, 'Alice', 'active'), (2, 'Bob', 'inactive')"
         )
@@ -269,4 +280,3 @@ async def test_async_sql_chaining_operations(tmp_path):
     assert all(row["amount"] > 100 for row in results)
 
     await db.close()
-

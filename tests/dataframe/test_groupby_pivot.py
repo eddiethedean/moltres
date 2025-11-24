@@ -2,7 +2,7 @@
 
 import pytest
 from moltres import connect, col, async_connect
-from moltres.expressions.functions import sum, avg
+from moltres.expressions.functions import sum
 
 
 def test_pivot_basic(tmp_path):
@@ -11,9 +11,7 @@ def test_pivot_basic(tmp_path):
     db = connect(f"sqlite:///{db_path}")
     engine = db.connection_manager.engine
     with engine.begin() as conn:
-        conn.exec_driver_sql(
-            "CREATE TABLE sales (category TEXT, status TEXT, amount REAL)"
-        )
+        conn.exec_driver_sql("CREATE TABLE sales (category TEXT, status TEXT, amount REAL)")
         conn.exec_driver_sql(
             "INSERT INTO sales (category, status, amount) VALUES "
             "('A', 'active', 100.0), "
@@ -21,10 +19,16 @@ def test_pivot_basic(tmp_path):
             "('B', 'active', 200.0), "
             "('B', 'inactive', 150.0)"
         )
-    
-    df = db.table("sales").select().group_by("category").pivot("status", values=["active", "inactive"]).agg("amount")
+
+    df = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .pivot("status", values=["active", "inactive"])
+        .agg("amount")
+    )
     rows = df.collect()
-    
+
     assert len(rows) == 2
     # Find row for category A
     row_a = next(r for r in rows if r["category"] == "A")
@@ -42,19 +46,23 @@ def test_pivot_with_column_expression(tmp_path):
     db = connect(f"sqlite:///{db_path}")
     engine = db.connection_manager.engine
     with engine.begin() as conn:
-        conn.exec_driver_sql(
-            "CREATE TABLE sales (category TEXT, status TEXT, amount REAL)"
-        )
+        conn.exec_driver_sql("CREATE TABLE sales (category TEXT, status TEXT, amount REAL)")
         conn.exec_driver_sql(
             "INSERT INTO sales (category, status, amount) VALUES "
             "('A', 'active', 100.0), "
             "('A', 'active', 50.0), "
             "('B', 'inactive', 200.0)"
         )
-    
-    df = db.table("sales").select().group_by("category").pivot("status", values=["active", "inactive"]).agg(sum(col("amount")))
+
+    df = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .pivot("status", values=["active", "inactive"])
+        .agg(sum(col("amount")))
+    )
     rows = df.collect()
-    
+
     assert len(rows) == 2
     row_a = next(r for r in rows if r["category"] == "A")
     assert row_a["active"] == 150.0  # Sum of 100 + 50
@@ -76,10 +84,16 @@ def test_pivot_multiple_grouping_columns(tmp_path):
             "('North', 'A', 'inactive', 50.0), "
             "('South', 'A', 'active', 200.0)"
         )
-    
-    df = db.table("sales").select().group_by("region", "category").pivot("status", values=["active", "inactive"]).agg("amount")
+
+    df = (
+        db.table("sales")
+        .select()
+        .group_by("region", "category")
+        .pivot("status", values=["active", "inactive"])
+        .agg("amount")
+    )
     rows = df.collect()
-    
+
     assert len(rows) == 2
     row_north = next(r for r in rows if r["region"] == "North" and r["category"] == "A")
     assert row_north["active"] == 100.0
@@ -92,11 +106,14 @@ def test_pivot_error_no_aggregation(tmp_path):
     db = connect(f"sqlite:///{db_path}")
     engine = db.connection_manager.engine
     with engine.begin() as conn:
-        conn.exec_driver_sql(
-            "CREATE TABLE sales (category TEXT, status TEXT, amount REAL)"
-        )
-    
-    pivoted = db.table("sales").select().group_by("category").pivot("status", values=["active", "inactive"])
+        conn.exec_driver_sql("CREATE TABLE sales (category TEXT, status TEXT, amount REAL)")
+
+    pivoted = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .pivot("status", values=["active", "inactive"])
+    )
     with pytest.raises(ValueError, match="agg requires at least one aggregation expression"):
         pivoted.agg()
 
@@ -110,9 +127,16 @@ def test_pivot_error_multiple_aggregations(tmp_path):
         conn.exec_driver_sql(
             "CREATE TABLE sales (category TEXT, status TEXT, amount REAL, price REAL)"
         )
-    
-    pivoted = db.table("sales").select().group_by("category").pivot("status", values=["active", "inactive"])
-    with pytest.raises(ValueError, match="Pivoted grouped aggregation supports only one aggregation expression"):
+
+    pivoted = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .pivot("status", values=["active", "inactive"])
+    )
+    with pytest.raises(
+        ValueError, match="Pivoted grouped aggregation supports only one aggregation expression"
+    ):
         pivoted.agg("amount", "price")
 
 
@@ -122,9 +146,7 @@ def test_pivot_inferred_values(tmp_path):
     db = connect(f"sqlite:///{db_path}")
     engine = db.connection_manager.engine
     with engine.begin() as conn:
-        conn.exec_driver_sql(
-            "CREATE TABLE sales (category TEXT, status TEXT, amount REAL)"
-        )
+        conn.exec_driver_sql("CREATE TABLE sales (category TEXT, status TEXT, amount REAL)")
         conn.exec_driver_sql(
             "INSERT INTO sales (category, status, amount) VALUES "
             "('A', 'active', 100.0), "
@@ -133,17 +155,17 @@ def test_pivot_inferred_values(tmp_path):
             "('B', 'active', 200.0), "
             "('B', 'pending', 75.0)"
         )
-    
+
     # Test without explicit values - should infer from data
     df = db.table("sales").select().group_by("category").pivot("status").agg("amount")
     rows = df.collect()
-    
+
     assert len(rows) == 2
     row_a = next(r for r in rows if r["category"] == "A")
     assert row_a["active"] == 100.0
     assert row_a["inactive"] == 50.0
     assert row_a["pending"] == 25.0
-    
+
     row_b = next(r for r in rows if r["category"] == "B")
     assert row_b["active"] == 200.0
     assert row_b["inactive"] is None  # No inactive for B
@@ -157,23 +179,22 @@ async def test_async_pivot_basic(tmp_path):
     db = async_connect(f"sqlite+aiosqlite:///{db_path}")
     engine = db.connection_manager.engine
     async with engine.begin() as conn:
-        await conn.exec_driver_sql(
-            "CREATE TABLE sales (category TEXT, status TEXT, amount REAL)"
-        )
+        await conn.exec_driver_sql("CREATE TABLE sales (category TEXT, status TEXT, amount REAL)")
         await conn.exec_driver_sql(
             "INSERT INTO sales (category, status, amount) VALUES "
             "('A', 'active', 100.0), "
             "('A', 'inactive', 50.0), "
             "('B', 'active', 200.0)"
         )
-    
+
     table_handle = await db.table("sales")
-    pivoted = table_handle.select().group_by("category").pivot("status", values=["active", "inactive"])
+    pivoted = (
+        table_handle.select().group_by("category").pivot("status", values=["active", "inactive"])
+    )
     df = await pivoted.agg("amount")
     rows = await df.collect()
-    
+
     assert len(rows) == 2
     row_a = next(r for r in rows if r["category"] == "A")
     assert row_a["active"] == 100.0
     assert row_a["inactive"] == 50.0
-

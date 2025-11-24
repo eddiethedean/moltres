@@ -172,12 +172,12 @@ class Database:
             >>> # Basic SQL query
             >>> df = db.sql("SELECT * FROM users WHERE age > 18")
             >>> results = df.collect()
-            
+
             >>> # Parameterized query
-            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status", 
+            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status",
             ...             id=1, status="active")
             >>> results = df.collect()
-            
+
             >>> # Chaining operations
             >>> df = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(10)
             >>> results = df.collect()

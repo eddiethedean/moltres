@@ -9,7 +9,7 @@ from .expressions import col, lit
 from .table.schema import column
 from .table.table import Database
 
-__version__ = "0.7.0"
+__version__ = "0.9.0"
 
 __all__ = [
     "AsyncDatabase",
@@ -34,7 +34,9 @@ else:
 
 
 def connect(
-    dsn: str | None = None, engine: Engine | None = None, **options: object
+    dsn: str | None = None,
+    engine: object | None = None,
+    **options: object,
 ) -> Database:
     """Connect to a SQL database and return a ``Database`` handle.
 
@@ -106,12 +108,18 @@ def connect(
     from sqlalchemy.engine import Engine as SQLAlchemyEngine
 
     # Check if engine is provided in kwargs (for backward compatibility)
-    if engine is None and "engine" in options:
-        engine = options.pop("engine")
+    engine_obj: SQLAlchemyEngine | None = None
+    if engine is not None:
         if not isinstance(engine, SQLAlchemyEngine):
             raise TypeError("engine must be a SQLAlchemy Engine instance")
+        engine_obj = engine
+    elif "engine" in options:
+        engine_from_options = options.pop("engine")
+        if not isinstance(engine_from_options, SQLAlchemyEngine):
+            raise TypeError("engine must be a SQLAlchemy Engine instance")
+        engine_obj = engine_from_options
 
-    config: MoltresConfig = create_config(dsn=dsn, engine=engine, **options)
+    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, **options)
     return Database(config=config)
 
 
@@ -203,13 +211,19 @@ def async_connect(
             "Async support requires async dependencies. Install with: pip install moltres[async]"
         ) from exc
 
-    from sqlalchemy.ext.asyncio import AsyncEngine
+    from sqlalchemy.ext.asyncio import AsyncEngine as SQLAlchemyAsyncEngine
 
     # Check if engine is provided in kwargs (for backward compatibility)
-    if engine is None and "engine" in options:
-        engine = options.pop("engine")
-        if not isinstance(engine, AsyncEngine):
+    engine_obj: SQLAlchemyAsyncEngine | None = None
+    if engine is not None:
+        if not isinstance(engine, SQLAlchemyAsyncEngine):
             raise TypeError("engine must be a SQLAlchemy AsyncEngine instance")
+        engine_obj = engine
+    elif "engine" in options:
+        engine_from_options = options.pop("engine")
+        if not isinstance(engine_from_options, SQLAlchemyAsyncEngine):
+            raise TypeError("engine must be a SQLAlchemy AsyncEngine instance")
+        engine_obj = engine_from_options
 
-    config: MoltresConfig = create_config(dsn=dsn, engine=engine, **options)
+    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, **options)
     return AsyncDatabase(config=config)

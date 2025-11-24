@@ -61,39 +61,39 @@ class AsyncDataFrame:
         Example:
             >>> # Select specific columns
             >>> df = await db.table("users").select("id", "name", "email")
-            
+
             >>> # Select all columns (empty select or "*")
             >>> df = await db.table("users").select()  # or .select("*")
-            
+
             >>> # Select all columns plus new ones
             >>> df = await db.table("orders").select("*", (col("amount") * 1.1).alias("with_tax"))
         """
         if not columns:
             return self
-        
+
         # Handle "*" as special case
         if len(columns) == 1 and isinstance(columns[0], str) and columns[0] == "*":
             return self
-        
+
         # Check if "*" is in the columns (only check string elements, not Column objects)
         has_star = any(isinstance(col, str) and col == "*" for col in columns)
-        
+
         # Import Column at the top of the method
         from ..expressions.column import Column
-        
+
         # Normalize all columns first and check for explode
         normalized_columns = []
         explode_column = None
-        
+
         for col_expr in columns:
             if isinstance(col_expr, str) and col_expr == "*":
                 # Handle "*" separately - add star column
                 star_col = Column(op="star", args=(), _alias=None)
                 normalized_columns.append(star_col)
                 continue
-            
+
             normalized = self._normalize_projection(col_expr)
-            
+
             # Check if this is an explode() column
             if isinstance(normalized, Column) and normalized.op == "explode":
                 if explode_column is not None:
@@ -104,24 +104,24 @@ class AsyncDataFrame:
                 explode_column = normalized
             else:
                 normalized_columns.append(normalized)
-        
+
         # If we have an explode column, we need to handle it specially
         if explode_column is not None:
             # Extract the column being exploded and the alias
             exploded_column = explode_column.args[0] if explode_column.args else None
             if not isinstance(exploded_column, Column):
                 raise ValueError("explode() requires a Column expression")
-            
+
             alias = explode_column._alias or "value"
-            
+
             # Create Explode logical plan
             exploded_plan = operators.explode(self.plan, exploded_column, alias=alias)
-            
+
             # Create Project on top of Explode
             # If we have "*", we want all columns from the exploded result
             # Otherwise, we want the exploded column (with alias) plus any other specified columns
             project_columns = []
-            
+
             if has_star:
                 # Select all columns from exploded result (including the exploded column)
                 star_col = Column(op="star", args=(), _alias=None)
@@ -136,13 +136,13 @@ class AsyncDataFrame:
                 project_columns.append(exploded_result_col)
                 # Add any other columns
                 project_columns.extend(normalized_columns)
-            
+
             return self._with_plan(operators.project(exploded_plan, tuple(project_columns)))
-        
+
         # No explode columns, normal projection
         if has_star and not normalized_columns:
             return self  # Only "*", same as empty select
-        
+
         return self._with_plan(operators.project(self.plan, tuple(normalized_columns)))
 
     def selectExpr(self, *exprs: str) -> "AsyncDataFrame":
@@ -205,17 +205,17 @@ class AsyncDataFrame:
             >>> from moltres import col
             >>> # Filter by condition using Column
             >>> df = await db.table("users").select().where(col("age") >= 18)
-            
+
             >>> # Filter using SQL string
             >>> df = await db.table("users").select().where("age > 18")
-            
+
             >>> # Multiple conditions with SQL string
             >>> df = await db.table("orders").select().where("amount > 100 AND status = 'active'")
         """
         # If predicate is a string, parse it into a Column expression
         if isinstance(predicate, str):
             from ..expressions.sql_parser import parse_sql_expr
-            
+
             # Get available column names from the DataFrame for context
             available_columns: Optional[Set[str]] = None
             try:
@@ -228,9 +228,9 @@ class AsyncDataFrame:
             except Exception:
                 # If we can't extract columns, that's okay - parser will still work
                 pass
-            
+
             predicate = parse_sql_expr(predicate, available_columns)
-        
+
         return self._with_plan(operators.filter(self.plan, predicate))
 
     filter = where
@@ -436,6 +436,7 @@ class AsyncDataFrame:
 
     def withColumn(self, colName: str, col_expr: Union[Column, str]) -> "AsyncDataFrame":
         """Add or replace a column in the DataFrame."""
+        from ..expressions.column import Column
         from ..logical.plan import Project
         from dataclasses import replace as dataclass_replace
 
@@ -453,7 +454,9 @@ class AsyncDataFrame:
                 if isinstance(col_expr, Column):
                     # Check if this column matches the colName (by alias or column name)
                     col_alias = col_expr._alias
-                    col_name = col_expr.args[0] if col_expr.op == "column" and col_expr.args else None
+                    col_name = (
+                        col_expr.args[0] if col_expr.op == "column" and col_expr.args else None
+                    )
                     if col_alias == colName or col_name == colName:
                         # Skip this column - it will be replaced by new_col
                         continue
@@ -464,6 +467,7 @@ class AsyncDataFrame:
             # No existing projection, select all plus new column
             # Use a wildcard select and add the new column
             from ..expressions.column import Column
+
             star_col = Column(op="star", args=(), _alias=None)
             new_projections = [star_col, new_col]
 
@@ -698,9 +702,11 @@ class AsyncDataFrame:
                 # For streaming, we need to use execute_plan_stream which expects a compiled plan
                 # So we'll compile the RawSQL plan
                 plan = await self._materialize_filescan(self.plan)
+
                 async def stream_gen() -> AsyncIterator[List[Dict[str, object]]]:
                     async for chunk in self.database.execute_plan_stream(plan):  # type: ignore[union-attr]
                         yield chunk
+
                 return stream_gen()
             else:
                 # Execute RawSQL directly
@@ -901,15 +907,21 @@ class AsyncDataFrame:
         if hasattr(self.__class__, name):
             # Check if it's a dataclass field
             import dataclasses
+
             if name in {f.name for f in dataclasses.fields(self)}:
-                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+                raise AttributeError(
+                    f"'{self.__class__.__name__}' object has no attribute '{name}'"
+                )
             # Check if it's a method or property
             attr = getattr(self.__class__, name, None)
             if attr is not None:
-                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-        
+                raise AttributeError(
+                    f"'{self.__class__.__name__}' object has no attribute '{name}'"
+                )
+
         # If we get here, treat it as a column name
         from ..expressions.column import col
+
         return col(name)
 
     # ---------------------------------------------------------------- utilities

@@ -47,7 +47,7 @@ class AsyncConnectionManager:
         # Otherwise, create a new engine from DSN
         if self.config.dsn is None:
             raise ValueError("Either 'dsn' or 'engine' must be provided in EngineConfig")
-        
+
         dsn = self.config.dsn
 
         # Check if DSN already has async driver specified

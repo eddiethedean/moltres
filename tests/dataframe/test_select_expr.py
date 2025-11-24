@@ -1,7 +1,6 @@
 """Tests for DataFrame.selectExpr() method."""
 
 import pytest
-from builtins import sum as builtin_sum
 
 from moltres import col, connect
 
@@ -93,7 +92,9 @@ def test_select_expr_complex_expressions(tmp_path):
 
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE orders (id INTEGER PRIMARY KEY, amount REAL, tax REAL)")
-        conn.exec_driver_sql("INSERT INTO orders (id, amount, tax) VALUES (1, 100.0, 10.0), (2, 200.0, 20.0)")
+        conn.exec_driver_sql(
+            "INSERT INTO orders (id, amount, tax) VALUES (1, 100.0, 10.0), (2, 200.0, 20.0)"
+        )
 
     df = db.table("orders").select()
     result_df = df.selectExpr("id", "(amount + tax) * 1.1 as total")
@@ -111,7 +112,9 @@ def test_select_expr_chaining(tmp_path):
 
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE orders (id INTEGER PRIMARY KEY, amount REAL)")
-        conn.exec_driver_sql("INSERT INTO orders (id, amount) VALUES (1, 100.0), (2, 200.0), (3, 50.0)")
+        conn.exec_driver_sql(
+            "INSERT INTO orders (id, amount) VALUES (1, 100.0), (2, 200.0), (3, 50.0)"
+        )
 
     df = db.table("orders").select()
     result_df = df.selectExpr("id", "amount").where(col("amount") > 100)
@@ -200,4 +203,3 @@ async def test_async_select_expr_basic(tmp_path):
 
     assert len(rows) == 2
     assert rows[0]["name_upper"] == "ALICE"
-

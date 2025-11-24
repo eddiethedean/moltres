@@ -157,12 +157,12 @@ class AsyncDatabase:
             >>> # Basic SQL query
             >>> df = db.sql("SELECT * FROM users WHERE age > 18")
             >>> results = await df.collect()
-            
+
             >>> # Parameterized query
-            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status", 
+            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status",
             ...             id=1, status="active")
             >>> results = await df.collect()
-            
+
             >>> # Chaining operations
             >>> df = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(10)
             >>> results = await df.collect()
@@ -444,7 +444,10 @@ class AsyncDatabase:
         if self.config.engine.dialect:
             return self.config.engine.dialect
         # Extract base dialect from DSN (e.g., "sqlite+aiosqlite" -> "sqlite")
-        scheme = self.config.engine.dsn.split("://", 1)[0]
+        dsn = self.config.engine.dsn
+        if dsn is None:
+            raise ValueError("DSN is required when dialect is not explicitly set")
+        scheme = dsn.split("://", 1)[0]
         # Remove async driver suffix if present (e.g., "+asyncpg", "+aiomysql", "+aiosqlite")
         if "+" in scheme:
             scheme = scheme.split("+", 1)[0]

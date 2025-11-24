@@ -361,7 +361,12 @@ def test_dot_notation_group_by(tmp_path):
     # Test dot notation in group_by
     from moltres.expressions.functions import sum as sum_func
 
-    result = df.group_by(df.category).agg(sum_func(df.amount).alias("total")).order_by(df.category).collect()
+    result = (
+        df.group_by(df.category)
+        .agg(sum_func(df.amount).alias("total"))
+        .order_by(df.category)
+        .collect()
+    )
 
     assert len(result) == 2
     assert result[0]["category"] == "A"

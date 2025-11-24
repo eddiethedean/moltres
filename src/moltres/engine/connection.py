@@ -23,12 +23,14 @@ class ConnectionManager:
     def _create_engine(self) -> Engine:
         # If an engine is provided in config, use it directly
         if self.config.engine is not None:
+            if not isinstance(self.config.engine, Engine):
+                raise TypeError("config.engine must be a synchronous Engine, not AsyncEngine")
             return self.config.engine
 
         # Otherwise, create a new engine from DSN
         if self.config.dsn is None:
             raise ValueError("Either 'dsn' or 'engine' must be provided in EngineConfig")
-        
+
         kwargs: dict[str, object] = {"echo": self.config.echo, "future": self.config.future}
         if self.config.pool_size is not None:
             kwargs["pool_size"] = self.config.pool_size

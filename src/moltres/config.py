@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Literal, Union, TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING
 
 from sqlalchemy.engine import Engine
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
+else:
+    AsyncEngine = None  # type: ignore[assignment, misc]
 
 FetchFormat = Literal["pandas", "polars", "records"]
 
@@ -36,7 +38,9 @@ class EngineConfig:
         if self.dsn is None and self.engine is None:
             raise ValueError("Either 'dsn' or 'engine' must be provided")
         if self.dsn is not None and self.engine is not None:
-            raise ValueError("Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance.")
+            raise ValueError(
+                "Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance."
+            )
 
 
 @dataclass
@@ -94,7 +98,9 @@ def _load_env_config() -> dict[str, object]:
 
 
 def create_config(
-    dsn: str | None = None, engine: Engine | None = None, **kwargs: object
+    dsn: str | None = None,
+    engine: Engine | "AsyncEngine | None" = None,
+    **kwargs: object,
 ) -> MoltresConfig:
     """Convenience helper used by ``moltres.connect``.
 
@@ -138,9 +144,10 @@ def create_config(
     """
     # Check if engine is provided in kwargs (for backward compatibility)
     if engine is None and "engine" in kwargs:
-        engine = kwargs.pop("engine")
-        if not isinstance(engine, Engine):
+        engine_obj = kwargs.pop("engine")
+        if not isinstance(engine_obj, Engine):
             raise TypeError("engine must be a SQLAlchemy Engine instance")
+        engine = engine_obj
 
     # Get DSN from argument or environment variable (only if engine is not provided)
     if engine is None:
@@ -153,7 +160,9 @@ def create_config(
     else:
         # If engine is provided, ignore dsn
         if dsn is not None:
-            raise ValueError("Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance.")
+            raise ValueError(
+                "Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance."
+            )
         dsn = None
 
     # Load configuration from environment variables if not provided in kwargs

@@ -2,7 +2,7 @@
 
 import pytest
 from moltres import connect, col, async_connect
-from moltres.expressions.functions import sum, avg, min as min_func, max as max_func, count
+from moltres.expressions.functions import sum, count
 
 
 def test_agg_string_single_column(tmp_path):
@@ -16,10 +16,10 @@ def test_agg_string_single_column(tmp_path):
             "INSERT INTO sales (category, amount) VALUES "
             "('A', 100.0), ('A', 200.0), ('B', 150.0), ('B', 250.0)"
         )
-    
+
     df = db.table("sales").select().group_by("category").agg("amount")
     rows = df.collect()
-    
+
     assert len(rows) == 2
     # Both categories should have their amounts summed
     category_a = next(r for r in rows if r["category"] == "A")
@@ -39,10 +39,10 @@ def test_agg_string_multiple_columns(tmp_path):
             "INSERT INTO sales (category, amount, price) VALUES "
             "('A', 100.0, 10.0), ('A', 200.0, 20.0), ('B', 150.0, 15.0)"
         )
-    
+
     df = db.table("sales").select().group_by("category").agg("amount", "price")
     rows = df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["amount"] == pytest.approx(300.0)
@@ -60,10 +60,10 @@ def test_agg_dictionary_syntax(tmp_path):
             "INSERT INTO sales (category, amount, price) VALUES "
             "('A', 100.0, 10.0), ('A', 200.0, 20.0), ('B', 150.0, 15.0)"
         )
-    
+
     df = db.table("sales").select().group_by("category").agg({"amount": "sum", "price": "avg"})
     rows = df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["amount"] == pytest.approx(300.0)
@@ -81,19 +81,24 @@ def test_agg_dictionary_all_functions(tmp_path):
             "INSERT INTO sales (category, amount, price) VALUES "
             "('A', 100.0, 10.0), ('A', 200.0, 20.0), ('A', 150.0, 15.0)"
         )
-    
-    df = db.table("sales").select().group_by("category").agg({
-        "amount": "sum",
-        "price": "avg",
-        "amount": "min",  # This will overwrite sum
-        "price": "max",   # This will overwrite avg
-    })
+
+    df = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .agg(
+            {
+                "amount": "min",  # Last value wins
+                "price": "max",  # Last value wins
+            }
+        )
+    )
     rows = df.collect()
-    
+
     assert len(rows) == 1
     # Note: dict with duplicate keys - last one wins
     assert rows[0]["amount"] == pytest.approx(100.0)  # min
-    assert rows[0]["price"] == pytest.approx(20.0)   # max
+    assert rows[0]["price"] == pytest.approx(20.0)  # max
 
 
 def test_agg_dictionary_separate_columns(tmp_path):
@@ -107,13 +112,10 @@ def test_agg_dictionary_separate_columns(tmp_path):
             "INSERT INTO sales (category, amount, price) VALUES "
             "('A', 100.0, 10.0), ('A', 200.0, 20.0), ('B', 150.0, 15.0)"
         )
-    
-    df = db.table("sales").select().group_by("category").agg({
-        "amount": "sum",
-        "price": "avg"
-    })
+
+    df = db.table("sales").select().group_by("category").agg({"amount": "sum", "price": "avg"})
     rows = df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["amount"] == pytest.approx(300.0)
@@ -131,10 +133,15 @@ def test_agg_mixed_string_and_column(tmp_path):
             "INSERT INTO sales (category, amount, price) VALUES "
             "('A', 100.0, 10.0), ('A', 200.0, 20.0), ('B', 150.0, 15.0)"
         )
-    
-    df = db.table("sales").select().group_by("category").agg("amount", sum(col("price")).alias("total_price"))
+
+    df = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .agg("amount", sum(col("price")).alias("total_price"))
+    )
     rows = df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["amount"] == pytest.approx(300.0)
@@ -152,10 +159,10 @@ def test_agg_mixed_string_and_dict(tmp_path):
             "INSERT INTO sales (category, amount, price) VALUES "
             "('A', 100.0, 10.0), ('A', 200.0, 20.0), ('B', 150.0, 15.0)"
         )
-    
+
     df = db.table("sales").select().group_by("category").agg("amount", {"price": "avg"})
     rows = df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["amount"] == pytest.approx(300.0)
@@ -168,20 +175,28 @@ def test_agg_dictionary_all_agg_functions(tmp_path):
     db = connect(f"sqlite:///{db_path}")
     engine = db.connection_manager.engine
     with engine.begin() as conn:
-        conn.exec_driver_sql("CREATE TABLE sales (category TEXT, amount REAL, price REAL, quantity INTEGER)")
+        conn.exec_driver_sql(
+            "CREATE TABLE sales (category TEXT, amount REAL, price REAL, quantity INTEGER)"
+        )
         conn.exec_driver_sql(
             "INSERT INTO sales (category, amount, price, quantity) VALUES "
             "('A', 100.0, 10.0, 5), ('A', 200.0, 20.0, 3), ('A', 150.0, 15.0, 2)"
         )
-    
-    df = db.table("sales").select().group_by("category").agg({
-        "amount": "sum",
-        "price": "avg",
-        "quantity": "min",
-        "quantity": "max",  # Will overwrite min
-    })
+
+    df = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .agg(
+            {
+                "amount": "sum",
+                "price": "avg",
+                "quantity": "max",  # Last value wins
+            }
+        )
+    )
     rows = df.collect()
-    
+
     assert len(rows) == 1
     assert rows[0]["amount"] == pytest.approx(450.0)
     assert rows[0]["price"] == pytest.approx(15.0)
@@ -196,16 +211,18 @@ def test_agg_dictionary_count(tmp_path):
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE sales (category TEXT, amount REAL)")
         conn.exec_driver_sql(
-            "INSERT INTO sales (category, amount) VALUES "
-            "('A', 100.0), ('A', 200.0), ('B', 150.0)"
+            "INSERT INTO sales (category, amount) VALUES ('A', 100.0), ('A', 200.0), ('B', 150.0)"
         )
-    
+
     # Note: count in dict syntax needs special handling - for now test with Column
-    df = db.table("sales").select().group_by("category").agg({
-        "amount": "sum"
-    }, count("*").alias("count"))
+    df = (
+        db.table("sales")
+        .select()
+        .group_by("category")
+        .agg({"amount": "sum"}, count("*").alias("count"))
+    )
     rows = df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["count"] == 2
@@ -219,13 +236,12 @@ def test_agg_backward_compatibility(tmp_path):
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE sales (category TEXT, amount REAL)")
         conn.exec_driver_sql(
-            "INSERT INTO sales (category, amount) VALUES "
-            "('A', 100.0), ('A', 200.0), ('B', 150.0)"
+            "INSERT INTO sales (category, amount) VALUES ('A', 100.0), ('A', 200.0), ('B', 150.0)"
         )
-    
+
     df = db.table("sales").select().group_by("category").agg(sum(col("amount")).alias("total"))
     rows = df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["total"] == pytest.approx(300.0)
@@ -239,9 +255,9 @@ def test_agg_error_invalid_function(tmp_path):
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE sales (category TEXT, amount REAL)")
         conn.exec_driver_sql("INSERT INTO sales (category, amount) VALUES ('A', 100.0)")
-    
+
     df = db.table("sales").select().group_by("category")
-    
+
     with pytest.raises(ValueError, match="Unknown aggregation function"):
         df.agg({"amount": "invalid_func"}).collect()
 
@@ -254,9 +270,9 @@ def test_agg_error_invalid_type(tmp_path):
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE sales (category TEXT, amount REAL)")
         conn.exec_driver_sql("INSERT INTO sales (category, amount) VALUES ('A', 100.0)")
-    
+
     df = db.table("sales").select().group_by("category")
-    
+
     with pytest.raises(ValueError, match="Invalid aggregation type"):
         df.agg(123).collect()  # Invalid type
 
@@ -270,14 +286,13 @@ async def test_async_agg_string_single_column(tmp_path):
     async with engine.begin() as conn:
         await conn.exec_driver_sql("CREATE TABLE sales (category TEXT, amount REAL)")
         await conn.exec_driver_sql(
-            "INSERT INTO sales (category, amount) VALUES "
-            "('A', 100.0), ('A', 200.0), ('B', 150.0)"
+            "INSERT INTO sales (category, amount) VALUES ('A', 100.0), ('A', 200.0), ('B', 150.0)"
         )
-    
+
     table_handle = await db.table("sales")
     df = table_handle.select().group_by("category").agg("amount")
     rows = await df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["amount"] == pytest.approx(300.0)
@@ -295,13 +310,12 @@ async def test_async_agg_dictionary_syntax(tmp_path):
             "INSERT INTO sales (category, amount, price) VALUES "
             "('A', 100.0, 10.0), ('A', 200.0, 20.0), ('B', 150.0, 15.0)"
         )
-    
+
     table_handle = await db.table("sales")
     df = table_handle.select().group_by("category").agg({"amount": "sum", "price": "avg"})
     rows = await df.collect()
-    
+
     assert len(rows) == 2
     category_a = next(r for r in rows if r["category"] == "A")
     assert category_a["amount"] == pytest.approx(300.0)
     assert category_a["price"] == pytest.approx(15.0)
-

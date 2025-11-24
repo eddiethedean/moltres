@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Set
+from typing import Callable, Optional, Set
 
 from .column import Column, col
 from .functions import (
@@ -78,7 +78,7 @@ class SQLParser:
 
         # Handle alias (AS keyword) - need to be careful not to match "AS" in other contexts
         # Look for " AS " followed by an identifier at the end
-        alias_match = re.search(r'\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)\s*$', expr_str, re.IGNORECASE)
+        alias_match = re.search(r"\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)\s*$", expr_str, re.IGNORECASE)
         if alias_match:
             alias = alias_match.group(1)
             expr_str = expr_str[: alias_match.start()].strip()
@@ -91,11 +91,13 @@ class SQLParser:
 
         # Parse the expression
         result = self._parse_expression()
-        
+
         # Check if we consumed the entire expression
         self._skip_whitespace()
         if self.pos < len(self.expr):
-            raise ValueError(f"Unexpected token at position {self.pos}: {self.expr[self.pos:min(self.pos+20, len(self.expr))]}")
+            raise ValueError(
+                f"Unexpected token at position {self.pos}: {self.expr[self.pos : min(self.pos + 20, len(self.expr))]}"
+            )
 
         # Apply alias if present
         if alias:
@@ -110,7 +112,7 @@ class SQLParser:
     def _parse_logical_or(self) -> Column:
         """Parse logical OR expressions."""
         left = self._parse_logical_and()
-        while self._match_token(r'\s+OR\s+', case_insensitive=True):
+        while self._match_token(r"\s+OR\s+", case_insensitive=True):
             right = self._parse_logical_and()
             left = Column(op="or", args=(left, right))
         return left
@@ -118,7 +120,7 @@ class SQLParser:
     def _parse_logical_and(self) -> Column:
         """Parse logical AND expressions."""
         left = self._parse_comparison()
-        while self._match_token(r'\s+AND\s+', case_insensitive=True):
+        while self._match_token(r"\s+AND\s+", case_insensitive=True):
             right = self._parse_comparison()
             left = Column(op="and", args=(left, right))
         return left
@@ -133,19 +135,31 @@ class SQLParser:
                 self._skip_whitespace()
                 right = self._parse_additive()
                 left = Column(op="eq", args=(left, right))
-            elif self._peek() == "!" and self.pos + 1 < len(self.expr) and self.expr[self.pos + 1] == "=":
+            elif (
+                self._peek() == "!"
+                and self.pos + 1 < len(self.expr)
+                and self.expr[self.pos + 1] == "="
+            ):
                 self._advance()  # Skip !
                 self._advance()  # Skip =
                 self._skip_whitespace()
                 right = self._parse_additive()
                 left = Column(op="ne", args=(left, right))
-            elif self._peek() == "<" and self.pos + 1 < len(self.expr) and self.expr[self.pos + 1] == ">":
+            elif (
+                self._peek() == "<"
+                and self.pos + 1 < len(self.expr)
+                and self.expr[self.pos + 1] == ">"
+            ):
                 self._advance()  # Skip <
                 self._advance()  # Skip >
                 self._skip_whitespace()
                 right = self._parse_additive()
                 left = Column(op="ne", args=(left, right))
-            elif self._peek() == "<" and self.pos + 1 < len(self.expr) and self.expr[self.pos + 1] == "=":
+            elif (
+                self._peek() == "<"
+                and self.pos + 1 < len(self.expr)
+                and self.expr[self.pos + 1] == "="
+            ):
                 self._advance()  # Skip <
                 self._advance()  # Skip =
                 self._skip_whitespace()
@@ -156,7 +170,11 @@ class SQLParser:
                 self._skip_whitespace()
                 right = self._parse_additive()
                 left = Column(op="lt", args=(left, right))
-            elif self._peek() == ">" and self.pos + 1 < len(self.expr) and self.expr[self.pos + 1] == "=":
+            elif (
+                self._peek() == ">"
+                and self.pos + 1 < len(self.expr)
+                and self.expr[self.pos + 1] == "="
+            ):
                 self._advance()  # Skip >
                 self._advance()  # Skip =
                 self._skip_whitespace()
@@ -181,7 +199,11 @@ class SQLParser:
                 self._skip_whitespace()
                 right = self._parse_multiplicative()
                 left = Column(op="add", args=(left, right))
-            elif self._peek() == "-" and (self.pos == 0 or self.expr[self.pos - 1].isspace() or self.expr[self.pos - 1] in "()"):
+            elif self._peek() == "-" and (
+                self.pos == 0
+                or self.expr[self.pos - 1].isspace()
+                or self.expr[self.pos - 1] in "()"
+            ):
                 # Only treat as subtraction if it's not part of a number
                 self._advance()
                 self._skip_whitespace()
@@ -218,7 +240,9 @@ class SQLParser:
     def _parse_unary(self) -> Column:
         """Parse unary operators."""
         self._skip_whitespace()
-        if self._peek() == "-" and (self.pos == 0 or self.expr[self.pos - 1].isspace() or self.expr[self.pos - 1] in "()"):
+        if self._peek() == "-" and (
+            self.pos == 0 or self.expr[self.pos - 1].isspace() or self.expr[self.pos - 1] in "()"
+        ):
             # Unary minus
             self._advance()
             self._skip_whitespace()
@@ -246,11 +270,11 @@ class SQLParser:
             return expr
 
         # Function call
-        func_match = self._match_token(r'([A-Z_][A-Z0-9_]*)\s*\(')
+        func_match = self._match_token(r"([A-Z_][A-Z0-9_]*)\s*\(")
         if func_match:
             func_name = func_match.group(1).upper()
             args = self._parse_function_args()
-            if not self._match_token(r'\)'):
+            if not self._match_token(r"\)"):
                 raise ValueError(f"Unclosed function call at position {self.pos}")
             return self._parse_function(func_name, args)
 
@@ -276,32 +300,36 @@ class SQLParser:
         is_negative = False
         if self._peek() == "-":
             # Check if this is a unary minus (not part of subtraction)
-            if self.pos == 0 or self.expr[self.pos - 1].isspace() or self.expr[self.pos - 1] in "()=<>!":
+            if (
+                self.pos == 0
+                or self.expr[self.pos - 1].isspace()
+                or self.expr[self.pos - 1] in "()=<>!"
+            ):
                 is_negative = True
                 self._advance()
                 self._skip_whitespace()
-        
-        num_match = self._match_token(r'(\d+\.?\d*)')
+
+        num_match = self._match_token(r"(\d+\.?\d*)")
         if num_match:
             num_str = num_match.group(1)
             if "." in num_str:
-                value = float(num_str)
+                num_value: float = float(num_str)
             else:
-                value = int(num_str)
+                num_value = int(num_str)
             if is_negative:
-                value = -value
-            return lit(value)
+                num_value = -num_value
+            return lit(num_value)
 
         # Boolean or NULL
-        if self._match_token(r'NULL', case_insensitive=True):
+        if self._match_token(r"NULL", case_insensitive=True):
             return lit(None)
-        if self._match_token(r'TRUE', case_insensitive=True):
+        if self._match_token(r"TRUE", case_insensitive=True):
             return lit(True)
-        if self._match_token(r'FALSE', case_insensitive=True):
+        if self._match_token(r"FALSE", case_insensitive=True):
             return lit(False)
 
         # Column reference
-        col_match = self._match_token(r'([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)')
+        col_match = self._match_token(r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)")
         if col_match:
             col_name = col_match.group(1)
             # Handle qualified column names (table.column)
@@ -317,14 +345,18 @@ class SQLParser:
             return col("*")
 
         # If we get here and haven't consumed anything, it's an error
-        if self.pos >= len(self.expr) or (self._peek().isspace() and self.pos == len(self.expr) - 1):
+        if self.pos >= len(self.expr) or (
+            self._peek().isspace() and self.pos == len(self.expr) - 1
+        ):
             raise ValueError(f"Unexpected end of expression at position {self.pos}")
-        
-        raise ValueError(f"Unexpected token at position {self.pos}: {self.expr[self.pos:min(self.pos+20, len(self.expr))]}")
+
+        raise ValueError(
+            f"Unexpected token at position {self.pos}: {self.expr[self.pos : min(self.pos + 20, len(self.expr))]}"
+        )
 
     def _parse_function_args(self) -> list[Column]:
         """Parse function arguments."""
-        args = []
+        args: list[Column] = []
         self._skip_whitespace()
         if self._peek() == ")":
             return args
@@ -334,7 +366,7 @@ class SQLParser:
             self._skip_whitespace()
             if self._peek() == ")":
                 break
-            if not self._match_token(r','):
+            if not self._match_token(r","):
                 raise ValueError(f"Expected comma or closing parenthesis at position {self.pos}")
             self._skip_whitespace()
 
@@ -413,4 +445,3 @@ def parse_sql_expr(expr_str: str, available_columns: Optional[Set[str]] = None) 
     """
     parser = SQLParser(available_columns)
     return parser.parse(expr_str)
-

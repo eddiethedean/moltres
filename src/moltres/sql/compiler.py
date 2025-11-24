@@ -17,8 +17,6 @@ from sqlalchemy import (
     or_,
     not_,
     literal,
-    literal_column,
-    column,
     cast as sqlalchemy_cast,
     text,
 )
@@ -152,19 +150,19 @@ class SQLCompiler:
 
             # Create a text() statement from the SQL string
             sql_text = text(plan.sql)
-            
+
             # If parameters are provided, bind them
             if plan.params:
                 sql_text = sql_text.bindparams(**plan.params)
-            
+
             # Use text().columns() to define it as a subquery with all columns
             # This allows SQLAlchemy to properly wrap it in parentheses
             # We use literal_column("*") to represent all columns
             sql_text_with_cols = sql_text.columns(literal_column("*"))
-            
+
             # Create a subquery from the text with columns
             sql_subq = sql_text_with_cols.subquery()
-            
+
             # Return a SELECT * from the subquery
             return select(literal_column("*")).select_from(sql_subq)
 
@@ -549,16 +547,7 @@ class SQLCompiler:
 
             # Use CASE WHEN with aggregation for cross-dialect compatibility
             projections = list(group_by_cols)  # Start with grouping columns
-            from typing import Callable as CallableType
-            from sqlalchemy.sql import ColumnElement as ColumnElementType
-
-            agg_func_map: dict[str, CallableType[..., ColumnElementType[Any]]] = {
-                "sum": func.sum,
-                "avg": func.avg,
-                "count": func.count,
-                "min": func.min,
-                "max": func.max,
-            }
+            # Reuse agg_func_map from above (defined at line 501)
             agg = agg_func_map.get(plan.agg_func.lower(), func.sum)
             assert agg is not None  # Always has default
 
@@ -566,8 +555,10 @@ class SQLCompiler:
                 # Create aggregation with CASE WHEN
                 # Reference columns from the child subquery using literal_column
                 # SQLAlchemy will resolve these from the subquery context
-                pivot_col_ref = literal_column(plan.pivot_column)
-                value_col_ref = literal_column(plan.value_column)
+                from sqlalchemy.sql import ColumnElement
+
+                pivot_col_ref: ColumnElement[Any] = literal_column(plan.pivot_column)
+                value_col_ref: ColumnElement[Any] = literal_column(plan.value_column)
                 case_expr = agg(
                     case(
                         (
@@ -805,15 +796,16 @@ class ExpressionCompiler:
         """Compile a Column expression to a SQLAlchemy column expression."""
         # Import here to ensure it's available throughout the method
         from sqlalchemy import column as sa_column, literal_column
-        
+        from sqlalchemy.sql import ColumnElement
+
         op = expression.op
 
         if op == "star":
             # "*" means select all columns - use literal_column("*")
-            result = literal_column("*")
+            star_result: ColumnElement[Any] = literal_column("*")
             if expression._alias:
-                result = result.label(expression._alias)
-            return result
+                star_result = star_result.label(expression._alias)
+            return star_result
 
         if op == "column":
             col_name = expression.args[0]
@@ -874,7 +866,7 @@ class ExpressionCompiler:
 
         if op == "add":
             left, right = expression.args
-            result = self._compile(left) + self._compile(right)
+            result: ColumnElement[Any] = self._compile(left) + self._compile(right)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -1934,7 +1926,7 @@ class ExpressionCompiler:
 
             if expression._alias:
                 result = result.label(expression._alias)
-            return result  # type: ignore[no-any-return]
+            return result
 
         raise CompilationError(
             f"Unsupported expression operation '{op}'. "
