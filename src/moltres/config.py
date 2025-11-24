@@ -157,6 +157,11 @@ def create_config(
                 raise ValueError(
                     "Either 'dsn' or 'engine' must be provided as argument, or MOLTRES_DSN environment variable must be set"
                 )
+        # Normalize SQLite paths: convert backslashes to forward slashes for URLs
+        # SQLite URLs always use forward slashes, even on Windows
+        if dsn and (dsn.startswith("sqlite:///") or dsn.startswith("sqlite+aiosqlite:///")):
+            # Replace backslashes with forward slashes in the path part
+            dsn = dsn.replace("\\", "/")
     else:
         # If engine is provided, ignore dsn
         if dsn is not None:

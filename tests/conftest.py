@@ -28,7 +28,8 @@ def sqlite_db(tmp_path):
     from moltres import connect
 
     db_path = tmp_path / "test.db"
-    return connect(f"sqlite:///{db_path}")
+    # Use as_posix() to ensure forward slashes for SQLite URLs (required on Windows)
+    return connect(f"sqlite:///{db_path.as_posix()}")
 
 
 @pytest.fixture

@@ -1051,7 +1051,7 @@ class ExpressionCompiler:
                 result = func.sign(col_expr)
             else:
                 # SQLite doesn't have SIGN, use CASE WHEN
-                from sqlalchemy import case, literal_column
+                from sqlalchemy import case, literal, literal_column
 
                 result = case(
                     (col_expr > 0, literal(1)),
