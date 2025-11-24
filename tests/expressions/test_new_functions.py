@@ -51,8 +51,18 @@ def _sqlite_supports_math(sql: str) -> bool:
 SQLITE_HAS_ATAN2 = _sqlite_supports_math("SELECT ATAN2(1, 1)")
 SQLITE_HAS_LOG = _sqlite_supports_math("SELECT LOG(2, 8)")
 SQLITE_HAS_LOG2 = _sqlite_supports_math("SELECT LOG2(8)")
+SQLITE_HAS_POWER = _sqlite_supports_math("SELECT POWER(2, 3)")
+SQLITE_HAS_POW = _sqlite_supports_math("SELECT POW(2, 3)")
+SQLITE_HAS_ASIN = _sqlite_supports_math("SELECT ASIN(0.5)")
+SQLITE_HAS_ACOS = _sqlite_supports_math("SELECT ACOS(0.5)")
+SQLITE_HAS_ATAN = _sqlite_supports_math("SELECT ATAN(1.0)")
+SQLITE_HAS_HYPOT = _sqlite_supports_math("SELECT HYPOT(3, 4)")
+SQLITE_HAS_INV_TRIG = SQLITE_HAS_ASIN and SQLITE_HAS_ACOS and SQLITE_HAS_ATAN
 
 
+@pytest.mark.skipif(
+    not (SQLITE_HAS_POWER and SQLITE_HAS_POW), reason="SQLite build lacks POW/POWER support"
+)
 def test_pow_function(tmp_path):
     """Test pow/power function."""
     db_path = tmp_path / "test.db"
@@ -82,6 +92,7 @@ def test_pow_function(tmp_path):
     assert abs(result2[0]["result"] - 4.0) < 0.001
 
 
+@pytest.mark.skipif(not SQLITE_HAS_INV_TRIG, reason="SQLite build lacks inverse trig support")
 def test_trigonometric_functions(tmp_path):
     """Test inverse trigonometric functions."""
     db_path = tmp_path / "test.db"
@@ -165,6 +176,7 @@ def test_log2_function(tmp_path):
     # log2(8) should be 3
 
 
+@pytest.mark.skipif(not SQLITE_HAS_HYPOT, reason="SQLite build lacks HYPOT support")
 def test_hypot_function(tmp_path):
     """Test hypot function."""
     db_path = tmp_path / "test.db"
