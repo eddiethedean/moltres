@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 
+import sqlite3
+
+import pytest
+
 from moltres import col, connect, column
 from moltres.expressions.functions import (
     acos,
@@ -31,6 +35,21 @@ from moltres.expressions.functions import (
     week,
     weekofyear,
 )
+
+def _sqlite_supports_math(sql: str) -> bool:
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.execute(sql)
+        return True
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        conn.close()
+
+
+SQLITE_HAS_ATAN2 = _sqlite_supports_math("SELECT ATAN2(1, 1)")
+SQLITE_HAS_LOG = _sqlite_supports_math("SELECT LOG(2, 8)")
+SQLITE_HAS_LOG2 = _sqlite_supports_math("SELECT LOG2(8)")
 
 
 def test_pow_function(tmp_path):
@@ -85,6 +104,7 @@ def test_trigonometric_functions(tmp_path):
     # Values should be valid (no errors)
 
 
+@pytest.mark.skipif(not SQLITE_HAS_ATAN2, reason="SQLite build lacks ATAN2 support")
 def test_atan2_function(tmp_path):
     """Test atan2 function."""
     db_path = tmp_path / "test.db"
@@ -125,6 +145,7 @@ def test_signum_function(tmp_path):
     # signum(-5) should be -1, signum(0) should be 0, signum(5) should be 1
 
 
+@pytest.mark.skipif(not SQLITE_HAS_LOG2, reason="SQLite build lacks LOG/LOG2 support")
 def test_log2_function(tmp_path):
     """Test log2 function."""
     db_path = tmp_path / "test.db"
