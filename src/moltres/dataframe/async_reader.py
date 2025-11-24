@@ -56,6 +56,21 @@ class AsyncDataLoader:
         self._options[key] = value
         return self
 
+    def options(self, **options: object) -> "AsyncDataLoader":
+        """Set multiple read options at once (PySpark-compatible).
+
+        Args:
+            **options: Dictionary of option key-value pairs
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> df = await db.read.options(header=True, delimiter=",").csv("data.csv")
+        """
+        self._options.update(options)
+        return self
+
     async def table(self, name: str) -> AsyncDataFrame:
         """Read from a database table as an AsyncDataFrame.
 
@@ -155,6 +170,18 @@ class AsyncDataLoader:
         )
         return AsyncDataFrame(plan=plan, database=self._database)
 
+    async def textFile(self, path: str, column_name: str = "value") -> AsyncDataFrame:
+        """Read a text file as a single column (PySpark-compatible alias for text()).
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return await self.text(path, column_name)
+
     async def format(self, source: str) -> "AsyncFormatReader":
         """Specify the data source format.
 
@@ -231,6 +258,18 @@ class AsyncRecordsLoader:
     def option(self, key: str, value: object) -> "AsyncRecordsLoader":
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
         self._options[key] = value
+        return self
+
+    def options(self, **options: object) -> "AsyncRecordsLoader":
+        """Set multiple read options at once (PySpark-compatible).
+
+        Args:
+            **options: Dictionary of option key-value pairs
+
+        Returns:
+            Self for method chaining
+        """
+        self._options.update(options)
         return self
 
     def csv(self, path: str) -> AsyncLazyRecords:
@@ -404,6 +443,21 @@ class AsyncReadAccessor:
         self._loader.option(key, value)
         return self
 
+    def options(self, **options: object) -> "AsyncReadAccessor":
+        """Set multiple read options at once (PySpark-compatible).
+
+        Args:
+            **options: Dictionary of option key-value pairs
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> df = await db.read.options(header=True, delimiter=",").csv("data.csv")
+        """
+        self._loader.options(**options)
+        return self
+
     # AsyncDataFrame read methods (delegate to AsyncDataLoader)
     async def table(self, name: str) -> AsyncDataFrame:
         """Read from a database table as an AsyncDataFrame.
@@ -478,6 +532,18 @@ class AsyncReadAccessor:
             AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
         """
         return await self._loader.text(path, column_name)
+
+    async def textFile(self, path: str, column_name: str = "value") -> AsyncDataFrame:
+        """Read a text file as a single column (PySpark-compatible alias for text()).
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return await self._loader.textFile(path, column_name)
 
     async def format(self, source: str) -> AsyncFormatReader:
         """Specify the data source format.

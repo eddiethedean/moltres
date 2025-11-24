@@ -12,6 +12,8 @@ from ..utils.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from ..io.records import AsyncLazyRecords, AsyncRecords
+    from ..table.async_table import AsyncDatabase
+    from ..table.table import Database
 
 
 def normalize_data_to_rows(
@@ -260,3 +262,295 @@ def generate_unique_table_name() -> str:
     """
     unique_id = uuid.uuid4().hex[:16]  # Use first 16 chars of hex UUID
     return f"__moltres_df_{unique_id}__"
+
+
+def create_temp_table_from_streaming(
+    database: "Database",
+    records: Records,
+    schema: Optional[Sequence[ColumnDef]] = None,
+    auto_pk: Optional[Union[str, Sequence[str]]] = None,
+) -> tuple[str, Sequence[ColumnDef]]:
+    """Create a temporary table from streaming Records by inserting data in chunks.
+
+    This function handles large files by reading and inserting data in chunks,
+    avoiding loading the entire file into memory.
+
+    Args:
+        database: Database instance to create table in
+        records: Records object with _generator set (streaming mode)
+        schema: Optional explicit schema. If not provided, inferred from first chunk.
+        auto_pk: Optional column name(s) to create as auto-incrementing primary key
+
+    Returns:
+        Tuple of (table_name, final_schema)
+
+    Raises:
+        ValueError: If records doesn't have a generator or if schema cannot be inferred
+        RuntimeError: If database operations fail
+    """
+    if TYPE_CHECKING:
+        pass
+
+    # Handle empty files: if no generator but schema is available, create empty table
+    if records._generator is None:
+        if records._schema:
+            # Empty file with schema - create empty table
+            final_schema_list, new_auto_increment_cols = ensure_primary_key(
+                list(records._schema) if schema is None else list(schema),
+                auto_pk=auto_pk,
+                dialect_name=database._dialect_name,
+            )
+            table_name = generate_unique_table_name()
+            table_handle = database.create_table(
+                table_name, final_schema_list, temporary=True, if_not_exists=True
+            ).collect()
+            return table_name, tuple(final_schema_list)
+        else:
+            raise ValueError(
+                "Records must have _generator set for streaming mode or a schema for empty files"
+            )
+
+    from ..dataframe.readers.schema_inference import infer_schema_from_rows
+    from ..table.mutations import insert_rows
+
+    # Get generator
+    chunk_generator = records._generator()
+
+    # Read first chunk to infer schema if needed
+    try:
+        first_chunk = next(chunk_generator)
+    except StopIteration:
+        # Empty file - need schema to create table
+        if schema is None:
+            # Try to use schema from Records if available
+            if records._schema:
+                schema = records._schema
+            else:
+                raise ValueError(
+                    "Cannot create table from empty file without explicit schema. "
+                    "Provide schema parameter."
+                )
+        # Create empty table with schema
+        final_schema_list, new_auto_increment_cols = ensure_primary_key(
+            list(schema),
+            auto_pk=auto_pk,
+            dialect_name=database._dialect_name,
+        )
+        table_name = generate_unique_table_name()
+        table_handle = database.create_table(
+            table_name, final_schema_list, temporary=True, if_not_exists=True
+        ).collect()
+        return table_name, tuple(final_schema_list)
+
+    # Infer or use schema
+    if schema is None:
+        # Use schema from Records if available, otherwise infer from first chunk
+        if records._schema:
+            inferred_schema_list = list(records._schema)
+        else:
+            inferred_schema_list = list(infer_schema_from_rows(first_chunk))
+    else:
+        inferred_schema_list = list(schema)
+
+    # Ensure primary key
+    final_schema_list, new_auto_increment_cols = ensure_primary_key(
+        inferred_schema_list,
+        auto_pk=auto_pk,
+        dialect_name=database._dialect_name,
+    )
+
+    # Generate unique table name
+    table_name = generate_unique_table_name()
+
+    # Create temporary table
+    table_handle = database.create_table(
+        table_name, final_schema_list, temporary=True, if_not_exists=True
+    ).collect()
+
+    # Filter first chunk to exclude new auto-increment columns
+    filtered_first_chunk = []
+    for row in first_chunk:
+        filtered_row = {
+            k: v
+            for k, v in row.items()
+            if k not in new_auto_increment_cols and any(col.name == k for col in final_schema_list)
+        }
+        filtered_first_chunk.append(filtered_row)
+
+    # Insert first chunk
+    try:
+        if filtered_first_chunk:
+            transaction = database.connection_manager.active_transaction
+            insert_rows(table_handle, filtered_first_chunk, transaction=transaction)
+
+        # Insert remaining chunks
+        for chunk in chunk_generator:
+            # Filter chunk to exclude new auto-increment columns
+            filtered_chunk = []
+            for row in chunk:
+                filtered_row = {
+                    k: v
+                    for k, v in row.items()
+                    if k not in new_auto_increment_cols
+                    and any(col.name == k for col in final_schema_list)
+                }
+                filtered_chunk.append(filtered_row)
+
+            if filtered_chunk:
+                transaction = database.connection_manager.active_transaction
+                insert_rows(table_handle, filtered_chunk, transaction=transaction)
+    except Exception as e:
+        # Clean up temp table on error
+        try:
+            database.drop_table(table_name, if_exists=True).collect()
+        except Exception:
+            pass  # Ignore cleanup errors
+        raise RuntimeError(f"Failed to insert data into temporary table: {e}") from e
+
+    return table_name, tuple(final_schema_list)
+
+
+async def create_temp_table_from_streaming_async(
+    database: "AsyncDatabase",
+    records: "AsyncRecords",
+    schema: Optional[Sequence[ColumnDef]] = None,
+    auto_pk: Optional[Union[str, Sequence[str]]] = None,
+) -> tuple[str, Sequence[ColumnDef]]:
+    """Create a temporary table from streaming AsyncRecords by inserting data in chunks (async).
+
+    This function handles large files by reading and inserting data in chunks,
+    avoiding loading the entire file into memory.
+
+    Args:
+        database: AsyncDatabase instance to create table in
+        records: AsyncRecords object with _generator set (streaming mode)
+        schema: Optional explicit schema. If not provided, inferred from first chunk.
+        auto_pk: Optional column name(s) to create as auto-incrementing primary key
+
+    Returns:
+        Tuple of (table_name, final_schema)
+
+    Raises:
+        ValueError: If records doesn't have a generator or if schema cannot be inferred
+        RuntimeError: If database operations fail
+    """
+    if TYPE_CHECKING:
+        pass
+
+    # Handle empty files: if no generator but schema is available, create empty table
+    if records._generator is None:
+        if records._schema:
+            # Empty file with schema - create empty table
+            final_schema_list, new_auto_increment_cols = ensure_primary_key(
+                list(records._schema) if schema is None else list(schema),
+                auto_pk=auto_pk,
+                dialect_name=database._dialect_name,
+            )
+            table_name = generate_unique_table_name()
+            table_handle = await database.create_table(
+                table_name, final_schema_list, temporary=True, if_not_exists=True
+            ).collect()
+            return table_name, tuple(final_schema_list)
+        else:
+            raise ValueError(
+                "AsyncRecords must have _generator set for streaming mode or a schema for empty files"
+            )
+
+    from ..dataframe.readers.schema_inference import infer_schema_from_rows
+    from ..table.async_mutations import insert_rows_async
+
+    # Get generator
+    chunk_generator = records._generator()
+
+    # Read first chunk to infer schema if needed
+    try:
+        first_chunk = await chunk_generator.__anext__()
+    except StopAsyncIteration:
+        # Empty file - need schema to create table
+        if schema is None:
+            # Try to use schema from AsyncRecords if available
+            if records._schema:
+                schema = records._schema
+            else:
+                raise ValueError(
+                    "Cannot create table from empty file without explicit schema. "
+                    "Provide schema parameter."
+                )
+        # Create empty table with schema
+        final_schema_list, new_auto_increment_cols = ensure_primary_key(
+            list(schema),
+            auto_pk=auto_pk,
+            dialect_name=database._dialect_name,
+        )
+        table_name = generate_unique_table_name()
+        table_handle = await database.create_table(
+            table_name, final_schema_list, temporary=True, if_not_exists=True
+        ).collect()
+        return table_name, tuple(final_schema_list)
+
+    # Infer or use schema
+    if schema is None:
+        # Use schema from AsyncRecords if available, otherwise infer from first chunk
+        if records._schema:
+            inferred_schema_list = list(records._schema)
+        else:
+            inferred_schema_list = list(infer_schema_from_rows(first_chunk))
+    else:
+        inferred_schema_list = list(schema)
+
+    # Ensure primary key
+    final_schema_list, new_auto_increment_cols = ensure_primary_key(
+        inferred_schema_list,
+        auto_pk=auto_pk,
+        dialect_name=database._dialect_name,
+    )
+
+    # Generate unique table name
+    table_name = generate_unique_table_name()
+
+    # Create temporary table
+    table_handle = await database.create_table(
+        table_name, final_schema_list, temporary=True, if_not_exists=True
+    ).collect()
+
+    # Filter first chunk to exclude new auto-increment columns
+    filtered_first_chunk = []
+    for row in first_chunk:
+        filtered_row = {
+            k: v
+            for k, v in row.items()
+            if k not in new_auto_increment_cols and any(col.name == k for col in final_schema_list)
+        }
+        filtered_first_chunk.append(filtered_row)
+
+    # Insert first chunk
+    try:
+        if filtered_first_chunk:
+            transaction = database.connection_manager.active_transaction
+            await insert_rows_async(table_handle, filtered_first_chunk, transaction=transaction)
+
+        # Insert remaining chunks
+        async for chunk in chunk_generator:
+            # Filter chunk to exclude new auto-increment columns
+            filtered_chunk = []
+            for row in chunk:
+                filtered_row = {
+                    k: v
+                    for k, v in row.items()
+                    if k not in new_auto_increment_cols
+                    and any(col.name == k for col in final_schema_list)
+                }
+                filtered_chunk.append(filtered_row)
+
+            if filtered_chunk:
+                transaction = database.connection_manager.active_transaction
+                await insert_rows_async(table_handle, filtered_chunk, transaction=transaction)
+    except Exception as e:
+        # Clean up temp table on error
+        try:
+            await database.drop_table(table_name, if_exists=True).collect()
+        except Exception:
+            pass  # Ignore cleanup errors
+        raise RuntimeError(f"Failed to insert data into temporary table: {e}") from e
+
+    return table_name, tuple(final_schema_list)

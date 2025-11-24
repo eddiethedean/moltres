@@ -21,7 +21,7 @@
 
 Transform millions of rows using familiar DataFrame operations—all executed directly in SQL without materializing data. Update, insert, and delete with column-aware, type-safe operations. No juggling between Pandas, SQLAlchemy, and raw SQL. Just one library that does it all.
 
-> **🎉 Version 0.9.0 Milestone:** Moltres now achieves **~98% API compatibility** with PySpark for core DataFrame operations, making migration from PySpark seamless while maintaining SQL-first design principles.
+> **🎉 Version 0.10.0 Milestone:** Moltres now includes **chunked file reading** for safe handling of large files, matching PySpark's memory-efficient approach. Combined with **~98% API compatibility** with PySpark for core DataFrame operations, migration from PySpark is seamless while maintaining SQL-first design principles.
 
 ## 📑 Table of Contents
 
@@ -96,7 +96,15 @@ Moltres is the **only** Python library that provides:
 - **Type-safe CRUD operations** - Validated, column-aware INSERT, UPDATE, DELETE with DataFrame-style syntax
 - **SQL-first design** - Focuses on providing full SQL feature support through a DataFrame API, not replicating every PySpark feature. Features are included only if they map to SQL/SQLAlchemy capabilities and align with SQL pushdown execution.
 
-## 🆕 What's New in 0.9.0
+## 🆕 What's New
+
+### Version 0.10.0
+
+- **Chunked File Reading** - Files are now read in chunks by default to safely handle files larger than available memory, similar to PySpark's partition-based approach. This prevents out-of-memory errors when processing large datasets. Opt-out available via `stream=False` option.
+- **Enhanced Large File Support** - All file reads (`db.read.csv()`, `db.read.json()`, etc.) now use streaming/chunked reading by default, with automatic schema inference from the first chunk and incremental insertion into temporary tables.
+- **Improved Memory Safety** - Temporary tables are automatically cleaned up on errors, and empty files are handled gracefully with or without explicit schemas.
+
+### Version 0.9.0
 
 ### 🎉 Major Milestone: 98% PySpark API Compatibility!
 
@@ -527,7 +535,12 @@ df = db.read.json("data.json")  # Array of objects
 df = db.read.jsonl("data.jsonl")  # One JSON object per line
 df = db.read.parquet("data.parquet")  # Requires pandas and pyarrow
 df = db.read.text("log.txt", column_name="line")
+df = db.read.textFile("log.txt", column_name="line")  # PySpark-compatible alias
 df = db.read.format("csv").option("header", True).load("data.csv")
+
+# Set multiple options at once (PySpark-compatible)
+df = db.read.options(header=True, delimiter=",", encoding="UTF-8").csv("data.csv")
+df = db.read.options(multiline=True, encoding="UTF-8").json("data.json")
 
 # Both APIs work the same way
 df = db.load.csv("data.csv")  # Same as db.read.csv("data.csv")
@@ -572,12 +585,84 @@ lazy_records = db.read.records.schema(schema).csv("data.csv")
 ```
 
 **File Format Options:**
-- **CSV**: `header` (default: True), `delimiter` (default: ","), `inferSchema` (default: True)
-- **JSON**: `multiline` (default: False) - if True, reads as JSONL
-- **Parquet**: Requires `pandas` and `pyarrow`
+
+**CSV Options:**
+- `header` (default: True) - First row contains column names
+- `delimiter` or `sep` (default: ",") - Field separator
+- `inferSchema` (default: True) - Automatically infer column types
+- `encoding` (default: "UTF-8") - File encoding
+- `quote` (default: '"') - Quote character
+- `escape` (default: "\\") - Escape character
+- `nullValue` (default: "") - String representation of null
+- `nanValue` (default: "NaN") - String representation of NaN
+- `dateFormat` - Date format string for parsing dates
+- `timestampFormat` - Timestamp format string for parsing timestamps
+- `samplingRatio` (default: 1.0) - Fraction of rows used for schema inference
+- `columnNameOfCorruptRecord` - Column name for corrupt records
+- `quoteAll` (default: False) - Quote all fields
+- `ignoreLeadingWhiteSpace` (default: False) - Ignore leading whitespace
+- `ignoreTrailingWhiteSpace` (default: False) - Ignore trailing whitespace
+- `comment` - Comment character to skip lines
+- `enforceSchema` (default: True) - Enforce schema even if it doesn't match data
+- `mode` (default: "PERMISSIVE") - Read mode: "PERMISSIVE", "DROPMALFORMED", or "FAILFAST"
+- `compression` - Compression type: "gzip", "bz2", "xz", or None
+
+**JSON Options:**
+- `multiline` or `multiLine` (default: False) - If True, reads as JSONL (one object per line)
+- `encoding` (default: "UTF-8") - File encoding
+- `mode` (default: "PERMISSIVE") - Read mode: "PERMISSIVE", "DROPMALFORMED", or "FAILFAST"
+- `columnNameOfCorruptRecord` - Column name for corrupt records
+- `dateFormat` - Date format string for parsing dates
+- `timestampFormat` - Timestamp format string for parsing timestamps
+- `samplingRatio` (default: 1.0) - Fraction of rows used for schema inference
+- `lineSep` - Line separator for multiline JSON
+- `dropFieldIfAllNull` (default: False) - Drop fields if all values are null
+- `compression` - Compression type: "gzip", "bz2", "xz", or None
+
+**Parquet Options:**
+- `mergeSchema` (default: False) - Merge schemas from multiple files
+- `rebaseDatetimeInRead` (default: True) - Rebase datetime values during read
+- `datetimeRebaseMode` (default: "EXCEPTION") - Datetime rebase mode
+- `int96RebaseMode` (default: "EXCEPTION") - INT96 rebase mode
+
+**Text Options:**
+- `encoding` (default: "UTF-8") - File encoding
+- `wholetext` (default: False) - If True, read entire file as single value
+- `lineSep` - Line separator (default: newline)
+- `compression` - Compression type: "gzip", "bz2", "xz", or None
+
+**Read Modes:**
+- `PERMISSIVE` (default) - Sets other fields to null when encountering a corrupted record and puts the malformed string into a field configured by `columnNameOfCorruptRecord`
+- `DROPMALFORMED` - Ignores the whole corrupted records
+- `FAILFAST` - Throws an exception when it meets corrupted records
+
+**Example with Options:**
+```python
+# CSV with multiple options
+df = db.read.options(
+    header=True,
+    delimiter="|",
+    encoding="UTF-8",
+    nullValue="NULL",
+    dateFormat="yyyy-MM-dd",
+    mode="PERMISSIVE"
+).csv("data.csv")
+
+# JSON with options
+df = db.read.options(
+    multiline=True,
+    encoding="UTF-8",
+    dropFieldIfAllNull=True,
+    mode="DROPMALFORMED"
+).json("data.jsonl")
+
+# Text file with wholetext
+df = db.read.options(wholetext=True).text("document.txt")
+```
 
 > **Important:** 
 > - **`db.load.*` and `db.read.*` methods return lazy `DataFrame` objects** - files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations. The `db.read.*` API matches PySpark's `spark.read.*` pattern for consistency.
+> - **Large File Handling**: By default, files are read in chunks (streaming mode) to safely handle files larger than available memory, similar to PySpark's partition-based approach. This prevents out-of-memory errors when processing large datasets. You can opt-out of chunked reading by setting `stream=False` in options: `db.read.option("stream", False).csv("small_file.csv")`.
 > - **`db.read.table()`** - PySpark-style API for reading database tables: `df = db.read.table("customers")`
 > - **`db.read.records.*` methods return lazy `LazyRecords`/`AsyncLazyRecords` objects** - Records materialize on-demand when you use Sequence operations (`len()`, indexing, iteration), call `insert_into()`, or use them with `createDataFrame()`. Explicitly materialize with `.collect()` when needed. This provides better performance by deferring file reads until necessary.
 >   - LazyRecords automatically materialize when: using `len()`, indexing (`records[0]`), iteration (`for row in records`), calling `insert_into()`, or using with `createDataFrame()`
@@ -1038,7 +1123,15 @@ cleaned.write.mode("overwrite").save_as_table("daily_sales_summary")
 - **Arithmetic**: `+`, `-`, `*`, `/`, `%`
 - **Comparisons**: `==`, `!=`, `<`, `>`, `<=`, `>=`
 - **Boolean**: `&`, `|`, `~`
-- **Functions**: `sum()`, `avg()`, `count()`, `concat()`, `coalesce()`, `upper()`, `lower()`, `explode()`, etc.
+- **Functions**: Comprehensive function library with 130+ functions including:
+  - **Mathematical**: `pow()`, `power()`, `sqrt()`, `abs()`, `floor()`, `ceil()`, `round()`, `sin()`, `cos()`, `tan()`, `asin()`, `acos()`, `atan()`, `atan2()`, `log()`, `log10()`, `log2()`, `exp()`, `signum()`, `sign()`, `hypot()`
+  - **String**: `concat()`, `upper()`, `lower()`, `substring()`, `trim()`, `ltrim()`, `rtrim()`, `length()`, `lpad()`, `rpad()`, `replace()`, `regexp_extract()`, `regexp_replace()`, `split()`, `initcap()`, `instr()`, `locate()`, `translate()`
+  - **Date/Time**: `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`, `dayofweek()`, `dayofyear()`, `quarter()`, `weekofyear()`, `week()`, `date_format()`, `to_date()`, `to_timestamp()`, `current_date()`, `current_timestamp()`, `datediff()`, `date_add()`, `date_sub()`, `add_months()`, `date_trunc()`, `last_day()`, `months_between()`, `unix_timestamp()`, `from_unixtime()`
+  - **Aggregate**: `sum()`, `avg()`, `min()`, `max()`, `count()`, `count_distinct()`, `stddev()`, `variance()`, `corr()`, `covar()`, `collect_list()`, `collect_set()`, `percentile_cont()`, `percentile_disc()`
+  - **Window**: `row_number()`, `rank()`, `dense_rank()`, `percent_rank()`, `cume_dist()`, `nth_value()`, `ntile()`, `lag()`, `lead()`, `first_value()`, `last_value()`
+  - **Array**: `array()`, `array_length()`, `array_contains()`, `array_position()`, `array_append()`, `array_prepend()`, `array_remove()`, `array_distinct()`, `array_sort()`, `array_max()`, `array_min()`, `array_sum()`
+  - **JSON**: `json_extract()`, `json_tuple()`, `from_json()`, `to_json()`, `json_array_length()`
+  - **Utility**: `coalesce()`, `greatest()`, `least()`, `when()`, `isnull()`, `isnotnull()`, `isnan()`, `isinf()`, `rand()`, `randn()`, `hash()`, `md5()`, `sha1()`, `sha2()`, `base64()`, `monotonically_increasing_id()`, `crc32()`, `soundex()`
 - **Window Functions**: `over()`, `partition_by()`, `order_by()`
 
 ### Supported SQL Dialects

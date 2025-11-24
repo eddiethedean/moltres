@@ -40,10 +40,26 @@ def read_text(
         raise FileNotFoundError(f"Text file not found: {path}")
 
     compression = cast(Optional[str], options.get("compression", None))
+    encoding = cast(str, options.get("encoding", "UTF-8"))
+    wholetext = cast(bool, options.get("wholetext", False))
+    line_sep = cast(Optional[str], options.get("lineSep", None))
+
     rows: List[Dict[str, object]] = []
-    with open_compressed(path, "r", compression=compression) as f:
-        for line in f:
-            rows.append({column_name: line.rstrip("\n\r")})
+    with open_compressed(path, "r", compression=compression, encoding=encoding) as f:
+        if wholetext:
+            # Read entire file as single value
+            content = f.read()
+            rows.append({column_name: content})
+        else:
+            # Read line by line
+            if line_sep:
+                content = f.read()
+                lines = content.split(line_sep)
+                for line in lines:
+                    rows.append({column_name: line})
+            else:
+                for line in f:
+                    rows.append({column_name: line.rstrip("\n\r")})
 
     schema = [ColumnDef(name=column_name, type_name="TEXT", nullable=False)]
     if not rows:
@@ -80,17 +96,37 @@ def read_text_stream(
         raise FileNotFoundError(f"Text file not found: {path}")
 
     compression = cast(Optional[str], options.get("compression", None))
+    encoding = cast(str, options.get("encoding", "UTF-8"))
+    wholetext = cast(bool, options.get("wholetext", False))
+    line_sep = cast(Optional[str], options.get("lineSep", None))
 
     def _chunk_generator() -> Iterator[List[Dict[str, object]]]:
         chunk: List[Dict[str, object]] = []
-        with open_compressed(path, "r", compression=compression) as f:
-            for line in f:
-                chunk.append({column_name: line.rstrip("\n\r")})
-                if len(chunk) >= chunk_size:
-                    yield chunk
-                    chunk = []
-            if chunk:
-                yield chunk
+        with open_compressed(path, "r", compression=compression, encoding=encoding) as f:
+            if wholetext:
+                # Read entire file as single value
+                content = f.read()
+                yield [{column_name: content}]
+            else:
+                # Read line by line
+                if line_sep:
+                    content = f.read()
+                    lines = content.split(line_sep)
+                    for line in lines:
+                        chunk.append({column_name: line})
+                        if len(chunk) >= chunk_size:
+                            yield chunk
+                            chunk = []
+                    if chunk:
+                        yield chunk
+                else:
+                    for line in f:
+                        chunk.append({column_name: line.rstrip("\n\r")})
+                        if len(chunk) >= chunk_size:
+                            yield chunk
+                            chunk = []
+                    if chunk:
+                        yield chunk
 
     # Read first chunk
     first_chunk_gen = _chunk_generator()

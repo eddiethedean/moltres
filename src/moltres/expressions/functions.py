@@ -91,6 +91,54 @@ __all__ = [
     "date_add",
     "date_sub",
     "explode",
+    "pow",
+    "power",
+    "asin",
+    "acos",
+    "atan",
+    "atan2",
+    "signum",
+    "sign",
+    "log2",
+    "hypot",
+    "initcap",
+    "instr",
+    "locate",
+    "translate",
+    "to_timestamp",
+    "unix_timestamp",
+    "from_unixtime",
+    "date_trunc",
+    "quarter",
+    "weekofyear",
+    "week",
+    "dayofyear",
+    "last_day",
+    "months_between",
+    "first_value",
+    "last_value",
+    "array_append",
+    "array_prepend",
+    "array_remove",
+    "array_distinct",
+    "array_sort",
+    "array_max",
+    "array_min",
+    "array_sum",
+    "json_tuple",
+    "from_json",
+    "to_json",
+    "json_array_length",
+    "rand",
+    "randn",
+    "hash",
+    "md5",
+    "sha1",
+    "sha2",
+    "base64",
+    "monotonically_increasing_id",
+    "crc32",
+    "soundex",
 ]
 
 
@@ -1214,3 +1262,860 @@ def explode(column: ColumnLike) -> Column:
         >>> # df.select(explode(col("array_col")).alias("value"))
     """
     return Column(op="explode", args=(ensure_column(column),))
+
+
+def pow(base: ColumnLike, exp: ColumnLike) -> Column:
+    """Raise base to the power of exponent.
+
+    Args:
+        base: Base column expression
+        exp: Exponent column expression
+
+    Returns:
+        Column expression for pow (base^exp)
+
+    Example:
+        >>> from moltres.expressions.functions import pow
+        >>> from moltres import col
+        >>> df.select(pow(col("x"), col("y")))
+    """
+    return Column(op="pow", args=(ensure_column(base), ensure_column(exp)))
+
+
+def power(base: ColumnLike, exp: ColumnLike) -> Column:
+    """Raise base to the power of exponent (alias for pow).
+
+    Args:
+        base: Base column expression
+        exp: Exponent column expression
+
+    Returns:
+        Column expression for power (base^exp)
+
+    Example:
+        >>> from moltres.expressions.functions import power
+        >>> from moltres import col
+        >>> df.select(power(col("x"), 2))
+    """
+    return pow(base, exp)
+
+
+def asin(column: ColumnLike) -> Column:
+    """Get the arcsine (inverse sine) of a numeric column.
+
+    Args:
+        column: Numeric column (values should be in range [-1, 1])
+
+    Returns:
+        Column expression for asin (result in radians)
+
+    Example:
+        >>> from moltres.expressions.functions import asin
+        >>> from moltres import col
+        >>> df.select(asin(col("ratio")))
+    """
+    return Column(op="asin", args=(ensure_column(column),))
+
+
+def acos(column: ColumnLike) -> Column:
+    """Get the arccosine (inverse cosine) of a numeric column.
+
+    Args:
+        column: Numeric column (values should be in range [-1, 1])
+
+    Returns:
+        Column expression for acos (result in radians)
+
+    Example:
+        >>> from moltres.expressions.functions import acos
+        >>> from moltres import col
+        >>> df.select(acos(col("ratio")))
+    """
+    return Column(op="acos", args=(ensure_column(column),))
+
+
+def atan(column: ColumnLike) -> Column:
+    """Get the arctangent (inverse tangent) of a numeric column.
+
+    Args:
+        column: Numeric column
+
+    Returns:
+        Column expression for atan (result in radians)
+
+    Example:
+        >>> from moltres.expressions.functions import atan
+        >>> from moltres import col
+        >>> df.select(atan(col("slope")))
+    """
+    return Column(op="atan", args=(ensure_column(column),))
+
+
+def atan2(y: ColumnLike, x: ColumnLike) -> Column:
+    """Get the arctangent of y/x (inverse tangent with quadrant awareness).
+
+    Args:
+        y: Y coordinate column expression
+        x: X coordinate column expression
+
+    Returns:
+        Column expression for atan2 (result in radians, range [-π, π])
+
+    Example:
+        >>> from moltres.expressions.functions import atan2
+        >>> from moltres import col
+        >>> df.select(atan2(col("y"), col("x")))
+    """
+    return Column(op="atan2", args=(ensure_column(y), ensure_column(x)))
+
+
+def signum(column: ColumnLike) -> Column:
+    """Get the sign of a numeric column (-1, 0, or 1).
+
+    Args:
+        column: Numeric column
+
+    Returns:
+        Column expression for signum (-1 if negative, 0 if zero, 1 if positive)
+
+    Example:
+        >>> from moltres.expressions.functions import signum
+        >>> from moltres import col
+        >>> df.select(signum(col("value")))
+    """
+    return Column(op="signum", args=(ensure_column(column),))
+
+
+def sign(column: ColumnLike) -> Column:
+    """Get the sign of a numeric column (alias for signum).
+
+    Args:
+        column: Numeric column
+
+    Returns:
+        Column expression for sign (-1 if negative, 0 if zero, 1 if positive)
+
+    Example:
+        >>> from moltres.expressions.functions import sign
+        >>> from moltres import col
+        >>> df.select(sign(col("value")))
+    """
+    return signum(column)
+
+
+def log2(column: ColumnLike) -> Column:
+    """Get the base-2 logarithm of a numeric column.
+
+    Args:
+        column: Numeric column (must be positive)
+
+    Returns:
+        Column expression for log2
+
+    Example:
+        >>> from moltres.expressions.functions import log2
+        >>> from moltres import col
+        >>> df.select(log2(col("value")))
+    """
+    return Column(op="log2", args=(ensure_column(column),))
+
+
+def hypot(x: ColumnLike, y: ColumnLike) -> Column:
+    """Compute the hypotenuse (sqrt(x² + y²)).
+
+    Args:
+        x: X coordinate column expression
+        y: Y coordinate column expression
+
+    Returns:
+        Column expression for hypot
+
+    Example:
+        >>> from moltres.expressions.functions import hypot
+        >>> from moltres import col
+        >>> df.select(hypot(col("x"), col("y")))
+    """
+    return Column(op="hypot", args=(ensure_column(x), ensure_column(y)))
+
+
+def initcap(column: ColumnLike) -> Column:
+    """Capitalize the first letter of each word in a string column.
+
+    Args:
+        column: String column expression
+
+    Returns:
+        Column expression for initcap
+
+    Example:
+        >>> from moltres.expressions.functions import initcap
+        >>> from moltres import col
+        >>> df.select(initcap(col("name")))
+    """
+    return Column(op="initcap", args=(ensure_column(column),))
+
+
+def instr(column: ColumnLike, substring: ColumnLike) -> Column:
+    """Find the position (1-based) of a substring in a string column.
+
+    Args:
+        column: String column expression
+        substring: Substring to search for (column expression or literal)
+
+    Returns:
+        Column expression for instr (1-based position, or 0 if not found)
+
+    Example:
+        >>> from moltres.expressions.functions import instr
+        >>> from moltres import col
+        >>> df.select(instr(col("text"), "world"))
+    """
+    return Column(op="instr", args=(ensure_column(column), ensure_column(substring)))
+
+
+def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
+    """Find the position (1-based) of a substring in a string column (PySpark-style).
+
+    Args:
+        substring: Substring to search for (column expression or literal)
+        column: String column expression
+        pos: Starting position for search (default: 1)
+
+    Returns:
+        Column expression for locate (1-based position, or 0 if not found)
+
+    Example:
+        >>> from moltres.expressions.functions import locate
+        >>> from moltres import col
+        >>> df.select(locate("world", col("text")))
+    """
+    return Column(op="locate", args=(ensure_column(substring), ensure_column(column), pos))
+
+
+def translate(column: ColumnLike, from_chars: str, to_chars: str) -> Column:
+    """Translate characters in a string column (replace chars in from_chars with corresponding chars in to_chars).
+
+    Args:
+        column: String column expression
+        from_chars: Characters to replace
+        to_chars: Replacement characters (must be same length as from_chars)
+
+    Returns:
+        Column expression for translate
+
+    Example:
+        >>> from moltres.expressions.functions import translate
+        >>> from moltres import col
+        >>> df.select(translate(col("text"), "abc", "xyz"))
+    """
+    if len(from_chars) != len(to_chars):
+        raise ValueError("from_chars and to_chars must have the same length")
+    return Column(op="translate", args=(ensure_column(column), from_chars, to_chars))
+
+
+def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa: A001
+    """Convert a string column to a timestamp.
+
+    Args:
+        column: String column containing a timestamp
+        format: Optional format string (if None, uses default parsing)
+
+    Returns:
+        Column expression for to_timestamp
+
+    Example:
+        >>> from moltres.expressions.functions import to_timestamp
+        >>> from moltres import col
+        >>> df.select(to_timestamp(col("date_str"), "yyyy-MM-dd HH:mm:ss"))
+    """
+    if format is not None:
+        return Column(op="to_timestamp", args=(ensure_column(column), format))
+    return Column(op="to_timestamp", args=(ensure_column(column),))
+
+
+def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = None) -> Column:  # noqa: A001
+    """Convert a timestamp or date string to Unix timestamp (seconds since epoch).
+
+    Args:
+        column: Optional timestamp/date column (if None, returns current Unix timestamp)
+        format: Optional format string for parsing date strings
+
+    Returns:
+        Column expression for unix_timestamp
+
+    Example:
+        >>> from moltres.expressions.functions import unix_timestamp
+        >>> from moltres import col
+        >>> df.select(unix_timestamp(col("created_at")))
+    """
+    if column is None:
+        return Column(op="unix_timestamp", args=())
+    if format is not None:
+        return Column(op="unix_timestamp", args=(ensure_column(column), format))
+    return Column(op="unix_timestamp", args=(ensure_column(column),))
+
+
+def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa: A001
+    """Convert a Unix timestamp (seconds since epoch) to a timestamp string.
+
+    Args:
+        column: Unix timestamp column (seconds since epoch)
+        format: Optional format string (if None, uses default format)
+
+    Returns:
+        Column expression for from_unixtime
+
+    Example:
+        >>> from moltres.expressions.functions import from_unixtime
+        >>> from moltres import col
+        >>> df.select(from_unixtime(col("unix_time"), "yyyy-MM-dd HH:mm:ss"))
+    """
+    if format is not None:
+        return Column(op="from_unixtime", args=(ensure_column(column), format))
+    return Column(op="from_unixtime", args=(ensure_column(column),))
+
+
+def date_trunc(unit: str, column: ColumnLike) -> Column:
+    """Truncate a date/timestamp to the specified unit.
+
+    Args:
+        unit: Unit to truncate to (e.g., "year", "month", "day", "hour", "minute", "second")
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for date_trunc
+
+    Example:
+        >>> from moltres.expressions.functions import date_trunc
+        >>> from moltres import col
+        >>> df.select(date_trunc("month", col("created_at")))
+    """
+    return Column(op="date_trunc", args=(unit, ensure_column(column)))
+
+
+def quarter(column: ColumnLike) -> Column:
+    """Extract the quarter (1-4) from a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for quarter (1, 2, 3, or 4)
+
+    Example:
+        >>> from moltres.expressions.functions import quarter
+        >>> from moltres import col
+        >>> df.select(quarter(col("created_at")))
+    """
+    return Column(op="quarter", args=(ensure_column(column),))
+
+
+def weekofyear(column: ColumnLike) -> Column:
+    """Extract the week number (1-53) from a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for weekofyear
+
+    Example:
+        >>> from moltres.expressions.functions import weekofyear
+        >>> from moltres import col
+        >>> df.select(weekofyear(col("created_at")))
+    """
+    return Column(op="weekofyear", args=(ensure_column(column),))
+
+
+def week(column: ColumnLike) -> Column:
+    """Extract the week number (alias for weekofyear).
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for week
+
+    Example:
+        >>> from moltres.expressions.functions import week
+        >>> from moltres import col
+        >>> df.select(week(col("created_at")))
+    """
+    return weekofyear(column)
+
+
+def dayofyear(column: ColumnLike) -> Column:
+    """Extract the day of year (1-366) from a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for dayofyear
+
+    Example:
+        >>> from moltres.expressions.functions import dayofyear
+        >>> from moltres import col
+        >>> df.select(dayofyear(col("created_at")))
+    """
+    return Column(op="dayofyear", args=(ensure_column(column),))
+
+
+def last_day(column: ColumnLike) -> Column:
+    """Get the last day of the month for a date/timestamp column.
+
+    Args:
+        column: Date or timestamp column
+
+    Returns:
+        Column expression for last_day
+
+    Example:
+        >>> from moltres.expressions.functions import last_day
+        >>> from moltres import col
+        >>> df.select(last_day(col("created_at")))
+    """
+    return Column(op="last_day", args=(ensure_column(column),))
+
+
+def months_between(date1: ColumnLike, date2: ColumnLike) -> Column:
+    """Calculate the number of months between two dates.
+
+    Args:
+        date1: First date column
+        date2: Second date column
+
+    Returns:
+        Column expression for months_between (can be fractional)
+
+    Example:
+        >>> from moltres.expressions.functions import months_between
+        >>> from moltres import col
+        >>> df.select(months_between(col("end_date"), col("start_date")))
+    """
+    return Column(op="months_between", args=(ensure_column(date1), ensure_column(date2)))
+
+
+def first_value(column: ColumnLike) -> Column:
+    """Get the first value in a window (window function).
+
+    Args:
+        column: Column expression to get the first value from
+
+    Returns:
+        Column expression for first_value() window function
+
+    Example:
+        >>> from moltres.expressions.functions import first_value
+        >>> from moltres import col
+        >>> df.select(first_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
+    """
+    return Column(op="window_first_value", args=(ensure_column(column),))
+
+
+def last_value(column: ColumnLike) -> Column:
+    """Get the last value in a window (window function).
+
+    Args:
+        column: Column expression to get the last value from
+
+    Returns:
+        Column expression for last_value() window function
+
+    Example:
+        >>> from moltres.expressions.functions import last_value
+        >>> from moltres import col
+        >>> df.select(last_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
+    """
+    return Column(op="window_last_value", args=(ensure_column(column),))
+
+
+def array_append(column: ColumnLike, element: ColumnLike) -> Column:
+    """Append an element to an array column.
+
+    Args:
+        column: Array column expression
+        element: Element to append (column expression or literal)
+
+    Returns:
+        Column expression for array_append
+
+    Example:
+        >>> from moltres.expressions.functions import array_append
+        >>> from moltres import col
+        >>> df.select(array_append(col("tags"), "new_tag"))
+    """
+    return Column(op="array_append", args=(ensure_column(column), ensure_column(element)))
+
+
+def array_prepend(column: ColumnLike, element: ColumnLike) -> Column:
+    """Prepend an element to an array column.
+
+    Args:
+        column: Array column expression
+        element: Element to prepend (column expression or literal)
+
+    Returns:
+        Column expression for array_prepend
+
+    Example:
+        >>> from moltres.expressions.functions import array_prepend
+        >>> from moltres import col
+        >>> df.select(array_prepend(col("tags"), "first_tag"))
+    """
+    return Column(op="array_prepend", args=(ensure_column(column), ensure_column(element)))
+
+
+def array_remove(column: ColumnLike, element: ColumnLike) -> Column:
+    """Remove all occurrences of an element from an array column.
+
+    Args:
+        column: Array column expression
+        element: Element to remove (column expression or literal)
+
+    Returns:
+        Column expression for array_remove
+
+    Example:
+        >>> from moltres.expressions.functions import array_remove
+        >>> from moltres import col
+        >>> df.select(array_remove(col("tags"), "old_tag"))
+    """
+    return Column(op="array_remove", args=(ensure_column(column), ensure_column(element)))
+
+
+def array_distinct(column: ColumnLike) -> Column:
+    """Remove duplicate elements from an array column.
+
+    Args:
+        column: Array column expression
+
+    Returns:
+        Column expression for array_distinct
+
+    Example:
+        >>> from moltres.expressions.functions import array_distinct
+        >>> from moltres import col
+        >>> df.select(array_distinct(col("tags")))
+    """
+    return Column(op="array_distinct", args=(ensure_column(column),))
+
+
+def array_sort(column: ColumnLike) -> Column:
+    """Sort an array column.
+
+    Args:
+        column: Array column expression
+
+    Returns:
+        Column expression for array_sort
+
+    Example:
+        >>> from moltres.expressions.functions import array_sort
+        >>> from moltres import col
+        >>> df.select(array_sort(col("tags")))
+    """
+    return Column(op="array_sort", args=(ensure_column(column),))
+
+
+def array_max(column: ColumnLike) -> Column:
+    """Get the maximum element in an array column.
+
+    Args:
+        column: Array column expression
+
+    Returns:
+        Column expression for array_max
+
+    Example:
+        >>> from moltres.expressions.functions import array_max
+        >>> from moltres import col
+        >>> df.select(array_max(col("values")))
+    """
+    return Column(op="array_max", args=(ensure_column(column),))
+
+
+def array_min(column: ColumnLike) -> Column:
+    """Get the minimum element in an array column.
+
+    Args:
+        column: Array column expression
+
+    Returns:
+        Column expression for array_min
+
+    Example:
+        >>> from moltres.expressions.functions import array_min
+        >>> from moltres import col
+        >>> df.select(array_min(col("values")))
+    """
+    return Column(op="array_min", args=(ensure_column(column),))
+
+
+def array_sum(column: ColumnLike) -> Column:
+    """Get the sum of elements in an array column.
+
+    Args:
+        column: Array column expression (must contain numeric elements)
+
+    Returns:
+        Column expression for array_sum
+
+    Example:
+        >>> from moltres.expressions.functions import array_sum
+        >>> from moltres import col
+        >>> df.select(array_sum(col("values")))
+    """
+    return Column(op="array_sum", args=(ensure_column(column),))
+
+
+def json_tuple(column: ColumnLike, *paths: str) -> Column:
+    """Extract multiple JSON paths from a JSON column at once.
+
+    Args:
+        column: JSON column expression
+        *paths: JSON path expressions (e.g., "$.key1", "$.key2")
+
+    Returns:
+        Column expression for json_tuple (returns array of values)
+
+    Example:
+        >>> from moltres.expressions.functions import json_tuple
+        >>> from moltres import col
+        >>> df.select(json_tuple(col("data"), "$.name", "$.age"))
+    """
+    if not paths:
+        raise ValueError("json_tuple requires at least one path")
+    return Column(op="json_tuple", args=(ensure_column(column),) + paths)
+
+
+def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
+    """Parse a JSON string column into a JSON object.
+
+    Args:
+        column: String column containing JSON
+        schema: Optional schema string (for validation)
+
+    Returns:
+        Column expression for from_json
+
+    Example:
+        >>> from moltres.expressions.functions import from_json
+        >>> from moltres import col
+        >>> df.select(from_json(col("json_str")))
+    """
+    if schema is not None:
+        return Column(op="from_json", args=(ensure_column(column), schema))
+    return Column(op="from_json", args=(ensure_column(column),))
+
+
+def to_json(column: ColumnLike) -> Column:
+    """Convert a column to a JSON string.
+
+    Args:
+        column: Column expression to convert
+
+    Returns:
+        Column expression for to_json
+
+    Example:
+        >>> from moltres.expressions.functions import to_json
+        >>> from moltres import col
+        >>> df.select(to_json(col("data")))
+    """
+    return Column(op="to_json", args=(ensure_column(column),))
+
+
+def json_array_length(column: ColumnLike) -> Column:
+    """Get the length of a JSON array.
+
+    Args:
+        column: JSON array column expression
+
+    Returns:
+        Column expression for json_array_length
+
+    Example:
+        >>> from moltres.expressions.functions import json_array_length
+        >>> from moltres import col
+        >>> df.select(json_array_length(col("items")))
+    """
+    return Column(op="json_array_length", args=(ensure_column(column),))
+
+
+def rand(seed: Optional[int] = None) -> Column:
+    """Generate a random number between 0 and 1.
+
+    Args:
+        seed: Optional random seed (not all databases support this)
+
+    Returns:
+        Column expression for rand
+
+    Example:
+        >>> from moltres.expressions.functions import rand
+        >>> df.select(rand())
+    """
+    if seed is not None:
+        return Column(op="rand", args=(seed,))
+    return Column(op="rand", args=())
+
+
+def randn(seed: Optional[int] = None) -> Column:
+    """Generate a random number from a standard normal distribution.
+
+    Note: Limited database support. May require extensions.
+
+    Args:
+        seed: Optional random seed (not all databases support this)
+
+    Returns:
+        Column expression for randn
+
+    Example:
+        >>> from moltres.expressions.functions import randn
+        >>> df.select(randn())
+    """
+    if seed is not None:
+        return Column(op="randn", args=(seed,))
+    return Column(op="randn", args=())
+
+
+def hash(*columns: ColumnLike) -> Column:
+    """Compute a hash value for one or more columns.
+
+    Args:
+        *columns: Column expressions to hash
+
+    Returns:
+        Column expression for hash
+
+    Example:
+        >>> from moltres.expressions.functions import hash
+        >>> from moltres import col
+        >>> df.select(hash(col("id"), col("name")))
+    """
+    if not columns:
+        raise ValueError("hash requires at least one column")
+    return Column(op="hash", args=tuple(ensure_column(c) for c in columns))
+
+
+def md5(column: ColumnLike) -> Column:
+    """Compute the MD5 hash of a column.
+
+    Args:
+        column: Column expression to hash
+
+    Returns:
+        Column expression for md5 (returns hex string)
+
+    Example:
+        >>> from moltres.expressions.functions import md5
+        >>> from moltres import col
+        >>> df.select(md5(col("password")))
+    """
+    return Column(op="md5", args=(ensure_column(column),))
+
+
+def sha1(column: ColumnLike) -> Column:
+    """Compute the SHA-1 hash of a column.
+
+    Args:
+        column: Column expression to hash
+
+    Returns:
+        Column expression for sha1 (returns hex string)
+
+    Example:
+        >>> from moltres.expressions.functions import sha1
+        >>> from moltres import col
+        >>> df.select(sha1(col("password")))
+    """
+    return Column(op="sha1", args=(ensure_column(column),))
+
+
+def sha2(column: ColumnLike, num_bits: int = 256) -> Column:
+    """Compute the SHA-2 hash of a column.
+
+    Args:
+        column: Column expression to hash
+        num_bits: Number of bits (224, 256, 384, or 512, default: 256)
+
+    Returns:
+        Column expression for sha2 (returns hex string)
+
+    Example:
+        >>> from moltres.expressions.functions import sha2
+        >>> from moltres import col
+        >>> df.select(sha2(col("password"), 256))
+    """
+    if num_bits not in (224, 256, 384, 512):
+        raise ValueError("num_bits must be 224, 256, 384, or 512")
+    return Column(op="sha2", args=(ensure_column(column), num_bits))
+
+
+def base64(column: ColumnLike) -> Column:
+    """Encode a column to base64.
+
+    Args:
+        column: Column expression to encode
+
+    Returns:
+        Column expression for base64 encoding
+
+    Example:
+        >>> from moltres.expressions.functions import base64
+        >>> from moltres import col
+        >>> df.select(base64(col("data")))
+    """
+    return Column(op="base64", args=(ensure_column(column),))
+
+
+def monotonically_increasing_id() -> Column:
+    """Generate a monotonically increasing unique ID for each row.
+
+    Note: This uses ROW_NUMBER() window function, so it requires a window context
+    or will generate IDs based on row order.
+
+    Returns:
+        Column expression for monotonically_increasing_id
+
+    Example:
+        >>> from moltres.expressions.functions import monotonically_increasing_id
+        >>> df.select(monotonically_increasing_id().alias("id"))
+    """
+    return Column(op="monotonically_increasing_id", args=())
+
+
+def crc32(column: ColumnLike) -> Column:
+    """Compute the CRC32 checksum of a column.
+
+    Args:
+        column: Column expression to compute checksum for
+
+    Returns:
+        Column expression for crc32
+
+    Example:
+        >>> from moltres.expressions.functions import crc32
+        >>> from moltres import col
+        >>> df.select(crc32(col("data")))
+    """
+    return Column(op="crc32", args=(ensure_column(column),))
+
+
+def soundex(column: ColumnLike) -> Column:
+    """Compute the Soundex code for phonetic matching.
+
+    Args:
+        column: String column expression
+
+    Returns:
+        Column expression for soundex
+
+    Example:
+        >>> from moltres.expressions.functions import soundex
+        >>> from moltres import col
+        >>> df.select(soundex(col("name")))
+    """
+    return Column(op="soundex", args=(ensure_column(column),))

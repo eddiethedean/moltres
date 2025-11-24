@@ -547,15 +547,24 @@ class SQLCompiler:
 
             # Use CASE WHEN with aggregation for cross-dialect compatibility
             projections = list(group_by_cols)  # Start with grouping columns
-            # Reuse agg_func_map from above (defined at line 501)
-            agg = agg_func_map.get(plan.agg_func.lower(), func.sum)
+            # Reuse agg_func_map pattern from Pivot (defined above)
+            from typing import Callable as CallableType
+            from sqlalchemy.sql import ColumnElement as ColumnElementType
+
+            grouped_agg_func_map: dict[str, CallableType[..., ColumnElementType[Any]]] = {
+                "sum": func.sum,
+                "avg": func.avg,
+                "count": func.count,
+                "min": func.min,
+                "max": func.max,
+            }
+            agg = grouped_agg_func_map.get(plan.agg_func.lower(), func.sum)
             assert agg is not None  # Always has default
 
             for pivot_value in plan.pivot_values:
                 # Create aggregation with CASE WHEN
                 # Reference columns from the child subquery using literal_column
                 # SQLAlchemy will resolve these from the subquery context
-                from sqlalchemy.sql import ColumnElement
 
                 pivot_col_ref: ColumnElement[Any] = literal_column(plan.pivot_column)
                 value_col_ref: ColumnElement[Any] = literal_column(plan.value_column)
@@ -985,6 +994,70 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
+        if op == "asin":
+            result = func.asin(self._compile(expression.args[0]))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "acos":
+            result = func.acos(self._compile(expression.args[0]))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "atan":
+            result = func.atan(self._compile(expression.args[0]))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "atan2":
+            y, x = expression.args
+            result = func.atan2(self._compile(y), self._compile(x))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "signum" or op == "sign":
+            col_expr = self._compile(expression.args[0])
+            # Use dialect-specific SIGN function
+            if self.dialect.name == "postgresql" or self.dialect.name == "mysql":
+                result = func.sign(col_expr)
+            else:
+                # SQLite doesn't have SIGN, use CASE WHEN
+                from sqlalchemy import case, literal_column
+
+                result = case(
+                    (col_expr > 0, literal(1)),
+                    (col_expr < 0, literal(-1)),
+                    else_=literal(0),
+                )
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "log2":
+            col_expr = self._compile(expression.args[0])
+            # Use dialect-specific log2
+            if self.dialect.name == "postgresql":
+                result = func.log(2, col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.log(2, col_expr)
+            else:
+                # SQLite: log(2, x)
+                result = func.log(2, col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "hypot":
+            x, y = expression.args
+            x_expr = self._compile(x)
+            y_expr = self._compile(y)
+            # Use dialect-specific hypot
+            if self.dialect.name == "postgresql":
+                result = func.hypot(x_expr, y_expr)
+            else:
+                # MySQL/SQLite: manual calculation sqrt(x² + y²)
+                result = func.sqrt(x_expr * x_expr + y_expr * y_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         # Date/time functions
         if op == "year":
             result = func.extract("year", self._compile(expression.args[0]))
@@ -1131,12 +1204,206 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
+        if op == "to_timestamp":
+            col_expr = self._compile(expression.args[0])
+            if len(expression.args) > 1:
+                format_str = expression.args[1]
+                result = func.to_timestamp(col_expr, format_str)
+            else:
+                result = func.to_timestamp(col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "unix_timestamp":
+            from sqlalchemy import literal_column
+
+            if len(expression.args) == 0:
+                # Current Unix timestamp
+                if self.dialect.name == "postgresql":
+                    result = func.extract("epoch", func.now())
+                elif self.dialect.name == "mysql":
+                    result = func.unix_timestamp()
+                else:
+                    # SQLite: strftime('%s', 'now')
+                    result = func.strftime("%s", "now")
+            elif len(expression.args) == 1:
+                col_expr = self._compile(expression.args[0])
+                if self.dialect.name == "postgresql":
+                    result = func.extract("epoch", col_expr)
+                elif self.dialect.name == "mysql":
+                    result = func.unix_timestamp(col_expr)
+                else:
+                    # SQLite: strftime('%s', col)
+                    result = func.strftime("%s", col_expr)
+            else:
+                col_expr = self._compile(expression.args[0])
+                format_str = expression.args[1]
+                if self.dialect.name == "postgresql":
+                    # Parse with format then extract epoch
+                    parsed = func.to_timestamp(col_expr, format_str)
+                    result = func.extract("epoch", parsed)
+                elif self.dialect.name == "mysql":
+                    result = func.unix_timestamp(col_expr, format_str)
+                else:
+                    # SQLite: requires parsing first
+                    result = func.strftime("%s", func.datetime(col_expr, format_str))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "from_unixtime":
+            col_expr = self._compile(expression.args[0])
+            if len(expression.args) > 1:
+                format_str = expression.args[1]
+                if self.dialect.name == "postgresql":
+                    result = func.to_char(func.to_timestamp(col_expr), format_str)
+                elif self.dialect.name == "mysql":
+                    result = func.from_unixtime(col_expr, format_str)
+                else:
+                    # SQLite: datetime(unix_time, 'unixepoch')
+                    result = func.strftime(format_str, func.datetime(col_expr, "unixepoch"))
+            else:
+                if self.dialect.name == "postgresql":
+                    result = func.to_timestamp(col_expr)
+                elif self.dialect.name == "mysql":
+                    result = func.from_unixtime(col_expr)
+                else:
+                    # SQLite: datetime(unix_time, 'unixepoch')
+                    result = func.datetime(col_expr, "unixepoch")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "date_trunc":
+            unit = expression.args[0]
+            col_expr = self._compile(expression.args[1])
+            if self.dialect.name == "postgresql":
+                result = func.date_trunc(unit, col_expr)
+            elif self.dialect.name == "mysql":
+                # MySQL: use DATE_FORMAT with truncation
+                from sqlalchemy import literal_column
+
+                unit_map = {
+                    "year": "%Y-01-01",
+                    "month": "%Y-%m-01",
+                    "day": "%Y-%m-%d",
+                    "hour": "%Y-%m-%d %H:00:00",
+                    "minute": "%Y-%m-%d %H:%i:00",
+                    "second": "%Y-%m-%d %H:%i:%s",
+                }
+                format_str = unit_map.get(unit.lower(), "%Y-%m-%d")
+                result = func.date_format(col_expr, format_str)
+            else:
+                # SQLite: use strftime
+                unit_map = {
+                    "year": "%Y-01-01",
+                    "month": "%Y-%m-01",
+                    "day": "%Y-%m-%d",
+                    "hour": "%Y-%m-%d %H:00:00",
+                    "minute": "%Y-%m-%d %H:%M:00",
+                    "second": "%Y-%m-%d %H:%M:%S",
+                }
+                format_str = unit_map.get(unit.lower(), "%Y-%m-%d")
+                result = func.strftime(format_str, col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "quarter":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.extract("quarter", col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.quarter(col_expr)
+            else:
+                # SQLite: strftime('%m') then calculate quarter
+                from sqlalchemy import case, literal_column, types as sa_types
+
+                month = func.cast(func.strftime("%m", col_expr), sa_types.Integer)
+                result = case(
+                    (month <= 3, literal(1)),
+                    (month <= 6, literal(2)),
+                    (month <= 9, literal(3)),
+                    else_=literal(4),
+                )
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "weekofyear" or op == "week":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.extract("week", col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.week(col_expr)
+            else:
+                # SQLite: strftime('%W')
+                from sqlalchemy import types as sa_types
+
+                result = func.cast(func.strftime("%W", col_expr), sa_types.Integer) + 1
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "dayofyear":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.extract("doy", col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.dayofyear(col_expr)
+            else:
+                # SQLite: strftime('%j')
+                from sqlalchemy import types as sa_types
+
+                result = func.cast(func.strftime("%j", col_expr), sa_types.Integer)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "last_day":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                # PostgreSQL: date_trunc('month', date) + interval '1 month' - interval '1 day'
+                from sqlalchemy import literal_column
+
+                result = (
+                    func.date_trunc("month", col_expr)
+                    + literal_column("INTERVAL '1 month'")
+                    - literal_column("INTERVAL '1 day'")
+                )
+            elif self.dialect.name == "mysql":
+                result = func.last_day(col_expr)
+            else:
+                # SQLite: requires workaround
+                from sqlalchemy import literal_column
+
+                # Use date() with month+1, day=0 trick
+                result = func.date(col_expr, "+1 month", "-1 day")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "months_between":
+            date1 = self._compile(expression.args[0])
+            date2 = self._compile(expression.args[1])
+            if self.dialect.name == "postgresql":
+                # PostgreSQL: EXTRACT(EPOCH FROM (date1 - date2)) / (30.0 * 86400)
+                from sqlalchemy import literal_column
+
+                result = func.extract("epoch", date1 - date2) / literal(30.0 * 86400)
+            elif self.dialect.name == "mysql":
+                result = func.timestampdiff("month", date2, date1)
+            else:
+                # SQLite: requires calculation
+                from sqlalchemy import literal_column
+
+                # Approximate: (julianday(date1) - julianday(date2)) / 30.0
+                result = (func.julianday(date1) - func.julianday(date2)) / literal(30.0)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "mod":
             left, right = expression.args
             return func.mod(self._compile(left), self._compile(right))
         if op == "pow":
             base, exp = expression.args[:2]
-            return func.power(self._compile(base), self._compile(exp))
+            result = func.power(self._compile(base), self._compile(exp))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "neg":
             return -self._compile(expression.args[0])
         if op == "and":
@@ -1422,6 +1689,84 @@ class ExpressionCompiler:
             return result
         if op == "rtrim":
             result = func.rtrim(self._compile(expression.args[0]))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "initcap":
+            col_expr = self._compile(expression.args[0])
+            # Use dialect-specific initcap
+            if self.dialect.name == "postgresql":
+                result = func.initcap(col_expr)
+            else:
+                # MySQL/SQLite: not directly supported, use literal_column for workaround
+                from sqlalchemy import literal_column
+
+                # This is a simplified workaround - may not work perfectly for all cases
+                result = literal_column(f"INITCAP({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "instr":
+            col_expr = self._compile(expression.args[0])
+            substr_expr = self._compile(expression.args[1])
+            # Use dialect-specific instr
+            if self.dialect.name == "postgresql":
+                result = func.strpos(col_expr, substr_expr)
+            elif self.dialect.name == "mysql":
+                result = func.locate(substr_expr, col_expr)
+            else:
+                # SQLite: instr
+                result = func.instr(col_expr, substr_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "locate":
+            substr_expr = self._compile(expression.args[0])
+            col_expr = self._compile(expression.args[1])
+            pos = expression.args[2] if len(expression.args) > 2 else 1
+            # Use dialect-specific locate
+            if self.dialect.name == "postgresql":
+                # PostgreSQL: strpos doesn't support start position, use substring
+                if pos > 1:
+                    from sqlalchemy import literal_column
+
+                    result = func.strpos(func.substring(col_expr, pos), substr_expr) + literal(
+                        pos - 1
+                    )
+                else:
+                    result = func.strpos(col_expr, substr_expr)
+            elif self.dialect.name == "mysql":
+                result = func.locate(substr_expr, col_expr, pos)
+            else:
+                # SQLite: instr with offset
+                if pos > 1:
+                    from sqlalchemy import literal_column
+
+                    result = func.instr(func.substring(col_expr, pos), substr_expr) + literal(
+                        pos - 1
+                    )
+                else:
+                    result = func.instr(col_expr, substr_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "translate":
+            col_expr = self._compile(expression.args[0])
+            from_chars = expression.args[1]
+            to_chars = expression.args[2]
+            # Use dialect-specific translate
+            if self.dialect.name == "postgresql":
+                result = func.translate(col_expr, from_chars, to_chars)
+            else:
+                # MySQL/SQLite: requires workaround (not directly supported)
+                # Use REPLACE for simple cases, or raise error for complex cases
+                from sqlalchemy import literal_column
+
+                # For now, raise CompilationError for non-PostgreSQL
+                raise CompilationError(
+                    f"translate() is not supported for {self.dialect.name} dialect. "
+                    "PostgreSQL supports this function natively."
+                )
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -1816,6 +2161,301 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
+        if op == "array_append":
+            col_expr = self._compile(expression.args[0])
+            elem_expr = self._compile(expression.args[1])
+            if self.dialect.name == "postgresql":
+                result = func.array_append(col_expr, elem_expr)
+            else:
+                result = func.json_array_append(col_expr, "$", elem_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "array_prepend":
+            col_expr = self._compile(expression.args[0])
+            elem_expr = self._compile(expression.args[1])
+            if self.dialect.name == "postgresql":
+                result = func.array_prepend(elem_expr, col_expr)
+            else:
+                result = func.json_array_insert(col_expr, "$[0]", elem_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "array_remove":
+            col_expr = self._compile(expression.args[0])
+            elem_expr = self._compile(expression.args[1])
+            if self.dialect.name == "postgresql":
+                result = func.array_remove(col_expr, elem_expr)
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(
+                    f"JSON_REMOVE({col_expr}, JSON_SEARCH({col_expr}, 'one', {elem_expr}))"
+                )
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "array_distinct":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"ARRAY(SELECT DISTINCT unnest({col_expr}))")
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"JSON_ARRAY_DISTINCT({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "array_sort":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.array_sort(col_expr)
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"JSON_ARRAY_SORT({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "array_max":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.array_max(col_expr)
+            else:
+                # SQLite/MySQL: Use json_each to find max value
+                # This requires a subquery - simplified implementation
+                from sqlalchemy import literal_column
+
+                # For SQLite, use a workaround with json_each
+                # SELECT MAX(value) FROM json_each(array_col)
+                result = literal_column(f"(SELECT MAX(value) FROM json_each({col_expr}))")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "array_min":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.array_min(col_expr)
+            else:
+                # SQLite/MySQL: Use json_each to find min value
+                from sqlalchemy import literal_column
+
+                # For SQLite, use a workaround with json_each
+                result = literal_column(f"(SELECT MIN(value) FROM json_each({col_expr}))")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "array_sum":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"(SELECT sum(x) FROM unnest({col_expr}) AS x)")
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"JSON_ARRAY_SUM({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "json_tuple":
+            col_expr = self._compile(expression.args[0])
+            paths = expression.args[1:]
+            if self.dialect.name == "postgresql":
+                from sqlalchemy import literal_column
+
+                path_list = ", ".join(f"'{p}'" for p in paths)
+                result = literal_column(
+                    f"ARRAY(SELECT jsonb_path_query({col_expr}, p) FROM unnest(ARRAY[{path_list}]) AS p)"
+                )
+            else:
+                results = [func.json_extract(col_expr, path) for path in paths]
+                result = func.json_array(*results)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "from_json":
+            col_expr = self._compile(expression.args[0])
+            from sqlalchemy import types as sa_types
+
+            if len(expression.args) > 1:
+                # schema = expression.args[1]  # Not used in current implementation
+                result = func.cast(col_expr, sa_types.JSON())
+            else:
+                result = func.cast(col_expr, sa_types.JSON())
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "to_json":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.to_jsonb(col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.json_quote(col_expr)
+            else:
+                result = func.json(col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "json_array_length":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.jsonb_array_length(col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.json_length(col_expr)
+            else:
+                result = func.json_array_length(col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "rand":
+            if len(expression.args) == 0:
+                if self.dialect.name == "postgresql":
+                    result = func.random()
+                elif self.dialect.name == "mysql":
+                    result = func.rand()
+                else:
+                    result = func.random()
+            else:
+                # seed = expression.args[0]  # Not used in current implementation
+                if self.dialect.name == "postgresql":
+                    result = func.random()
+                elif self.dialect.name == "mysql":
+                    result = func.rand()
+                else:
+                    result = func.random()
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "randn":
+            from sqlalchemy import literal_column
+
+            if self.dialect.name == "postgresql":
+                result = literal_column("random_normal()")
+            else:
+                raise CompilationError(
+                    f"randn() is not supported for {self.dialect.name} dialect. "
+                    "PostgreSQL may support this with extensions."
+                )
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "hash":
+            cols = [self._compile(c) for c in expression.args]
+            if self.dialect.name == "postgresql":
+                if len(cols) == 1:
+                    result = func.hashtext(cols[0])
+                else:
+                    from sqlalchemy import literal_column
+
+                    concat_expr = func.concat(*cols)
+                    result = func.hashtext(concat_expr)
+            elif self.dialect.name == "mysql":
+                if len(cols) == 1:
+                    result = func.md5(cols[0])
+                else:
+                    concat_expr = func.concat(*cols)
+                    result = func.md5(concat_expr)
+            else:
+                from sqlalchemy import literal_column
+
+                if len(cols) == 1:
+                    result = literal_column(f"HASH({cols[0]})")
+                else:
+                    concat_expr = func.concat(*cols)
+                    result = literal_column(f"HASH({concat_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "md5":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.md5(col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.md5(col_expr)
+            else:
+                # SQLite: md5 is not available by default, requires extension
+                # For now, raise an error to indicate limitation
+                from sqlalchemy import literal_column
+
+                # Try to use md5 if available, otherwise raise error
+                result = literal_column(f"md5({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "sha1":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.digest(col_expr, "sha1")
+            elif self.dialect.name == "mysql":
+                result = func.sha1(col_expr)
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"SHA1({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "sha2":
+            col_expr = self._compile(expression.args[0])
+            num_bits = expression.args[1]
+            if self.dialect.name == "postgresql":
+                algo_map = {224: "sha224", 256: "sha256", 384: "sha384", 512: "sha512"}
+                algo = algo_map.get(num_bits, "sha256")
+                result = func.digest(col_expr, algo)
+            elif self.dialect.name == "mysql":
+                result = func.sha2(col_expr, num_bits)
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"SHA2({col_expr}, {num_bits})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "base64":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.encode(col_expr, "base64")
+            elif self.dialect.name == "mysql":
+                result = func.to_base64(col_expr)
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"BASE64({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "monotonically_increasing_id":
+            result = func.row_number().over()
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "crc32":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "mysql":
+                result = func.crc32(col_expr)
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"CRC32({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "soundex":
+            col_expr = self._compile(expression.args[0])
+            if self.dialect.name == "postgresql":
+                result = func.soundex(col_expr)
+            elif self.dialect.name == "mysql":
+                result = func.soundex(col_expr)
+            else:
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"SOUNDEX({col_expr})")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
 
         # Window-specific functions
         if op == "window_row_number":
@@ -1852,6 +2492,18 @@ class ExpressionCompiler:
                 result = func.lead(column, offset, default)
             else:
                 result = func.lead(column, offset)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "window_first_value":
+            col_expr = self._compile(expression.args[0])
+            result = func.first_value(col_expr)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
+        if op == "window_last_value":
+            col_expr = self._compile(expression.args[0])
+            result = func.last_value(col_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result

@@ -48,27 +48,86 @@ async def read_json(
     if not path_obj.exists():
         raise FileNotFoundError(f"JSON file not found: {path}")
 
-    multiline = cast(bool, options.get("multiline", False))
+    # Extract all options with defaults
+    multiline = cast(bool, options.get("multiline", options.get("multiLine", False)))
     compression = cast(Optional[str], options.get("compression", None))
+    encoding = cast(str, options.get("encoding", "UTF-8"))
+    mode = cast(str, options.get("mode", "PERMISSIVE"))
+    corrupt_column = cast(Optional[str], options.get("columnNameOfCorruptRecord", None))
+    date_format = cast(Optional[str], options.get("dateFormat", None))
+    timestamp_format = cast(Optional[str], options.get("timestampFormat", None))
+    line_sep = cast(Optional[str], options.get("lineSep", None))
+    drop_field_if_all_null = cast(bool, options.get("dropFieldIfAllNull", False))
 
-    content = await read_compressed_async(path, compression=compression)
+    rows: List[Dict[str, object]] = []
+    corrupt_records: List[Dict[str, object]] = []
+
+    content = await read_compressed_async(path, compression=compression, encoding=encoding)
 
     if multiline:
         # Read as JSONL (one object per line)
-        rows = []
-        for line in content.splitlines():
+        line_separator = line_sep if line_sep else "\n"
+        if line_sep:
+            lines = content.split(line_separator)
+        else:
+            lines = content.splitlines()
+
+        for line in lines:
             line = line.strip()
-            if line:
+            if not line:
+                continue
+            try:
                 rows.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                if mode == "FAILFAST":
+                    raise ValueError(f"Failed to parse JSON line: {e}") from e
+                elif mode == "DROPMALFORMED":
+                    continue
+                else:  # PERMISSIVE
+                    if corrupt_column:
+                        corrupt_records.append({corrupt_column: line})
+                    continue
     else:
         # Read as JSON array
-        data = json.loads(content)
-        if isinstance(data, list):
-            rows = data
-        elif isinstance(data, dict):
-            rows = [data]
-        else:
-            raise ValueError(f"JSON file must contain an array or object: {path}")
+        try:
+            data = json.loads(content)
+            if isinstance(data, list):
+                rows = data
+            elif isinstance(data, dict):
+                rows = [data]
+            else:
+                if mode == "FAILFAST":
+                    raise ValueError(f"JSON file must contain an array or object: {path}")
+                elif mode == "DROPMALFORMED":
+                    rows = []
+                else:  # PERMISSIVE
+                    if corrupt_column:
+                        corrupt_records.append({corrupt_column: content})
+                    rows = []
+        except json.JSONDecodeError as e:
+            if mode == "FAILFAST":
+                raise ValueError(f"Failed to parse JSON file: {e}") from e
+            elif mode == "DROPMALFORMED":
+                rows = []
+            else:  # PERMISSIVE
+                if corrupt_column:
+                    corrupt_records.append({corrupt_column: content})
+                rows = []
+
+    # Drop fields that are all null if requested
+    if drop_field_if_all_null and rows:
+        all_keys: set[str] = set()
+        for row in rows:
+            all_keys.update(row.keys())
+
+        fields_to_drop = []
+        for key in all_keys:
+            if all(row.get(key) is None for row in rows):
+                fields_to_drop.append(key)
+
+        for row in rows:
+            for field in fields_to_drop:
+                row.pop(field, None)
 
     if not rows:
         if schema:
@@ -78,15 +137,31 @@ async def read_json(
     # Infer or use explicit schema
     if schema:
         final_schema = schema
-    else:
+    elif rows:
         from .schema_inference import infer_schema_from_rows
 
-        final_schema = infer_schema_from_rows(rows)
+        final_schema = infer_schema_from_rows(
+            rows, date_format=date_format, timestamp_format=timestamp_format
+        )
+    else:
+        final_schema = []
+
+    # Add corrupt records column to schema if needed
+    if corrupt_column and corrupt_column not in [col.name for col in final_schema]:
+        final_schema = list(final_schema) + [
+            ColumnDef(name=corrupt_column, type_name="TEXT", nullable=True)
+        ]
+        for row in rows:
+            if corrupt_column not in row:
+                row[corrupt_column] = None
+        rows.extend(corrupt_records)
 
     # Convert values to appropriate types
     from .schema_inference import apply_schema_to_rows
 
-    typed_rows = apply_schema_to_rows(rows, final_schema)
+    typed_rows = apply_schema_to_rows(
+        rows, final_schema, date_format=date_format, timestamp_format=timestamp_format
+    )
 
     return _create_async_records_from_data(database, typed_rows, final_schema)
 

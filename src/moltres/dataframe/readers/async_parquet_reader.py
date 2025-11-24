@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Dict, List, Optional, Sequence, cast
 
 try:
     import pyarrow.parquet as pq
@@ -47,12 +47,25 @@ async def read_parquet(
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 
+    # Extract Parquet options
+    merge_schema = cast(bool, options.get("mergeSchema", False))
+
+    # Note: rebaseDatetimeInRead, datetimeRebaseMode, and int96RebaseMode options
+    # are accepted but not yet implemented (PyArrow handles rebasing automatically)
+
     # For async, we'll read the file content first, then parse
     # Note: pyarrow doesn't have native async support, so we use asyncio.to_thread
     import asyncio
 
     def _read_parquet_sync() -> List[Dict[str, object]]:
-        table = pq.read_table(str(path_obj))
+        read_options: Dict[str, object] = {}
+        if merge_schema:
+            # Note: PyArrow's read_table doesn't directly support mergeSchema
+            # This would require reading multiple files and merging schemas
+            # For single file, this is a no-op
+            pass
+
+        table = pq.read_table(str(path_obj), **read_options)
         try:
             import pandas as pd  # noqa: F401
         except ImportError as exc:

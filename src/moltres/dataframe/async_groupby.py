@@ -260,7 +260,6 @@ class AsyncPivotedGroupedDataFrame:
         if pivot_values is None:
             # Query distinct values from the pivot column
             # We need to use the child plan (before aggregation) to get distinct values
-            from ..logical.plan import LogicalPlan
 
             plan_children = self.plan.children()
             if not plan_children:

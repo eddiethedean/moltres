@@ -49,10 +49,25 @@ async def read_text(
         raise FileNotFoundError(f"Text file not found: {path}")
 
     compression = cast(Optional[str], options.get("compression", None))
-    content = await read_compressed_async(path, compression=compression)
+    encoding = cast(str, options.get("encoding", "UTF-8"))
+    wholetext = cast(bool, options.get("wholetext", False))
+    line_sep = cast(Optional[str], options.get("lineSep", None))
+
+    content = await read_compressed_async(path, compression=compression, encoding=encoding)
     rows: List[Dict[str, object]] = []
-    for line in content.splitlines(keepends=True):
-        rows.append({column_name: line.rstrip("\n\r")})
+
+    if wholetext:
+        # Read entire file as single value
+        rows.append({column_name: content})
+    else:
+        # Read line by line
+        if line_sep:
+            lines = content.split(line_sep)
+            for line in lines:
+                rows.append({column_name: line})
+        else:
+            for line in content.splitlines(keepends=True):
+                rows.append({column_name: line.rstrip("\n\r")})
 
     if not rows:
         return _create_async_records_from_schema(database, [], [])
@@ -89,17 +104,36 @@ async def read_text_stream(
         raise FileNotFoundError(f"Text file not found: {path}")
 
     compression = cast(Optional[str], options.get("compression", None))
+    encoding = cast(str, options.get("encoding", "UTF-8"))
+    wholetext = cast(bool, options.get("wholetext", False))
+    line_sep = cast(Optional[str], options.get("lineSep", None))
 
     async def _chunk_generator() -> AsyncIterator[List[Dict[str, object]]]:
-        content = await read_compressed_async(path, compression=compression)
+        content = await read_compressed_async(path, compression=compression, encoding=encoding)
         chunk: List[Dict[str, object]] = []
-        for line in content.splitlines(keepends=True):
-            chunk.append({column_name: line.rstrip("\n\r")})
-            if len(chunk) >= chunk_size:
-                yield chunk
-                chunk = []
-        if chunk:
-            yield chunk
+
+        if wholetext:
+            # Read entire file as single value
+            yield [{column_name: content}]
+        else:
+            # Read line by line
+            if line_sep:
+                lines = content.split(line_sep)
+                for line in lines:
+                    chunk.append({column_name: line})
+                    if len(chunk) >= chunk_size:
+                        yield chunk
+                        chunk = []
+                if chunk:
+                    yield chunk
+            else:
+                for line in content.splitlines(keepends=True):
+                    chunk.append({column_name: line.rstrip("\n\r")})
+                    if len(chunk) >= chunk_size:
+                        yield chunk
+                        chunk = []
+                if chunk:
+                    yield chunk
 
     # Read first chunk
     first_chunk_gen = _chunk_generator()

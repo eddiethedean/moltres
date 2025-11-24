@@ -8,6 +8,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Chunked File Reading for Large Files** - Files are now read in chunks by default to safely handle files larger than available memory:
+  - **Default Streaming Mode** - All file reads (`db.read.csv()`, `db.read.json()`, etc.) now use chunked reading by default, similar to PySpark's partition-based approach
+  - **Opt-Out Mechanism** - Users can disable chunked reading for small files by setting `stream=False`: `db.read.option("stream", False).csv("small_file.csv")`
+  - **Memory Safety** - Prevents out-of-memory errors when processing large datasets by reading and inserting data incrementally in chunks
+  - **Schema Inference from First Chunk** - Schema is inferred from the first chunk of data, then applied consistently to all subsequent chunks
+  - **Error Recovery** - Temporary tables are automatically cleaned up if chunk insertion fails
+  - **Empty File Handling** - Gracefully handles empty files with or without explicit schemas
+  - **Both Sync and Async** - Full support for both synchronous (`DataFrame`) and asynchronous (`AsyncDataFrame`) operations
+  - This matches PySpark's behavior where files are read in partitions across the cluster, adapted for single-machine processing
+- **PySpark Read API Parity** - Enhanced read API to match PySpark's DataFrameReader with comprehensive option support:
+  - **Builder Methods** - Added `options()` method to set multiple read options at once (PySpark-compatible):
+    - `db.read.options(header=True, delimiter=",").csv("data.csv")`
+    - Works with all read methods: `csv()`, `json()`, `parquet()`, `text()`, etc.
+    - Available on both sync (`DataLoader`, `ReadAccessor`) and async (`AsyncDataLoader`, `AsyncReadAccessor`) APIs
+  - **Text File Method** - Added `textFile()` method as PySpark-compatible alias for `text()`:
+    - `db.read.textFile("log.txt")` - Same as `db.read.text("log.txt")`
+    - Available in both sync and async APIs
+  - **CSV Options** - Comprehensive CSV reading options matching PySpark:
+    - `mode` - Read mode: "PERMISSIVE" (default), "DROPMALFORMED", or "FAILFAST"
+    - `encoding` - File encoding (default: "UTF-8")
+    - `quote` - Quote character (default: '"')
+    - `escape` - Escape character (default: "\\")
+    - `nullValue` - String representation of null (default: "")
+    - `nanValue` - String representation of NaN (default: "NaN")
+    - `dateFormat` - Date format string for parsing dates
+    - `timestampFormat` - Timestamp format string for parsing timestamps
+    - `samplingRatio` - Fraction of rows used for schema inference (default: 1.0)
+    - `columnNameOfCorruptRecord` - Column name for corrupt records
+    - `sep` - Alias for `delimiter`
+    - `quoteAll` - Quote all fields (default: False)
+    - `ignoreLeadingWhiteSpace` - Ignore leading whitespace (default: False)
+    - `ignoreTrailingWhiteSpace` - Ignore trailing whitespace (default: False)
+    - `comment` - Comment character to skip lines
+    - `enforceSchema` - Enforce schema even if it doesn't match data (default: True)
+    - All options work with both sync and async CSV readers
+  - **JSON Options** - Enhanced JSON reading options matching PySpark:
+    - `mode` - Read mode: "PERMISSIVE" (default), "DROPMALFORMED", or "FAILFAST"
+    - `encoding` - File encoding (default: "UTF-8")
+    - `multiLine` - Alias for `multiline` (PySpark-compatible)
+    - `dateFormat` - Date format string for parsing dates
+    - `timestampFormat` - Timestamp format string for parsing timestamps
+    - `samplingRatio` - Fraction of rows used for schema inference (default: 1.0)
+    - `columnNameOfCorruptRecord` - Column name for corrupt records
+    - `lineSep` - Line separator for multiline JSON
+    - `dropFieldIfAllNull` - Drop fields if all values are null (default: False)
+    - All options work with both sync and async JSON readers
+    - Note: Some JSON parsing options (e.g., `allowComments`, `allowUnquotedFieldNames`) are not supported by Python's `json` module and are ignored
+  - **Parquet Options** - Parquet reading options matching PySpark:
+    - `mergeSchema` - Merge schemas from multiple files (default: False)
+    - `rebaseDatetimeInRead` - Rebase datetime values during read (default: True)
+    - `datetimeRebaseMode` - Datetime rebase mode (default: "EXCEPTION")
+    - `int96RebaseMode` - INT96 rebase mode (default: "EXCEPTION")
+    - All options work with both sync and async Parquet readers
+  - **Text Options** - Enhanced text file reading options:
+    - `encoding` - File encoding (default: "UTF-8")
+    - `wholetext` - If True, read entire file as single value (default: False)
+    - `lineSep` - Line separator (default: newline)
+    - All options work with both sync and async text readers
+  - **Read Modes** - Comprehensive error handling modes for CSV and JSON:
+    - `PERMISSIVE` (default) - Sets other fields to null when encountering corrupted records and puts malformed strings into a field configured by `columnNameOfCorruptRecord`
+    - `DROPMALFORMED` - Ignores the whole corrupted records
+    - `FAILFAST` - Throws an exception when it meets corrupted records
+  - **Schema Inference Enhancements** - Enhanced schema inference with date/timestamp format support:
+    - `dateFormat` and `timestampFormat` options now properly influence schema inference
+    - Date and timestamp columns are correctly inferred when formats are provided
+    - Works with CSV, JSON, and JSONL readers
+- **Extended Function Library** - Added 38+ new PySpark-compatible functions across multiple categories:
+  - **Mathematical Functions** - `pow()`, `power()`, `asin()`, `acos()`, `atan()`, `atan2()`, `signum()`, `sign()`, `log2()`, `hypot()` for advanced mathematical operations
+  - **String Functions** - `initcap()`, `instr()`, `locate()`, `translate()` for enhanced string manipulation
+  - **Date/Time Functions** - `to_timestamp()`, `unix_timestamp()`, `from_unixtime()`, `date_trunc()`, `quarter()`, `weekofyear()`, `week()`, `dayofyear()`, `last_day()`, `months_between()` for comprehensive date/time operations
+  - **Window Functions** - `first_value()`, `last_value()` for window-based analytics
+  - **Array Functions** - `array_append()`, `array_prepend()`, `array_remove()`, `array_distinct()`, `array_sort()`, `array_max()`, `array_min()`, `array_sum()` for array manipulation
+  - **JSON Functions** - `json_tuple()`, `from_json()`, `to_json()`, `json_array_length()` for JSON data processing
+  - **Utility Functions** - `rand()`, `randn()`, `hash()`, `md5()`, `sha1()`, `sha2()`, `base64()` for random number generation and hashing
+  - **Additional Functions** - `monotonically_increasing_id()`, `crc32()`, `soundex()` for ID generation and data processing
+  - All functions include dialect-specific SQL compilation for PostgreSQL, MySQL, and SQLite
+  - Functions are available from `moltres.expressions.functions` and can be imported directly
+  - Example: `from moltres.expressions.functions import pow, asin, to_timestamp; df.select(pow(col("x"), 2), asin(col("y")))`
 - **98% PySpark API Compatibility** - Major improvements to match PySpark's DataFrame API:
   - **Raw SQL Query Support** - New `db.sql()` method for executing raw SQL queries, similar to PySpark's `spark.sql()`:
     - Accepts raw SQL strings with optional named parameters (`:param_name` syntax)

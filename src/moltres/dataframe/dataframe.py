@@ -23,6 +23,7 @@ from ..logical.plan import FileScan, LogicalPlan, RawSQL, SortOrder
 from ..sql.compiler import compile_plan
 
 if TYPE_CHECKING:
+    from ..io.records import Records
     from ..table.table import Database, TableHandle
     from .groupby import GroupedDataFrame
     from .writer import DataFrameWriter
@@ -975,7 +976,11 @@ class DataFrame:
         """Materialize FileScan nodes by reading files and creating temporary tables.
 
         When a FileScan is encountered, the file is read, materialized into a temporary
-        table using createDataFrame, and the FileScan is replaced with a TableScan.
+        table, and the FileScan is replaced with a TableScan.
+
+        By default, files are read in chunks (streaming mode) to safely handle large files
+        without loading everything into memory. Set stream=False in options to use
+        in-memory reading for small files.
 
         Args:
             plan: Logical plan that may contain FileScan nodes
@@ -987,19 +992,41 @@ class DataFrame:
             raise RuntimeError("Cannot materialize FileScan without an attached Database")
 
         if isinstance(plan, FileScan):
-            # Read file using existing reader functions
-            rows = self._read_file(plan)
+            # Check if streaming is disabled (opt-out mechanism)
+            # Default is True (streaming/chunked reading) for safety with large files
+            stream_enabled = plan.options.get("stream", True)
+            if isinstance(stream_enabled, bool) and not stream_enabled:
+                # Non-streaming mode: load entire file into memory (current behavior)
+                rows = self._read_file(plan)
 
-            # Materialize into temporary table using createDataFrame
-            # This enables SQL pushdown for subsequent operations
-            # Use auto_pk to create an auto-incrementing primary key for temporary tables
-            temp_df = self.database.createDataFrame(
-                rows, schema=plan.schema, auto_pk="__moltres_rowid__"
-            )
+                # Materialize into temporary table using createDataFrame
+                # This enables SQL pushdown for subsequent operations
+                # Use auto_pk to create an auto-incrementing primary key for temporary tables
+                temp_df = self.database.createDataFrame(
+                    rows, schema=plan.schema, auto_pk="__moltres_rowid__"
+                )
 
-            # createDataFrame returns a DataFrame with a TableScan plan
-            # Return the TableScan plan to replace the FileScan
-            return temp_df.plan
+                # createDataFrame returns a DataFrame with a TableScan plan
+                # Return the TableScan plan to replace the FileScan
+                return temp_df.plan
+            else:
+                # Streaming mode (default): read file in chunks and insert incrementally
+                from .create_dataframe import create_temp_table_from_streaming
+                from ..logical.operators import scan
+
+                # Read file using streaming readers
+                records = self._read_file_streaming(plan)
+
+                # Create temp table from streaming records (chunked insertion)
+                table_name, final_schema = create_temp_table_from_streaming(
+                    self.database,
+                    records,
+                    schema=plan.schema,
+                    auto_pk="__moltres_rowid__",
+                )
+
+                # Return TableScan plan to replace the FileScan
+                return scan(table_name)
 
         # Recursively handle children
         from ..logical.plan import (
@@ -1049,13 +1076,17 @@ class DataFrame:
         return plan
 
     def _read_file(self, filescan: FileScan) -> List[Dict[str, object]]:
-        """Read a file based on FileScan configuration.
+        """Read a file based on FileScan configuration (non-streaming, loads all into memory).
 
         Args:
             filescan: FileScan logical plan node
 
         Returns:
             List of dictionaries representing the file data
+
+        Note:
+            This method loads the entire file into memory. For large files, use
+            _read_file_streaming() instead.
         """
         if self.database is None:
             raise RuntimeError("Cannot read file without an attached Database")
@@ -1088,6 +1119,59 @@ class DataFrame:
             raise ValueError(f"Unsupported file format: {filescan.format}")
 
         return records.rows()
+
+    def _read_file_streaming(self, filescan: FileScan) -> Records:
+        """Read a file in streaming mode (chunked, safe for large files).
+
+        Args:
+            filescan: FileScan logical plan node
+
+        Returns:
+            Records object with _generator set (streaming mode)
+
+        Note:
+            This method returns Records with a generator, allowing chunked processing
+            without loading the entire file into memory. Use this for large files.
+        """
+        if self.database is None:
+            raise RuntimeError("Cannot read file without an attached Database")
+
+        from .readers import (
+            read_csv_stream,
+            read_json_stream,
+            read_jsonl_stream,
+            read_parquet_stream,
+            read_text_stream,
+        )
+
+        if filescan.format == "csv":
+            records = read_csv_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "json":
+            records = read_json_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "jsonl":
+            records = read_jsonl_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "parquet":
+            records = read_parquet_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "text":
+            records = read_text_stream(
+                filescan.path,
+                self.database,
+                filescan.schema,
+                filescan.options,
+                filescan.column_name or "value",
+            )
+        else:
+            raise ValueError(f"Unsupported file format: {filescan.format}")
+
+        return records
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
         """Print the first n rows of the DataFrame.

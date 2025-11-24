@@ -48,6 +48,21 @@ class DataLoader:
         self._options[key] = value
         return self
 
+    def options(self, **options: object) -> "DataLoader":
+        """Set multiple read options at once (PySpark-compatible).
+
+        Args:
+            **options: Dictionary of option key-value pairs
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> df = db.read.options(header=True, delimiter=",").csv("data.csv")
+        """
+        self._options.update(options)
+        return self
+
     def table(self, name: str) -> DataFrame:
         """Read from a database table as a DataFrame.
 
@@ -146,6 +161,18 @@ class DataLoader:
         )
         return DataFrame(plan=plan, database=self._database)
 
+    def textFile(self, path: str, column_name: str = "value") -> DataFrame:
+        """Read a text file as a single column (PySpark-compatible alias for text()).
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            DataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return self.text(path, column_name)
+
     def format(self, source: str) -> "FormatReader":
         """Specify the data source format.
 
@@ -217,6 +244,18 @@ class RecordsLoader:
     def option(self, key: str, value: object) -> "RecordsLoader":
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
         self._options[key] = value
+        return self
+
+    def options(self, **options: object) -> "RecordsLoader":
+        """Set multiple read options at once (PySpark-compatible).
+
+        Args:
+            **options: Dictionary of option key-value pairs
+
+        Returns:
+            Self for method chaining
+        """
+        self._options.update(options)
         return self
 
     def csv(self, path: str) -> LazyRecords:
@@ -387,6 +426,21 @@ class ReadAccessor:
         self._loader.option(key, value)
         return self
 
+    def options(self, **options: object) -> "ReadAccessor":
+        """Set multiple read options at once (PySpark-compatible).
+
+        Args:
+            **options: Dictionary of option key-value pairs
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> df = db.read.options(header=True, delimiter=",").csv("data.csv")
+        """
+        self._loader.options(**options)
+        return self
+
     # DataFrame read methods (delegate to DataLoader)
     def table(self, name: str) -> DataFrame:
         """Read from a database table as a DataFrame.
@@ -461,6 +515,18 @@ class ReadAccessor:
             DataFrame containing the text file lines (lazy, materialized on .collect())
         """
         return self._loader.text(path, column_name)
+
+    def textFile(self, path: str, column_name: str = "value") -> DataFrame:
+        """Read a text file as a single column (PySpark-compatible alias for text()).
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            DataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return self._loader.textFile(path, column_name)
 
     def format(self, source: str) -> FormatReader:
         """Specify the data source format.

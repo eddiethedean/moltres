@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence, cast
 
 from ...io.records import Records
 from ...table.schema import ColumnDef
@@ -51,8 +51,22 @@ def read_parquet(
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 
-    # Read parquet file
-    table = pq.read_table(str(path_obj))
+    # Extract Parquet options
+    merge_schema = cast(bool, options.get("mergeSchema", False))
+
+    # Read parquet file with options
+    read_options: Dict[str, object] = {}
+    if merge_schema:
+        # Note: PyArrow's read_table doesn't directly support mergeSchema
+        # This would require reading multiple files and merging schemas
+        # For single file, this is a no-op
+        pass
+
+    # Handle datetime rebasing (PyArrow handles this automatically in newer versions)
+    # For older versions, we may need to handle this manually
+    # Note: rebaseDatetimeInRead, datetimeRebaseMode, and int96RebaseMode options
+    # are accepted but not yet implemented (PyArrow handles rebasing automatically)
+    table = pq.read_table(str(path_obj), **read_options)
     df = table.to_pandas()
 
     # Convert to list of dicts

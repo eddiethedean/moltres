@@ -23,6 +23,7 @@ from ..logical.plan import FileScan, LogicalPlan, RawSQL, SortOrder
 from ..sql.compiler import compile_plan
 
 if TYPE_CHECKING:
+    from ..io.records import AsyncRecords
     from ..table.async_table import AsyncDatabase, AsyncTableHandle
     from .async_groupby import AsyncGroupedDataFrame
     from .async_writer import AsyncDataFrameWriter
@@ -734,7 +735,11 @@ class AsyncDataFrame:
         """Materialize FileScan nodes by reading files and creating temporary tables.
 
         When a FileScan is encountered, the file is read, materialized into a temporary
-        table using createDataFrame, and the FileScan is replaced with a TableScan.
+        table, and the FileScan is replaced with a TableScan.
+
+        By default, files are read in chunks (streaming mode) to safely handle large files
+        without loading everything into memory. Set stream=False in options to use
+        in-memory reading for small files.
 
         Args:
             plan: Logical plan that may contain FileScan nodes
@@ -748,19 +753,41 @@ class AsyncDataFrame:
             raise RuntimeError("Cannot materialize FileScan without an attached AsyncDatabase")
 
         if isinstance(plan, FileScan):
-            # Read file using existing async reader functions
-            rows = await self._read_file(plan)
+            # Check if streaming is disabled (opt-out mechanism)
+            # Default is True (streaming/chunked reading) for safety with large files
+            stream_enabled = plan.options.get("stream", True)
+            if isinstance(stream_enabled, bool) and not stream_enabled:
+                # Non-streaming mode: load entire file into memory (current behavior)
+                rows = await self._read_file(plan)
 
-            # Materialize into temporary table using createDataFrame
-            # This enables SQL pushdown for subsequent operations
-            # Use auto_pk to create an auto-incrementing primary key for temporary tables
-            temp_df = await self.database.createDataFrame(
-                rows, schema=plan.schema, auto_pk="__moltres_rowid__"
-            )
+                # Materialize into temporary table using createDataFrame
+                # This enables SQL pushdown for subsequent operations
+                # Use auto_pk to create an auto-incrementing primary key for temporary tables
+                temp_df = await self.database.createDataFrame(
+                    rows, schema=plan.schema, auto_pk="__moltres_rowid__"
+                )
 
-            # createDataFrame returns an AsyncDataFrame with a TableScan plan
-            # Return the TableScan plan to replace the FileScan
-            return temp_df.plan
+                # createDataFrame returns an AsyncDataFrame with a TableScan plan
+                # Return the TableScan plan to replace the FileScan
+                return temp_df.plan
+            else:
+                # Streaming mode (default): read file in chunks and insert incrementally
+                from ..dataframe.create_dataframe import create_temp_table_from_streaming_async
+                from ..logical.operators import scan
+
+                # Read file using streaming readers
+                records = await self._read_file_streaming(plan)
+
+                # Create temp table from streaming records (chunked insertion)
+                table_name, final_schema = await create_temp_table_from_streaming_async(
+                    self.database,
+                    records,
+                    schema=plan.schema,
+                    auto_pk="__moltres_rowid__",
+                )
+
+                # Return TableScan plan to replace the FileScan
+                return scan(table_name)
 
         # Recursively handle children
         from ..logical.plan import (
@@ -810,13 +837,17 @@ class AsyncDataFrame:
         return plan
 
     async def _read_file(self, filescan: FileScan) -> List[Dict[str, object]]:
-        """Read a file based on FileScan configuration.
+        """Read a file based on FileScan configuration (non-streaming, loads all into memory).
 
         Args:
             filescan: FileScan logical plan node
 
         Returns:
             List of dictionaries representing the file data
+
+        Note:
+            This method loads the entire file into memory. For large files, use
+            _read_file_streaming() instead.
         """
         if self.database is None:
             raise RuntimeError("Cannot read file without an attached AsyncDatabase")
@@ -861,6 +892,62 @@ class AsyncDataFrame:
 
         # AsyncRecords.rows() returns a coroutine, so we need to await it
         return await records.rows()
+
+    async def _read_file_streaming(self, filescan: FileScan) -> "AsyncRecords":
+        """Read a file in streaming mode (chunked, safe for large files).
+
+        Args:
+            filescan: FileScan logical plan node
+
+        Returns:
+            AsyncRecords object with _generator set (streaming mode)
+
+        Note:
+            This method returns AsyncRecords with a generator, allowing chunked processing
+            without loading the entire file into memory. Use this for large files.
+        """
+        if self.database is None:
+            raise RuntimeError("Cannot read file without an attached AsyncDatabase")
+
+        from ..dataframe.readers.async_csv_reader import read_csv_stream
+        from ..dataframe.readers.async_json_reader import read_json_stream, read_jsonl_stream
+        from ..dataframe.readers.async_text_reader import read_text_stream
+
+        if filescan.format == "csv":
+            records = await read_csv_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "json":
+            records = await read_json_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "jsonl":
+            records = await read_jsonl_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "parquet":
+            # Lazy import for parquet
+            try:
+                from ..dataframe.readers.async_parquet_reader import read_parquet_stream
+            except ImportError:
+                raise ImportError(
+                    "Parquet support requires pyarrow. Install with: pip install pyarrow"
+                )
+            records = await read_parquet_stream(
+                filescan.path, self.database, filescan.schema, filescan.options
+            )
+        elif filescan.format == "text":
+            records = await read_text_stream(
+                filescan.path,
+                self.database,
+                filescan.schema,
+                filescan.options,
+                filescan.column_name or "value",
+            )
+        else:
+            raise ValueError(f"Unsupported file format: {filescan.format}")
+
+        return records
 
     @property
     def na(self) -> "AsyncNullHandling":
