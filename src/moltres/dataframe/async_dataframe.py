@@ -11,6 +11,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Union,
     overload,
@@ -18,7 +19,7 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical import operators
-from ..logical.plan import FileScan, LogicalPlan, SortOrder
+from ..logical.plan import FileScan, LogicalPlan, RawSQL, SortOrder
 from ..sql.compiler import compile_plan
 
 if TYPE_CHECKING:
@@ -47,14 +48,189 @@ class AsyncDataFrame:
         return df
 
     def select(self, *columns: Union[Column, str]) -> "AsyncDataFrame":
-        """Select columns from the DataFrame."""
+        """Select columns from the DataFrame.
+
+        Args:
+            *columns: Column names or Column expressions to select.
+                     Use "*" to select all columns (same as empty select).
+                     Can combine "*" with other columns: select("*", col("new_col"))
+
+        Returns:
+            New AsyncDataFrame with selected columns
+
+        Example:
+            >>> # Select specific columns
+            >>> df = await db.table("users").select("id", "name", "email")
+            
+            >>> # Select all columns (empty select or "*")
+            >>> df = await db.table("users").select()  # or .select("*")
+            
+            >>> # Select all columns plus new ones
+            >>> df = await db.table("orders").select("*", (col("amount") * 1.1).alias("with_tax"))
+        """
         if not columns:
             return self
-        normalized = tuple(self._normalize_projection(column) for column in columns)
-        return self._with_plan(operators.project(self.plan, normalized))
+        
+        # Handle "*" as special case
+        if len(columns) == 1 and isinstance(columns[0], str) and columns[0] == "*":
+            return self
+        
+        # Check if "*" is in the columns (only check string elements, not Column objects)
+        has_star = any(isinstance(col, str) and col == "*" for col in columns)
+        
+        # Import Column at the top of the method
+        from ..expressions.column import Column
+        
+        # Normalize all columns first and check for explode
+        normalized_columns = []
+        explode_column = None
+        
+        for col_expr in columns:
+            if isinstance(col_expr, str) and col_expr == "*":
+                # Handle "*" separately - add star column
+                star_col = Column(op="star", args=(), _alias=None)
+                normalized_columns.append(star_col)
+                continue
+            
+            normalized = self._normalize_projection(col_expr)
+            
+            # Check if this is an explode() column
+            if isinstance(normalized, Column) and normalized.op == "explode":
+                if explode_column is not None:
+                    raise ValueError(
+                        "Multiple explode() columns are not supported. "
+                        "Only one explode() can be used per select() operation."
+                    )
+                explode_column = normalized
+            else:
+                normalized_columns.append(normalized)
+        
+        # If we have an explode column, we need to handle it specially
+        if explode_column is not None:
+            # Extract the column being exploded and the alias
+            exploded_column = explode_column.args[0] if explode_column.args else None
+            if not isinstance(exploded_column, Column):
+                raise ValueError("explode() requires a Column expression")
+            
+            alias = explode_column._alias or "value"
+            
+            # Create Explode logical plan
+            exploded_plan = operators.explode(self.plan, exploded_column, alias=alias)
+            
+            # Create Project on top of Explode
+            # If we have "*", we want all columns from the exploded result
+            # Otherwise, we want the exploded column (with alias) plus any other specified columns
+            project_columns = []
+            
+            if has_star:
+                # Select all columns from exploded result (including the exploded column)
+                star_col = Column(op="star", args=(), _alias=None)
+                project_columns.append(star_col)
+                # Also add any other explicitly specified columns
+                for col in normalized_columns:
+                    if col.op != "star":
+                        project_columns.append(col)
+            else:
+                # Add the exploded column with its alias first
+                exploded_result_col = Column(op="column", args=(alias,), _alias=None)
+                project_columns.append(exploded_result_col)
+                # Add any other columns
+                project_columns.extend(normalized_columns)
+            
+            return self._with_plan(operators.project(exploded_plan, tuple(project_columns)))
+        
+        # No explode columns, normal projection
+        if has_star and not normalized_columns:
+            return self  # Only "*", same as empty select
+        
+        return self._with_plan(operators.project(self.plan, tuple(normalized_columns)))
 
-    def where(self, predicate: Column) -> "AsyncDataFrame":
-        """Filter rows based on a predicate."""
+    def selectExpr(self, *exprs: str) -> "AsyncDataFrame":
+        """Select columns using SQL expressions (async version).
+
+        This method allows you to write SQL expressions directly instead of
+        building Column objects manually, similar to PySpark's selectExpr().
+
+        Args:
+            *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
+
+        Returns:
+            New AsyncDataFrame with selected expressions
+
+        Example:
+            >>> # Basic column selection
+            >>> await df.selectExpr("id", "name", "email")
+
+            >>> # With expressions and aliases
+            >>> await df.selectExpr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
+        """
+        from ..expressions.sql_parser import parse_sql_expr
+
+        if not exprs:
+            return self
+
+        # Get available column names from the DataFrame for context
+        available_columns: Optional[Set[str]] = None
+        try:
+            # Try to extract column names from the current plan
+            if hasattr(self.plan, "projections"):
+                available_columns = set()
+                for proj in self.plan.projections:
+                    if isinstance(proj, Column) and proj.op == "column" and proj.args:
+                        available_columns.add(str(proj.args[0]))
+        except Exception:
+            # If we can't extract columns, that's okay - parser will still work
+            pass
+
+        # Parse each SQL expression into a Column expression
+        parsed_columns = []
+        for expr_str in exprs:
+            parsed_col = parse_sql_expr(expr_str, available_columns)
+            parsed_columns.append(parsed_col)
+
+        # Use the existing select() method with parsed columns
+        return self.select(*parsed_columns)
+
+    def where(self, predicate: Union[Column, str]) -> "AsyncDataFrame":
+        """Filter rows based on a predicate.
+
+        Args:
+            predicate: Column expression or SQL string representing the filter condition.
+                      Can be a Column object or a SQL string like "age > 18".
+
+        Returns:
+            New AsyncDataFrame with filtered rows
+
+        Example:
+            >>> from moltres import col
+            >>> # Filter by condition using Column
+            >>> df = await db.table("users").select().where(col("age") >= 18)
+            
+            >>> # Filter using SQL string
+            >>> df = await db.table("users").select().where("age > 18")
+            
+            >>> # Multiple conditions with SQL string
+            >>> df = await db.table("orders").select().where("amount > 100 AND status = 'active'")
+        """
+        # If predicate is a string, parse it into a Column expression
+        if isinstance(predicate, str):
+            from ..expressions.sql_parser import parse_sql_expr
+            
+            # Get available column names from the DataFrame for context
+            available_columns: Optional[Set[str]] = None
+            try:
+                # Try to extract column names from the current plan
+                if hasattr(self.plan, "projections"):
+                    available_columns = set()
+                    for proj in self.plan.projections:
+                        if isinstance(proj, Column) and proj.op == "column" and proj.args:
+                            available_columns.add(str(proj.args[0]))
+            except Exception:
+                # If we can't extract columns, that's okay - parser will still work
+                pass
+            
+            predicate = parse_sql_expr(predicate, available_columns)
+        
         return self._with_plan(operators.filter(self.plan, predicate))
 
     filter = where
@@ -174,6 +350,7 @@ class AsyncDataFrame:
         return self._with_plan(operators.order_by(self.plan, sort_orders))
 
     orderBy = order_by
+    sort = order_by  # PySpark-style alias
 
     def limit(self, count: int) -> "AsyncDataFrame":
         """Limit the number of rows returned."""
@@ -269,9 +446,26 @@ class AsyncDataFrame:
             new_col = dataclass_replace(new_col, _alias=colName)
 
         if isinstance(self.plan, Project):
-            new_projections = list(self.plan.projections) + [new_col]
+            # Add the new column to existing projections
+            # Remove any column with the same name (replace behavior)
+            existing_cols = []
+            for col_expr in self.plan.projections:
+                if isinstance(col_expr, Column):
+                    # Check if this column matches the colName (by alias or column name)
+                    col_alias = col_expr._alias
+                    col_name = col_expr.args[0] if col_expr.op == "column" and col_expr.args else None
+                    if col_alias == colName or col_name == colName:
+                        # Skip this column - it will be replaced by new_col
+                        continue
+                existing_cols.append(col_expr)
+            # Add the new column at the end
+            new_projections = existing_cols + [new_col]
         else:
-            new_projections = [new_col]
+            # No existing projection, select all plus new column
+            # Use a wildcard select and add the new column
+            from ..expressions.column import Column
+            star_col = Column(op="star", args=(), _alias=None)
+            new_projections = [star_col, new_col]
 
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
@@ -498,6 +692,21 @@ class AsyncDataFrame:
         if self.database is None:
             raise RuntimeError("Cannot collect a plan without an attached AsyncDatabase")
 
+        # Handle RawSQL at root level - execute directly for efficiency
+        if isinstance(self.plan, RawSQL):
+            if stream:
+                # For streaming, we need to use execute_plan_stream which expects a compiled plan
+                # So we'll compile the RawSQL plan
+                plan = await self._materialize_filescan(self.plan)
+                async def stream_gen() -> AsyncIterator[List[Dict[str, object]]]:
+                    async for chunk in self.database.execute_plan_stream(plan):  # type: ignore[union-attr]
+                        yield chunk
+                return stream_gen()
+            else:
+                # Execute RawSQL directly
+                result = await self.database.execute_sql(self.plan.sql, params=self.plan.params)
+                return result.rows  # type: ignore[no-any-return]
+
         # Handle FileScan by materializing file data into a temporary table
         plan = await self._materialize_filescan(self.plan)
 
@@ -567,6 +776,10 @@ class AsyncDataFrame:
             Sort,
             Union,
         )
+
+        # RawSQL doesn't need materialization - it's handled directly in collect()
+        if isinstance(plan, RawSQL):
+            return plan
 
         if isinstance(
             plan, (Project, Filter, Limit, Sample, Sort, Distinct, Aggregate, Explode, Pivot)

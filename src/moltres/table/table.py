@@ -153,6 +153,43 @@ class Database:
 
         return ReadAccessor(self)
 
+    def sql(self, sql: str, **params: object) -> "DataFrame":
+        """Execute a SQL query and return a DataFrame.
+
+        Similar to PySpark's `spark.sql()`, this method accepts a raw SQL string
+        and returns a lazy DataFrame that can be chained with further operations.
+        The SQL dialect is determined by the database connection.
+
+        Args:
+            sql: SQL query string to execute
+            **params: Optional named parameters for parameterized queries.
+                     Use `:param_name` syntax in SQL and pass values as kwargs.
+
+        Returns:
+            Lazy DataFrame that can be chained with further operations
+
+        Example:
+            >>> # Basic SQL query
+            >>> df = db.sql("SELECT * FROM users WHERE age > 18")
+            >>> results = df.collect()
+            
+            >>> # Parameterized query
+            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status", 
+            ...             id=1, status="active")
+            >>> results = df.collect()
+            
+            >>> # Chaining operations
+            >>> df = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(10)
+            >>> results = df.collect()
+        """
+        from ..dataframe.dataframe import DataFrame
+        from ..logical import operators
+
+        # Convert params dict to the format expected by RawSQL
+        params_dict = params if params else None
+        plan = operators.raw_sql(sql, params_dict)
+        return DataFrame(plan=plan, database=self)
+
     # -------------------------------------------------------------- DDL operations
     def create_table(
         self,

@@ -38,6 +38,16 @@ class AsyncConnectionManager:
         Raises:
             ValueError: If DSN doesn't support async (missing +asyncpg, +aiomysql, etc.)
         """
+        # If an engine is provided in config, use it directly
+        if self.config.engine is not None:
+            if not isinstance(self.config.engine, AsyncEngine):
+                raise TypeError("engine must be a SQLAlchemy AsyncEngine instance")
+            return self.config.engine
+
+        # Otherwise, create a new engine from DSN
+        if self.config.dsn is None:
+            raise ValueError("Either 'dsn' or 'engine' must be provided in EngineConfig")
+        
         dsn = self.config.dsn
 
         # Check if DSN already has async driver specified

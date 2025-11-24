@@ -18,12 +18,14 @@ from .plan import (
     Explode,
     FileScan,
     Filter,
+    GroupedPivot,
     Intersect,
     Join,
     Limit,
     LogicalPlan,
     Pivot,
     Project,
+    RawSQL,
     RecursiveCTE,
     Sample,
     SemiJoin,
@@ -376,6 +378,38 @@ def pivot(
     )
 
 
+def grouped_pivot(
+    child: LogicalPlan,
+    grouping: tuple[Column, ...],
+    pivot_column: str,
+    value_column: str,
+    agg_func: str = "sum",
+    pivot_values: Sequence[str] | None = None,
+) -> GroupedPivot:
+    """Create a GroupedPivot logical plan node.
+
+    Args:
+        child: Child logical plan
+        grouping: Columns to group by
+        pivot_column: Column to pivot on (becomes column headers)
+        value_column: Column containing values to aggregate
+        agg_func: Aggregation function name (e.g., "sum", "avg", "count")
+        pivot_values: Optional list of specific values to pivot (if None, must be provided or discovered)
+
+    Returns:
+        GroupedPivot logical plan node
+    """
+    pivot_values_tuple = tuple(pivot_values) if pivot_values else None
+    return GroupedPivot(
+        child=child,
+        grouping=grouping,
+        pivot_column=pivot_column,
+        value_column=value_column,
+        agg_func=agg_func,
+        pivot_values=pivot_values_tuple,
+    )
+
+
 def explode(child: LogicalPlan, column: Column, alias: str = "value") -> Explode:
     """Create an Explode logical plan node (expands array/JSON column into multiple rows).
 
@@ -388,3 +422,16 @@ def explode(child: LogicalPlan, column: Column, alias: str = "value") -> Explode
         Explode logical plan node
     """
     return Explode(child=child, column=column, alias=alias)
+
+
+def raw_sql(sql: str, params: Dict[str, object] | None = None) -> RawSQL:
+    """Create a RawSQL logical plan node.
+
+    Args:
+        sql: SQL query string to execute
+        params: Optional dictionary of named parameters for parameterized queries
+
+    Returns:
+        RawSQL logical plan node
+    """
+    return RawSQL(sql=sql, params=params)

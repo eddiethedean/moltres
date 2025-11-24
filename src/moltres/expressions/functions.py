@@ -90,6 +90,7 @@ __all__ = [
     "percentile_disc",
     "date_add",
     "date_sub",
+    "explode",
 ]
 
 
@@ -1190,3 +1191,26 @@ def percentile_disc(column: ColumnLike, fraction: float) -> Column:
     if not 0.0 <= fraction <= 1.0:
         raise ValueError("fraction must be between 0.0 and 1.0")
     return Column(op="agg_percentile_disc", args=(ensure_column(column), fraction))
+
+
+def explode(column: ColumnLike) -> Column:
+    """Explode an array/JSON column into multiple rows (one row per element).
+
+    This function can be used in select() to expand array or JSON columns,
+    similar to PySpark's explode() function.
+
+    Args:
+        column: Column expression to explode (must be array or JSON)
+
+    Returns:
+        Column expression for explode operation
+
+    Example:
+        >>> from moltres.expressions.functions import explode
+        >>> from moltres import col
+        >>> df.select(explode(col("array_col")).alias("value"))
+        >>> # PySpark equivalent:
+        >>> # from pyspark.sql.functions import explode
+        >>> # df.select(explode(col("array_col")).alias("value"))
+    """
+    return Column(op="explode", args=(ensure_column(column),))

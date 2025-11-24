@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Raw SQL Query Support** - New `db.sql()` method for executing raw SQL queries, similar to PySpark's `spark.sql()`:
+  - Accepts raw SQL strings with optional named parameters (`:param_name` syntax)
+  - Returns lazy `DataFrame` objects that can be chained with other operations
+  - Supports parameterized queries for security and flexibility
+  - Raw SQL is automatically wrapped in subqueries when chained, enabling full DataFrame API compatibility
+  - Works with both synchronous (`db.sql()`) and asynchronous (`await db.sql()`) databases
+  - SQL dialect is determined by the database connection
+  - Example: `db.sql("SELECT * FROM users WHERE id = :id", id=1).where(col("age") > 18).collect()`
+- **SQL Expression Selection** - New `selectExpr()` method on DataFrame for writing SQL expressions directly, matching PySpark's `selectExpr()` API:
+  - Accepts SQL expression strings (e.g., `"amount * 1.1 as with_tax"`)
+  - Parses SQL expressions into Column expressions automatically
+  - Supports arithmetic operations, functions, comparisons, literals, and aliases
+  - Full SQL expression parser with operator precedence handling
+  - Works with both synchronous (`df.selectExpr()`) and asynchronous (`await df.selectExpr()`) DataFrames
+  - Returns lazy `DataFrame` objects that can be chained with other operations
+  - Example: `df.selectExpr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")`
+- **Select All Columns with `select("*")`** - Support for `df.select("*")` to explicitly select all columns, matching PySpark's API:
+  - `select("*")` alone is equivalent to `select()` (selects all columns)
+  - Can combine `"*"` with other columns: `select("*", col("new_col"))` or `select("*", "column_name")`
+  - Works with both synchronous and asynchronous DataFrames
+  - Example: `df.select("*", (col("amount") * 1.1).alias("with_tax"))`
+- **SQL String Predicates in `filter()` and `where()`** - Support for SQL string predicates in filtering methods, matching PySpark's API:
+  - `filter()` and `where()` now accept both `Column` expressions and SQL strings
+  - Supports basic comparison operators (`>`, `<`, `>=`, `<=`, `=`, `!=`)
+  - Works with both synchronous and asynchronous DataFrames
+  - Complex predicates can be achieved by chaining multiple filters or using Column API
+  - Example: `df.filter("age > 18")` or `df.where("amount >= 100 AND status = 'active'")`
+
 ## [0.8.0] - 2025-11-22
 
 ### Added

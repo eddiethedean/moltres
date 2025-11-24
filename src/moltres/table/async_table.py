@@ -138,6 +138,43 @@ class AsyncDatabase:
 
         return AsyncReadAccessor(self)
 
+    def sql(self, sql: str, **params: object) -> "AsyncDataFrame":
+        """Execute a SQL query and return an AsyncDataFrame.
+
+        Similar to PySpark's `spark.sql()`, this method accepts a raw SQL string
+        and returns a lazy AsyncDataFrame that can be chained with further operations.
+        The SQL dialect is determined by the database connection.
+
+        Args:
+            sql: SQL query string to execute
+            **params: Optional named parameters for parameterized queries.
+                     Use `:param_name` syntax in SQL and pass values as kwargs.
+
+        Returns:
+            Lazy AsyncDataFrame that can be chained with further operations
+
+        Example:
+            >>> # Basic SQL query
+            >>> df = db.sql("SELECT * FROM users WHERE age > 18")
+            >>> results = await df.collect()
+            
+            >>> # Parameterized query
+            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status", 
+            ...             id=1, status="active")
+            >>> results = await df.collect()
+            
+            >>> # Chaining operations
+            >>> df = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(10)
+            >>> results = await df.collect()
+        """
+        from ..dataframe.async_dataframe import AsyncDataFrame
+        from ..logical import operators
+
+        # Convert params dict to the format expected by RawSQL
+        params_dict = params if params else None
+        plan = operators.raw_sql(sql, params_dict)
+        return AsyncDataFrame(plan=plan, database=self)
+
     # -------------------------------------------------------------- DDL operations
     def create_table(
         self,

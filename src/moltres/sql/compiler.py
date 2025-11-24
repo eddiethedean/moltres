@@ -17,7 +17,10 @@ from sqlalchemy import (
     or_,
     not_,
     literal,
+    literal_column,
+    column,
     cast as sqlalchemy_cast,
+    text,
 )
 from sqlalchemy.sql import Select, ColumnElement
 
@@ -32,12 +35,14 @@ from ..logical.plan import (
     Explode,
     FileScan,
     Filter,
+    GroupedPivot,
     Intersect,
     Join,
     Limit,
     LogicalPlan,
     Pivot,
     Project,
+    RawSQL,
     RecursiveCTE,
     Sample,
     SemiJoin,
@@ -139,6 +144,29 @@ class SQLCompiler:
 
             # Return a select from the recursive CTE
             return select(literal_column("*")).select_from(recursive_cte_obj)
+
+        if isinstance(plan, RawSQL):
+            # Wrap raw SQL in a subquery so it can be used in SELECT statements
+            # and support chaining operations
+            from sqlalchemy import literal_column
+
+            # Create a text() statement from the SQL string
+            sql_text = text(plan.sql)
+            
+            # If parameters are provided, bind them
+            if plan.params:
+                sql_text = sql_text.bindparams(**plan.params)
+            
+            # Use text().columns() to define it as a subquery with all columns
+            # This allows SQLAlchemy to properly wrap it in parentheses
+            # We use literal_column("*") to represent all columns
+            sql_text_with_cols = sql_text.columns(literal_column("*"))
+            
+            # Create a subquery from the text with columns
+            sql_subq = sql_text_with_cols.subquery()
+            
+            # Return a SELECT * from the subquery
+            return select(literal_column("*")).select_from(sql_subq)
 
         if isinstance(plan, TableScan):
             sa_table = table(plan.table)
@@ -498,6 +526,64 @@ class SQLCompiler:
             stmt = select(*projections).select_from(child_stmt.subquery())
             return stmt
 
+        if isinstance(plan, GroupedPivot):
+            # Grouped pivot operation - combines GROUP BY with pivot
+            child_stmt = self._compile_plan(plan.child)
+            from sqlalchemy import literal_column
+
+            # pivot_values should always be provided at this point (inferred in agg() if not provided)
+            if not plan.pivot_values:
+                raise CompilationError(
+                    "GROUPED_PIVOT without pivot_values. "
+                    "This should not happen - pivot_values should be inferred in agg() if not provided.",
+                )
+
+            # Convert child to subquery
+            if isinstance(child_stmt, Select):
+                child_subq = child_stmt.subquery()
+            else:
+                child_subq = child_stmt
+
+            # Compile grouping columns
+            group_by_cols = [self._expr.compile_expr(col) for col in plan.grouping]
+
+            # Use CASE WHEN with aggregation for cross-dialect compatibility
+            projections = list(group_by_cols)  # Start with grouping columns
+            from typing import Callable as CallableType
+            from sqlalchemy.sql import ColumnElement as ColumnElementType
+
+            agg_func_map: dict[str, CallableType[..., ColumnElementType[Any]]] = {
+                "sum": func.sum,
+                "avg": func.avg,
+                "count": func.count,
+                "min": func.min,
+                "max": func.max,
+            }
+            agg = agg_func_map.get(plan.agg_func.lower(), func.sum)
+            assert agg is not None  # Always has default
+
+            for pivot_value in plan.pivot_values:
+                # Create aggregation with CASE WHEN
+                # Reference columns from the child subquery using literal_column
+                # SQLAlchemy will resolve these from the subquery context
+                pivot_col_ref = literal_column(plan.pivot_column)
+                value_col_ref = literal_column(plan.value_column)
+                case_expr = agg(
+                    case(
+                        (
+                            pivot_col_ref == literal(pivot_value),
+                            value_col_ref,
+                        ),
+                        else_=None,
+                    )
+                ).label(pivot_value)
+                projections.append(case_expr)
+
+            stmt = select(*projections).select_from(child_subq)
+            if group_by_cols:
+                stmt = stmt.group_by(*group_by_cols)
+            return stmt
+
         if isinstance(plan, AntiJoin):
             # Anti-join: equivalent to LEFT JOIN with IS NULL filter
             # SELECT left.* FROM left LEFT JOIN right ON condition WHERE right.key IS NULL
@@ -717,7 +803,17 @@ class ExpressionCompiler:
 
     def _compile(self, expression: Column) -> ColumnElement:
         """Compile a Column expression to a SQLAlchemy column expression."""
+        # Import here to ensure it's available throughout the method
+        from sqlalchemy import column as sa_column, literal_column
+        
         op = expression.op
+
+        if op == "star":
+            # "*" means select all columns - use literal_column("*")
+            result = literal_column("*")
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
 
         if op == "column":
             col_name = expression.args[0]
@@ -733,7 +829,6 @@ class ExpressionCompiler:
                 ) from None
 
             # Handle qualified column names (table.column)
-            from sqlalchemy import column as sa_column
 
             sa_col: ColumnElement[Any]
             if "." in col_name:
@@ -750,8 +845,6 @@ class ExpressionCompiler:
                     except (KeyError, AttributeError, TypeError):
                         # Column not found in subquery, try using table-qualified literal
                         # This might work if the subquery preserves table info
-                        from sqlalchemy import literal_column
-
                         quote = self.dialect.quote_char
                         sa_col = typing_cast(
                             ColumnElement[Any],
@@ -759,8 +852,6 @@ class ExpressionCompiler:
                         )
                 else:
                     # No subquery context, use qualified literal column
-                    from sqlalchemy import literal_column
-
                     quote = self.dialect.quote_char
                     sa_col = typing_cast(
                         ColumnElement[Any],
@@ -807,22 +898,40 @@ class ExpressionCompiler:
             return result
         if op == "eq":
             left, right = expression.args
-            return self._compile(left) == self._compile(right)
+            result = self._compile(left) == self._compile(right)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "ne":
             left, right = expression.args
-            return self._compile(left) != self._compile(right)
+            result = self._compile(left) != self._compile(right)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "lt":
             left, right = expression.args
-            return self._compile(left) < self._compile(right)
+            result = self._compile(left) < self._compile(right)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "le":
             left, right = expression.args
-            return self._compile(left) <= self._compile(right)
+            result = self._compile(left) <= self._compile(right)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "gt":
             left, right = expression.args
-            return self._compile(left) > self._compile(right)
+            result = self._compile(left) > self._compile(right)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "ge":
             left, right = expression.args
-            return self._compile(left) >= self._compile(right)
+            result = self._compile(left) >= self._compile(right)
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
 
         if op == "floor_div":
             left, right = expression.args
@@ -1040,10 +1149,16 @@ class ExpressionCompiler:
             return -self._compile(expression.args[0])
         if op == "and":
             left, right = expression.args
-            return and_(self._compile(left), self._compile(right))
+            result = and_(self._compile(left), self._compile(right))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "or":
             left, right = expression.args
-            return or_(self._compile(left), self._compile(right))
+            result = or_(self._compile(left), self._compile(right))
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "not":
             return not_(self._compile(expression.args[0]))
         if op == "between":

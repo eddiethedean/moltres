@@ -11,6 +11,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Union,
     overload,
@@ -18,7 +19,7 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical import operators
-from ..logical.plan import FileScan, LogicalPlan, SortOrder
+from ..logical.plan import FileScan, LogicalPlan, RawSQL, SortOrder
 from ..sql.compiler import compile_plan
 
 if TYPE_CHECKING:
@@ -47,7 +48,9 @@ class DataFrame:
         """Select specific columns from the DataFrame.
 
         Args:
-            *columns: Column names or Column expressions to select
+            *columns: Column names or Column expressions to select.
+                     Use "*" to select all columns (same as empty select).
+                     Can combine "*" with other columns: select("*", col("new_col"))
 
         Returns:
             New DataFrame with selected columns
@@ -57,6 +60,10 @@ class DataFrame:
             >>> df = db.table("users").select("id", "name", "email")
             >>> # SQL: SELECT id, name, email FROM users
 
+            >>> # Select all columns (empty select or "*")
+            >>> df = db.table("users").select()  # or .select("*")
+            >>> # SQL: SELECT * FROM users
+
             >>> # Select with expressions
             >>> from moltres import col
             >>> df = db.table("orders").select(
@@ -64,33 +71,187 @@ class DataFrame:
             ...     (col("amount") * 1.1).alias("amount_with_tax")
             ... )
             >>> # SQL: SELECT id, amount * 1.1 AS amount_with_tax FROM orders
+            
+            >>> # Select all columns plus new ones
+            >>> df = db.table("orders").select("*", (col("amount") * 1.1).alias("with_tax"))
+            >>> # SQL: SELECT *, amount * 1.1 AS with_tax FROM orders
         """
         if not columns:
             return self
-        normalized = tuple(self._normalize_projection(column) for column in columns)
-        return self._with_plan(operators.project(self.plan, normalized))
+        
+        # Handle "*" as special case
+        if len(columns) == 1 and isinstance(columns[0], str) and columns[0] == "*":
+            return self
+        
+        # Check if "*" is in the columns (only check string elements, not Column objects)
+        has_star = any(isinstance(col, str) and col == "*" for col in columns)
+        
+        # Normalize all columns first and check for explode
+        normalized_columns = []
+        explode_column = None
+        
+        for col_expr in columns:
+            if isinstance(col_expr, str) and col_expr == "*":
+                # Handle "*" separately - add star column
+                star_col = Column(op="star", args=(), _alias=None)
+                normalized_columns.append(star_col)
+                continue
+            
+            normalized = self._normalize_projection(col_expr)
+            
+            # Check if this is an explode() column
+            if isinstance(normalized, Column) and normalized.op == "explode":
+                if explode_column is not None:
+                    raise ValueError(
+                        "Multiple explode() columns are not supported. "
+                        "Only one explode() can be used per select() operation."
+                    )
+                explode_column = normalized
+            else:
+                normalized_columns.append(normalized)
+        
+        # If we have an explode column, we need to handle it specially
+        if explode_column is not None:
+            # Extract the column being exploded and the alias
+            exploded_column = explode_column.args[0] if explode_column.args else None
+            if not isinstance(exploded_column, Column):
+                raise ValueError("explode() requires a Column expression")
+            
+            alias = explode_column._alias or "value"
+            
+            # Create Explode logical plan
+            exploded_plan = operators.explode(self.plan, exploded_column, alias=alias)
+            
+            # Create Project on top of Explode
+            # If we have "*", we want all columns from the exploded result
+            # Otherwise, we want the exploded column (with alias) plus any other specified columns
+            project_columns = []
+            
+            if has_star:
+                # Select all columns from exploded result (including the exploded column)
+                star_col = Column(op="star", args=(), _alias=None)
+                project_columns.append(star_col)
+                # Also add any other explicitly specified columns
+                for col in normalized_columns:
+                    if col.op != "star":
+                        project_columns.append(col)
+            else:
+                # Add the exploded column with its alias first
+                exploded_result_col = Column(op="column", args=(alias,), _alias=None)
+                project_columns.append(exploded_result_col)
+                # Add any other columns
+                project_columns.extend(normalized_columns)
+            
+            return self._with_plan(operators.project(exploded_plan, tuple(project_columns)))
+        
+        # No explode columns, normal projection
+        if has_star and not normalized_columns:
+            return self  # Only "*", same as empty select
+        
+        return self._with_plan(operators.project(self.plan, tuple(normalized_columns)))
 
-    def where(self, predicate: Column) -> "DataFrame":
+    def selectExpr(self, *exprs: str) -> "DataFrame":
+        """Select columns using SQL expressions.
+
+        This method allows you to write SQL expressions directly instead of
+        building Column objects manually, similar to PySpark's selectExpr().
+
+        Args:
+            *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
+
+        Returns:
+            New DataFrame with selected expressions
+
+        Example:
+            >>> # Basic column selection
+            >>> df.selectExpr("id", "name", "email")
+
+            >>> # With expressions and aliases
+            >>> df.selectExpr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
+
+            >>> # Complex expressions
+            >>> df.selectExpr("(amount + tax) * 1.1 as total", "CASE WHEN status = 'active' THEN 1 ELSE 0 END as is_active")
+
+            >>> # Chaining with other operations
+            >>> df.selectExpr("id", "amount").where(col("amount") > 100)
+        """
+        from ..expressions.sql_parser import parse_sql_expr
+
+        if not exprs:
+            return self
+
+        # Get available column names from the DataFrame for context
+        # This is optional but can be used for validation
+        available_columns: Optional[Set[str]] = None
+        try:
+            # Try to extract column names from the current plan
+            if hasattr(self.plan, "projections"):
+                available_columns = set()
+                for proj in self.plan.projections:
+                    if isinstance(proj, Column) and proj.op == "column" and proj.args:
+                        available_columns.add(str(proj.args[0]))
+        except Exception:
+            # If we can't extract columns, that's okay - parser will still work
+            pass
+
+        # Parse each SQL expression into a Column expression
+        parsed_columns = []
+        for expr_str in exprs:
+            parsed_col = parse_sql_expr(expr_str, available_columns)
+            parsed_columns.append(parsed_col)
+
+        # Use the existing select() method with parsed columns
+        return self.select(*parsed_columns)
+
+    def where(self, predicate: Union[Column, str]) -> "DataFrame":
         """Filter rows based on a condition.
 
         Args:
-            predicate: Column expression representing the filter condition
+            predicate: Column expression or SQL string representing the filter condition.
+                      Can be a Column object or a SQL string like "age > 18".
 
         Returns:
             New DataFrame with filtered rows
 
         Example:
             >>> from moltres import col
-            >>> # Filter by condition
+            >>> # Filter by condition using Column
             >>> df = db.table("users").select().where(col("age") >= 18)
             >>> # SQL: SELECT * FROM users WHERE age >= 18
 
-            >>> # Multiple conditions
+            >>> # Filter using SQL string
+            >>> df = db.table("users").select().where("age > 18")
+            >>> # SQL: SELECT * FROM users WHERE age > 18
+
+            >>> # Multiple conditions with Column
             >>> df = db.table("orders").select().where(
             ...     (col("amount") > 100) & (col("status") == "active")
             ... )
             >>> # SQL: SELECT * FROM orders WHERE amount > 100 AND status = 'active'
+
+            >>> # Multiple conditions with SQL string
+            >>> df = db.table("orders").select().where("amount > 100 AND status = 'active'")
+            >>> # SQL: SELECT * FROM orders WHERE amount > 100 AND status = 'active'
         """
+        # If predicate is a string, parse it into a Column expression
+        if isinstance(predicate, str):
+            from ..expressions.sql_parser import parse_sql_expr
+            
+            # Get available column names from the DataFrame for context
+            available_columns: Optional[Set[str]] = None
+            try:
+                # Try to extract column names from the current plan
+                if hasattr(self.plan, "projections"):
+                    available_columns = set()
+                    for proj in self.plan.projections:
+                        if isinstance(proj, Column) and proj.op == "column" and proj.args:
+                            available_columns.add(str(proj.args[0]))
+            except Exception:
+                # If we can't extract columns, that's okay - parser will still work
+                pass
+            
+            predicate = parse_sql_expr(predicate, available_columns)
+        
         return self._with_plan(operators.filter(self.plan, predicate))
 
     filter = where
@@ -175,6 +336,9 @@ class DataFrame:
             return self
         orders = tuple(self._normalize_sort_expression(column) for column in columns)
         return self._with_plan(operators.order_by(self.plan, orders))
+
+    orderBy = order_by  # PySpark-style alias
+    sort = order_by  # PySpark-style alias
 
     def join(
         self,
@@ -609,15 +773,24 @@ class DataFrame:
         # Otherwise, we'll select all columns plus the new one
         if isinstance(self.plan, Project):
             # Add the new column to existing projections
-            existing_cols = list(self.plan.projections)
-            # Remove any column with the same name (if we can detect it)
-            # For now, just add the new column
+            # Remove any column with the same name (replace behavior)
+            existing_cols = []
+            for col_expr in self.plan.projections:
+                if isinstance(col_expr, Column):
+                    # Check if this column matches the colName (by alias or column name)
+                    col_alias = col_expr._alias
+                    col_name = col_expr.args[0] if col_expr.op == "column" and col_expr.args else None
+                    if col_alias == colName or col_name == colName:
+                        # Skip this column - it will be replaced by new_col
+                        continue
+                existing_cols.append(col_expr)
+            # Add the new column at the end
             new_projections = existing_cols + [new_col]
         else:
             # No existing projection, select all plus new column
             # Use a wildcard select and add the new column
-            # This is a simplified approach - in practice, we'd need schema info
-            new_projections = [new_col]
+            star_col = Column(op="star", args=(), _alias=None)
+            new_projections = [star_col, new_col]
 
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
@@ -774,6 +947,18 @@ class DataFrame:
         if self.database is None:
             raise RuntimeError("Cannot collect a plan without an attached Database")
 
+        # Handle RawSQL at root level - execute directly for efficiency
+        if isinstance(self.plan, RawSQL):
+            if stream:
+                # For streaming, we need to use execute_plan_stream which expects a compiled plan
+                # So we'll compile the RawSQL plan
+                plan = self._materialize_filescan(self.plan)
+                return self.database.execute_plan_stream(plan)
+            else:
+                # Execute RawSQL directly
+                result = self.database.execute_sql(self.plan.sql, params=self.plan.params)
+                return result.rows  # type: ignore[no-any-return]
+
         # Handle FileScan by materializing file data into a temporary table
         plan = self._materialize_filescan(self.plan)
 
@@ -834,6 +1019,10 @@ class DataFrame:
             Sort,
             Union,
         )
+
+        # RawSQL doesn't need materialization - it's handled directly in collect()
+        if isinstance(plan, RawSQL):
+            return plan
 
         if isinstance(
             plan, (Project, Filter, Limit, Sample, Sort, Distinct, Aggregate, Explode, Pivot)

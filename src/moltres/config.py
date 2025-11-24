@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, Union, TYPE_CHECKING
+
+from sqlalchemy.engine import Engine
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 FetchFormat = Literal["pandas", "polars", "records"]
 
@@ -13,7 +18,8 @@ FetchFormat = Literal["pandas", "polars", "records"]
 class EngineConfig:
     """Connection + execution options for SQLAlchemy engines."""
 
-    dsn: str
+    dsn: str | None = None
+    engine: Engine | "AsyncEngine" | None = None
     echo: bool = False
     fetch_format: FetchFormat = "records"
     dialect: str | None = None
@@ -24,6 +30,13 @@ class EngineConfig:
     pool_pre_ping: bool = False
     query_timeout: float | None = None  # Query execution timeout in seconds
     future: bool = True
+
+    def __post_init__(self) -> None:
+        """Validate that either dsn or engine is provided, but not both."""
+        if self.dsn is None and self.engine is None:
+            raise ValueError("Either 'dsn' or 'engine' must be provided")
+        if self.dsn is not None and self.engine is not None:
+            raise ValueError("Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance.")
 
 
 @dataclass
@@ -80,7 +93,9 @@ def _load_env_config() -> dict[str, object]:
     return config
 
 
-def create_config(dsn: str | None = None, **kwargs: object) -> MoltresConfig:
+def create_config(
+    dsn: str | None = None, engine: Engine | None = None, **kwargs: object
+) -> MoltresConfig:
     """Convenience helper used by ``moltres.connect``.
 
     Supports environment variables for configuration:
@@ -98,15 +113,18 @@ def create_config(dsn: str | None = None, **kwargs: object) -> MoltresConfig:
     Args:
         dsn: Database connection string (e.g., "sqlite:///example.db").
              If None, will try MOLTRES_DSN environment variable.
+             Cannot be provided if engine is provided.
+        engine: SQLAlchemy Engine instance to use. If provided, dsn is ignored.
+                This gives users more flexibility to configure the engine themselves.
         **kwargs: Additional configuration options. Valid keys include:
             - echo: Enable SQLAlchemy echo mode
             - fetch_format: "records", "pandas", or "polars"
             - dialect: Override SQL dialect detection
-            - pool_size: Connection pool size
-            - max_overflow: Maximum pool overflow connections
-            - pool_timeout: Pool timeout in seconds
-            - pool_recycle: Connection recycle time in seconds
-            - pool_pre_ping: Enable connection health checks
+            - pool_size: Connection pool size (ignored if engine is provided)
+            - max_overflow: Maximum pool overflow connections (ignored if engine is provided)
+            - pool_timeout: Pool timeout in seconds (ignored if engine is provided)
+            - pool_recycle: Connection recycle time in seconds (ignored if engine is provided)
+            - pool_pre_ping: Enable connection health checks (ignored if engine is provided)
             - query_timeout: Query execution timeout in seconds
             - future: Use SQLAlchemy 2.0 style (default: True)
             - Other options are stored in config.options
@@ -115,15 +133,28 @@ def create_config(dsn: str | None = None, **kwargs: object) -> MoltresConfig:
         MoltresConfig instance with parsed configuration
 
     Raises:
-        ValueError: If dsn is not provided and MOLTRES_DSN is not set
+        ValueError: If neither dsn nor engine is provided and MOLTRES_DSN is not set
+        ValueError: If both dsn and engine are provided
     """
-    # Get DSN from argument or environment variable
-    if dsn is None:
-        dsn = os.environ.get("MOLTRES_DSN")
+    # Check if engine is provided in kwargs (for backward compatibility)
+    if engine is None and "engine" in kwargs:
+        engine = kwargs.pop("engine")
+        if not isinstance(engine, Engine):
+            raise TypeError("engine must be a SQLAlchemy Engine instance")
+
+    # Get DSN from argument or environment variable (only if engine is not provided)
+    if engine is None:
         if dsn is None:
-            raise ValueError(
-                "dsn must be provided as argument or MOLTRES_DSN environment variable must be set"
-            )
+            dsn = os.environ.get("MOLTRES_DSN")
+            if dsn is None:
+                raise ValueError(
+                    "Either 'dsn' or 'engine' must be provided as argument, or MOLTRES_DSN environment variable must be set"
+                )
+    else:
+        # If engine is provided, ignore dsn
+        if dsn is not None:
+            raise ValueError("Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance.")
+        dsn = None
 
     # Load configuration from environment variables if not provided in kwargs
     env_config = _load_env_config()
@@ -139,8 +170,8 @@ def create_config(dsn: str | None = None, **kwargs: object) -> MoltresConfig:
     # Construct EngineConfig with validated kwargs
     # Using **kwargs with type checking would be ideal, but dataclass doesn't support it directly
     # This approach extracts known fields and passes them safely
-    engine = EngineConfig(dsn=dsn, **engine_kwargs)  # type: ignore[arg-type]
-    return MoltresConfig(engine=engine, options=merged_kwargs)
+    engine_config = EngineConfig(dsn=dsn, engine=engine, **engine_kwargs)  # type: ignore[arg-type]
+    return MoltresConfig(engine=engine_config, options=merged_kwargs)
 
 
 DEFAULT_CONFIG = create_config("sqlite:///:memory:")

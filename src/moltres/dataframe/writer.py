@@ -91,6 +91,8 @@ class DataFrameWriter:
         self._table_name = name
         self._execute_write()
 
+    saveAsTable = save_as_table  # PySpark-style alias
+
     def insertInto(self, table_name: str) -> None:
         """Insert DataFrame into an existing table (table must already exist)."""
         if self._df.database is None:

@@ -56,6 +56,19 @@ class FileScan(LogicalPlan):
 
 
 @dataclass(frozen=True)
+class RawSQL(LogicalPlan):
+    """Raw SQL query operation.
+
+    Args:
+        sql: SQL query string to execute
+        params: Optional dictionary of named parameters for parameterized queries
+    """
+
+    sql: str
+    params: Dict[str, object] | None = None
+
+
+@dataclass(frozen=True)
 class Project(LogicalPlan):
     child: LogicalPlan
     projections: tuple[Column, ...]
@@ -241,6 +254,30 @@ class Pivot(LogicalPlan):
     """
 
     child: LogicalPlan
+    pivot_column: str
+    value_column: str
+    agg_func: str
+    pivot_values: tuple[str, ...] | None = None
+
+    def children(self) -> Sequence[LogicalPlan]:
+        return (self.child,)
+
+
+@dataclass(frozen=True)
+class GroupedPivot(LogicalPlan):
+    """Grouped pivot operation that combines GROUP BY with pivot.
+
+    Args:
+        child: The logical plan to pivot
+        grouping: Columns to group by
+        pivot_column: Column to pivot on (becomes column headers)
+        value_column: Column containing values to aggregate
+        agg_func: Aggregation function name (e.g., "sum", "avg", "count")
+        pivot_values: Optional list of specific values to pivot (if None, must be provided or discovered)
+    """
+
+    child: LogicalPlan
+    grouping: tuple[Column, ...]
     pivot_column: str
     value_column: str
     agg_func: str

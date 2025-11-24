@@ -33,7 +33,9 @@ else:
         AsyncDatabase = None
 
 
-def connect(dsn: str | None = None, **options: object) -> Database:
+def connect(
+    dsn: str | None = None, engine: Engine | None = None, **options: object
+) -> Database:
     """Connect to a SQL database and return a ``Database`` handle.
 
     Configuration can be provided via arguments or environment variables:
@@ -53,21 +55,36 @@ def connect(dsn: str | None = None, **options: object) -> Database:
             - PostgreSQL: "postgresql://user:pass@host:port/dbname"
             - MySQL: "mysql://user:pass@host:port/dbname"
             If None, will use MOLTRES_DSN environment variable.
+            Cannot be provided if engine is provided.
+        engine: SQLAlchemy Engine instance to use. If provided, dsn is ignored.
+                This gives users more flexibility to configure the engine themselves.
+                Pool configuration options (pool_size, max_overflow, etc.) are ignored
+                when using an existing engine.
         **options: Optional configuration parameters (can also be set via environment variables):
             - echo: Enable SQLAlchemy echo mode for debugging (default: False)
             - fetch_format: Result format - "records", "pandas", or "polars" (default: "records")
             - dialect: Override SQL dialect detection (e.g., "postgresql", "mysql")
             - pool_size: Connection pool size (default: None, uses SQLAlchemy default)
+                         Ignored if engine is provided.
             - max_overflow: Maximum pool overflow connections (default: None)
+                            Ignored if engine is provided.
             - pool_timeout: Pool timeout in seconds (default: None)
+                           Ignored if engine is provided.
             - pool_recycle: Connection recycle time in seconds (default: None)
+                           Ignored if engine is provided.
             - pool_pre_ping: Enable connection health checks (default: False)
+                            Ignored if engine is provided.
             - future: Use SQLAlchemy 2.0 style (default: True)
 
     Returns:
         Database instance for querying and table operations
 
+    Raises:
+        ValueError: If neither dsn nor engine is provided and MOLTRES_DSN is not set
+        ValueError: If both dsn and engine are provided
+
     Example:
+        >>> # Using connection string
         >>> db = connect("sqlite:///:memory:")  # doctest: +SKIP
         >>> # Create table first
         >>> from moltres.table.schema import ColumnDef
@@ -80,12 +97,27 @@ def connect(dsn: str | None = None, **options: object) -> Database:
         >>> results = df.collect()  # doctest: +SKIP
         >>> len(results)  # doctest: +SKIP
         1
+
+        >>> # Using SQLAlchemy Engine
+        >>> from sqlalchemy import create_engine  # doctest: +SKIP
+        >>> engine = create_engine("sqlite:///:memory:", echo=True)  # doctest: +SKIP
+        >>> db = connect(engine=engine)  # doctest: +SKIP
     """
-    config: MoltresConfig = create_config(dsn, **options)
+    from sqlalchemy.engine import Engine as SQLAlchemyEngine
+
+    # Check if engine is provided in kwargs (for backward compatibility)
+    if engine is None and "engine" in options:
+        engine = options.pop("engine")
+        if not isinstance(engine, SQLAlchemyEngine):
+            raise TypeError("engine must be a SQLAlchemy Engine instance")
+
+    config: MoltresConfig = create_config(dsn=dsn, engine=engine, **options)
     return Database(config=config)
 
 
-def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
+def async_connect(
+    dsn: str | None = None, engine: object | None = None, **options: object
+) -> AsyncDatabase:
     """Connect to a SQL database asynchronously and return an ``AsyncDatabase`` handle.
 
     This function requires async dependencies. Install with:
@@ -112,27 +144,40 @@ def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
             - MySQL: "mysql+aiomysql://user:pass@host:port/dbname"
             If None, will use MOLTRES_DSN environment variable.
             Note: DSN should include async driver (e.g., +asyncpg, +aiomysql, +aiosqlite)
+            Cannot be provided if engine is provided.
+        engine: SQLAlchemy async Engine instance to use. If provided, dsn is ignored.
+                This gives users more flexibility to configure the engine themselves.
+                Pool configuration options (pool_size, max_overflow, etc.) are ignored
+                when using an existing engine.
         **options: Optional configuration parameters (can also be set via environment variables):
             - echo: Enable SQLAlchemy echo mode for debugging (default: False)
             - fetch_format: Result format - "records", "pandas", or "polars" (default: "records")
             - dialect: Override SQL dialect detection (e.g., "postgresql", "mysql")
             - pool_size: Connection pool size (default: None, uses SQLAlchemy default)
+                         Ignored if engine is provided.
             - max_overflow: Maximum pool overflow connections (default: None)
+                            Ignored if engine is provided.
             - pool_timeout: Pool timeout in seconds (default: None)
+                           Ignored if engine is provided.
             - pool_recycle: Connection recycle time in seconds (default: None)
+                           Ignored if engine is provided.
             - pool_pre_ping: Enable connection health checks (default: False)
+                            Ignored if engine is provided.
 
     Returns:
         AsyncDatabase instance for async querying and table operations
 
     Raises:
         ImportError: If async dependencies are not installed
+        ValueError: If neither dsn nor engine is provided and MOLTRES_DSN is not set
+        ValueError: If both dsn and engine are provided
 
     Example:
         >>> import asyncio  # doctest: +SKIP
         >>> from moltres import async_connect  # doctest: +SKIP
         >>>
         >>> async def main():  # doctest: +SKIP
+        ...     # Using connection string
         ...     db = async_connect("sqlite+aiosqlite:///:memory:")  # doctest: +SKIP
         ...     from moltres.table.schema import ColumnDef  # doctest: +SKIP
         ...     table = await db.create_table("users", [ColumnDef("id", "INTEGER")])  # doctest: +SKIP
@@ -144,6 +189,11 @@ def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
         ...     results = await df.collect()  # doctest: +SKIP
         ...     await db.close()  # doctest: +SKIP
         >>>
+        >>>     # Using SQLAlchemy async Engine
+        >>>     from sqlalchemy.ext.asyncio import create_async_engine  # doctest: +SKIP
+        >>>     engine = create_async_engine("sqlite+aiosqlite:///:memory:")  # doctest: +SKIP
+        >>>     db = async_connect(engine=engine)  # doctest: +SKIP
+        >>>
         >>> # asyncio.run(main())  # doctest: +SKIP
     """
     try:
@@ -153,5 +203,13 @@ def async_connect(dsn: str | None = None, **options: object) -> AsyncDatabase:
             "Async support requires async dependencies. Install with: pip install moltres[async]"
         ) from exc
 
-    config: MoltresConfig = create_config(dsn, **options)
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+    # Check if engine is provided in kwargs (for backward compatibility)
+    if engine is None and "engine" in options:
+        engine = options.pop("engine")
+        if not isinstance(engine, AsyncEngine):
+            raise TypeError("engine must be a SQLAlchemy AsyncEngine instance")
+
+    config: MoltresConfig = create_config(dsn=dsn, engine=engine, **options)
     return AsyncDatabase(config=config)

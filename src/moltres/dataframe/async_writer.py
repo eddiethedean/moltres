@@ -97,6 +97,8 @@ class AsyncDataFrameWriter:
         self._table_name = name
         await self._execute_write()
 
+    saveAsTable = save_as_table  # PySpark-style alias
+
     async def insertInto(self, table_name: str) -> None:
         """Insert AsyncDataFrame into an existing table (table must already exist)."""
         if self._df.database is None:

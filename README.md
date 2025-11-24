@@ -48,6 +48,8 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 
 - ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE operations with DataFrame-style syntax
 - 🚀 **DataFrame API** - Familiar operations (select, filter, join, groupBy, etc.) like Pandas/Polars
+- 🔤 **Raw SQL Support** - Execute raw SQL queries with `db.sql()` and get back lazy DataFrames (similar to PySpark's `spark.sql()`)
+- 📝 **SQL Expression Selection** - Write SQL expressions directly with `selectExpr()` (similar to PySpark's `selectExpr()`)
 - 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—no data loading into memory
 - 📊 **Operates Directly on SQL Tables** - Transform tables without materialization
 - 🌊 **Streaming Support** - Handle datasets larger than memory with chunked processing
@@ -83,6 +85,11 @@ Moltres is the **only** Python library that provides:
 - **SQL-first design** - Focuses on providing full SQL feature support through a DataFrame API, not replicating every PySpark feature. Features are included only if they map to SQL/SQLAlchemy capabilities and align with SQL pushdown execution.
 
 ## 🆕 What's New
+
+### Unreleased
+
+- **Raw SQL Query Support** - New `db.sql()` method for executing raw SQL queries, similar to PySpark's `spark.sql()`. Execute raw SQL and get back a lazy DataFrame that can be chained with other operations: `db.sql("SELECT * FROM users WHERE id = :id", id=1).where(col("age") > 18).collect()`
+- **SQL Expression Selection** - New `selectExpr()` method for writing SQL expressions directly, matching PySpark's `selectExpr()` API. Write SQL expressions as strings instead of building Column objects: `df.selectExpr("amount * 1.1 as with_tax", "UPPER(name) as name_upper")`
 
 ### Version 0.8.0
 
@@ -306,7 +313,11 @@ Build complex expressions using column operations. Moltres supports multiple way
 #### String Names (Traditional)
 ```python
 df.select("id", "name", "age")
+df.select("*")  # Select all columns (same as empty select)
+df.select("*", col("new_col"))  # Select all columns plus new ones
 df.where(col("age") > 18)
+df.filter("age > 18")  # SQL string predicate (PySpark-compatible)
+df.where("age >= 18 AND status = 'active'")  # Complex predicates with SQL strings
 ```
 
 #### Dot Notation (PySpark-style)
@@ -342,6 +353,8 @@ df = (
         sum(df.revenue).alias("total_revenue"),  # Dot notation
         avg(col("price")).alias("avg_price"),  # col() function
         count("*").alias("order_count"),
+        "quantity",  # String column name (defaults to sum)
+        {"price": "avg", "amount": "sum"},  # Dictionary syntax
     )
 )
 ```
@@ -363,6 +376,66 @@ df = db.read.table("customers").where(col("active") == True).select("id", "name"
 ```
 
 Both APIs return lazy `DataFrame` objects that can be transformed before execution. The `db.read.table()` API matches PySpark's `spark.read.table()` pattern for consistency.
+
+### SQL Expression Selection
+
+Use `selectExpr()` to write SQL expressions directly, similar to PySpark's `selectExpr()`:
+
+```python
+# Basic column selection
+df.selectExpr("id", "name", "email")
+
+# With expressions and aliases
+df.selectExpr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
+
+# Complex expressions
+df.selectExpr(
+    "(amount + tax) * 1.1 as total",
+    "CASE WHEN status = 'active' THEN 1 ELSE 0 END as is_active"
+)
+
+# Chaining with other operations
+df.selectExpr("id", "amount").where(col("amount") > 100)
+```
+
+**Key Features:**
+- Write SQL expressions directly as strings
+- Supports arithmetic, functions, comparisons, and aliases
+- Returns lazy `DataFrame` objects that can be chained
+- Works with both synchronous and asynchronous DataFrames
+
+### Raw SQL Queries
+
+Execute raw SQL queries and get back a lazy DataFrame, similar to PySpark's `spark.sql()`:
+
+```python
+# Basic SQL query
+df = db.sql("SELECT * FROM users WHERE age > 18")
+results = df.collect()
+
+# Parameterized queries (use :param_name syntax)
+df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status", id=1, status="active")
+results = df.collect()
+
+# Chain DataFrame operations on SQL results
+df = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(10)
+results = df.collect()
+
+# Use with aggregations and joins
+df = (
+    db.sql("SELECT product, region, SUM(amount) as total FROM sales GROUP BY product, region")
+    .where(col("total") > 100)
+    .order_by(col("total").desc())
+)
+results = df.collect()
+```
+
+**Key Features:**
+- Returns lazy `DataFrame` objects that can be chained with other operations
+- Supports parameterized queries using named parameters (`:param_name`)
+- SQL dialect is determined by the database connection
+- Raw SQL is wrapped in a subquery when chained, enabling full DataFrame API compatibility
+- Works with both synchronous and asynchronous databases
 
 ### From Files
 
