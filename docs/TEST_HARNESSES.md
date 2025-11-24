@@ -51,16 +51,16 @@ The harnesses are designed so you rarely need to invent ad‑hoc table names:
    `db.createDataFrame()` and writer operations call `generate_unique_table_name()` (see `src/moltres/dataframe/create_dataframe.py`) to stage data in tables like `__moltres_df_<hash>__`. These are registered as “ephemeral” tables and dropped when the `Database`/`AsyncDatabase` is closed, so tests can safely chain multiple staging steps.
 
 3. **Manual unique names when needed**  
-   If you are issuing raw SQL or need multiple temp tables in a single test, import the helper:
+If you are issuing raw SQL or need multiple temp tables in a single test, import the helper:
 
-   ```python
-   from moltres.dataframe.create_dataframe import generate_unique_table_name
+```python
+from moltres.dataframe.create_dataframe import generate_unique_table_name
 
-   table_name = generate_unique_table_name()
-   db.create_table(table_name, [...]).collect()
-   ```
+table_name = generate_unique_table_name()
+db.create_table(table_name, [...]).collect()
+```
 
-   Because PostgreSQL schemas and MySQL databases are already unique per test, most authors still prefer human-readable names. Reserve `generate_unique_table_name()` for cases where tests dynamically create many tables or work outside the provided schema/database fixtures.
+Because PostgreSQL schemas and MySQL databases are already unique per test, most authors still prefer human-readable names. Reserve `generate_unique_table_name()` for cases where tests dynamically create many tables or work outside the provided schema/database fixtures.
 
 ## Patterns for New Tests
 
