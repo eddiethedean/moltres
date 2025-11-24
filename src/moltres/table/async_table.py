@@ -408,15 +408,9 @@ class AsyncDatabase:
         # Generate unique table name
         table_name = generate_unique_table_name()
 
-        # Temporary tables are connection-scoped for several dialects (e.g., MySQL, PostgreSQL).
-        # Async workloads can hop between pooled connections, so we stick with regular tables
-        # whenever temp tables wouldn't be visible outside their originating session.
-        use_temp_tables = self._dialect_name not in {
-            "sqlite",
-            "mysql",
-            "mariadb",
-            "postgresql",
-        }
+        # Async workloads frequently hop between pooled connections, so always stage data in
+        # regular tables (cleaned up later) instead of relying on connection-scoped temp tables.
+        use_temp_tables = False
         table_handle = await self.create_table(
             table_name,
             inferred_schema_list,

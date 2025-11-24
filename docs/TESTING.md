@@ -98,6 +98,9 @@ pytest --cov=src/moltres --cov-report=html
 
 ## Writing Tests
 
+Need a refresher on the database fixtures or unique table helpers? See
+[`docs/TEST_HARNESSES.md`](./TEST_HARNESSES.md) for the full harness reference.
+
 ### Basic Test Example
 
 ```python

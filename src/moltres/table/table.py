@@ -85,6 +85,7 @@ class Database:
         self._connections = ConnectionManager(config.engine)
         self._executor = QueryExecutor(self._connections, config.engine)
         self._dialect = get_dialect(self._dialect_name)
+        self._ephemeral_tables: set[str] = set()
 
     @property
     def connection_manager(self) -> ConnectionManager:
@@ -102,6 +103,7 @@ class Database:
 
         Note: After calling close(), the Database instance should not be used.
         """
+        self._cleanup_ephemeral_tables()
         if hasattr(self._connections, "_engine") and self._connections._engine is not None:
             try:
                 self._connections._engine.dispose(close=True)
@@ -110,6 +112,22 @@ class Database:
                 pass
             finally:
                 self._connections._engine = None
+
+    def _register_ephemeral_table(self, name: str) -> None:
+        self._ephemeral_tables.add(name)
+
+    def _unregister_ephemeral_table(self, name: str) -> None:
+        self._ephemeral_tables.discard(name)
+
+    def _cleanup_ephemeral_tables(self) -> None:
+        if not self._ephemeral_tables:
+            return
+        for table_name in list(self._ephemeral_tables):
+            try:
+                self.drop_table(table_name, if_exists=True).collect()
+            except Exception:
+                pass
+        self._ephemeral_tables.clear()
 
     def table(self, name: str) -> TableHandle:
         """Get a handle to a table in the database.
@@ -442,13 +460,17 @@ class Database:
         # Generate unique table name
         table_name = generate_unique_table_name()
 
-        # Create temporary table
+        # Always use persistent staging tables so later operations (which may run on a different
+        # pooled connection) can still access the data. Ephemeral cleanup happens via close().
+        use_temp_tables = False
         table_handle = self.create_table(
             table_name,
             inferred_schema_list,
-            temporary=True,
+            temporary=use_temp_tables,
             if_not_exists=True,
         ).collect()
+        if not use_temp_tables:
+            self._register_ephemeral_table(table_name)
 
         # Insert data (exclude new auto-increment columns from INSERT)
         if rows:
