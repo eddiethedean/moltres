@@ -269,3 +269,174 @@ def test_na_fill(tmp_path):
     assert result2[1]["name"] == "Unknown"
     assert result2[1]["score"] == 0.0
     assert result2[2]["age"] == 0
+
+
+def test_dot_notation_select(tmp_path):
+    """Test dot notation column selection in select()."""
+    db_path = tmp_path / "dot_notation_select.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        conn.exec_driver_sql(
+            "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30), (2, 'Bob', 25)"
+        )
+
+    df = db.table("users").select()
+
+    # Test dot notation in select
+    result = df.select(df.id, df.name).collect()
+
+    assert len(result) == 2
+    assert "id" in result[0]
+    assert "name" in result[0]
+    assert "age" not in result[0]
+    assert result[0]["id"] == 1
+    assert result[0]["name"] == "Alice"
+
+
+def test_dot_notation_where(tmp_path):
+    """Test dot notation column selection in where()."""
+    db_path = tmp_path / "dot_notation_where.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        conn.exec_driver_sql(
+            "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30), (2, 'Bob', 25), (3, 'Charlie', 35)"
+        )
+
+    df = db.table("users").select()
+
+    # Test dot notation in where
+    result = df.where(df.age > 28).order_by(df.id).collect()
+
+    assert len(result) == 2
+    assert result[0]["name"] == "Alice"
+    assert result[1]["name"] == "Charlie"
+
+
+def test_dot_notation_order_by(tmp_path):
+    """Test dot notation column selection in order_by()."""
+    db_path = tmp_path / "dot_notation_order_by.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        conn.exec_driver_sql(
+            "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30), (2, 'Bob', 25), (3, 'Charlie', 35)"
+        )
+
+    df = db.table("users").select()
+
+    # Test dot notation in order_by
+    result = df.select(df.name).order_by(df.name).collect()
+
+    assert len(result) == 3
+    assert result[0]["name"] == "Alice"
+    assert result[1]["name"] == "Bob"
+    assert result[2]["name"] == "Charlie"
+
+
+def test_dot_notation_group_by(tmp_path):
+    """Test dot notation column selection in group_by()."""
+    db_path = tmp_path / "dot_notation_group_by.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE sales (id INTEGER PRIMARY KEY, category TEXT, amount REAL)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO sales (id, category, amount) VALUES "
+            "(1, 'A', 10.0), (2, 'A', 20.0), (3, 'B', 15.0)"
+        )
+
+    df = db.table("sales").select()
+
+    # Test dot notation in group_by
+    from moltres.expressions.functions import sum as sum_func
+
+    result = df.group_by(df.category).agg(sum_func(df.amount).alias("total")).order_by(df.category).collect()
+
+    assert len(result) == 2
+    assert result[0]["category"] == "A"
+    assert result[0]["total"] == 30.0
+    assert result[1]["category"] == "B"
+    assert result[1]["total"] == 15.0
+
+
+def test_dot_notation_methods_still_work(tmp_path):
+    """Test that existing methods still work when using dot notation."""
+    db_path = tmp_path / "dot_notation_methods.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        conn.exec_driver_sql("INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30)")
+
+    df = db.table("users").select()
+
+    # Test that methods still work
+    assert hasattr(df, "select")
+    assert hasattr(df, "where")
+    assert hasattr(df, "limit")
+    assert callable(df.select)
+    assert callable(df.where)
+
+    # Test that properties still work
+    assert hasattr(df, "na")
+    assert hasattr(df, "write")
+    assert df.na is not None
+    assert df.write is not None
+
+
+def test_dot_notation_combined_with_col(tmp_path):
+    """Test that dot notation works alongside col() function."""
+    db_path = tmp_path / "dot_notation_combined.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        conn.exec_driver_sql(
+            "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30), (2, 'Bob', 25)"
+        )
+
+    df = db.table("users").select()
+
+    # Test mixing dot notation and col() function
+    result = df.select(df.id, col("name"), df.age).collect()
+
+    assert len(result) == 2
+    assert result[0]["id"] == 1
+    assert result[0]["name"] == "Alice"
+    assert result[0]["age"] == 30
+
+
+def test_dot_notation_complex_expressions(tmp_path):
+    """Test dot notation in complex column expressions."""
+    db_path = tmp_path / "dot_notation_complex.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        conn.exec_driver_sql(
+            "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 30), (2, 'Bob', 25)"
+        )
+
+    df = db.table("users").select()
+
+    # Test complex expressions with dot notation
+    result = df.select((df.age * 2).alias("double_age"), df.name).collect()
+
+    assert len(result) == 2
+    assert result[0]["double_age"] == 60
+    assert result[1]["double_age"] == 50
+    assert result[0]["name"] == "Alice"

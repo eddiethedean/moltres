@@ -1158,6 +1158,41 @@ class DataFrame:
 
         return DataFrameWriter(self)
 
+    def __getattr__(self, name: str) -> Column:
+        """Enable dot notation column access (e.g., df.id, df.name).
+
+        This method is called when attribute lookup fails. It allows accessing
+        columns via dot notation, similar to PySpark's API.
+
+        Args:
+            name: Column name to access
+
+        Returns:
+            Column object for the specified column name
+
+        Raises:
+            AttributeError: If the attribute doesn't exist and isn't a valid column name
+
+        Example:
+            >>> df = db.table("users").select()
+            >>> df.select(df.id, df.name)  # Dot notation
+            >>> df.where(df.age > 18)  # In filter expressions
+        """
+        # Check if it's a dataclass field or existing attribute first
+        # This prevents conflicts with actual attributes like 'plan', 'database'
+        if hasattr(self.__class__, name):
+            # Check if it's a dataclass field
+            import dataclasses
+            if name in {f.name for f in dataclasses.fields(self)}:
+                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            # Check if it's a method or property
+            attr = getattr(self.__class__, name, None)
+            if attr is not None:
+                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        
+        # If we get here, treat it as a column name
+        return col(name)
+
     # ---------------------------------------------------------------- utilities
     def _with_plan(self, plan: LogicalPlan) -> "DataFrame":
         return DataFrame(

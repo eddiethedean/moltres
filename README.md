@@ -301,27 +301,52 @@ results = df.collect()
 
 ### Column Expressions
 
-Build complex expressions using column operations:
+Build complex expressions using column operations. Moltres supports multiple ways to reference columns:
 
+#### String Names (Traditional)
+```python
+df.select("id", "name", "age")
+df.where(col("age") > 18)
+```
+
+#### Dot Notation (PySpark-style)
+```python
+# Access columns using dot notation - similar to PySpark
+df.select(df.id, df.name, df.age)
+df.where(df.age > 18)
+df.order_by(df.name)
+df.group_by(df.category).agg(sum(df.amount))
+```
+
+#### `col()` Function
+```python
+from moltres import col
+df.select(col("id"), col("name"))
+df.where(col("age") > 18)
+```
+
+**All three methods work together:**
 ```python
 from moltres.expressions.functions import sum, avg, count, concat
 
 df = (
     db.table("sales")
     .select(
-        col("product"),
-        (col("price") * col("quantity")).alias("revenue"),
-        concat(col("first_name"), lit(" "), col("last_name")).alias("full_name"),
+        df.product,  # Dot notation
+        (col("price") * col("quantity")).alias("revenue"),  # col() function
+        concat(df.first_name, lit(" "), df.last_name).alias("full_name"),  # Mixed
     )
-    .where(col("date") >= "2024-01-01")
-    .group_by("product")
+    .where(df.date >= "2024-01-01")  # Dot notation in filters
+    .group_by("product")  # String name
     .agg(
-        sum(col("revenue")).alias("total_revenue"),
-        avg(col("price")).alias("avg_price"),
+        sum(df.revenue).alias("total_revenue"),  # Dot notation
+        avg(col("price")).alias("avg_price"),  # col() function
         count("*").alias("order_count"),
     )
 )
 ```
+
+**Note:** Dot notation works by accessing attributes on the DataFrame. If an attribute doesn't exist as a method or property, it's treated as a column name. This means existing methods like `select`, `where`, `limit`, and properties like `na`, `write` continue to work as before.
 
 ## 📥 Reading Data
 
