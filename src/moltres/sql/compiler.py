@@ -955,7 +955,7 @@ class ExpressionCompiler:
             if self.dialect.name == "sqlite":
                 from sqlalchemy import case, literal, cast, types as sa_types
 
-                # SQLite ceil workaround: 
+                # SQLite ceil workaround:
                 # CASE WHEN x > CAST(x AS INTEGER) THEN CAST(x AS INTEGER) + 1 ELSE CAST(x AS INTEGER) END
                 int_part = cast(col_expr, sa_types.Integer)
                 result = case(
