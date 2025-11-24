@@ -93,6 +93,14 @@ def create_sample_table(db, table_name: str = "users"):
 def postgresql_db() -> Generator:
     """Create an ephemeral PostgreSQL database for testing."""
     import os
+    import shutil
+
+    if sys.platform.startswith("win"):
+        pytest.skip("PostgreSQL tests require initdb, which is unavailable on Windows runners")
+
+    initdb = shutil.which("initdb")
+    if initdb is None:
+        pytest.skip("PostgreSQL initdb command not found")
 
     try:
         from testing.postgresql import Postgresql
@@ -130,6 +138,9 @@ def mysql_db() -> Generator:
     import os
     import shutil
     import subprocess
+
+    if sys.platform.startswith("win"):
+        pytest.skip("MySQL tests require mysqld tooling, unavailable on Windows runners")
 
     try:
         from testing.mysqld import Mysqld
