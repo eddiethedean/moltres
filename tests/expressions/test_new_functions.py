@@ -36,6 +36,7 @@ from moltres.expressions.functions import (
     weekofyear,
 )
 
+
 def _sqlite_supports_math(sql: str) -> bool:
     conn = sqlite3.connect(":memory:")
     try:
