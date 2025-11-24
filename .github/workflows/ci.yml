@@ -36,9 +36,22 @@ jobs:
         run: |
           mypy src --config-file pyproject.toml
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          pytest -p pytest_asyncio -m "not postgres and not mysql and not multidb"
+          pytest -p pytest_asyncio -m "not postgres and not mysql and not multidb" --cov=src/moltres --cov-report=term-missing --cov-report=html --cov-report=xml
+          
+      - name: Check coverage threshold
+        run: |
+          coverage report --fail-under=60 || echo "Coverage below 60% threshold"
+          
+      - name: Upload coverage reports
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
         
       - name: Run PostgreSQL tests (if available)
         continue-on-error: true
@@ -53,4 +66,63 @@ jobs:
       - name: Validate documentation examples
         run: |
           python scripts/validate_examples.py
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pip-audit
+
+      - name: Run safety check
+        continue-on-error: true
+        run: |
+          safety check --file pyproject.toml || echo "Safety check completed with warnings"
+
+      - name: Run pip-audit
+        continue-on-error: true
+        run: |
+          pip-audit --desc || echo "pip-audit completed with warnings"
+
+  install-smoke-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.9", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install from PyPI (if available)
+        continue-on-error: true
+        run: |
+          python -m pip install --upgrade pip
+          pip install moltres || echo "PyPI install skipped (package may not be published yet)"
+
+      - name: Install from source
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Verify installation
+        run: |
+          python -c "import moltres; print(f'Moltres {moltres.__version__} installed successfully')"
+
+      - name: Test minimal import
+        run: |
+          python -c "from moltres import connect; print('Import successful')"
 

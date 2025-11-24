@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import atexit
 from contextlib import asynccontextmanager
+import logging
+import weakref
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Sequence, Union
 
@@ -27,6 +31,9 @@ from ..engine.dialects import DialectSpec, get_dialect
 from ..logical.plan import LogicalPlan
 from ..sql.compiler import compile_plan
 from .schema import ColumnDef
+
+logger = logging.getLogger(__name__)
+_ACTIVE_ASYNC_DATABASES: "weakref.WeakSet[AsyncDatabase]" = weakref.WeakSet()
 
 
 @dataclass
@@ -88,6 +95,8 @@ class AsyncDatabase:
         self._executor = AsyncQueryExecutor(self._connections, config.engine)
         self._dialect = get_dialect(self._dialect_name)
         self._ephemeral_tables: set[str] = set()
+        self._closed = False
+        _ACTIVE_ASYNC_DATABASES.add(self)
 
     @property
     def connection_manager(self) -> AsyncConnectionManager:
@@ -441,8 +450,15 @@ class AsyncDatabase:
 
     async def close(self) -> None:
         """Close the database connection and cleanup resources."""
+        await self._close_resources()
+
+    async def _close_resources(self) -> None:
+        if self._closed:
+            return
         await self._cleanup_ephemeral_tables()
         await self._connections.close()
+        self._closed = True
+        _ACTIVE_ASYNC_DATABASES.discard(self)
 
     def _register_ephemeral_table(self, name: str) -> None:
         self._ephemeral_tables.add(name)
@@ -456,8 +472,8 @@ class AsyncDatabase:
         for table_name in list(self._ephemeral_tables):
             try:
                 await self.drop_table(table_name, if_exists=True).collect()
-            except Exception:
-                pass
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.debug("Failed to drop async ephemeral table %s: %s", table_name, exc)
         self._ephemeral_tables.clear()
 
     # ----------------------------------------------------------------- internals
@@ -474,3 +490,119 @@ class AsyncDatabase:
         if "+" in scheme:
             scheme = scheme.split("+", 1)[0]
         return scheme
+
+
+def _cleanup_all_async_databases() -> None:
+    """Best-effort cleanup for AsyncDatabase instances left open at exit.
+
+    Note: This runs in atexit context, so we can't reliably use asyncio.
+    Instead, we mark databases as needing cleanup and log a warning.
+    In practice, applications should explicitly close databases.
+    """
+    if not _ACTIVE_ASYNC_DATABASES:
+        return
+
+    databases = list(_ACTIVE_ASYNC_DATABASES)
+    if databases:
+        # Log warning about unclosed databases
+        logger.warning(
+            "%d AsyncDatabase instance(s) were not explicitly closed. "
+            "Ephemeral tables may not be cleaned up. "
+            "Always call await db.close() when done with AsyncDatabase instances.",
+            len(databases),
+        )
+        # Mark as closed to prevent further use
+        for db in databases:
+            db._closed = True
+            # Try to clean up ephemeral tables synchronously if possible
+            # (this is best-effort and may not work in all scenarios)
+            if db._ephemeral_tables:
+                logger.debug(
+                    "%d ephemeral table(s) may not be cleaned up for AsyncDatabase: %s",
+                    len(db._ephemeral_tables),
+                    db._ephemeral_tables,
+                )
+
+
+async def _cleanup_all_async_databases_async() -> None:
+    """Async version of cleanup that actually drops tables.
+
+    This can be used in tests or when we have an event loop available.
+    """
+    if not _ACTIVE_ASYNC_DATABASES:
+        return
+
+    databases = list(_ACTIVE_ASYNC_DATABASES)
+    for db in databases:
+        try:
+            await db._close_resources()
+        except Exception as exc:  # pragma: no cover - best effort
+            logger.debug("AsyncDatabase cleanup failed: %s", exc)
+
+
+def _force_async_database_cleanup_for_tests() -> None:
+    """Helper used by tests to simulate crash/GC cleanup for async DBs.
+
+    This creates an event loop and actually cleans up async databases.
+    """
+
+    if not _ACTIVE_ASYNC_DATABASES:
+        return
+
+    async def _cleanup() -> None:
+        databases = list(_ACTIVE_ASYNC_DATABASES)
+        for db in databases:
+            try:
+                await db._close_resources()
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.debug("AsyncDatabase cleanup during test failed: %s", exc)
+
+    # Try to get existing event loop
+    try:
+        loop = asyncio.get_running_loop()
+        # If we're in a running loop, we can't use run_until_complete
+        # Instead, we need to use a different approach
+        # For tests, we'll create a new loop in a thread
+        import threading
+        import queue
+
+        result_queue: queue.Queue[Exception | None] = queue.Queue()
+
+        def run_in_thread() -> None:
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                new_loop.run_until_complete(_cleanup())
+                result_queue.put(None)
+            except Exception as e:
+                result_queue.put(e)
+            finally:
+                new_loop.close()
+
+        thread = threading.Thread(target=run_in_thread)
+        thread.start()
+        thread.join(timeout=5.0)
+        if thread.is_alive():
+            logger.warning("Async cleanup thread timed out")
+        else:
+            result = result_queue.get_nowait()
+            if result:
+                raise result
+    except RuntimeError:
+        # No running loop, try to get or create one
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            loop.run_until_complete(_cleanup())
+        except RuntimeError:
+            # No event loop at all, create one
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(_cleanup())
+            finally:
+                loop.close()
+
+
+atexit.register(_cleanup_all_async_databases)

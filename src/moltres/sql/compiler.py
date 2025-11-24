@@ -320,7 +320,7 @@ class SQLCompiler:
 
                     conditions.append(left_expr == right_expr)
                 join_condition = and_(*conditions) if len(conditions) > 1 else conditions[0]
-            elif plan.condition:
+            elif plan.condition is not None:
                 join_condition = self._expr.compile_expr(plan.condition)
             elif plan.how == "cross":
                 # Cross joins don't require a condition - handled separately
@@ -450,7 +450,7 @@ class SQLCompiler:
                         right_expr = sa_column(right_col)
                     conditions.append(left_expr == right_expr)
                 join_condition = and_(*conditions) if len(conditions) > 1 else conditions[0]
-            elif plan.condition:
+            elif plan.condition is not None:
                 join_condition = self._expr.compile_expr(plan.condition)
             else:
                 raise CompilationError(
@@ -639,7 +639,7 @@ class SQLCompiler:
                         right_expr = sa_column(right_col)
                     conditions.append(left_expr == right_expr)
                 join_condition = and_(*conditions) if len(conditions) > 1 else conditions[0]
-            elif plan.condition:
+            elif plan.condition is not None:
                 join_condition = self._expr.compile_expr(plan.condition)
             else:
                 raise CompilationError(

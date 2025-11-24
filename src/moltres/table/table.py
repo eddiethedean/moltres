@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import atexit
 from contextlib import contextmanager
+import logging
+import signal
+import weakref
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Union
 
@@ -25,6 +29,9 @@ from ..engine.execution import QueryExecutor, QueryResult
 from ..logical.plan import LogicalPlan
 from ..sql.compiler import compile_plan
 from .schema import ColumnDef
+
+logger = logging.getLogger(__name__)
+_ACTIVE_DATABASES: "weakref.WeakSet[Database]" = weakref.WeakSet()
 
 
 @dataclass
@@ -86,6 +93,8 @@ class Database:
         self._executor = QueryExecutor(self._connections, config.engine)
         self._dialect = get_dialect(self._dialect_name)
         self._ephemeral_tables: set[str] = set()
+        self._closed = False
+        _ACTIVE_DATABASES.add(self)
 
     @property
     def connection_manager(self) -> ConnectionManager:
@@ -103,15 +112,22 @@ class Database:
 
         Note: After calling close(), the Database instance should not be used.
         """
+        self._close_resources()
+
+    def _close_resources(self) -> None:
+        if self._closed:
+            return
         self._cleanup_ephemeral_tables()
-        if hasattr(self._connections, "_engine") and self._connections._engine is not None:
+        engine = getattr(self._connections, "_engine", None)
+        if engine is not None:
             try:
-                self._connections._engine.dispose(close=True)
-            except Exception:
-                # Ignore errors during disposal (e.g., if already disposed)
-                pass
+                engine.dispose(close=True)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Error disposing engine during close: %s", exc)
             finally:
                 self._connections._engine = None
+        self._closed = True
+        _ACTIVE_DATABASES.discard(self)
 
     def _register_ephemeral_table(self, name: str) -> None:
         self._ephemeral_tables.add(name)
@@ -125,8 +141,8 @@ class Database:
         for table_name in list(self._ephemeral_tables):
             try:
                 self.drop_table(table_name, if_exists=True).collect()
-            except Exception:
-                pass
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.debug("Failed to drop ephemeral table %s: %s", table_name, exc)
         self._ephemeral_tables.clear()
 
     def table(self, name: str) -> TableHandle:
@@ -283,7 +299,6 @@ class Database:
     # -------------------------------------------------------------- query utils
     def compile_plan(self, plan: LogicalPlan) -> Any:
         """Compile a logical plan to a SQLAlchemy Select statement."""
-
         return compile_plan(plan, dialect=self._dialect)
 
     def execute_plan(self, plan: LogicalPlan) -> QueryResult:
@@ -349,7 +364,6 @@ class Database:
                 txn.rollback()
             raise
 
-    # ----------------------------------------------------------------- internals
     def createDataFrame(
         self,
         data: Union[Sequence[dict[str, object]], Sequence[tuple], Records, "LazyRecords"],
@@ -505,3 +519,46 @@ class Database:
         if "+" in dialect_part:
             dialect_part = dialect_part.split("+", 1)[0]
         return dialect_part
+
+
+def _cleanup_all_databases() -> None:
+    """Best-effort cleanup for any Database instances left open at exit.
+
+    This is called on normal interpreter shutdown and on signal handlers
+    for crash scenarios (SIGTERM, SIGINT).
+    """
+    for db in list(_ACTIVE_DATABASES):
+        try:
+            db._close_resources()
+        except Exception as exc:  # pragma: no cover - atexit safeguard
+            logger.debug("Database cleanup during interpreter shutdown failed: %s", exc)
+
+
+def _signal_handler(signum: int, frame: Any) -> None:
+    """Handle signals (SIGTERM, SIGINT) by cleaning up databases before exit."""
+    logger.info("Received signal %d, cleaning up databases...", signum)
+    _cleanup_all_databases()
+    # Re-raise the signal with default handler
+    signal.signal(signum, signal.SIG_DFL)
+    import os
+
+    os.kill(os.getpid(), signum)
+
+
+# Register signal handlers for crash scenarios (only on main thread)
+try:
+    # Check if we can register signal handlers (main thread only)
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
+except (ValueError, OSError):
+    # Signal handlers can only be registered on the main thread
+    # This is expected in some contexts (e.g., subprocesses, threads)
+    pass
+
+
+def _force_database_cleanup_for_tests() -> None:
+    """Helper used by tests to simulate crash/GC cleanup."""
+    _cleanup_all_databases()
+
+
+atexit.register(_cleanup_all_databases)

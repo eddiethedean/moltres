@@ -565,13 +565,13 @@ class DataFrame:
 
         Example:
             >>> from moltres import col
-            >>> from moltres.expressions.functions import sum, avg, count
+            >>> from moltres.expressions import functions as F
             >>> # Group by single column
             >>> df = (
             ...     db.table("orders")
             ...     .select()
             ...     .group_by("customer_id")
-            ...     .agg(sum(col("amount")).alias("total"))
+            ...     .agg(F.sum(col("amount")).alias("total"))
             ... )
             >>> # SQL: SELECT customer_id, SUM(amount) AS total FROM orders GROUP BY customer_id
 
@@ -581,8 +581,8 @@ class DataFrame:
             ...     .select()
             ...     .group_by("region", "product")
             ...     .agg(
-            ...         sum(col("revenue")).alias("total_revenue"),
-            ...         count("*").alias("count")
+            ...         F.sum(col("revenue")).alias("total_revenue"),
+            ...         F.count("*").alias("count")
             ...     )
             ... )
             >>> # SQL: SELECT region, product, SUM(revenue) AS total_revenue, COUNT(*) AS count
@@ -704,7 +704,8 @@ class DataFrame:
 
         Example:
             >>> # Fibonacci sequence example
-            >>> initial = db.table("seed").select(lit(1).alias("n"), lit(1).alias("fib"))
+            >>> from moltres.expressions import functions as F
+            >>> initial = db.table("seed").select(F.lit(1).alias("n"), F.lit(1).alias("fib"))
             >>> recursive = initial.select(...)  # Recursive part
             >>> fib_cte = initial.recursive_cte("fib", recursive)
         """

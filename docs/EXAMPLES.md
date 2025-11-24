@@ -10,7 +10,7 @@ Moltres executes all DataFrame operations directly in SQL—no data loading into
 
 ```python
 from moltres import col, connect
-from moltres.expressions.functions import sum, avg, count
+from moltres.expressions import functions as F
 
 db = connect("postgresql://user:pass@localhost/warehouse")
 
@@ -30,9 +30,9 @@ df = (
     .where(col("status") == "completed")
     .group_by("product_id", "region")
     .agg(
-        sum(col("revenue")).alias("total_revenue"),
-        avg(col("price")).alias("avg_price"),
-        count("*").alias("transaction_count"),
+        F.sum(col("revenue")).alias("total_revenue"),
+        F.avg(col("price")).alias("avg_price"),
+        F.count("*").alias("transaction_count"),
     )
     .order_by(col("total_revenue").desc())
     .limit(100)
@@ -62,7 +62,7 @@ df = (
     .select()
     .where(col("date") >= "2024-01-01")
     .group_by("product_id")
-    .agg(sum(col("amount")).alias("total"))
+    .agg(F.sum(col("amount")).alias("total"))
 )
 
 # When you call collect(), you'll see the SQL in the console:
@@ -81,7 +81,7 @@ Complete example showing how DataFrame operations chain seamlessly with CRUD ope
 
 ```python
 from moltres import col, connect
-from moltres.expressions.functions import sum, avg
+from moltres.expressions import functions as F
 
 db = connect("postgresql://user:pass@localhost/warehouse")
 customers = db.table("customers")
@@ -94,8 +94,8 @@ customer_stats = (
     .where(col("orders.date") >= "2024-01-01")
     .group_by("customers.id", "customers.name")
     .agg(
-        sum(col("orders.amount")).alias("total_spent"),
-        avg(col("orders.amount")).alias("avg_order_value"),
+        F.sum(col("orders.amount")).alias("total_spent"),
+        F.avg(col("orders.amount")).alias("avg_order_value"),
     )
     .where(col("total_spent") > 1000)
 )
@@ -125,7 +125,7 @@ inactive_customers = (
     .join(
         orders.select()
         .group_by("customer_id")
-        .agg(max(col("date")).alias("last_order_date")),
+        .agg(F.max(col("date")).alias("last_order_date")),
         on=[("id", "customer_id")],
         how="left"
     )
@@ -281,14 +281,14 @@ results = df.collect()
 ### Basic Aggregations
 
 ```python
-from moltres.expressions.functions import sum, avg, count, min, max
+from moltres.expressions import functions as F
 
 # Single aggregation
 df = (
     db.table("orders")
     .select()
     .group_by("customer_id")
-    .agg(sum(col("amount")).alias("total"))
+    .agg(F.sum(col("amount")).alias("total"))
 )
 
 # Multiple aggregations
@@ -297,9 +297,9 @@ df = (
     .select()
     .group_by("customer_id")
     .agg(
-        sum(col("amount")).alias("total"),
-        avg(col("amount")).alias("average"),
-        count("*").alias("order_count"),
+        F.sum(col("amount")).alias("total"),
+        F.avg(col("amount")).alias("average"),
+        F.count("*").alias("order_count"),
     )
 )
 ```
@@ -312,8 +312,8 @@ df = (
     .select()
     .group_by("region", "product_category")
     .agg(
-        sum(col("revenue")).alias("total_revenue"),
-        count("*").alias("transaction_count"),
+        F.sum(col("revenue")).alias("total_revenue"),
+        F.count("*").alias("transaction_count"),
     )
 )
 ```
@@ -381,7 +381,7 @@ top_customers = (
     db.table("orders")
     .select()
     .group_by("customer_id")
-    .agg(sum(col("amount")).alias("total"))
+    .agg(F.sum(col("amount")).alias("total"))
     .order_by(col("total").desc())
     .limit(10)
 )
@@ -398,7 +398,7 @@ df = (
 ### Window Functions (when supported)
 
 ```python
-from moltres.expressions.functions import avg
+from moltres.expressions import functions as F
 
 # Running average
 df = (
@@ -406,7 +406,7 @@ df = (
     .select(
         col("date"),
         col("amount"),
-        avg(col("amount")).over().alias("running_avg")
+        F.avg(col("amount")).over().alias("running_avg")
     )
 )
 ```
@@ -694,7 +694,7 @@ cleaned = (
     )
     .where(col("amount") > 0)
     .group_by("category")
-    .agg(sum(col("amount")).alias("total"))
+    .agg(F.sum(col("amount")).alias("total"))
 )
 
 # Load
@@ -966,8 +966,8 @@ segment_analysis = (
     .select()
     .group_by("segment")
     .agg(
-        count("*").alias("customer_count"),
-        avg(col("lifetime_value")).alias("avg_lifetime_value"),
+        F.count("*").alias("customer_count"),
+        F.avg(col("lifetime_value")).alias("avg_lifetime_value"),
     )
     .order_by(col("avg_lifetime_value").desc())
 )
@@ -996,9 +996,9 @@ def calculate_metrics(orders_df):
         orders_df
         .group_by("customer_id")
         .agg(
-            sum(col("amount")).alias("total_spent"),
-            avg(col("amount")).alias("avg_order_value"),
-            count("*").alias("order_count"),
+            F.sum(col("amount")).alias("total_spent"),
+            F.avg(col("amount")).alias("avg_order_value"),
+            F.count("*").alias("order_count"),
         )
     )
 
@@ -1074,8 +1074,8 @@ df = (
     )
     .group_by("customers.country")  # Like df.groupBy()
     .agg(
-        sum(col("amount")).alias("total"),  # Like df.agg()
-        avg(col("amount")).alias("avg"),
+        F.sum(col("amount")).alias("total"),  # Like df.agg()
+        F.avg(col("amount")).alias("avg"),
     )
     .order_by(col("total").desc())  # Like df.orderBy()
     .limit(10)  # Like df.limit()

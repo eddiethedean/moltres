@@ -3,8 +3,8 @@
 
 import time
 import statistics
-from typing import Dict, Tuple
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 try:
     import pandas as pd  # type: ignore[import-untyped]
@@ -13,15 +13,9 @@ try:
 except ImportError:
     PANDAS_AVAILABLE = False
 
-try:
-    import ibis  # type: ignore[import-not-found]  # noqa: F401
-
-    IBIS_AVAILABLE = True
-except ImportError:
-    IBIS_AVAILABLE = False
-
 from moltres import connect, col
-from moltres.expressions.functions import sum, avg, count
+from moltres.expressions.functions import avg, count, sum
+from moltres.table.schema import column
 
 
 def benchmark_query(name: str, func, iterations: int = 5) -> Dict[str, float]:
@@ -101,6 +95,55 @@ def benchmark_pandas_join(left_df: pd.DataFrame, right_df: pd.DataFrame, on: str
     return result.to_dict("records")
 
 
+def _reset_benchmark_tables(db) -> None:
+    """Drop and recreate benchmark tables with seeded data."""
+    user_columns = [
+        column("id", "INTEGER", primary_key=True),
+        column("name", "TEXT"),
+        column("email", "TEXT"),
+        column("age", "INTEGER"),
+        column("active", "BOOLEAN"),
+    ]
+    order_columns = [
+        column("id", "INTEGER", primary_key=True),
+        column("user_id", "INTEGER"),
+        column("amount", "REAL"),
+        column("status", "TEXT"),
+        column("order_date", "TEXT"),
+    ]
+
+    # Recreate tables for deterministic runs
+    db.drop_table("test_orders", if_exists=True).collect()
+    db.drop_table("test_users", if_exists=True).collect()
+    db.create_table("test_users", user_columns, if_not_exists=False).collect()
+    db.create_table("test_orders", order_columns, if_not_exists=False).collect()
+
+    # Seed rows
+    users_data: List[dict[str, object]] = [
+        {
+            "id": i,
+            "name": f"User{i}",
+            "email": f"user{i}@example.com",
+            "age": 20 + (i % 50),
+            "active": i % 2 == 0,
+        }
+        for i in range(10_000)
+    ]
+    db.createDataFrame(users_data, pk="id").write.insertInto("test_users")
+
+    orders_data: List[dict[str, object]] = [
+        {
+            "id": i,
+            "user_id": i % 1_000,
+            "amount": float(10 + (i % 100)),
+            "status": "active" if i % 2 == 0 else "pending",
+            "order_date": "2024-01-01",
+        }
+        for i in range(50_000)
+    ]
+    (db.createDataFrame(orders_data, pk="id").write.insertInto("test_orders"))
+
+
 def run_benchmarks(db_dsn: str, results_file: str = "benchmark_results.txt"):
     """Run all benchmarks and save results."""
     print("Setting up benchmarks...")
@@ -110,55 +153,8 @@ def run_benchmarks(db_dsn: str, results_file: str = "benchmark_results.txt"):
 
     # Create test tables if they don't exist
     print("Creating test data...")
-    try:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS test_users (
-                id INTEGER PRIMARY KEY,
-                name TEXT,
-                email TEXT,
-                age INTEGER,
-                active BOOLEAN
-            )
-        """)
-
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS test_orders (
-                id INTEGER PRIMARY KEY,
-                user_id INTEGER,
-                amount REAL,
-                status TEXT,
-                date TEXT
-            )
-        """)
-
-        # Insert test data
-        users_data = [
-            {
-                "id": i,
-                "name": f"User{i}",
-                "email": f"user{i}@example.com",
-                "age": 20 + (i % 50),
-                "active": i % 2 == 0,
-            }
-            for i in range(10000)
-        ]
-        db.table("test_users").insert_many(users_data)
-
-        orders_data = [
-            {
-                "id": i,
-                "user_id": i % 1000,
-                "amount": 10.0 + (i % 100),
-                "status": "active" if i % 2 == 0 else "pending",
-                "date": "2024-01-01",
-            }
-            for i in range(50000)
-        ]
-        db.table("test_orders").insert_many(orders_data)
-
-        print("Test data created.")
-    except Exception as e:
-        print(f"Note: Test data may already exist: {e}")
+    _reset_benchmark_tables(db)
+    print("Test data populated.")
 
     results = []
 

@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2025-11-24
+
 ### Added
+- **Comprehensive Examples Directory** - Added 13 example files demonstrating all Moltres features:
+  - `01_connecting.py` - Database connections (sync and async)
+  - `02_dataframe_basics.py` - Basic DataFrame operations
+  - `03_async_dataframe.py` - Asynchronous DataFrame operations
+  - `04_joins.py` - Join operations
+  - `05_groupby.py` - GroupBy and aggregation
+  - `06_expressions.py` - Column expressions and functions
+  - `07_file_reading.py` - Reading files (CSV, JSON, JSONL, Parquet, Text)
+  - `08_file_writing.py` - Writing DataFrames to files
+  - `09_table_operations.py` - Table operations and mutations
+  - `10_create_dataframe.py` - Creating DataFrames from Python data
+  - `11_window_functions.py` - Window functions
+  - `12_sql_operations.py` - Raw SQL and SQL operations
+  - `13_transactions.py` - Transaction management
+  - All examples use PySpark-style function imports (`from moltres.expressions import functions as F`)
+  - All examples verified to run with real outputs documented as comments
+
+### Changed
+- **README Streamlined** - Significantly streamlined README for better readability:
+  - Reduced from 714 lines to 446 lines (37% reduction)
+  - Removed verbose release notes and repetitive marketing claims
+  - Focused on essential quick start examples with links to comprehensive examples directory
+  - All example links use GitHub URLs for PyPI compatibility
+  - All code examples verified to run with actual outputs documented
+
+### Added (continued)
 - **Chunked File Reading for Large Files** - Files are now read in chunks by default to safely handle files larger than available memory:
   - **Default Streaming Mode** - All file reads (`db.read.csv()`, `db.read.json()`, etc.) now use chunked reading by default, similar to PySpark's partition-based approach
   - **Opt-Out Mechanism** - Users can disable chunked reading for small files by setting `stream=False`: `db.read.option("stream", False).csv("small_file.csv")`

@@ -635,19 +635,45 @@ class AsyncDataFrameWriter:
 
     async def _table_exists(self, db: "AsyncDatabase", table_name: str) -> bool:
         """Check if a table exists in the database."""
-        # Try to query the table - if it doesn't exist, we'll get an error
-        try:
-            await db.table(table_name)
-            # Try to compile a simple query to verify table exists
-            from ..logical import operators
+        # Query database metadata to check if table exists
+        dialect_name = db._dialect_name
+        if dialect_name == "sqlite":
+            # Query sqlite_master for SQLite - use string formatting for SQLite's ? placeholders
+            try:
+                # For SQLite, we can use string formatting since table_name is validated
+                from ..sql.builders import quote_identifier
 
-            plan = operators.scan(table_name)
-            db.compile_plan(plan)
-            # Just compile, don't execute - if table doesn't exist, compilation might fail
-            # For now, we'll try a simple approach
-            return True  # Simplified - in production, query information_schema
-        except Exception:
-            return False
+                quoted_name = quote_identifier(table_name, '"')
+                sql = f"SELECT name FROM sqlite_master WHERE type='table' AND name={quoted_name}"
+                result = await db.executor.fetch(sql)
+                return len(result.rows) > 0
+            except Exception:
+                return False
+        else:
+            # For other databases, query information_schema
+            try:
+                # PostgreSQL, MySQL, etc. use information_schema
+                if dialect_name in {"postgresql", "mysql", "mariadb"}:
+                    if dialect_name == "postgresql":
+                        # For PostgreSQL, use pg_tables which respects search_path
+                        # This handles custom schemas set via search_path in the DSN
+                        sql = "SELECT tablename FROM pg_tables WHERE schemaname = current_schema() AND tablename = :table_name"
+                        params = {"table_name": table_name}
+                    else:
+                        # For MySQL/MariaDB, query information_schema
+                        sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :table_name"
+                        params = {"table_name": table_name}
+                    result = await db.executor.fetch(sql, params=params)
+                    return len(result.rows) > 0
+                else:
+                    # Fallback: try to access the table
+                    try:
+                        await db.table(table_name)
+                        return True
+                    except Exception:
+                        return False
+            except Exception:
+                return False
 
     def _infer_or_get_schema(
         self, rows: List[Dict[str, object]], *, force_nullable: bool = False

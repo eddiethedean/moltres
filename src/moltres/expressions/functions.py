@@ -152,9 +152,9 @@ def lit(value: Union[bool, int, float, str, None]) -> Column:
         Column expression representing the literal value
 
     Example:
-        >>> from moltres.expressions.functions import lit
-        >>> col = lit(42)
-        >>> col = lit("hello")
+        >>> from moltres.expressions import functions as F
+        >>> col = F.lit(42)
+        >>> col = F.lit("hello")
     """
     return literal(value)
 
@@ -174,8 +174,8 @@ def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
 
     Example:
         >>> from moltres import col
-        >>> from moltres.expressions.functions import sum
-        >>> df.group_by("category").agg(sum(col("amount")))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.sum(col("amount")))
     """
     return _aggregate("agg_sum", column)
 
@@ -203,9 +203,9 @@ def count(column: Union[ColumnLike, str] = "*") -> Column:
 
     Example:
         >>> from moltres import col
-        >>> from moltres.expressions.functions import count
-        >>> df.group_by("category").agg(count("*"))
-        >>> df.group_by("category").agg(count(col("id")))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.count("*"))
+        >>> df.group_by("category").agg(F.count(col("id")))
     """
     if isinstance(column, str) and column == "*":
         return Column(op="agg_count_star", args=())
@@ -258,8 +258,8 @@ def row_number() -> Column:
         Column expression for row_number() window function
 
     Example:
-        >>> from moltres.expressions.functions import row_number
-        >>> df.select(col("id"), row_number().over(partition_by=col("category")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.row_number().over(partition_by=col("category")))
     """
     return Column(op="window_row_number", args=())
 
@@ -271,8 +271,8 @@ def rank() -> Column:
         Column expression for rank() window function
 
     Example:
-        >>> from moltres.expressions.functions import rank
-        >>> df.select(col("id"), rank().over(partition_by=col("category"), order_by=col("score")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.rank().over(partition_by=col("category"), order_by=col("score")))
     """
     return Column(op="window_rank", args=())
 
@@ -284,8 +284,8 @@ def dense_rank() -> Column:
         Column expression for dense_rank() window function
 
     Example:
-        >>> from moltres.expressions.functions import dense_rank
-        >>> df.select(col("id"), dense_rank().over(partition_by=col("category"), order_by=col("score")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.dense_rank().over(partition_by=col("category"), order_by=col("score")))
     """
     return Column(op="window_dense_rank", args=())
 
@@ -297,8 +297,8 @@ def percent_rank() -> Column:
         Column expression for percent_rank() window function
 
     Example:
-        >>> from moltres.expressions.functions import percent_rank
-        >>> df.select(col("id"), percent_rank().over(partition_by=col("category"), order_by=col("score")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.percent_rank().over(partition_by=col("category"), order_by=col("score")))
     """
     return Column(op="window_percent_rank", args=())
 
@@ -310,8 +310,8 @@ def cume_dist() -> Column:
         Column expression for cume_dist() window function
 
     Example:
-        >>> from moltres.expressions.functions import cume_dist
-        >>> df.select(col("id"), cume_dist().over(partition_by=col("category"), order_by=col("score")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.cume_dist().over(partition_by=col("category"), order_by=col("score")))
     """
     return Column(op="window_cume_dist", args=())
 
@@ -327,8 +327,8 @@ def nth_value(column: ColumnLike, n: int) -> Column:
         Column expression for nth_value() window function
 
     Example:
-        >>> from moltres.expressions.functions import nth_value
-        >>> df.select(col("id"), nth_value(col("amount"), 2).over(partition_by=col("category"), order_by=col("date")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.nth_value(col("amount"), 2).over(partition_by=col("category"), order_by=col("date")))
     """
     return Column(op="window_nth_value", args=(ensure_column(column), n))
 
@@ -343,8 +343,8 @@ def ntile(n: int) -> Column:
         Column expression for ntile() window function
 
     Example:
-        >>> from moltres.expressions.functions import ntile
-        >>> df.select(col("id"), ntile(4).over(order_by=col("score")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.ntile(4).over(order_by=col("score")))
     """
     return Column(op="window_ntile", args=(n,))
 
@@ -361,8 +361,8 @@ def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = Non
         Column expression for lag() window function
 
     Example:
-        >>> from moltres.expressions.functions import lag
-        >>> df.select(col("id"), lag(col("value"), offset=1).over(order_by=col("date")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.lag(col("value"), offset=1).over(order_by=col("date")))
     """
     args = [ensure_column(column), offset]
     if default is not None:
@@ -382,8 +382,8 @@ def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = No
         Column expression for lead() window function
 
     Example:
-        >>> from moltres.expressions.functions import lead
-        >>> df.select(col("id"), lead(col("value"), offset=1).over(order_by=col("date")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("id"), F.lead(col("value"), offset=1).over(order_by=col("date")))
     """
     args = [ensure_column(column), offset]
     if default is not None:
@@ -825,8 +825,8 @@ def date_add(column: ColumnLike, interval: str) -> Column:
         Column expression for date_add
 
     Example:
-        >>> from moltres.expressions.functions import date_add
-        >>> df.select(date_add(col("created_at"), "1 DAY"))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.date_add(col("created_at"), "1 DAY"))
         >>> # SQL: created_at + INTERVAL '1 DAY'
     """
     return Column(op="date_add", args=(ensure_column(column), interval))
@@ -843,8 +843,8 @@ def date_sub(column: ColumnLike, interval: str) -> Column:
         Column expression for date_sub
 
     Example:
-        >>> from moltres.expressions.functions import date_sub
-        >>> df.select(date_sub(col("created_at"), "1 DAY"))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.date_sub(col("created_at"), "1 DAY"))
         >>> # SQL: created_at - INTERVAL '1 DAY'
     """
     return Column(op="date_sub", args=(ensure_column(column), interval))
@@ -897,8 +897,8 @@ def when(condition: Column, value: ColumnLike) -> When:
         When builder for chaining additional WHEN clauses
 
     Example:
-        >>> from moltres.expressions.functions import when
-        >>> df.select(when(col("age") >= 18, "adult").otherwise("minor"))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.when(col("age") >= 18, "adult").otherwise("minor"))
     """
     return When(condition, value)
 
@@ -925,8 +925,8 @@ def isnull(column: ColumnLike) -> Column:
         Column expression for isnull (same as is_null())
 
     Example:
-        >>> from moltres.expressions.functions import isnull
-        >>> df.select(col("name")).where(isnull(col("email")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("name")).where(F.isnull(col("email")))
     """
     return Column(op="is_null", args=(ensure_column(column),))
 
@@ -941,8 +941,8 @@ def isnotnull(column: ColumnLike) -> Column:
         Column expression for isnotnull (same as is_not_null())
 
     Example:
-        >>> from moltres.expressions.functions import isnotnull
-        >>> df.select(col("name")).where(isnotnull(col("email")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(col("name")).where(F.isnotnull(col("email")))
     """
     return Column(op="is_not_null", args=(ensure_column(column),))
 
@@ -969,12 +969,13 @@ def scalar_subquery(subquery: "DataFrame") -> Column:
         Column expression for scalar subquery
 
     Example:
-        >>> from moltres.expressions.functions import scalar_subquery
+        >>> from moltres import col
+        >>> from moltres.expressions import functions as F
         >>> # Get the maximum order amount as a column
-        >>> max_order = db.table("orders").select(max(col("amount")))
+        >>> max_order = db.table("orders").select(F.max(col("amount")))
         >>> df = db.table("customers").select(
         ...     col("name"),
-        ...     scalar_subquery(max_order).alias("max_order_amount")
+        ...     F.scalar_subquery(max_order).alias("max_order_amount")
         ... )
     """
     if not hasattr(subquery, "plan"):
@@ -992,9 +993,9 @@ def exists(subquery: "DataFrame") -> Column:
         Column expression for EXISTS clause
 
     Example:
-        >>> from moltres.expressions.functions import exists
+        >>> from moltres.expressions import functions as F
         >>> active_orders = db.table("orders").select().where(col("status") == "active")
-        >>> customers_with_orders = db.table("customers").select().where(exists(active_orders))
+        >>> customers_with_orders = db.table("customers").select().where(F.exists(active_orders))
     """
     if not hasattr(subquery, "plan"):
         raise TypeError("exists() requires a DataFrame (subquery)")
@@ -1011,9 +1012,9 @@ def not_exists(subquery: "DataFrame") -> Column:
         Column expression for NOT EXISTS clause
 
     Example:
-        >>> from moltres.expressions.functions import not_exists
+        >>> from moltres.expressions import functions as F
         >>> inactive_orders = db.table("orders").select().where(col("status") == "inactive")
-        >>> customers_without_orders = db.table("customers").select().where(not_exists(inactive_orders))
+        >>> customers_without_orders = db.table("customers").select().where(F.not_exists(inactive_orders))
     """
     if not hasattr(subquery, "plan"):
         raise TypeError("not_exists() requires a DataFrame (subquery)")
@@ -1030,8 +1031,8 @@ def stddev(column: ColumnLike) -> Column:
         Column expression for the standard deviation aggregate
 
     Example:
-        >>> from moltres.expressions.functions import stddev
-        >>> df.group_by("category").agg(stddev(col("amount")))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.stddev(col("amount")))
     """
     return _aggregate("agg_stddev", column)
 
@@ -1046,8 +1047,8 @@ def variance(column: ColumnLike) -> Column:
         Column expression for the variance aggregate
 
     Example:
-        >>> from moltres.expressions.functions import variance
-        >>> df.group_by("category").agg(variance(col("amount")))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.variance(col("amount")))
     """
     return _aggregate("agg_variance", column)
 
@@ -1063,8 +1064,8 @@ def corr(column1: ColumnLike, column2: ColumnLike) -> Column:
         Column expression for the correlation aggregate
 
     Example:
-        >>> from moltres.expressions.functions import corr
-        >>> df.agg(corr(col("x"), col("y")))
+        >>> from moltres.expressions import functions as F
+        >>> df.agg(F.corr(col("x"), col("y")))
     """
     return Column(op="agg_corr", args=(ensure_column(column1), ensure_column(column2)))
 
@@ -1080,8 +1081,8 @@ def covar(column1: ColumnLike, column2: ColumnLike) -> Column:
         Column expression for the covariance aggregate
 
     Example:
-        >>> from moltres.expressions.functions import covar
-        >>> df.agg(covar(col("x"), col("y")))
+        >>> from moltres.expressions import functions as F
+        >>> df.agg(F.covar(col("x"), col("y")))
     """
     return Column(op="agg_covar", args=(ensure_column(column1), ensure_column(column2)))
 
@@ -1097,8 +1098,8 @@ def json_extract(column: ColumnLike, path: str) -> Column:
         Column expression for json_extract
 
     Example:
-        >>> from moltres.expressions.functions import json_extract
-        >>> df.select(json_extract(col("data"), "$.name"))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.json_extract(col("data"), "$.name"))
     """
     return Column(op="json_extract", args=(ensure_column(column), path))
 
@@ -1113,8 +1114,8 @@ def array(*columns: ColumnLike) -> Column:
         Column expression for array
 
     Example:
-        >>> from moltres.expressions.functions import array
-        >>> df.select(array(col("a"), col("b"), col("c")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.array(col("a"), col("b"), col("c")))
     """
     if not columns:
         raise ValueError("array() requires at least one column")
@@ -1131,8 +1132,8 @@ def array_length(column: ColumnLike) -> Column:
         Column expression for array_length
 
     Example:
-        >>> from moltres.expressions.functions import array_length
-        >>> df.select(array_length(col("tags")))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.array_length(col("tags")))
     """
     return Column(op="array_length", args=(ensure_column(column),))
 
@@ -1148,8 +1149,8 @@ def array_contains(column: ColumnLike, value: ColumnLike) -> Column:
         Column expression for array_contains (boolean)
 
     Example:
-        >>> from moltres.expressions.functions import array_contains
-        >>> df.select(array_contains(col("tags"), "python"))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.array_contains(col("tags"), "python"))
     """
     return Column(op="array_contains", args=(ensure_column(column), ensure_column(value)))
 
@@ -1165,8 +1166,8 @@ def array_position(column: ColumnLike, value: ColumnLike) -> Column:
         Column expression for array_position (integer, or NULL if not found)
 
     Example:
-        >>> from moltres.expressions.functions import array_position
-        >>> df.select(array_position(col("tags"), "python"))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.array_position(col("tags"), "python"))
     """
     return Column(op="array_position", args=(ensure_column(column), ensure_column(value)))
 
@@ -1181,8 +1182,8 @@ def collect_list(column: ColumnLike) -> Column:
         Column expression for collect_list aggregate
 
     Example:
-        >>> from moltres.expressions.functions import collect_list
-        >>> df.group_by("category").agg(collect_list(col("item")))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.collect_list(col("item")))
     """
     return _aggregate("agg_collect_list", column)
 
@@ -1197,8 +1198,8 @@ def collect_set(column: ColumnLike) -> Column:
         Column expression for collect_set aggregate
 
     Example:
-        >>> from moltres.expressions.functions import collect_set
-        >>> df.group_by("category").agg(collect_set(col("item")))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.collect_set(col("item")))
     """
     return _aggregate("agg_collect_set", column)
 
@@ -1214,8 +1215,8 @@ def percentile_cont(column: ColumnLike, fraction: float) -> Column:
         Column expression for percentile_cont aggregate
 
     Example:
-        >>> from moltres.expressions.functions import percentile_cont
-        >>> df.group_by("category").agg(percentile_cont(col("price"), 0.5).alias("median_price"))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.percentile_cont(col("price"), 0.5).alias("median_price"))
     """
     if not 0.0 <= fraction <= 1.0:
         raise ValueError("fraction must be between 0.0 and 1.0")
@@ -1233,8 +1234,8 @@ def percentile_disc(column: ColumnLike, fraction: float) -> Column:
         Column expression for percentile_disc aggregate
 
     Example:
-        >>> from moltres.expressions.functions import percentile_disc
-        >>> df.group_by("category").agg(percentile_disc(col("price"), 0.9).alias("p90_price"))
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.percentile_disc(col("price"), 0.9).alias("p90_price"))
     """
     if not 0.0 <= fraction <= 1.0:
         raise ValueError("fraction must be between 0.0 and 1.0")
@@ -1254,12 +1255,12 @@ def explode(column: ColumnLike) -> Column:
         Column expression for explode operation
 
     Example:
-        >>> from moltres.expressions.functions import explode
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(explode(col("array_col")).alias("value"))
+        >>> df.select(F.explode(col("array_col")).alias("value"))
         >>> # PySpark equivalent:
         >>> # from pyspark.sql.functions import explode
-        >>> # df.select(explode(col("array_col")).alias("value"))
+        >>> # df.select(F.explode(col("array_col")).alias("value"))
     """
     return Column(op="explode", args=(ensure_column(column),))
 
@@ -1275,9 +1276,9 @@ def pow(base: ColumnLike, exp: ColumnLike) -> Column:
         Column expression for pow (base^exp)
 
     Example:
-        >>> from moltres.expressions.functions import pow
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(pow(col("x"), col("y")))
+        >>> df.select(F.pow(col("x"), col("y")))
     """
     return Column(op="pow", args=(ensure_column(base), ensure_column(exp)))
 
@@ -1293,9 +1294,9 @@ def power(base: ColumnLike, exp: ColumnLike) -> Column:
         Column expression for power (base^exp)
 
     Example:
-        >>> from moltres.expressions.functions import power
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(power(col("x"), 2))
+        >>> df.select(F.power(col("x"), 2))
     """
     return pow(base, exp)
 
@@ -1310,9 +1311,9 @@ def asin(column: ColumnLike) -> Column:
         Column expression for asin (result in radians)
 
     Example:
-        >>> from moltres.expressions.functions import asin
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(asin(col("ratio")))
+        >>> df.select(F.asin(col("ratio")))
     """
     return Column(op="asin", args=(ensure_column(column),))
 
@@ -1327,9 +1328,9 @@ def acos(column: ColumnLike) -> Column:
         Column expression for acos (result in radians)
 
     Example:
-        >>> from moltres.expressions.functions import acos
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(acos(col("ratio")))
+        >>> df.select(F.acos(col("ratio")))
     """
     return Column(op="acos", args=(ensure_column(column),))
 
@@ -1344,9 +1345,9 @@ def atan(column: ColumnLike) -> Column:
         Column expression for atan (result in radians)
 
     Example:
-        >>> from moltres.expressions.functions import atan
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(atan(col("slope")))
+        >>> df.select(F.atan(col("slope")))
     """
     return Column(op="atan", args=(ensure_column(column),))
 
@@ -1362,9 +1363,9 @@ def atan2(y: ColumnLike, x: ColumnLike) -> Column:
         Column expression for atan2 (result in radians, range [-π, π])
 
     Example:
-        >>> from moltres.expressions.functions import atan2
+        >>> from moltres.expressions import functions as F2
         >>> from moltres import col
-        >>> df.select(atan2(col("y"), col("x")))
+        >>> df.select(F.atan2(col("y"), col("x")))
     """
     return Column(op="atan2", args=(ensure_column(y), ensure_column(x)))
 
@@ -1379,9 +1380,9 @@ def signum(column: ColumnLike) -> Column:
         Column expression for signum (-1 if negative, 0 if zero, 1 if positive)
 
     Example:
-        >>> from moltres.expressions.functions import signum
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(signum(col("value")))
+        >>> df.select(F.signum(col("value")))
     """
     return Column(op="signum", args=(ensure_column(column),))
 
@@ -1396,9 +1397,9 @@ def sign(column: ColumnLike) -> Column:
         Column expression for sign (-1 if negative, 0 if zero, 1 if positive)
 
     Example:
-        >>> from moltres.expressions.functions import sign
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(sign(col("value")))
+        >>> df.select(F.sign(col("value")))
     """
     return signum(column)
 
@@ -1413,9 +1414,9 @@ def log2(column: ColumnLike) -> Column:
         Column expression for log2
 
     Example:
-        >>> from moltres.expressions.functions import log2
+        >>> from moltres.expressions import functions as F2
         >>> from moltres import col
-        >>> df.select(log2(col("value")))
+        >>> df.select(F.log2(col("value")))
     """
     return Column(op="log2", args=(ensure_column(column),))
 
@@ -1431,9 +1432,9 @@ def hypot(x: ColumnLike, y: ColumnLike) -> Column:
         Column expression for hypot
 
     Example:
-        >>> from moltres.expressions.functions import hypot
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(hypot(col("x"), col("y")))
+        >>> df.select(F.hypot(col("x"), col("y")))
     """
     return Column(op="hypot", args=(ensure_column(x), ensure_column(y)))
 
@@ -1448,9 +1449,9 @@ def initcap(column: ColumnLike) -> Column:
         Column expression for initcap
 
     Example:
-        >>> from moltres.expressions.functions import initcap
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(initcap(col("name")))
+        >>> df.select(F.initcap(col("name")))
     """
     return Column(op="initcap", args=(ensure_column(column),))
 
@@ -1466,9 +1467,9 @@ def instr(column: ColumnLike, substring: ColumnLike) -> Column:
         Column expression for instr (1-based position, or 0 if not found)
 
     Example:
-        >>> from moltres.expressions.functions import instr
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(instr(col("text"), "world"))
+        >>> df.select(F.instr(col("text"), "world"))
     """
     return Column(op="instr", args=(ensure_column(column), ensure_column(substring)))
 
@@ -1485,9 +1486,9 @@ def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
         Column expression for locate (1-based position, or 0 if not found)
 
     Example:
-        >>> from moltres.expressions.functions import locate
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(locate("world", col("text")))
+        >>> df.select(F.locate("world", col("text")))
     """
     return Column(op="locate", args=(ensure_column(substring), ensure_column(column), pos))
 
@@ -1504,9 +1505,9 @@ def translate(column: ColumnLike, from_chars: str, to_chars: str) -> Column:
         Column expression for translate
 
     Example:
-        >>> from moltres.expressions.functions import translate
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(translate(col("text"), "abc", "xyz"))
+        >>> df.select(F.translate(col("text"), "abc", "xyz"))
     """
     if len(from_chars) != len(to_chars):
         raise ValueError("from_chars and to_chars must have the same length")
@@ -1524,9 +1525,9 @@ def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  #
         Column expression for to_timestamp
 
     Example:
-        >>> from moltres.expressions.functions import to_timestamp
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(to_timestamp(col("date_str"), "yyyy-MM-dd HH:mm:ss"))
+        >>> df.select(F.to_timestamp(col("date_str"), "yyyy-MM-dd HH:mm:ss"))
     """
     if format is not None:
         return Column(op="to_timestamp", args=(ensure_column(column), format))
@@ -1544,9 +1545,9 @@ def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = 
         Column expression for unix_timestamp
 
     Example:
-        >>> from moltres.expressions.functions import unix_timestamp
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(unix_timestamp(col("created_at")))
+        >>> df.select(F.unix_timestamp(col("created_at")))
     """
     if column is None:
         return Column(op="unix_timestamp", args=())
@@ -1566,9 +1567,9 @@ def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  
         Column expression for from_unixtime
 
     Example:
-        >>> from moltres.expressions.functions import from_unixtime
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(from_unixtime(col("unix_time"), "yyyy-MM-dd HH:mm:ss"))
+        >>> df.select(F.from_unixtime(col("unix_time"), "yyyy-MM-dd HH:mm:ss"))
     """
     if format is not None:
         return Column(op="from_unixtime", args=(ensure_column(column), format))
@@ -1586,9 +1587,9 @@ def date_trunc(unit: str, column: ColumnLike) -> Column:
         Column expression for date_trunc
 
     Example:
-        >>> from moltres.expressions.functions import date_trunc
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(date_trunc("month", col("created_at")))
+        >>> df.select(F.date_trunc("month", col("created_at")))
     """
     return Column(op="date_trunc", args=(unit, ensure_column(column)))
 
@@ -1603,9 +1604,9 @@ def quarter(column: ColumnLike) -> Column:
         Column expression for quarter (1, 2, 3, or 4)
 
     Example:
-        >>> from moltres.expressions.functions import quarter
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(quarter(col("created_at")))
+        >>> df.select(F.quarter(col("created_at")))
     """
     return Column(op="quarter", args=(ensure_column(column),))
 
@@ -1620,9 +1621,9 @@ def weekofyear(column: ColumnLike) -> Column:
         Column expression for weekofyear
 
     Example:
-        >>> from moltres.expressions.functions import weekofyear
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(weekofyear(col("created_at")))
+        >>> df.select(F.weekofyear(col("created_at")))
     """
     return Column(op="weekofyear", args=(ensure_column(column),))
 
@@ -1637,9 +1638,9 @@ def week(column: ColumnLike) -> Column:
         Column expression for week
 
     Example:
-        >>> from moltres.expressions.functions import week
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(week(col("created_at")))
+        >>> df.select(F.week(col("created_at")))
     """
     return weekofyear(column)
 
@@ -1654,9 +1655,9 @@ def dayofyear(column: ColumnLike) -> Column:
         Column expression for dayofyear
 
     Example:
-        >>> from moltres.expressions.functions import dayofyear
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(dayofyear(col("created_at")))
+        >>> df.select(F.dayofyear(col("created_at")))
     """
     return Column(op="dayofyear", args=(ensure_column(column),))
 
@@ -1671,9 +1672,9 @@ def last_day(column: ColumnLike) -> Column:
         Column expression for last_day
 
     Example:
-        >>> from moltres.expressions.functions import last_day
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(last_day(col("created_at")))
+        >>> df.select(F.last_day(col("created_at")))
     """
     return Column(op="last_day", args=(ensure_column(column),))
 
@@ -1689,9 +1690,9 @@ def months_between(date1: ColumnLike, date2: ColumnLike) -> Column:
         Column expression for months_between (can be fractional)
 
     Example:
-        >>> from moltres.expressions.functions import months_between
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(months_between(col("end_date"), col("start_date")))
+        >>> df.select(F.months_between(col("end_date"), col("start_date")))
     """
     return Column(op="months_between", args=(ensure_column(date1), ensure_column(date2)))
 
@@ -1706,9 +1707,9 @@ def first_value(column: ColumnLike) -> Column:
         Column expression for first_value() window function
 
     Example:
-        >>> from moltres.expressions.functions import first_value
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(first_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
+        >>> df.select(F.first_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
     """
     return Column(op="window_first_value", args=(ensure_column(column),))
 
@@ -1723,9 +1724,9 @@ def last_value(column: ColumnLike) -> Column:
         Column expression for last_value() window function
 
     Example:
-        >>> from moltres.expressions.functions import last_value
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(last_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
+        >>> df.select(F.last_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
     """
     return Column(op="window_last_value", args=(ensure_column(column),))
 
@@ -1741,9 +1742,9 @@ def array_append(column: ColumnLike, element: ColumnLike) -> Column:
         Column expression for array_append
 
     Example:
-        >>> from moltres.expressions.functions import array_append
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_append(col("tags"), "new_tag"))
+        >>> df.select(F.array_append(col("tags"), "new_tag"))
     """
     return Column(op="array_append", args=(ensure_column(column), ensure_column(element)))
 
@@ -1759,9 +1760,9 @@ def array_prepend(column: ColumnLike, element: ColumnLike) -> Column:
         Column expression for array_prepend
 
     Example:
-        >>> from moltres.expressions.functions import array_prepend
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_prepend(col("tags"), "first_tag"))
+        >>> df.select(F.array_prepend(col("tags"), "first_tag"))
     """
     return Column(op="array_prepend", args=(ensure_column(column), ensure_column(element)))
 
@@ -1777,9 +1778,9 @@ def array_remove(column: ColumnLike, element: ColumnLike) -> Column:
         Column expression for array_remove
 
     Example:
-        >>> from moltres.expressions.functions import array_remove
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_remove(col("tags"), "old_tag"))
+        >>> df.select(F.array_remove(col("tags"), "old_tag"))
     """
     return Column(op="array_remove", args=(ensure_column(column), ensure_column(element)))
 
@@ -1794,9 +1795,9 @@ def array_distinct(column: ColumnLike) -> Column:
         Column expression for array_distinct
 
     Example:
-        >>> from moltres.expressions.functions import array_distinct
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_distinct(col("tags")))
+        >>> df.select(F.array_distinct(col("tags")))
     """
     return Column(op="array_distinct", args=(ensure_column(column),))
 
@@ -1811,9 +1812,9 @@ def array_sort(column: ColumnLike) -> Column:
         Column expression for array_sort
 
     Example:
-        >>> from moltres.expressions.functions import array_sort
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_sort(col("tags")))
+        >>> df.select(F.array_sort(col("tags")))
     """
     return Column(op="array_sort", args=(ensure_column(column),))
 
@@ -1828,9 +1829,9 @@ def array_max(column: ColumnLike) -> Column:
         Column expression for array_max
 
     Example:
-        >>> from moltres.expressions.functions import array_max
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_max(col("values")))
+        >>> df.select(F.array_max(col("values")))
     """
     return Column(op="array_max", args=(ensure_column(column),))
 
@@ -1845,9 +1846,9 @@ def array_min(column: ColumnLike) -> Column:
         Column expression for array_min
 
     Example:
-        >>> from moltres.expressions.functions import array_min
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_min(col("values")))
+        >>> df.select(F.array_min(col("values")))
     """
     return Column(op="array_min", args=(ensure_column(column),))
 
@@ -1862,9 +1863,9 @@ def array_sum(column: ColumnLike) -> Column:
         Column expression for array_sum
 
     Example:
-        >>> from moltres.expressions.functions import array_sum
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(array_sum(col("values")))
+        >>> df.select(F.array_sum(col("values")))
     """
     return Column(op="array_sum", args=(ensure_column(column),))
 
@@ -1880,9 +1881,9 @@ def json_tuple(column: ColumnLike, *paths: str) -> Column:
         Column expression for json_tuple (returns array of values)
 
     Example:
-        >>> from moltres.expressions.functions import json_tuple
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(json_tuple(col("data"), "$.name", "$.age"))
+        >>> df.select(F.json_tuple(col("data"), "$.name", "$.age"))
     """
     if not paths:
         raise ValueError("json_tuple requires at least one path")
@@ -1900,9 +1901,9 @@ def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
         Column expression for from_json
 
     Example:
-        >>> from moltres.expressions.functions import from_json
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(from_json(col("json_str")))
+        >>> df.select(F.from_json(col("json_str")))
     """
     if schema is not None:
         return Column(op="from_json", args=(ensure_column(column), schema))
@@ -1919,9 +1920,9 @@ def to_json(column: ColumnLike) -> Column:
         Column expression for to_json
 
     Example:
-        >>> from moltres.expressions.functions import to_json
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(to_json(col("data")))
+        >>> df.select(F.to_json(col("data")))
     """
     return Column(op="to_json", args=(ensure_column(column),))
 
@@ -1936,9 +1937,9 @@ def json_array_length(column: ColumnLike) -> Column:
         Column expression for json_array_length
 
     Example:
-        >>> from moltres.expressions.functions import json_array_length
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(json_array_length(col("items")))
+        >>> df.select(F.json_array_length(col("items")))
     """
     return Column(op="json_array_length", args=(ensure_column(column),))
 
@@ -1953,8 +1954,8 @@ def rand(seed: Optional[int] = None) -> Column:
         Column expression for rand
 
     Example:
-        >>> from moltres.expressions.functions import rand
-        >>> df.select(rand())
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.rand())
     """
     if seed is not None:
         return Column(op="rand", args=(seed,))
@@ -1973,8 +1974,8 @@ def randn(seed: Optional[int] = None) -> Column:
         Column expression for randn
 
     Example:
-        >>> from moltres.expressions.functions import randn
-        >>> df.select(randn())
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.randn())
     """
     if seed is not None:
         return Column(op="randn", args=(seed,))
@@ -1991,9 +1992,9 @@ def hash(*columns: ColumnLike) -> Column:
         Column expression for hash
 
     Example:
-        >>> from moltres.expressions.functions import hash
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(hash(col("id"), col("name")))
+        >>> df.select(F.hash(col("id"), col("name")))
     """
     if not columns:
         raise ValueError("hash requires at least one column")
@@ -2010,9 +2011,9 @@ def md5(column: ColumnLike) -> Column:
         Column expression for md5 (returns hex string)
 
     Example:
-        >>> from moltres.expressions.functions import md5
+        >>> from moltres.expressions import functions as F5
         >>> from moltres import col
-        >>> df.select(md5(col("password")))
+        >>> df.select(F.md5(col("password")))
     """
     return Column(op="md5", args=(ensure_column(column),))
 
@@ -2027,9 +2028,9 @@ def sha1(column: ColumnLike) -> Column:
         Column expression for sha1 (returns hex string)
 
     Example:
-        >>> from moltres.expressions.functions import sha1
+        >>> from moltres.expressions import functions as F1
         >>> from moltres import col
-        >>> df.select(sha1(col("password")))
+        >>> df.select(F.sha1(col("password")))
     """
     return Column(op="sha1", args=(ensure_column(column),))
 
@@ -2045,9 +2046,9 @@ def sha2(column: ColumnLike, num_bits: int = 256) -> Column:
         Column expression for sha2 (returns hex string)
 
     Example:
-        >>> from moltres.expressions.functions import sha2
+        >>> from moltres.expressions import functions as F2
         >>> from moltres import col
-        >>> df.select(sha2(col("password"), 256))
+        >>> df.select(F.sha2(col("password"), 256))
     """
     if num_bits not in (224, 256, 384, 512):
         raise ValueError("num_bits must be 224, 256, 384, or 512")
@@ -2064,9 +2065,9 @@ def base64(column: ColumnLike) -> Column:
         Column expression for base64 encoding
 
     Example:
-        >>> from moltres.expressions.functions import base64
+        >>> from moltres.expressions import functions as F64
         >>> from moltres import col
-        >>> df.select(base64(col("data")))
+        >>> df.select(F.base64(col("data")))
     """
     return Column(op="base64", args=(ensure_column(column),))
 
@@ -2081,8 +2082,8 @@ def monotonically_increasing_id() -> Column:
         Column expression for monotonically_increasing_id
 
     Example:
-        >>> from moltres.expressions.functions import monotonically_increasing_id
-        >>> df.select(monotonically_increasing_id().alias("id"))
+        >>> from moltres.expressions import functions as F
+        >>> df.select(F.monotonically_increasing_id().alias("id"))
     """
     return Column(op="monotonically_increasing_id", args=())
 
@@ -2097,9 +2098,9 @@ def crc32(column: ColumnLike) -> Column:
         Column expression for crc32
 
     Example:
-        >>> from moltres.expressions.functions import crc32
+        >>> from moltres.expressions import functions as F32
         >>> from moltres import col
-        >>> df.select(crc32(col("data")))
+        >>> df.select(F.crc32(col("data")))
     """
     return Column(op="crc32", args=(ensure_column(column),))
 
@@ -2114,8 +2115,8 @@ def soundex(column: ColumnLike) -> Column:
         Column expression for soundex
 
     Example:
-        >>> from moltres.expressions.functions import soundex
+        >>> from moltres.expressions import functions as F
         >>> from moltres import col
-        >>> df.select(soundex(col("name")))
+        >>> df.select(F.soundex(col("name")))
     """
     return Column(op="soundex", args=(ensure_column(column),))

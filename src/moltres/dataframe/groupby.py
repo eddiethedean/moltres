@@ -41,12 +41,12 @@ class GroupedDataFrame:
 
         Example:
             >>> from moltres import col
-            >>> from moltres.expressions.functions import sum, avg, count
+            >>> from moltres.expressions import functions as F
             >>> # Using Column expressions
             >>> df.group_by("category").agg(
-            ...     sum(col("amount")).alias("total"),
-            ...     avg(col("price")).alias("avg_price"),
-            ...     count("*").alias("count")
+            ...     F.sum(col("amount")).alias("total"),
+            ...     F.avg(col("price")).alias("avg_price"),
+            ...     F.count("*").alias("count")
             ... )
 
             >>> # Using string column names (defaults to sum)
@@ -56,7 +56,7 @@ class GroupedDataFrame:
             >>> df.group_by("category").agg({"amount": "sum", "price": "avg"})
 
             >>> # Mixed usage
-            >>> df.group_by("category").agg("amount", sum(col("price")).alias("total_price"))
+            >>> df.group_by("category").agg("amount", F.sum(col("price")).alias("total_price"))
         """
         if not aggregations:
             raise ValueError("agg requires at least one aggregation expression")
@@ -210,12 +210,12 @@ class PivotedGroupedDataFrame:
 
         Example:
             >>> from moltres import col
-            >>> from moltres.expressions.functions import sum
+            >>> from moltres.expressions import functions as F
             >>> # Using string column name
             >>> df.group_by("category").pivot("status").agg("amount")
 
             >>> # Using Column expression
-            >>> df.group_by("category").pivot("status").agg(sum(col("amount")))
+            >>> df.group_by("category").pivot("status").agg(F.sum(col("amount")))
 
             >>> # With specific pivot values
             >>> df.group_by("category").pivot("status", values=["active", "inactive"]).agg("amount")

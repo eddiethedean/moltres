@@ -1,145 +1,414 @@
-# Security Best Practices
+# Security Guide
 
-This document outlines security best practices when using Moltres.
+This guide covers security best practices for using Moltres in production environments.
+
+## Secure DSN Handling
+
+### Never Hardcode Credentials
+
+**❌ Bad:**
+```python
+db = connect("postgresql://user:password@host/dbname")
+```
+
+**✅ Good:**
+```python
+import os
+dsn = os.getenv("DATABASE_URL")
+db = connect(dsn)
+```
+
+### Use Environment Variables
+
+Store database credentials in environment variables:
+
+```bash
+# .env file (never commit to version control)
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+```
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Load from .env file
+db = connect(os.getenv("DATABASE_URL"))
+```
+
+### Use Secret Management Services
+
+For production, use secret management services:
+
+**AWS Secrets Manager:**
+```python
+import boto3
+import json
+
+def get_database_dsn():
+    client = boto3.client('secretsmanager')
+    response = client.get_secret_value(SecretId='prod/database')
+    secret = json.loads(response['SecretString'])
+    return secret['dsn']
+
+db = connect(get_database_dsn())
+```
+
+**HashiCorp Vault:**
+```python
+import hvac
+
+def get_database_dsn():
+    client = hvac.Client(url='https://vault.example.com')
+    secret = client.secrets.kv.v2.read_secret_version(path='database/prod')
+    return secret['data']['data']['dsn']
+
+db = connect(get_database_dsn())
+```
+
+**Azure Key Vault:**
+```python
+from azure.keyvault.secrets import SecretClient
+from azure.identity import DefaultAzureCredential
+
+def get_database_dsn():
+    credential = DefaultAzureCredential()
+    client = SecretClient(vault_url="https://vault.vault.azure.net/", credential=credential)
+    return client.get_secret("database-dsn").value
+
+db = connect(get_database_dsn())
+```
+
+### DSN Security Best Practices
+
+1. **Use SSL/TLS**: Always use encrypted connections in production:
+
+```python
+dsn = "postgresql://user:pass@host/dbname?sslmode=require"
+```
+
+2. **Sanitize Logs**: Never log full DSNs (they contain credentials):
+
+```python
+# ❌ Bad
+logger.info(f"Connecting to {dsn}")
+
+# ✅ Good
+logger.info(f"Connecting to {dsn.split('@')[-1] if '@' in dsn else 'database'}")
+```
+
+3. **Rotate Credentials**: Regularly rotate database passwords and update secrets.
+
+4. **Use Read-Only Connections**: When possible, use read-only database users for queries:
+
+```python
+# Read-only user
+read_dsn = os.getenv("DATABASE_READ_ONLY_URL")
+read_db = connect(read_dsn)
+
+# Read-write user (only for mutations)
+write_dsn = os.getenv("DATABASE_WRITE_URL")
+write_db = connect(write_dsn)
+```
 
 ## SQL Injection Prevention
 
-Moltres is designed with SQL injection prevention in mind. However, it's important to understand how it works and follow best practices.
+Moltres automatically prevents SQL injection through:
 
-### How Moltres Prevents SQL Injection
+1. **Parameterized Queries**: All user input is parameterized
+2. **Identifier Validation**: Table and column names are validated
+3. **Type Safety**: Type checking prevents injection vectors
 
-1. **Parameterized Queries**: All user-provided values are passed as parameters, never directly interpolated into SQL strings.
+### Safe Practices
 
-2. **Identifier Validation**: Table and column names are validated and quoted to prevent injection through identifier names.
-
-3. **Expression Compilation**: Column expressions are compiled safely, with literals properly escaped.
-
-### Best Practices
-
-#### ✅ DO: Use Parameterized Values
-
+**✅ Safe - Parameterized Queries:**
 ```python
-from moltres import col, connect
-
-db = connect("sqlite:///example.db")
-
-# ✅ GOOD: User input is passed as a value, not SQL
-user_id = get_user_input()  # e.g., "123"
+# User input is automatically parameterized
+user_id = request.args.get('user_id')
 df = db.table("users").select().where(col("id") == user_id)
 ```
 
-#### ❌ DON'T: Construct SQL Strings Manually
-
+**✅ Safe - Raw SQL with Parameters:**
 ```python
-# ❌ BAD: Never do this!
-user_id = get_user_input()  # Could be "1; DROP TABLE users;--"
-sql = f"SELECT * FROM users WHERE id = {user_id}"  # DANGEROUS!
+user_id = request.args.get('user_id')
+df = db.sql("SELECT * FROM users WHERE id = :user_id", user_id=user_id)
 ```
 
-#### ✅ DO: Validate Table/Column Names
-
+**❌ Unsafe - String Concatenation (Don't Do This):**
 ```python
-# ✅ GOOD: Table names are validated automatically
-table_name = get_table_name()  # Validated by Moltres
-df = db.table(table_name).select()
+# NEVER do this - vulnerable to SQL injection
+user_id = request.args.get('user_id')
+df = db.sql(f"SELECT * FROM users WHERE id = {user_id}")  # DANGEROUS!
 ```
 
-#### ❌ DON'T: Use User Input as Table/Column Names Without Validation
+## Access Control
 
-```python
-# ❌ BAD: If you must use dynamic table names, validate them first
-table_name = get_user_input()
-# Validate that table_name only contains safe characters
-if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
-    raise ValueError("Invalid table name")
-df = db.table(table_name).select()
+### Database-Level Security
+
+1. **Principle of Least Privilege**: Grant only necessary permissions:
+   ```sql
+   -- Read-only user
+   GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_user;
+   
+   -- Write user (only for specific tables)
+   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE orders TO write_user;
 ```
 
-### Identifier Validation
-
-Moltres automatically validates SQL identifiers (table names, column names) to prevent injection:
-
-- Empty strings are rejected
-- Characters like semicolons, quotes, and backslashes are rejected
-- Qualified names (e.g., `schema.table`) are validated per part
-
-If you need to use dynamic identifiers, ensure they come from trusted sources or validate them yourself.
-
-### Connection Strings
-
-**Never** include user-provided values directly in connection strings:
-
-```python
-# ❌ BAD
-password = get_user_input()
-db = connect(f"postgresql://user:{password}@host/db")
-
-# ✅ GOOD: Use environment variables or secure config management
-import os
-db = connect(os.environ["DATABASE_URL"])
+2. **Row-Level Security**: Use database row-level security policies:
+   ```sql
+   -- PostgreSQL example
+   CREATE POLICY user_isolation ON users
+       FOR ALL
+       USING (user_id = current_user);
 ```
 
-### File Paths
-
-When reading files, validate paths to prevent directory traversal:
+3. **Schema Isolation**: Use separate schemas for different applications:
 
 ```python
-# ✅ GOOD: Validate file paths
-from pathlib import Path
-
-user_path = get_user_input()
-path = Path(user_path).resolve()
-if not str(path).startswith(str(Path("/safe/directory").resolve())):
-    raise ValueError("Invalid file path")
-records = db.load.csv(str(path))
+# Application-specific schema
+dsn = "postgresql://user:pass@host/dbname?options=-csearch_path=app_schema"
+db = connect(dsn)
 ```
 
-## Authentication and Authorization
+### Application-Level Security
 
-Moltres does not handle authentication or authorization. These must be handled at the database level:
-
-1. **Database Users**: Use database users with minimal required permissions
-2. **Connection Pooling**: Configure connection pools appropriately for your security needs
-3. **Network Security**: Use encrypted connections (SSL/TLS) for remote databases
-
-## Logging and Monitoring
-
-Be careful about logging sensitive data:
+1. **Validate Input**: Always validate user input before database operations:
 
 ```python
-# ⚠️ CAUTION: Query logging may expose sensitive data
-db = connect("sqlite:///example.db", echo=True)  # Logs all SQL
+def validate_user_id(user_id: str) -> int:
+    try:
+        uid = int(user_id)
+        if uid <= 0:
+            raise ValueError("User ID must be positive")
+        return uid
+    except ValueError:
+        raise ValueError("Invalid user ID format")
 
-# ✅ BETTER: Disable logging in production or use log filtering
-db = connect("sqlite:///example.db", echo=False)
+user_id = validate_user_id(request.args.get('user_id'))
+df = db.table("users").select().where(col("id") == user_id)
 ```
 
-## Error Messages
+2. **Rate Limiting**: Implement rate limiting for database operations:
 
-Error messages may contain SQL or table names. In production, consider:
+```python
+from functools import wraps
+import time
 
-1. Logging detailed errors server-side
-2. Returning generic error messages to clients
-3. Not exposing internal table/column names in public APIs
+def rate_limit(calls_per_second: float):
+    min_interval = 1.0 / calls_per_second
+    last_called = [0.0]
+    
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            elapsed = time.time() - last_called[0]
+            left_to_wait = min_interval - elapsed
+            if left_to_wait > 0:
+                time.sleep(left_to_wait)
+            ret = func(*args, **kwargs)
+            last_called[0] = time.time()
+            return ret
+        return wrapper
+    return decorator
 
-## Recommendations Summary
+@rate_limit(10.0)  # Max 10 calls per second
+def query_users():
+    return db.table("users").select().collect()
+```
 
-1. ✅ Always use Moltres APIs, never construct SQL manually
-2. ✅ Validate user input before using it in queries
-3. ✅ Use parameterized queries (Moltres does this automatically)
-4. ✅ Keep database credentials secure (use environment variables)
-5. ✅ Use database-level authentication and authorization
-6. ✅ Enable SSL/TLS for remote database connections
-7. ✅ Be cautious with logging in production
-8. ✅ Keep Moltres and dependencies up to date
+## Audit Logging
+
+Enable audit logging for sensitive operations:
+
+```python
+import logging
+
+audit_logger = logging.getLogger("audit")
+
+def audit_query(sql: str, user: str, params: dict = None):
+    """Log query for audit purposes."""
+    audit_logger.info(
+        "Query executed",
+        extra={
+            "sql": sql[:500],  # Truncate long queries
+            "user": user,
+            "params": params,
+        }
+    )
+
+# Use performance hooks for audit logging
+from moltres import register_performance_hook
+
+def audit_hook(sql: str, elapsed: float, metadata: dict):
+    audit_query(sql, current_user(), metadata.get("params"))
+
+register_performance_hook("query_end", audit_hook)
+```
+
+## Dependency Security
+
+### Regular Updates
+
+Keep dependencies up to date:
+
+```bash
+# Check for outdated packages
+pip list --outdated
+
+# Update dependencies
+pip install --upgrade moltres
+```
+
+### Vulnerability Scanning
+
+Use tools to scan for known vulnerabilities:
+
+```bash
+# Using safety
+pip install safety
+safety check
+
+# Using pip-audit
+pip install pip-audit
+pip-audit
+```
+
+### Dependency Pinning
+
+Pin critical dependencies in production:
+
+```toml
+# pyproject.toml
+dependencies = [
+  "SQLAlchemy>=2.0,<3.0",  # Pin to major version
+  "typing-extensions>=4.5,<5.0",
+]
+```
+
+## Network Security
+
+### Use Encrypted Connections
+
+Always use SSL/TLS for remote database connections:
+
+```python
+# PostgreSQL
+dsn = "postgresql://user:pass@host/dbname?sslmode=require"
+
+# MySQL
+dsn = "mysql://user:pass@host/dbname?ssl=true"
+
+# SQL Server
+dsn = "mssql+pyodbc://user:pass@host/dbname?driver=ODBC+Driver+17+for+SQL+Server&Encrypt=yes"
+```
+
+### Firewall Rules
+
+Restrict database access with firewall rules:
+
+1. **Database Firewall**: Only allow connections from application servers
+2. **Application Firewall**: Use WAF (Web Application Firewall) for web applications
+3. **Network Segmentation**: Isolate database servers in private networks
+
+## Data Handling
+
+### Sensitive Data
+
+1. **Encryption at Rest**: Ensure database encryption is enabled
+2. **Encryption in Transit**: Always use SSL/TLS connections
+3. **Data Masking**: Mask sensitive data in logs and error messages:
+
+```python
+def mask_sensitive_data(data: dict) -> dict:
+    """Mask sensitive fields in data."""
+    sensitive_fields = ["password", "ssn", "credit_card"]
+    masked = data.copy()
+    for field in sensitive_fields:
+        if field in masked:
+            masked[field] = "***"
+    return masked
+```
+
+### Data Retention
+
+1. **Retention Policies**: Implement data retention policies
+2. **Secure Deletion**: Use secure deletion for sensitive data
+3. **Backup Security**: Encrypt database backups
+
+## Compliance
+
+### GDPR
+
+For GDPR compliance:
+
+1. **Right to Access**: Provide APIs to export user data
+2. **Right to Deletion**: Implement secure data deletion
+3. **Data Minimization**: Only collect necessary data
+4. **Consent Management**: Track user consent for data processing
+
+### HIPAA
+
+For HIPAA compliance:
+
+1. **Access Controls**: Implement strict access controls
+2. **Audit Logs**: Maintain comprehensive audit logs
+3. **Encryption**: Encrypt PHI (Protected Health Information) at rest and in transit
+4. **Business Associate Agreements**: Ensure BAAs with service providers
+
+## Incident Response
+
+### Security Incident Procedures
+
+1. **Detection**: Monitor for suspicious activity
+2. **Containment**: Isolate affected systems
+3. **Investigation**: Analyze logs and determine scope
+4. **Remediation**: Fix vulnerabilities and restore systems
+5. **Communication**: Notify affected parties if required
+
+### Logging Security Events
+
+Log all security-relevant events:
+
+```python
+security_logger = logging.getLogger("security")
+
+def log_security_event(event_type: str, details: dict):
+    """Log security event."""
+    security_logger.warning(
+        f"Security event: {event_type}",
+        extra=details
+    )
+
+# Example: Log failed authentication
+log_security_event("auth_failure", {
+    "user": username,
+    "ip": request.remote_addr,
+    "timestamp": time.time(),
+})
+```
+
+## Best Practices Summary
+
+1. ✅ Never hardcode credentials
+2. ✅ Use environment variables or secret management
+3. ✅ Always use SSL/TLS for remote connections
+4. ✅ Implement least privilege access control
+5. ✅ Validate and sanitize all user input
+6. ✅ Enable audit logging for sensitive operations
+7. ✅ Keep dependencies up to date
+8. ✅ Scan for vulnerabilities regularly
+9. ✅ Encrypt sensitive data at rest and in transit
+10. ✅ Implement proper error handling (don't expose internals)
 
 ## Reporting Security Issues
 
 If you discover a security vulnerability, please report it responsibly:
 
 1. **Do not** open a public GitHub issue
-2. Email security concerns to: odosmatthews@gmail.com
-3. Include details about the vulnerability and steps to reproduce
+2. Email security concerns to: [security contact email]
+3. Include:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if any)
 
-We take security seriously and will respond promptly to security reports.
-
+We will respond within 48 hours and work with you to resolve the issue.

@@ -39,9 +39,9 @@ class AsyncGroupedDataFrame:
 
         Example:
             >>> from moltres import col
-            >>> from moltres.expressions.functions import sum, avg
+            >>> from moltres.expressions import functions as F
             >>> # Using Column expressions
-            >>> await df.group_by("category").agg(sum(col("amount")).alias("total"))
+            >>> await df.group_by("category").agg(F.sum(col("amount")).alias("total"))
 
             >>> # Using string column names (defaults to sum)
             >>> await df.group_by("category").agg("amount", "price")
@@ -204,12 +204,12 @@ class AsyncPivotedGroupedDataFrame:
 
         Example:
             >>> from moltres import col
-            >>> from moltres.expressions.functions import sum
+            >>> from moltres.expressions import functions as F
             >>> # Using string column name
             >>> await df.group_by("category").pivot("status").agg("amount")
 
             >>> # Using Column expression
-            >>> await df.group_by("category").pivot("status").agg(sum(col("amount")))
+            >>> await df.group_by("category").pivot("status").agg(F.sum(col("amount")))
 
             >>> # With specific pivot values
             >>> await df.group_by("category").pivot("status", values=["active", "inactive"]).agg("amount")

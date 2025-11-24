@@ -296,7 +296,8 @@ def recursive_cte(
 
     Example:
         >>> # Fibonacci sequence
-        >>> initial = scan("seed").select(lit(1).alias("n"), lit(1).alias("fib"))
+            >>> from moltres.expressions import functions as F
+            >>> initial = scan("seed").select(F.lit(1).alias("n"), F.lit(1).alias("fib"))
         >>> recursive = scan(name).select(...)  # References CTE name
         >>> fib_cte = recursive_cte("fib", initial, recursive)
     """

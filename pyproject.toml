@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.11.0"
+version = "0.12.0"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -23,6 +23,23 @@ keywords = [
     "spark",
     "database",
     "query-builder",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
   "SQLAlchemy>=2.0",
@@ -77,9 +94,41 @@ markers = [
     "multidb: marks tests that run against multiple databases",
 ]
 
+[tool.coverage.run]
+source = ["src/moltres"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@property",
+    "class .*\\bProtocol\\):",
+    "raise.*NotImplementedError",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["E402"]  # Allow imports not at top for educational examples
 
 [tool.setuptools]
 packages = {find = {where = ["src"], exclude = ["tests*", "*.tests", "*.tests.*"]}}

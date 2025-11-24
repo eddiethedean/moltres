@@ -174,4 +174,5 @@ test-output/
 *.plan.md
 !moltres_plan.md
 !docs/moltres_plan.md
+benchmark_results.txt
 

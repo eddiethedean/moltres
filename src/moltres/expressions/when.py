@@ -58,7 +58,7 @@ def when(condition: Column, value: ColumnLike) -> WhenBuilder:
 
     Example:
         >>> from moltres import col
-        >>> from moltres.expressions.functions import when
-        >>> expr = when(col("age") >= 18, "adult").otherwise("minor")
+        >>> from moltres.expressions import functions as F
+        >>> expr = F.when(col("age") >= 18, "adult").otherwise("minor")
     """
     return WhenBuilder(condition, value)
