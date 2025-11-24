@@ -1652,7 +1652,15 @@ class ExpressionCompiler:
             return result
         if op == "concat":
             args = [self._compile(arg) for arg in expression.args]
-            result = func.concat(*args)
+            # SQLite doesn't have concat() function, uses || operator instead
+            if self.dialect.name == "sqlite":
+                # Build concatenation using || operator
+                result = args[0]
+                for arg in args[1:]:
+                    result = result.op("||")(arg)
+            else:
+                # PostgreSQL and MySQL support concat() function
+                result = func.concat(*args)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
