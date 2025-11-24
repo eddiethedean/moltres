@@ -403,9 +403,7 @@ async def read_csv_stream(
                             continue
                         else:  # PERMISSIVE
                             if corrupt_column:
-                                corrupt_record: Dict[str, object] = {
-                                    corrupt_column: str(row_data)
-                                }
+                                corrupt_record: Dict[str, object] = {corrupt_column: str(row_data)}
                                 chunk.append(corrupt_record)
                             continue
                 if chunk:
