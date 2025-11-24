@@ -74,6 +74,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `dateFormat` and `timestampFormat` options now properly influence schema inference
     - Date and timestamp columns are correctly inferred when formats are provided
     - Works with CSV, JSON, and JSONL readers
+- **PySpark Write API Parity & Chunked Output**:
+  - **Builder Enhancements** - Added `.format()`, `.options()`, `.bucketBy()`, `.sortBy()` and camel-case mode aliases to `DataFrameWriter` and `AsyncDataFrameWriter`
+  - **Save Modes** - `mode("ignore")` now skips both table and file targets when they already exist; file targets also honor `error_if_exists`/`overwrite`
+  - **File Writers Stream by Default** - Any sink that requires materialization (CSV/JSON/JSONL/Text/Parquet) now streams chunks automatically unless `.stream(False)` is specified
+  - **New Sinks & Options** - Added `.text()` helper, `format("csv").options(...)` parity, JSON streaming (when no indent), Parquet streaming via `pyarrow.ParquetWriter`, and explicit mode handling for partitioned outputs
+  - **Async Parity** - All improvements apply to the async writer as well, using `aiofiles` for file sinks
+  - **Safety Checks** - Unsupported combinations (e.g., bucketing into files, partitioned async text/parquet writes) now raise `NotImplementedError` instead of silently misbehaving
 - **Extended Function Library** - Added 38+ new PySpark-compatible functions across multiple categories:
   - **Mathematical Functions** - `pow()`, `power()`, `asin()`, `acos()`, `atan()`, `atan2()`, `signum()`, `sign()`, `log2()`, `hypot()` for advanced mathematical operations
   - **String Functions** - `initcap()`, `instr()`, `locate()`, `translate()` for enhanced string manipulation
@@ -157,6 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed pivot value inference to work automatically when values are not provided
 - Fixed column replacement logic in `withColumn()` to match PySpark's behavior
 - Fixed `select("*")` to work correctly when combined with other columns
+- Fixed async PostgreSQL connections that forwarded DSN `?options=-csearch_path=...` parameters to asyncpg (which rejects unknown keywords) by translating them into asyncpg `server_settings`.
+- Fixed async PostgreSQL staging tables so `createDataFrame()` and file readers now create regular tables instead of connection-scoped temp tables, preventing `UndefinedTableError` when inserts execute on different pooled connections.
 
 ## [0.8.0] - 2025-11-22
 

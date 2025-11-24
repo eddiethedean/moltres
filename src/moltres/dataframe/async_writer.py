@@ -3,8 +3,19 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Dict, List, Mapping, Optional, Sequence, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    cast,
+)
 
 try:
     import aiofiles  # type: ignore[import-untyped]
@@ -32,16 +43,25 @@ class AsyncDataFrameWriter:
         self._schema: Optional[Sequence[ColumnDef]] = None
         self._options: Dict[str, object] = {}
         self._partition_by: Optional[Sequence[str]] = None
-        self._stream: bool = False
+        self._stream_override: Optional[bool] = None
         self._primary_key: Optional[Sequence[str]] = None
+        self._format: Optional[str] = None
+        self._bucket_by: Optional[tuple[int, Sequence[str]]] = None
+        self._sort_by: Optional[Sequence[str]] = None
 
     def mode(self, mode: str) -> "AsyncDataFrameWriter":
-        """Set the write mode: 'append', 'overwrite', or 'error_if_exists'."""
-        if mode not in ("append", "overwrite", "error_if_exists"):
-            raise ValueError(
-                f"Invalid mode '{mode}'. Must be one of: append, overwrite, error_if_exists"
-            )
-        self._mode = mode
+        """Set the write mode (append, overwrite, ignore, error_if_exists)."""
+        normalized = mode.strip().lower().replace(" ", "").replace("-", "").replace("_", "")
+        if normalized == "errorifexists":
+            normalized = "error_if_exists"
+        elif normalized == "ignore":
+            normalized = "ignore"
+        elif normalized not in {"append", "overwrite"}:
+            if normalized != "error_if_exists":
+                raise ValueError(
+                    f"Invalid mode '{mode}'. Must be one of: append, overwrite, ignore, error_if_exists"
+                )
+        self._mode = normalized
         return self
 
     def option(self, key: str, value: object) -> "AsyncDataFrameWriter":
@@ -49,9 +69,25 @@ class AsyncDataFrameWriter:
         self._options[key] = value
         return self
 
+    def options(self, *args: Mapping[str, object], **kwargs: object) -> "AsyncDataFrameWriter":
+        """Set multiple write options at once."""
+        if len(args) > 1:
+            raise TypeError("options() accepts at most one positional mapping argument")
+        if args:
+            for key, value in args[0].items():
+                self._options[str(key)] = value
+        for key, value in kwargs.items():
+            self._options[key] = value
+        return self
+
+    def format(self, format_name: str) -> "AsyncDataFrameWriter":
+        """Specify the output format for save()."""
+        self._format = format_name.strip().lower()
+        return self
+
     def stream(self, enabled: bool = True) -> "AsyncDataFrameWriter":
         """Enable or disable streaming mode (chunked writing for large DataFrames)."""
-        self._stream = enabled
+        self._stream_override = bool(enabled)
         return self
 
     def partitionBy(self, *columns: str) -> "AsyncDataFrameWriter":
@@ -79,6 +115,26 @@ class AsyncDataFrameWriter:
         return self
 
     primary_key = primaryKey
+
+    def bucketBy(self, num_buckets: int, *columns: str) -> "AsyncDataFrameWriter":
+        """PySpark-compatible bucketing hook (metadata only)."""
+        if num_buckets <= 0:
+            raise ValueError("num_buckets must be a positive integer")
+        if not columns:
+            raise ValueError("bucketBy() requires at least one column name")
+        self._bucket_by = (num_buckets, tuple(columns))
+        return self
+
+    bucket_by = bucketBy
+
+    def sortBy(self, *columns: str) -> "AsyncDataFrameWriter":
+        """PySpark-compatible sortBy hook (metadata only)."""
+        if not columns:
+            raise ValueError("sortBy() requires at least one column name")
+        self._sort_by = tuple(columns)
+        return self
+
+    sort_by = sortBy
 
     async def save_as_table(self, name: str, primary_key: Optional[Sequence[str]] = None) -> None:
         """Write the AsyncDataFrame to a table with the given name.
@@ -110,20 +166,26 @@ class AsyncDataFrameWriter:
                 f"Table '{table_name}' does not exist. Use save_as_table() to create it."
             )
 
+        if self._bucket_by or self._sort_by:
+            raise NotImplementedError(
+                "bucketBy/sortBy are not yet supported when writing to tables."
+            )
+
         # Get active transaction if available
         transaction = db.connection_manager.active_transaction
         table_handle = await db.table(table_name)
 
-        if self._stream:
-            # Stream inserts in batches
-            chunk_iter = await self._df.collect(stream=True)
-            async for chunk in chunk_iter:
-                if chunk:
-                    await insert_rows_async(table_handle, chunk, transaction=transaction)
-        else:
-            rows = await self._df.collect()
+        use_stream = self._should_stream_materialization()
+        rows, chunk_iter = await self._collect_rows(use_stream)
+        if use_stream:
             if rows:
                 await insert_rows_async(table_handle, rows, transaction=transaction)
+            if chunk_iter is not None:
+                async for chunk in chunk_iter:
+                    if chunk:
+                        await insert_rows_async(table_handle, chunk, transaction=transaction)
+        elif rows:
+            await insert_rows_async(table_handle, rows, transaction=transaction)
 
     insert_into = insertInto
 
@@ -195,32 +257,40 @@ class AsyncDataFrameWriter:
 
     async def save(self, path: str, format: Optional[str] = None) -> None:
         """Save AsyncDataFrame to a file or directory in the specified format."""
-        if format is None:
+        format_to_use = format or self._format
+        if format_to_use is None:
             # Infer format from file extension
             ext = Path(path).suffix.lower()
             format_map = {
                 ".csv": "csv",
                 ".json": "json",
                 ".jsonl": "jsonl",
+                ".txt": "text",
                 ".parquet": "parquet",
             }
-            format = format_map.get(ext, "csv")
-            if format is None:
+            format_to_use = format_map.get(ext)
+            if format_to_use is None:
                 raise ValueError(
                     f"Cannot infer format from path '{path}'. Specify format explicitly."
                 )
 
-        format = format.lower()
-        if format == "csv":
+        format_lower = format_to_use.lower()
+        if format_lower == "csv":
             await self._save_csv(path)
-        elif format == "json":
+        elif format_lower == "json":
             await self._save_json(path)
-        elif format == "jsonl":
+        elif format_lower == "jsonl":
             await self._save_jsonl(path)
-        elif format == "parquet":
+        elif format_lower == "text":
+            await self._save_text(path)
+        elif format_lower == "parquet":
             await self._save_parquet(path)
+        elif format_lower == "orc":
+            raise NotImplementedError("ORC write support is not yet available for async writers.")
         else:
-            raise ValueError(f"Unsupported format '{format}'. Supported: csv, json, jsonl, parquet")
+            raise ValueError(
+                f"Unsupported format '{format_to_use}'. Supported: csv, json, jsonl, text, parquet"
+            )
 
     async def csv(self, path: str) -> None:
         """Save AsyncDataFrame as CSV file."""
@@ -233,6 +303,16 @@ class AsyncDataFrameWriter:
     async def jsonl(self, path: str) -> None:
         """Save AsyncDataFrame as JSONL file (one JSON object per line)."""
         await self._save_jsonl(path)
+
+    async def text(self, path: str) -> None:
+        """Save AsyncDataFrame as text file (expects a single 'value' column)."""
+        await self._save_text(path)
+
+    async def orc(self, path: str) -> None:
+        """PySpark-style ORC helper (not yet implemented)."""
+        raise NotImplementedError(
+            "Async ORC output is not supported. Use parquet or contribute ORC support."
+        )
 
     async def parquet(self, path: str) -> None:
         """Save AsyncDataFrame as Parquet file."""
@@ -249,7 +329,7 @@ class AsyncDataFrameWriter:
             return False
 
         # Not in streaming mode (streaming requires materialization for chunking)
-        if self._stream:
+        if self._stream_override:
             return False
 
         # Mode must not be "error_if_exists" (need to check table existence first,
@@ -354,6 +434,52 @@ class AsyncDataFrameWriter:
             return "TEXT"
         return "TEXT"  # Default fallback
 
+    def _should_stream_output(self) -> bool:
+        """Use chunked output by default unless user explicitly disables it."""
+        if self._stream_override is not None:
+            return self._stream_override
+        return True
+
+    def _should_stream_materialization(self) -> bool:
+        """Default to streaming inserts unless user explicitly disabled it."""
+        if self._stream_override is not None:
+            return self._stream_override
+        return True
+
+    async def _collect_rows(
+        self, use_stream: bool
+    ) -> tuple[List[Dict[str, object]], Optional[AsyncIterator[List[Dict[str, object]]]]]:
+        """Collect rows, optionally streaming in chunks."""
+        if use_stream:
+            chunk_iter = await self._df.collect(stream=True)
+            try:
+                first_chunk = await chunk_iter.__anext__()
+            except StopAsyncIteration:
+                return [], chunk_iter
+            return first_chunk, chunk_iter
+        rows = await self._df.collect()
+        return rows, None
+
+    def _ensure_file_layout_supported(self) -> None:
+        """Raise if unsupported bucketing/sorting metadata is set for file sinks."""
+        if self._bucket_by or self._sort_by:
+            raise NotImplementedError(
+                "bucketBy/sortBy metadata is not yet supported when writing to files."
+            )
+
+    def _prepare_file_target(self, path_obj: Path) -> bool:
+        """Apply mode semantics (overwrite/ignore/error) for file outputs."""
+        if self._mode == "ignore" and path_obj.exists():
+            return False
+        if self._mode == "error_if_exists" and path_obj.exists():
+            raise ValueError(f"Target '{path_obj}' already exists (mode=error_if_exists)")
+        if self._mode == "overwrite" and path_obj.exists():
+            if path_obj.is_dir():
+                shutil.rmtree(path_obj)
+            else:
+                path_obj.unlink()
+        return True
+
     async def _execute_insert_select(self, schema: Sequence[ColumnDef]) -> None:
         """Execute write using INSERT INTO ... SELECT optimization."""
         if self._df.database is None:
@@ -392,7 +518,11 @@ class AsyncDataFrameWriter:
         # Check if table exists
         table_exists = await self._table_exists(db, table_name)
 
-        # Handle overwrite mode
+        # Handle overwrite/ignore/error modes
+        if self._mode == "error_if_exists" and table_exists:
+            raise ValueError(f"Table '{table_name}' already exists and mode is 'error_if_exists'")
+        if self._mode == "ignore" and table_exists:
+            return
         if self._mode == "overwrite":
             try:
                 await db.drop_table(table_name, if_exists=True).collect()
@@ -437,8 +567,15 @@ class AsyncDataFrameWriter:
         # Check if table exists
         table_exists = await self._table_exists(db, table_name)
 
+        if self._bucket_by or self._sort_by:
+            raise NotImplementedError(
+                "bucketBy/sortBy are not yet supported when writing to tables."
+            )
+
         if self._mode == "error_if_exists" and table_exists:
             raise ValueError(f"Table '{table_name}' already exists and mode is 'error_if_exists'")
+        if self._mode == "ignore" and table_exists:
+            return
 
         # Check if we can use INSERT INTO ... SELECT optimization
         if self._can_use_insert_select():
@@ -455,21 +592,12 @@ class AsyncDataFrameWriter:
                 return
 
         # Fall back to existing materialization approach
-        # Collect data from AsyncDataFrame
-        chunk_iter: Optional[AsyncIterator[List[Dict[str, object]]]] = None
-        if self._stream:
-            chunk_iter = await self._df.collect(stream=True)
-            try:
-                first_chunk = await chunk_iter.__anext__()
-                rows = first_chunk
-            except StopAsyncIteration:
-                rows = []
-        else:
-            rows = await self._df.collect()
+        use_stream = self._should_stream_materialization()
+        rows, chunk_iter = await self._collect_rows(use_stream)
 
         # Infer or get schema
         try:
-            schema = self._infer_or_get_schema(rows)
+            schema = self._infer_or_get_schema(rows, force_nullable=use_stream)
         except ValueError:
             # Empty AsyncDataFrame without explicit schema
             if self._schema is None:
@@ -494,7 +622,7 @@ class AsyncDataFrameWriter:
         # Insert data
         table_handle = await db.table(table_name)
         transaction = db.connection_manager.active_transaction
-        if self._stream and chunk_iter:
+        if use_stream and chunk_iter:
             # Stream inserts
             if rows:  # Insert first chunk
                 await insert_rows_async(table_handle, rows, transaction=transaction)
@@ -521,7 +649,9 @@ class AsyncDataFrameWriter:
         except Exception:
             return False
 
-    def _infer_or_get_schema(self, rows: List[Dict[str, object]]) -> Sequence[ColumnDef]:
+    def _infer_or_get_schema(
+        self, rows: List[Dict[str, object]], *, force_nullable: bool = False
+    ) -> Sequence[ColumnDef]:
         """Infer schema from rows or use explicit schema."""
         if self._schema:
             schema = list(self._schema)
@@ -531,6 +661,20 @@ class AsyncDataFrameWriter:
             from .readers.schema_inference import infer_schema_from_rows
 
             schema = list(infer_schema_from_rows(rows))
+
+            if force_nullable:
+                schema = [
+                    ColumnDef(
+                        name=col.name,
+                        type_name=col.type_name,
+                        nullable=True,
+                        default=col.default,
+                        primary_key=col.primary_key,
+                        precision=col.precision,
+                        scale=col.scale,
+                    )
+                    for col in schema
+                ]
 
         # Apply primary key flags if specified
         if self._primary_key:
@@ -560,11 +704,18 @@ class AsyncDataFrameWriter:
 
     async def _save_csv(self, path: str) -> None:
         """Save AsyncDataFrame as CSV file."""
+        self._ensure_file_layout_supported()
+        if self._partition_by:
+            raise NotImplementedError("partitionBy()+csv() is not supported for async writes.")
         header = cast(bool, self._options.get("header", True))
         delimiter = cast(str, self._options.get("delimiter", ","))
 
-        # Collect data
-        if self._stream:
+        path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        if self._should_stream_output():
             chunk_iter = await self._df.collect(stream=True)
             first_chunk = True
             async with aiofiles.open(path, "w", encoding="utf-8", newline="") as f:
@@ -572,45 +723,70 @@ class AsyncDataFrameWriter:
                     if not chunk:
                         continue
                     if first_chunk and header:
-                        # Write header
                         fieldnames = list(chunk[0].keys())
                         await f.write(delimiter.join(fieldnames) + "\n")
                         first_chunk = False
-                    # Write rows
                     for row in chunk:
                         values = [str(row.get(col, "")) for col in chunk[0].keys()]
                         await f.write(delimiter.join(values) + "\n")
-        else:
-            rows = await self._df.collect()
-            if not rows:
-                return
-            async with aiofiles.open(path, "w", encoding="utf-8", newline="") as f:
-                if header:
-                    fieldnames = list(rows[0].keys())
-                    await f.write(delimiter.join(fieldnames) + "\n")
-                for row in rows:
-                    values = [str(row.get(col, "")) for col in rows[0].keys()]
-                    await f.write(delimiter.join(values) + "\n")
+            return
+
+        rows = await self._df.collect()
+        if not rows:
+            return
+        async with aiofiles.open(path, "w", encoding="utf-8", newline="") as f:
+            if header:
+                fieldnames = list(rows[0].keys())
+                await f.write(delimiter.join(fieldnames) + "\n")
+            for row in rows:
+                values = [str(row.get(col, "")) for col in rows[0].keys()]
+                await f.write(delimiter.join(values) + "\n")
 
     async def _save_json(self, path: str) -> None:
         """Save AsyncDataFrame as JSON file (array of objects)."""
-        indent = cast(Optional[int], self._options.get("indent"))
-        if self._stream:
-            chunk_iter = await self._df.collect(stream=True)
-            all_rows = []
-            async for chunk in chunk_iter:
-                all_rows.extend(chunk)
-            rows = all_rows
-        else:
-            rows = await self._df.collect()
+        self._ensure_file_layout_supported()
+        if self._partition_by:
+            raise NotImplementedError("partitionBy()+json() is not supported for async writes.")
 
+        indent = cast(Optional[int], self._options.get("indent"))
+        use_stream = self._should_stream_output() and indent in (None, 0)
+        path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        if use_stream:
+            chunk_iter = await self._df.collect(stream=True)
+            async with aiofiles.open(path, "w", encoding="utf-8") as f:
+                await f.write("[")
+                first = True
+                async for chunk in chunk_iter:
+                    for row in chunk:
+                        if not first:
+                            await f.write(",\n")
+                        else:
+                            first = False
+                        await f.write(json.dumps(row, default=str))
+                await f.write("]")
+            return
+
+        rows = await self._df.collect()
         content = json.dumps(rows, indent=indent, default=str)
         async with aiofiles.open(path, "w", encoding="utf-8") as f:
             await f.write(content)
 
     async def _save_jsonl(self, path: str) -> None:
         """Save AsyncDataFrame as JSONL file (one JSON object per line)."""
-        if self._stream:
+        self._ensure_file_layout_supported()
+        if self._partition_by:
+            raise NotImplementedError("partitionBy()+jsonl() is not supported for async writes.")
+
+        path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        if self._should_stream_output():
             chunk_iter = await self._df.collect(stream=True)
             async with aiofiles.open(path, "w", encoding="utf-8") as f:
                 async for chunk in chunk_iter:
@@ -622,8 +798,46 @@ class AsyncDataFrameWriter:
                 for row in rows:
                     await f.write(json.dumps(row, default=str) + "\n")
 
+    async def _save_text(self, path: str) -> None:
+        """Save AsyncDataFrame as text file (one value per line)."""
+        self._ensure_file_layout_supported()
+        if self._partition_by:
+            raise NotImplementedError("partitionBy()+text() is not supported for async writes.")
+        column = cast(str, self._options.get("column", "value"))
+        line_sep = cast(str, self._options.get("lineSep", "\n"))
+        encoding = cast(str, self._options.get("encoding", "utf-8"))
+
+        path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        if self._should_stream_output():
+            chunk_iter = await self._df.collect(stream=True)
+            async with aiofiles.open(path, "w", encoding=encoding) as f:
+                async for chunk in chunk_iter:
+                    for row in chunk:
+                        if column not in row:
+                            raise ValueError(
+                                f"Column '{column}' not found in row while writing text output"
+                            )
+                        await f.write(f"{row[column]}{line_sep}")
+            return
+
+        rows = await self._df.collect()
+        async with aiofiles.open(path, "w", encoding=encoding) as f:
+            for row in rows:
+                if column not in row:
+                    raise ValueError(
+                        f"Column '{column}' not found in row while writing text output"
+                    )
+                await f.write(f"{row[column]}{line_sep}")
+
     async def _save_parquet(self, path: str) -> None:
         """Save AsyncDataFrame as Parquet file."""
+        self._ensure_file_layout_supported()
+        if self._partition_by:
+            raise NotImplementedError("partitionBy()+parquet() is not supported for async writes.")
         try:
             import pandas as pd
         except ImportError as exc:
@@ -639,25 +853,35 @@ class AsyncDataFrameWriter:
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
             ) from exc
 
-        # Collect data
-        if self._stream:
-            chunk_iter = await self._df.collect(stream=True)
-            all_rows = []
-            async for chunk in chunk_iter:
-                all_rows.extend(chunk)
-            rows = all_rows
-        else:
-            rows = await self._df.collect()
+        pa_mod = cast(Any, pa)
+        pq_mod = cast(Any, pq)
 
-        if not rows:
+        path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        compression = cast(str, self._options.get("compression", "snappy"))
+        if self._should_stream_output():
+            chunk_iter = await self._df.collect(stream=True)
+            try:
+                first_chunk = await chunk_iter.__anext__()
+            except StopAsyncIteration:
+                return
+
+            table = pa_mod.Table.from_pandas(pd.DataFrame(first_chunk))
+            with pq_mod.ParquetWriter(
+                str(path_obj), table.schema, compression=compression
+            ) as writer:
+                writer.write_table(table)
+                async for chunk in chunk_iter:
+                    if not chunk:
+                        continue
+                    writer.write_table(pa_mod.Table.from_pandas(pd.DataFrame(chunk)))
             return
 
-        # Convert to pandas DataFrame and save
-        import asyncio
-
-        def _save_parquet_sync() -> None:
-            df = pd.DataFrame(rows)
-            table = pa.Table.from_pandas(df)
-            pq.write_table(table, path)
-
-        await asyncio.to_thread(_save_parquet_sync)
+        rows = await self._df.collect()
+        if not rows:
+            return
+        table = pa_mod.Table.from_pandas(pd.DataFrame(rows))
+        pq_mod.write_table(table, str(path_obj), compression=compression)

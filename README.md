@@ -21,7 +21,7 @@
 
 Transform millions of rows using familiar DataFrame operations—all executed directly in SQL without materializing data. Update, insert, and delete with column-aware, type-safe operations. No juggling between Pandas, SQLAlchemy, and raw SQL. Just one library that does it all.
 
-> **🎉 Version 0.10.0 Milestone:** Moltres now includes **chunked file reading** for safe handling of large files, matching PySpark's memory-efficient approach. Combined with **~98% API compatibility** with PySpark for core DataFrame operations, migration from PySpark is seamless while maintaining SQL-first design principles.
+> **🎉 Version 0.11.0 Milestone:** Async PostgreSQL pipelines are now production-ready out of the box. DSN `?options=-csearch_path=...` flags automatically propagate through asyncpg pool connections, and staging tables created by `createDataFrame()` or file readers remain accessible across pooled sessions—no more `UndefinedTableError` surprises. Previous 0.10 improvements such as chunked file reading and near-total PySpark API compatibility are, of course, still included.
 
 ## 📑 Table of Contents
 
@@ -97,6 +97,12 @@ Moltres is the **only** Python library that provides:
 - **SQL-first design** - Focuses on providing full SQL feature support through a DataFrame API, not replicating every PySpark feature. Features are included only if they map to SQL/SQLAlchemy capabilities and align with SQL pushdown execution.
 
 ## 🆕 What's New
+
+### Version 0.11.0
+
+- **Async PostgreSQL Reliability** - DSN `?options=-c...` (e.g., `-csearch_path=my_schema`) are converted into asyncpg `server_settings`, so every pooled connection honors session-level settings without custom hooks.
+- **Pooled Async Staging Tables** - Async `createDataFrame()` and file readers now create regular staging tables on PostgreSQL instead of connection-scoped temp tables, ensuring inserts/reads succeed even when operations hop between pooled connections (e.g., pytest-xdist workers).
+- **Developer Experience** - Documentation, changelog, and todo tracking updated to reflect the new behavior, making it easier to configure async deployments confidently.
 
 ### Version 0.10.0
 
@@ -341,6 +347,7 @@ asyncio.run(main())
 - `pip install moltres[async-postgresql]` for PostgreSQL (includes async + asyncpg)
 - `pip install moltres[async-mysql]` for MySQL (includes async + aiomysql)
 - `pip install moltres[async-sqlite]` for SQLite (includes async + aiosqlite)
+> PostgreSQL async connections now honor DSN `?options=-c...` parameters by translating them into asyncpg `server_settings`. Add `?options=-csearch_path=my_schema` (or other `SET` statements) to keep every pooled connection on the correct schema without custom code.
 
 ## 💡 Why Moltres?
 
@@ -522,6 +529,7 @@ results = df.collect()
 ### From Files
 
 Moltres supports loading data from various file formats. **File readers (`db.load.*` and `db.read.*`) return lazy `DataFrame` objects** - matching PySpark's API. Files are materialized into temporary tables when `.collect()` is called, enabling SQL pushdown for subsequent operations.
+> Async PostgreSQL workloads now use regular staging tables instead of connection-scoped temporary tables, so pooled connections (and pytest-xdist workers) can always access the materialized data before cleanup.
 
 ```python
 # Option 1: Use db.load.* (original API)
@@ -685,6 +693,7 @@ df.write.save_as_table("target_table")
 # Write modes
 df.write.mode("append").save_as_table("target")  # Add to existing (default)
 df.write.mode("overwrite").save_as_table("target")  # Replace contents
+df.write.mode("ignore").save_as_table("target")  # Skip if the table already exists
 df.write.mode("error_if_exists").save_as_table("target")  # Fail if exists
 
 # Insert into existing table (table must exist)
@@ -716,11 +725,20 @@ df.write.parquet("output.parquet")  # Requires pandas and pyarrow
 
 # Generic save
 df.write.save("output.csv")  # Infers format from extension
+df.write.format("csv").options(header=False, delimiter="|").save("custom.csv")
 df.write.save("data.txt", format="csv")  # Explicit format
+df.write.text("lines.txt")  # Writes the `value` column to disk
 
 # With options
 df.write.option("header", True).option("delimiter", "|").csv("output.csv")
 df.write.option("compression", "gzip").parquet("output.parquet")
+
+# Bulk options and format builder (PySpark-style)
+(
+    df.write.format("json")
+    .options(mode="ignore", lineSep="\\n")
+    .save("data.json")
+)
 
 # Partitioned writes
 df.write.partitionBy("country", "year").csv("partitioned_data")
@@ -728,9 +746,14 @@ df.write.partitionBy("country", "year").csv("partitioned_data")
 
 **File Formats:**
 - **CSV**: Standard comma-separated values (options: `header`, `delimiter`)
-- **JSON**: Array of objects (options: `indent`)
-- **JSONL**: One JSON object per line
+- **JSON**: Array of objects (options: `indent`; streams automatically when `indent` is 0/`None`)
+- **JSONL**: One JSON object per line (streamed by default)
+- **Text**: Plain text output sourced from the `value` column (use `.option("column", "col_name")` to change)
 - **Parquet**: Columnar format (requires `pandas` and `pyarrow`, options: `compression`)
+
+> ℹ️ **Streaming writes by default:** any sink that requires materializing rows now streams in fixed-size chunks automatically for both sync and async writers. Call `.stream(False)` if you explicitly want to buffer everything in memory first.
+
+> ⚠️ **Bucketing / sorting metadata:** `.bucketBy()` and `.sortBy()` are accepted for PySpark API compatibility, but Moltres will raise `NotImplementedError` until downstream databases understand these layouts.
 
 ## 🌊 Streaming for Large Datasets
 
@@ -755,9 +778,9 @@ df = db.load.csv("large_file.csv")
 for chunk in df.collect(stream=True):  # Returns iterator of row chunks
     process_chunk(chunk)
 
-# Streaming writes
+# Streaming writes (explicit opt-in still supported)
 df.write.stream().mode("overwrite").save_as_table("large_table")
-df.write.stream().csv("output.csv")
+df.write.stream(False).csv("output.csv")  # Disable streaming if you really need to buffer
 
 # Streaming SQL queries
 df = db.table("large_table").select()
@@ -766,7 +789,7 @@ for chunk in df.collect(stream=True):
 ```
 
 **Streaming Options:**
-- `.stream()`: Enable streaming mode (default: False for backward compatibility)
+- `.stream()`: Enable streaming mode manually (writes now stream by default unless you pass `.stream(False)`)
 - `.option("chunk_size", N)`: Set chunk size for reads (default: 10000)
 - `.option("batch_size", N)`: Set batch size for SQL inserts (default: 10000)
 - `collect(stream=True)`: Return iterator of row chunks instead of materializing

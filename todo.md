@@ -231,7 +231,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Transaction timeout (`with db.transaction(timeout=30):`) - Per-transaction timeout configuration (dialect-specific)
 - [ ] Savepoints (`SAVEPOINT`, `ROLLBACK TO SAVEPOINT`, `RELEASE SAVEPOINT`) - SQL standard for nested transactions
 - [ ] Transaction isolation levels (`SET TRANSACTION ISOLATION LEVEL`) - SQL standard for controlling transaction behavior (READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ, SERIALIZABLE)
-- [ ] Session-level configuration (`SET LOCAL` variables, `SET session variables`) - SQL standard for session-scoped settings (e.g., timezone, search_path)
+- [x] Session-level configuration (`SET LOCAL` variables, `SET session variables`) - SQL standard for session-scoped settings (PostgreSQL async DSN `?options=-c...` values now map to asyncpg `server_settings`, ensuring `search_path` and similar settings propagate across pooled connections)
 - [ ] Transaction state inspection (`db.is_in_transaction()`, `db.get_transaction_status()`) - Check current transaction state
 - [ ] Connection/session health checking - Verify connection health beyond pool_pre_ping (check for dead connections, stale sessions)
 - [ ] Transaction retry logic - Automatic retry with exponential backoff for transient errors (deadlocks, connection timeouts)

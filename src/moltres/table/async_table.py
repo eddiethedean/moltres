@@ -87,6 +87,7 @@ class AsyncDatabase:
         self._connections = AsyncConnectionManager(config.engine)
         self._executor = AsyncQueryExecutor(self._connections, config.engine)
         self._dialect = get_dialect(self._dialect_name)
+        self._ephemeral_tables: set[str] = set()
 
     @property
     def connection_manager(self) -> AsyncConnectionManager:
@@ -407,13 +408,23 @@ class AsyncDatabase:
         # Generate unique table name
         table_name = generate_unique_table_name()
 
-        # Create temporary table
+        # Temporary tables are connection-scoped for several dialects (e.g., MySQL, PostgreSQL).
+        # Async workloads can hop between pooled connections, so we stick with regular tables
+        # whenever temp tables wouldn't be visible outside their originating session.
+        use_temp_tables = self._dialect_name not in {
+            "sqlite",
+            "mysql",
+            "mariadb",
+            "postgresql",
+        }
         table_handle = await self.create_table(
             table_name,
             inferred_schema_list,
-            temporary=True,
+            temporary=use_temp_tables,
             if_not_exists=True,
         ).collect()
+        if not use_temp_tables:
+            self._register_ephemeral_table(table_name)
 
         # Insert data (exclude new auto-increment columns from INSERT)
         if rows:
@@ -436,7 +447,24 @@ class AsyncDatabase:
 
     async def close(self) -> None:
         """Close the database connection and cleanup resources."""
+        await self._cleanup_ephemeral_tables()
         await self._connections.close()
+
+    def _register_ephemeral_table(self, name: str) -> None:
+        self._ephemeral_tables.add(name)
+
+    def _unregister_ephemeral_table(self, name: str) -> None:
+        self._ephemeral_tables.discard(name)
+
+    async def _cleanup_ephemeral_tables(self) -> None:
+        if not self._ephemeral_tables:
+            return
+        for table_name in list(self._ephemeral_tables):
+            try:
+                await self.drop_table(table_name, if_exists=True).collect()
+            except Exception:
+                pass
+        self._ephemeral_tables.clear()
 
     # ----------------------------------------------------------------- internals
     @property

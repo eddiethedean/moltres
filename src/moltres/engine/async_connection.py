@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import shlex
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 try:
     from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -16,6 +18,52 @@ except ImportError as exc:
     ) from exc
 
 from ..config import EngineConfig
+
+
+def _extract_postgres_server_settings(dsn: str) -> tuple[str, dict[str, str]]:
+    """Convert Postgres DSN ``options`` into asyncpg server settings.
+
+    asyncpg does not support the ``options`` keyword argument that psycopg does.
+    SQLAlchemy forwards query parameters from the DSN (e.g. ?options=-csearch_path=foo)
+    directly to asyncpg, which raises ``TypeError``. We translate any ``-cKEY=VALUE``
+    tokens into asyncpg ``server_settings`` entries and drop the ``options`` query param.
+    """
+
+    split = urlsplit(dsn)
+    scheme = split.scheme.split("+")[0]
+    if scheme != "postgresql":
+        return dsn, {}
+
+    query_items = parse_qsl(split.query, keep_blank_values=True)
+    if not query_items:
+        return dsn, {}
+
+    server_settings: dict[str, str] = {}
+    filtered_query: list[tuple[str, str]] = []
+
+    for key, value in query_items:
+        if key != "options" or not value:
+            filtered_query.append((key, value))
+            continue
+
+        for token in shlex.split(value):
+            if not token.startswith("-c"):
+                continue
+            setting = token[2:]
+            if "=" not in setting:
+                continue
+            name, setting_value = setting.split("=", 1)
+            name = name.strip()
+            if not name:
+                continue
+            server_settings[name] = setting_value.strip()
+
+    if not server_settings:
+        return dsn, {}
+
+    new_query = urlencode(filtered_query, doseq=True)
+    normalized = urlunsplit((split.scheme, split.netloc, split.path, new_query, split.fragment))
+    return normalized, server_settings
 
 
 class AsyncConnectionManager:
@@ -94,6 +142,9 @@ class AsyncConnectionManager:
                     "Use format like 'postgresql+asyncpg://...' or 'mysql+aiomysql://...'"
                 )
 
+        # Refresh scheme after any driver normalization
+        scheme = dsn.split("://", 1)[0]
+
         kwargs: dict[str, object] = {"echo": self.config.echo}
         if self.config.pool_size is not None:
             kwargs["pool_size"] = self.config.pool_size
@@ -105,6 +156,18 @@ class AsyncConnectionManager:
             kwargs["pool_recycle"] = self.config.pool_recycle
         if self.config.pool_pre_ping:
             kwargs["pool_pre_ping"] = self.config.pool_pre_ping
+
+        if "postgresql+asyncpg" in scheme:
+            normalized_dsn, server_settings = _extract_postgres_server_settings(dsn)
+            if server_settings:
+                dsn = normalized_dsn
+                connect_args_obj = kwargs.setdefault("connect_args", {})
+                if not isinstance(connect_args_obj, dict):
+                    raise TypeError("connect_args must be a dict")
+                server_settings_container = connect_args_obj.setdefault("server_settings", {})
+                if not isinstance(server_settings_container, dict):
+                    raise TypeError("server_settings connect arg must be a dict")
+                server_settings_container.update(server_settings)
 
         return create_async_engine(dsn, **kwargs)
 

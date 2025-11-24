@@ -4,8 +4,20 @@ from __future__ import annotations
 
 import csv
 import json
+import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, List, Mapping, Optional, Sequence, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+)
 
 from ..expressions.column import Column
 from ..table.mutations import delete_rows, insert_rows, update_rows
@@ -26,16 +38,25 @@ class DataFrameWriter:
         self._schema: Optional[Sequence[ColumnDef]] = None
         self._options: Dict[str, object] = {}
         self._partition_by: Optional[Sequence[str]] = None
-        self._stream: bool = False
+        self._stream_override: Optional[bool] = None
         self._primary_key: Optional[Sequence[str]] = None
+        self._format: Optional[str] = None
+        self._bucket_by: Optional[tuple[int, Sequence[str]]] = None
+        self._sort_by: Optional[Sequence[str]] = None
 
     def mode(self, mode: str) -> "DataFrameWriter":
-        """Set the write mode: 'append', 'overwrite', or 'error_if_exists'."""
-        if mode not in ("append", "overwrite", "error_if_exists"):
-            raise ValueError(
-                f"Invalid mode '{mode}'. Must be one of: append, overwrite, error_if_exists"
-            )
-        self._mode = mode
+        """Set the write mode (append, overwrite, ignore, error_if_exists)."""
+        normalized = mode.strip().lower().replace(" ", "").replace("-", "").replace("_", "")
+        if normalized == "errorifexists":
+            normalized = "error_if_exists"
+        elif normalized == "ignore":
+            normalized = "ignore"
+        elif normalized not in {"append", "overwrite"}:
+            if normalized != "error_if_exists":
+                raise ValueError(
+                    f"Invalid mode '{mode}'. Must be one of: append, overwrite, ignore, error_if_exists"
+                )
+        self._mode = normalized
         return self
 
     def option(self, key: str, value: object) -> "DataFrameWriter":
@@ -43,9 +64,25 @@ class DataFrameWriter:
         self._options[key] = value
         return self
 
+    def options(self, *args: Mapping[str, object], **kwargs: object) -> "DataFrameWriter":
+        """Set multiple write options at once."""
+        if len(args) > 1:
+            raise TypeError("options() accepts at most one positional mapping argument")
+        if args:
+            for key, value in args[0].items():
+                self._options[str(key)] = value
+        for key, value in kwargs.items():
+            self._options[key] = value
+        return self
+
+    def format(self, format_name: str) -> "DataFrameWriter":
+        """Specify the output format for save()."""
+        self._format = format_name.strip().lower()
+        return self
+
     def stream(self, enabled: bool = True) -> "DataFrameWriter":
         """Enable or disable streaming mode (chunked writing for large DataFrames)."""
-        self._stream = enabled
+        self._stream_override = bool(enabled)
         return self
 
     def partitionBy(self, *columns: str) -> "DataFrameWriter":
@@ -73,6 +110,26 @@ class DataFrameWriter:
         return self
 
     primary_key = primaryKey
+
+    def bucketBy(self, num_buckets: int, *columns: str) -> "DataFrameWriter":
+        """PySpark-compatible bucketing hook (metadata only for now)."""
+        if num_buckets <= 0:
+            raise ValueError("num_buckets must be a positive integer")
+        if not columns:
+            raise ValueError("bucketBy() requires at least one column name")
+        self._bucket_by = (num_buckets, tuple(columns))
+        return self
+
+    bucket_by = bucketBy
+
+    def sortBy(self, *columns: str) -> "DataFrameWriter":
+        """PySpark-compatible sortBy hook (metadata only for now)."""
+        if not columns:
+            raise ValueError("sortBy() requires at least one column name")
+        self._sort_by = tuple(columns)
+        return self
+
+    sort_by = sortBy
 
     def save_as_table(self, name: str, primary_key: Optional[Sequence[str]] = None) -> None:
         """Write the DataFrame to a table with the given name.
@@ -104,20 +161,26 @@ class DataFrameWriter:
                 f"Table '{table_name}' does not exist. Use save_as_table() to create it."
             )
 
+        if self._bucket_by or self._sort_by:
+            raise NotImplementedError(
+                "bucketBy/sortBy are not yet supported when writing to tables."
+            )
+
         # Get active transaction if available
         transaction = db.connection_manager.active_transaction
         table_handle = db.table(table_name)
 
-        if self._stream:
-            # Stream inserts in batches
-            chunk_iter = self._df.collect(stream=True)
-            for chunk in chunk_iter:
-                if chunk:
-                    insert_rows(table_handle, chunk, transaction=transaction)
-        else:
-            rows = self._df.collect()
+        use_stream = self._should_stream_materialization()
+        rows, chunk_iter = self._collect_rows(use_stream)
+        if use_stream:
             if rows:
                 insert_rows(table_handle, rows, transaction=transaction)
+            if chunk_iter is not None:
+                for chunk in chunk_iter:
+                    if chunk:
+                        insert_rows(table_handle, chunk, transaction=transaction)
+        elif rows:
+            insert_rows(table_handle, rows, transaction=transaction)
 
     insert_into = insertInto
 
@@ -189,32 +252,43 @@ class DataFrameWriter:
 
     def save(self, path: str, format: Optional[str] = None) -> None:
         """Save DataFrame to a file or directory in the specified format."""
-        if format is None:
+        format_to_use = format or self._format
+        if format_to_use is None:
             # Infer format from file extension
             ext = Path(path).suffix.lower()
             format_map = {
                 ".csv": "csv",
                 ".json": "json",
                 ".jsonl": "jsonl",
+                ".txt": "text",
                 ".parquet": "parquet",
             }
-            format = format_map.get(ext, "csv")
-            if format is None:
+            format_to_use = format_map.get(ext)
+            if format_to_use is None:
                 raise ValueError(
                     f"Cannot infer format from path '{path}'. Specify format explicitly."
                 )
 
-        format = format.lower()
-        if format == "csv":
+        format_lower = format_to_use.lower()
+        if format_lower == "csv":
             self._save_csv(path)
-        elif format == "json":
+        elif format_lower == "json":
             self._save_json(path)
-        elif format == "jsonl":
+        elif format_lower == "jsonl":
             self._save_jsonl(path)
-        elif format == "parquet":
+        elif format_lower == "text":
+            self._save_text(path)
+        elif format_lower == "parquet":
             self._save_parquet(path)
+        elif format_lower == "orc":
+            raise NotImplementedError(
+                "ORC write support is not yet available. "
+                "Consider contributing an implementation or using parquet/csv/json."
+            )
         else:
-            raise ValueError(f"Unsupported format '{format}'. Supported: csv, json, jsonl, parquet")
+            raise ValueError(
+                f"Unsupported format '{format_to_use}'. Supported: csv, json, jsonl, text, parquet"
+            )
 
     def csv(self, path: str) -> None:
         """Save DataFrame as CSV file."""
@@ -227,6 +301,16 @@ class DataFrameWriter:
     def jsonl(self, path: str) -> None:
         """Save DataFrame as JSONL file (one JSON object per line)."""
         self._save_jsonl(path)
+
+    def text(self, path: str) -> None:
+        """Save DataFrame as text file (expects a single 'value' column)."""
+        self._save_text(path)
+
+    def orc(self, path: str) -> None:
+        """PySpark-style ORC helper (not yet implemented)."""
+        raise NotImplementedError(
+            "ORC output is not yet supported. Use parquet or contribute ORC writer support."
+        )
 
     def parquet(self, path: str) -> None:
         """Save DataFrame as Parquet file."""
@@ -242,11 +326,18 @@ class DataFrameWriter:
         if table_name is None:
             raise ValueError("Table name must be specified via save_as_table()")
 
+        if self._bucket_by or self._sort_by:
+            raise NotImplementedError(
+                "bucketBy/sortBy are not yet supported when writing to tables."
+            )
+
         # Check if table exists
         table_exists = self._table_exists(db, table_name)
 
         if self._mode == "error_if_exists" and table_exists:
             raise ValueError(f"Table '{table_name}' already exists and mode is 'error_if_exists'")
+        if self._mode == "ignore" and table_exists:
+            return
 
         # Check if we can use INSERT INTO ... SELECT optimization
         if self._can_use_insert_select():
@@ -263,22 +354,12 @@ class DataFrameWriter:
                 return
 
         # Fall back to existing materialization approach
-        # Collect data from DataFrame (we'll use this for both schema inference and insertion)
-        chunk_iter: Optional[Iterator[List[Dict[str, object]]]] = None
-        if self._stream:
-            # For streaming, we need to peek at first chunk for schema inference
-            chunk_iter = self._df.collect(stream=True)
-            try:
-                first_chunk = next(chunk_iter)
-                rows = first_chunk
-            except StopIteration:
-                rows = []
-        else:
-            rows = self._df.collect()
+        use_stream = self._should_stream_materialization()
+        rows, chunk_iter = self._collect_rows(use_stream)
 
         # Infer or get schema (uses rows if needed, but allows empty if schema is explicit)
         try:
-            schema = self._infer_or_get_schema(rows)
+            schema = self._infer_or_get_schema(rows, force_nullable=use_stream)
         except ValueError as e:
             # Check if this is a primary key validation error - if so, re-raise it
             if "Primary key columns" in str(e) or "do not exist in schema" in str(e):
@@ -304,11 +385,9 @@ class DataFrameWriter:
         # Insert data (if any)
         table_handle = db.table(table_name)
         transaction = db.connection_manager.active_transaction
-        if self._stream:
-            # Streaming write: insert first chunk, then remaining chunks
-            if rows:  # First chunk already read
+        if use_stream:
+            if rows:
                 insert_rows(table_handle, rows, transaction=transaction)
-            # Insert remaining chunks
             if chunk_iter is not None:
                 for chunk in chunk_iter:
                     if chunk:
@@ -426,7 +505,11 @@ class DataFrameWriter:
         # Check if table exists
         table_exists = self._table_exists(db, table_name)
 
-        # Handle overwrite mode
+        # Handle overwrite/ignore/error modes
+        if self._mode == "error_if_exists" and table_exists:
+            raise ValueError(f"Table '{table_name}' already exists and mode is 'error_if_exists'")
+        if self._mode == "ignore" and table_exists:
+            return
         if self._mode == "overwrite":
             if table_exists:
                 db.drop_table(table_name, if_exists=True).collect()
@@ -467,7 +550,7 @@ class DataFrameWriter:
             return False
 
         # Not in streaming mode (streaming requires materialization for chunking)
-        if self._stream:
+        if self._stream_override:
             return False
 
         # Mode must not be "error_if_exists" (need to check table existence first,
@@ -507,7 +590,9 @@ class DataFrameWriter:
         except Exception:
             return False
 
-    def _infer_or_get_schema(self, rows: List[dict[str, object]]) -> Sequence[ColumnDef]:
+    def _infer_or_get_schema(
+        self, rows: List[dict[str, object]], *, force_nullable: bool = False
+    ) -> Sequence[ColumnDef]:
         """Infer schema from DataFrame plan or use provided schema."""
         if self._schema is not None:
             schema = list(self._schema)
@@ -523,8 +608,8 @@ class DataFrameWriter:
             columns: List[ColumnDef] = []
 
             for key, value in sample.items():
-                # Check if any row has None for this column
-                has_nulls = any(row.get(key) is None for row in rows)
+                # Check if any row has None for this column (or force nullable when streaming)
+                has_nulls = True if force_nullable else any(row.get(key) is None for row in rows)
                 col_type = self._infer_type_from_value(value)
                 columns.append(ColumnDef(name=key, type_name=col_type, nullable=has_nulls))
 
@@ -556,6 +641,52 @@ class DataFrameWriter:
 
         return schema
 
+    def _should_stream_materialization(self) -> bool:
+        """Default to streaming inserts unless user explicitly disabled it."""
+        if self._stream_override is not None:
+            return self._stream_override
+        return True
+
+    def _should_stream_output(self) -> bool:
+        """Use chunked output by default unless user explicitly disables it."""
+        if self._stream_override is not None:
+            return self._stream_override
+        return True
+
+    def _collect_rows(
+        self, use_stream: bool
+    ) -> tuple[List[dict[str, object]], Optional[Iterator[List[dict[str, object]]]]]:
+        """Collect rows, optionally streaming in chunks."""
+        if use_stream:
+            chunk_iter = self._df.collect(stream=True)
+            try:
+                first_chunk = next(chunk_iter)
+            except StopIteration:
+                return [], chunk_iter
+            return first_chunk, chunk_iter
+        rows = self._df.collect()
+        return rows, None
+
+    def _ensure_file_layout_supported(self) -> None:
+        """Raise if unsupported bucketing/sorting metadata is set for file sinks."""
+        if self._bucket_by or self._sort_by:
+            raise NotImplementedError(
+                "bucketBy/sortBy metadata is not yet supported when writing to files."
+            )
+
+    def _prepare_file_target(self, path_obj: Path) -> bool:
+        """Apply mode semantics (overwrite/ignore/error) for file outputs."""
+        if self._mode == "ignore" and path_obj.exists():
+            return False
+        if self._mode == "error_if_exists" and path_obj.exists():
+            raise ValueError(f"Target '{path_obj}' already exists (mode=error_if_exists)")
+        if self._mode == "overwrite" and path_obj.exists():
+            if path_obj.is_dir():
+                shutil.rmtree(path_obj)
+            else:
+                path_obj.unlink()
+        return True
+
     def _infer_type_from_value(self, value: object) -> str:
         """Infer SQL type from a Python value."""
         if value is None:
@@ -572,7 +703,21 @@ class DataFrameWriter:
 
     def _save_csv(self, path: str) -> None:
         """Save DataFrame as CSV file."""
-        if self._stream:
+        self._ensure_file_layout_supported()
+
+        if self._partition_by:
+            rows = self._df.collect()
+            if not rows and not self._schema:
+                return
+            headers = (
+                [col.name for col in self._schema]
+                if self._schema and not rows
+                else (list(rows[0].keys()) if rows else [])
+            )
+            self._save_partitioned(path, "csv", rows, headers)
+            return
+
+        if self._should_stream_output():
             self._save_csv_stream(path)
             return
 
@@ -586,13 +731,10 @@ class DataFrameWriter:
         else:
             headers = list(rows[0].keys())
 
-        # Handle partitioning
-        if self._partition_by:
-            self._save_partitioned(path, "csv", rows, headers)
-            return
-
         # Write CSV file
         path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         header = cast(bool, self._options.get("header", True))
@@ -607,6 +749,8 @@ class DataFrameWriter:
     def _save_csv_stream(self, path: str) -> None:
         """Save DataFrame as CSV file in streaming mode."""
         path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         header = self._options.get("header", True)
@@ -639,24 +783,45 @@ class DataFrameWriter:
 
     def _save_json(self, path: str) -> None:
         """Save DataFrame as JSON file (array of objects)."""
-        rows = self._df.collect()
+        self._ensure_file_layout_supported()
+        indent_val = self._options.get("indent")
 
-        # Handle partitioning
         if self._partition_by:
+            rows = self._df.collect()
             self._save_partitioned(path, "json", rows, None)
             return
 
+        use_stream = self._should_stream_output() and indent_val in (None, 0)
+
         path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
+        if use_stream:
+            chunk_iter = self._df.collect(stream=True)
+            with open(path_obj, "w", encoding="utf-8") as f:
+                f.write("[")
+                first = True
+                for chunk in chunk_iter:
+                    for row in chunk:
+                        if not first:
+                            f.write(",\n")
+                        else:
+                            first = False
+                        f.write(json.dumps(row, ensure_ascii=False))
+                f.write("]")
+            return
+
+        rows = self._df.collect()
         with open(path_obj, "w", encoding="utf-8") as f:
-            indent_val = self._options.get("indent", None)
             indent: Optional[Union[int, str]] = cast(Optional[Union[int, str]], indent_val)
             json.dump(rows, f, indent=indent, ensure_ascii=False)
 
     def _save_jsonl(self, path: str) -> None:
         """Save DataFrame as JSONL file (one JSON object per line)."""
-        if self._stream:
+        self._ensure_file_layout_supported()
+        if self._should_stream_output():
             self._save_jsonl_stream(path)
             return
 
@@ -668,6 +833,8 @@ class DataFrameWriter:
             return
 
         path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         with open(path_obj, "w", encoding="utf-8") as f:
@@ -677,6 +844,8 @@ class DataFrameWriter:
     def _save_jsonl_stream(self, path: str) -> None:
         """Save DataFrame as JSONL file in streaming mode."""
         path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         with open(path_obj, "w", encoding="utf-8") as f:
@@ -685,8 +854,45 @@ class DataFrameWriter:
                 for row in chunk:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
+    def _save_text(self, path: str) -> None:
+        """Save DataFrame as text file (one value per line)."""
+        self._ensure_file_layout_supported()
+        column = cast(str, self._options.get("column", "value"))
+        line_sep = cast(str, self._options.get("lineSep", "\n"))
+        encoding = cast(str, self._options.get("encoding", "utf-8"))
+
+        if self._partition_by:
+            raise NotImplementedError("partitionBy()+text() is not supported yet.")
+
+        path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        if self._should_stream_output():
+            chunk_iter = self._df.collect(stream=True)
+            with open(path_obj, "w", encoding=encoding) as f:
+                for chunk in chunk_iter:
+                    for row in chunk:
+                        if column not in row:
+                            raise ValueError(
+                                f"Column '{column}' not found in row while writing text output"
+                            )
+                        f.write(f"{row[column]}{line_sep}")
+            return
+
+        rows = self._df.collect()
+        with open(path_obj, "w", encoding=encoding) as f:
+            for row in rows:
+                if column not in row:
+                    raise ValueError(
+                        f"Column '{column}' not found in row while writing text output"
+                    )
+                f.write(f"{row[column]}{line_sep}")
+
     def _save_parquet(self, path: str) -> None:
         """Save DataFrame as Parquet file."""
+        self._ensure_file_layout_supported()
         try:
             import pandas as pd
         except ImportError as exc:
@@ -702,25 +908,43 @@ class DataFrameWriter:
                 "Parquet format requires pyarrow. Install with: pip install pyarrow"
             ) from exc
 
-        rows = self._df.collect()
+        pa_mod = cast(Any, pa)
+        pq_mod = cast(Any, pq)
 
-        # Handle partitioning
         if self._partition_by:
+            rows = self._df.collect()
             self._save_partitioned(path, "parquet", rows, None)
             return
 
-        # Convert to pandas DataFrame
-        df = pd.DataFrame(rows)
-
         path_obj = Path(path)
+        if not self._prepare_file_target(path_obj):
+            return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        # Get compression option
         compression = cast(str, self._options.get("compression", "snappy"))
+        if self._should_stream_output():
+            chunk_iter = self._df.collect(stream=True)
+            try:
+                first_chunk = next(chunk_iter)
+            except StopIteration:
+                return
 
-        # Write parquet file
-        table = pa.Table.from_pandas(df)
-        pq.write_table(table, str(path_obj), compression=compression)
+            table = pa_mod.Table.from_pandas(pd.DataFrame(first_chunk))
+            with pq_mod.ParquetWriter(
+                str(path_obj), table.schema, compression=compression
+            ) as writer:
+                writer.write_table(table)
+                for chunk in chunk_iter:
+                    if not chunk:
+                        continue
+                    writer.write_table(pa_mod.Table.from_pandas(pd.DataFrame(chunk)))
+            return
+
+        rows = self._df.collect()
+        if not rows:
+            return
+        table = pa_mod.Table.from_pandas(pd.DataFrame(rows))
+        pq_mod.write_table(table, str(path_obj), compression=compression)
 
     def _save_partitioned(
         self,
@@ -730,6 +954,7 @@ class DataFrameWriter:
         headers: Optional[List[str]],
     ) -> None:
         """Save data partitioned by specified columns."""
+        self._ensure_file_layout_supported()
         if not rows:
             return
 
@@ -744,7 +969,10 @@ class DataFrameWriter:
 
         # Write each partition to a subdirectory
         base_path_obj = Path(base_path)
-        base_path_obj.parent.mkdir(parents=True, exist_ok=True)
+        partition_root = base_path_obj.parent / base_path_obj.stem
+        if not self._prepare_file_target(partition_root):
+            return
+        partition_root.parent.mkdir(parents=True, exist_ok=True)
 
         for partition_key, partition_rows in partitions.items():
             # Create partition directory path
