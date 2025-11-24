@@ -50,20 +50,20 @@ This document provides operational procedures for running Moltres in production 
 
 1. **Create Migration Script**
    ```python
-   from moltres import connect
-   from moltres.table.schema import column
-   
-   db = connect(os.getenv("DATABASE_URL"))
-   
-   # Create new table
-   db.create_table(
-       "new_table",
-       [
-           column("id", "INTEGER", primary_key=True),
-           column("name", "TEXT"),
-       ],
-       if_not_exists=True,
-   ).collect()
+from moltres import connect
+from moltres.table.schema import column
+
+db = connect(os.getenv("DATABASE_URL"))
+
+# Create new table
+db.create_table(
+    "new_table",
+    [
+        column("id", "INTEGER", primary_key=True),
+        column("name", "TEXT"),
+    ],
+    if_not_exists=True,
+).collect()
    ```
 
 2. **Test Migration**
@@ -80,20 +80,20 @@ This document provides operational procedures for running Moltres in production 
 
 1. **Add Columns**
    ```python
-   # Use ALTER TABLE (database-specific)
-   db.sql("ALTER TABLE existing_table ADD COLUMN new_column TEXT").collect()
+# Use ALTER TABLE (database-specific)
+db.sql("ALTER TABLE existing_table ADD COLUMN new_column TEXT").collect()
    ```
 
 2. **Drop Columns**
    ```python
-   # Use ALTER TABLE (database-specific)
-   db.sql("ALTER TABLE existing_table DROP COLUMN old_column").collect()
+# Use ALTER TABLE (database-specific)
+db.sql("ALTER TABLE existing_table DROP COLUMN old_column").collect()
    ```
 
 3. **Rename Columns**
    ```python
-   # Use ALTER TABLE (database-specific)
-   db.sql("ALTER TABLE existing_table RENAME COLUMN old_name TO new_name").collect()
+# Use ALTER TABLE (database-specific)
+db.sql("ALTER TABLE existing_table RENAME COLUMN old_name TO new_name").collect()
    ```
 
 ### Migration Best Practices
@@ -185,8 +185,8 @@ print(f"Memory usage: {process.memory_info().rss / 1024 / 1024} MB")
 **Resolution:**
 1. Use streaming for large datasets:
    ```python
-   # Use streaming mode
-   df = db.read.csv("large_file.csv", stream=True)
+# Use streaming mode
+df = db.read.csv("large_file.csv", stream=True)
    ```
 2. Process data in chunks
 3. Close database connections when done
