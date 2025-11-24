@@ -141,14 +141,15 @@ def test_cleanup_on_interpreter_shutdown(tmp_path):
     """Test that atexit handler cleans up databases on interpreter shutdown."""
     # This test runs a subprocess that creates a database and exits
     # The atexit handler should clean up ephemeral tables
+    db_path_str = str(tmp_path / "shutdown_test.db")
     script = f"""
 import sys
 from pathlib import Path
-sys.path.insert(0, '{Path.cwd()}')
+sys.path.insert(0, {repr(str(Path.cwd()))})
 
 from moltres import connect
 
-db_path = Path('{tmp_path / "shutdown_test.db"}')
+db_path = Path({repr(db_path_str)})
 db = connect(f"sqlite:///{{db_path}}")
 
 # Create ephemeral table
