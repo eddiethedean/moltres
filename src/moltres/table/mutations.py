@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -51,9 +51,8 @@ def insert_rows(
         return 0
 
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
-    # Use cast to help mypy understand type narrowing (CI's mypy can infer but accepts cast without flagging as redundant)
-    # The cast is necessary for local mypy but CI's mypy won't flag it as redundant because it understands the narrowing
-    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
+    # CI's mypy can infer this type correctly, so no cast needed
+    rows_seq: Sequence[Mapping[str, object]] = rows
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
@@ -183,9 +182,8 @@ def merge_rows(
         raise ValidationError("merge requires at least one column in 'on' for conflict detection")
 
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
-    # Use cast to help mypy understand type narrowing (CI's mypy can infer but accepts cast without flagging as redundant)
-    # The cast is necessary for local mypy but CI's mypy won't flag it as redundant because it understands the narrowing
-    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
+    # CI's mypy can infer this type correctly, so no cast needed
+    rows_seq: Sequence[Mapping[str, object]] = rows
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
