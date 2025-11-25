@@ -977,6 +977,35 @@ Contributions are welcome! Please see [`CONTRIBUTING.md`](https://github.com/edd
 
 ## 👤 Author
 
+## 🔧 Development
+
+### Pre-Commit CI Checks
+
+Before pushing to GitHub, run the pre-commit CI checks to catch issues early:
+
+```bash
+# Run all CI checks (linting, type checking, tests)
+make ci-check
+
+# Or use the script directly:
+python scripts/pre_commit_ci_checks.py
+
+# Quick linting check only (no tests, fast)
+make ci-check-lint
+
+# Quick mode with subset of tests
+make ci-check-quick
+```
+
+The script runs the same checks as GitHub Actions:
+- ✅ Ruff linting and formatting
+- ✅ mypy type checking
+- ✅ Documentation examples validation
+- ✅ Tests (with options to skip database tests)
+- ✅ Dependency security scanning (optional)
+
+See `python scripts/pre_commit_ci_checks.py --help` for all options.
+
 **Odos Matthews**
 
 - GitHub: [@eddiethedean](https://github.com/eddiethedean)
