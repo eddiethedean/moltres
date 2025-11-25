@@ -250,6 +250,8 @@ class SQLCompiler:
 
             fraction_literal = literal(plan.fraction)
 
+            # Type annotation needed because different branches return different SQLAlchemy types
+            rand_expr: ColumnElement[Any]
             if self.dialect.name == "mysql":
                 rand_expr = sa_func.rand(plan.seed) if plan.seed is not None else sa_func.rand()
             elif self.dialect.name == "sqlite":

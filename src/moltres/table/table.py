@@ -850,10 +850,10 @@ class Database:
             rows = result.rows
         elif hasattr(result.rows, "to_dict"):
             # pandas DataFrame
-            rows = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
+            rows = result.rows.to_dict("records")  # type: ignore[call-overload]
         elif hasattr(result.rows, "to_dicts"):
             # polars DataFrame
-            rows = list(result.rows.to_dicts())  # type: ignore[attr-defined, operator]
+            rows = list(result.rows.to_dicts())  # type: ignore[operator]
         # Format rows - handle dict or other types
         formatted_lines = []
         for row in rows:

@@ -988,13 +988,13 @@ class DataFrame:
                     return []
                 # Convert to list if it's a DataFrame
                 if hasattr(result.rows, "to_dict"):
-                    records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
+                    records = result.rows.to_dict("records")  # type: ignore[call-overload]
                     # Convert Hashable keys to str keys
-                    return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
+                    return [{str(k): v for k, v in row.items()} for row in records]
                 if hasattr(result.rows, "to_dicts"):
-                    records = list(result.rows.to_dicts())  # type: ignore[attr-defined]
+                    records = list(result.rows.to_dicts())
                     # Convert Hashable keys to str keys
-                    return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
+                    return [{str(k): v for k, v in row.items()} for row in records]
                 return result.rows  # type: ignore[return-value]
 
         # Handle FileScan by materializing file data into a temporary table
@@ -1009,13 +1009,13 @@ class DataFrame:
             return []
         # Convert to list if it's a DataFrame
         if hasattr(result.rows, "to_dict"):
-            records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
+            records = result.rows.to_dict("records")  # type: ignore[call-overload]
             # Convert Hashable keys to str keys
-            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
+            return [{str(k): v for k, v in row.items()} for row in records]
         if hasattr(result.rows, "to_dicts"):
-            records = list(result.rows.to_dicts())  # type: ignore[attr-defined]
+            records = list(result.rows.to_dicts())
             # Convert Hashable keys to str keys
-            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
+            return [{str(k): v for k, v in row.items()} for row in records]
         return result.rows  # type: ignore[return-value]
 
     def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
