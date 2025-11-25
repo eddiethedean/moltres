@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union, cast
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -51,8 +51,9 @@ def insert_rows(
         return 0
 
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
-    # CI's mypy can infer this type correctly, so no type ignore needed
-    rows_seq: Sequence[Mapping[str, object]] = rows
+    # Use cast to help mypy understand type narrowing (CI's mypy can infer but accepts cast without flagging as redundant)
+    # The cast is necessary for local mypy but CI's mypy won't flag it as redundant because it understands the narrowing
+    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
