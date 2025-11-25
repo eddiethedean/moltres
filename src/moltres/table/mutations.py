@@ -50,7 +50,7 @@ def insert_rows(
     if not rows:
         return 0
     # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
-    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+    rows_seq: Sequence[Mapping[str, object]] = rows
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
@@ -180,7 +180,7 @@ def merge_rows(
         raise ValidationError("merge requires at least one column in 'on' for conflict detection")
 
     # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
-    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+    rows_seq: Sequence[Mapping[str, object]] = rows
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
