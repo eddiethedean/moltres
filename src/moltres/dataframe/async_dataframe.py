@@ -713,7 +713,18 @@ class AsyncDataFrame:
             else:
                 # Execute RawSQL directly
                 result = await self.database.execute_sql(self.plan.sql, params=self.plan.params)
-                return result.rows  # type: ignore[no-any-return]
+                if result.rows is None:
+                    return []
+                # Convert to list if it's a DataFrame
+                if hasattr(result.rows, "to_dict"):
+                    records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload, no-any-return]
+                    # Convert Hashable keys to str keys
+                    return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
+                if hasattr(result.rows, "to_dicts"):
+                    records = list(result.rows.to_dicts())  # type: ignore[attr-defined, no-any-return]
+                    # Convert Hashable keys to str keys
+                    return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
+                return result.rows  # type: ignore[return-value]
 
         # Handle FileScan by materializing file data into a temporary table
         plan = await self._materialize_filescan(self.plan)
@@ -730,7 +741,18 @@ class AsyncDataFrame:
             return stream_gen()
 
         result = await self.database.execute_plan(plan)
-        return result.rows  # type: ignore[no-any-return]
+        if result.rows is None:
+            return []
+        # Convert to list if it's a DataFrame
+        if hasattr(result.rows, "to_dict"):
+            records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
+            # Convert Hashable keys to str keys
+            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+        if hasattr(result.rows, "to_dicts"):
+            records = list(result.rows.to_dicts())  # type: ignore[attr-defined]
+            # Convert Hashable keys to str keys
+            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+        return result.rows  # type: ignore[return-value]
 
     async def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
         """Materialize FileScan nodes by reading files and creating temporary tables.

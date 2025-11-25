@@ -49,10 +49,12 @@ def insert_rows(
 
     if not rows:
         return 0
-    columns = list(rows[0].keys())
+    # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
+    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+    columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
-    _validate_row_shapes(rows, columns, table_name=handle.name)
+    _validate_row_shapes(rows_seq, columns, table_name=handle.name)
     table_sql = quote_identifier(handle.name, handle.database.dialect.quote_char)
     column_sql = comma_separated(
         quote_identifier(col, handle.database.dialect.quote_char) for col in columns
@@ -61,7 +63,7 @@ def insert_rows(
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     # Use batch insert for better performance
-    params_list: list[Dict[str, object]] = [dict(row) for row in rows]
+    params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]  # type: ignore[call-overload]
     result = handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 
@@ -177,10 +179,12 @@ def merge_rows(
     if not on:
         raise ValidationError("merge requires at least one column in 'on' for conflict detection")
 
-    columns = list(rows[0].keys())
+    # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
+    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+    columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
-    _validate_row_shapes(rows, columns, table_name=handle.name)
+    _validate_row_shapes(rows_seq, columns, table_name=handle.name)
 
     # Validate that 'on' columns exist in rows
     on_set = set(on)
@@ -257,8 +261,8 @@ def merge_rows(
 
     # Prepare parameters for batch insert
     params_list: list[Dict[str, object]] = []
-    for row in rows:
-        params = dict(row)
+    for row in rows_seq:
+        params = dict(row)  # type: ignore[call-overload]
         # Add update parameters if when_matched is provided
         if when_matched:
             for col_name, value in when_matched.items():

@@ -939,13 +939,14 @@ class DataFrame:
         result = self.database.execute_sql(explain_sql)
         # Format the plan results - EXPLAIN typically returns a single column
         plan_lines = []
-        for row in result.rows:
-            # Format each row of the plan - row is a dict
-            if len(row) == 1:
-                # Single column result (common for EXPLAIN)
-                plan_lines.append(str(list(row.values())[0]))
-            else:
-                plan_lines.append(str(row))
+        if result.rows is not None:
+            for row in result.rows:
+                # Format each row of the plan - row is a dict
+                if isinstance(row, dict) and len(row) == 1:
+                    # Single column result (common for EXPLAIN)
+                    plan_lines.append(str(list(row.values())[0]))
+                else:
+                    plan_lines.append(str(row))
         return "\n".join(plan_lines)
 
     @overload
@@ -983,7 +984,18 @@ class DataFrame:
             else:
                 # Execute RawSQL directly
                 result = self.database.execute_sql(self.plan.sql, params=self.plan.params)
-                return result.rows  # type: ignore[no-any-return]
+                if result.rows is None:
+                    return []
+                # Convert to list if it's a DataFrame
+                if hasattr(result.rows, "to_dict"):
+                    records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
+                    # Convert Hashable keys to str keys
+                    return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+                if hasattr(result.rows, "to_dicts"):
+                    records = list(result.rows.to_dicts())  # type: ignore[attr-defined]
+                    # Convert Hashable keys to str keys
+                    return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+                return result.rows  # type: ignore[return-value]
 
         # Handle FileScan by materializing file data into a temporary table
         plan = self._materialize_filescan(self.plan)
@@ -993,7 +1005,18 @@ class DataFrame:
             return self.database.execute_plan_stream(plan)
 
         result = self.database.execute_plan(plan)
-        return result.rows  # type: ignore[no-any-return]
+        if result.rows is None:
+            return []
+        # Convert to list if it's a DataFrame
+        if hasattr(result.rows, "to_dict"):
+            records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
+            # Convert Hashable keys to str keys
+            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+        if hasattr(result.rows, "to_dicts"):
+            records = list(result.rows.to_dicts())  # type: ignore[attr-defined]
+            # Convert Hashable keys to str keys
+            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+        return result.rows  # type: ignore[return-value]
 
     def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
         """Materialize FileScan nodes by reading files and creating temporary tables.

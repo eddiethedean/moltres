@@ -842,7 +842,26 @@ class Database:
             explain_sql = f"EXPLAIN {sql}"
 
         result = self._executor.fetch(explain_sql, params=params)
-        return "\n".join(" ".join(str(cell) for cell in row) for row in result.rows)
+        if result.rows is None:
+            return ""
+        # Handle different row types
+        rows: List[Any] = []
+        if isinstance(result.rows, list):
+            rows = result.rows
+        elif hasattr(result.rows, "to_dict"):
+            # pandas DataFrame
+            rows = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload, no-any-return]
+        elif hasattr(result.rows, "to_dicts"):
+            # polars DataFrame
+            rows = list(result.rows.to_dicts())  # type: ignore[attr-defined, operator, no-any-return]
+        # Format rows - handle dict or other types
+        formatted_lines = []
+        for row in rows:
+            if isinstance(row, dict):
+                formatted_lines.append(" ".join(str(cell) for cell in row.values()))
+            else:
+                formatted_lines.append(str(row))
+        return "\n".join(formatted_lines)
 
     def show_tables(self, schema: Optional[str] = None) -> None:
         """Print a formatted list of tables in the database.

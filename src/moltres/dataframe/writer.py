@@ -623,11 +623,11 @@ class DataFrameWriter:
             if db.dialect.name == "sqlite":
                 sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=:name"
                 result = db.execute_sql(sql, params={"name": table_name})
-                return len(result.rows) > 0
+                return result.rows is not None and len(result.rows) > 0
             elif db.dialect.name == "postgresql":
                 sql = "SELECT tablename FROM pg_tables WHERE tablename=:name"
                 result = db.execute_sql(sql, params={"name": table_name})
-                return len(result.rows) > 0
+                return result.rows is not None and len(result.rows) > 0
             else:
                 # Generic approach: try to select from the table with LIMIT 0
                 quote = db.dialect.quote_char
@@ -852,7 +852,7 @@ class DataFrameWriter:
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         # Custom JSON encoder to handle Decimal and other non-serializable types
-        def json_default(obj):
+        def json_default(obj: Any) -> Any:
             from decimal import Decimal
 
             if isinstance(obj, Decimal):
@@ -894,7 +894,7 @@ class DataFrameWriter:
             return
 
         # Custom JSON encoder to handle Decimal and other non-serializable types
-        def json_default(obj):
+        def json_default(obj: Any) -> Any:
             from decimal import Decimal
 
             if isinstance(obj, Decimal):
@@ -924,7 +924,7 @@ class DataFrameWriter:
                     # Custom JSON encoder to handle Decimal and other non-serializable types
                     from decimal import Decimal
 
-                    def json_default(obj):
+                    def json_default(obj: Any) -> Any:
                         if isinstance(obj, Decimal):
                             return float(obj)
                         raise TypeError(
@@ -1094,7 +1094,7 @@ class DataFrameWriter:
         """Helper to write JSON file."""
 
         # Custom JSON encoder to handle Decimal and other non-serializable types
-        def json_default(obj):
+        def json_default(obj: Any) -> Any:
             from decimal import Decimal
 
             if isinstance(obj, Decimal):
@@ -1110,7 +1110,7 @@ class DataFrameWriter:
         """Helper to write JSONL file."""
 
         # Custom JSON encoder to handle Decimal and other non-serializable types
-        def json_default(obj):
+        def json_default(obj: Any) -> Any:
             from decimal import Decimal
 
             if isinstance(obj, Decimal):

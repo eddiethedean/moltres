@@ -61,14 +61,9 @@ async def insert_rows_async(
 
     if not rows:
         return 0
-    # AsyncRecords implements Sequence, so it's indexable and iterable
-    # Check if rows is AsyncRecords (imported at runtime if available)
-    if AsyncRecords is not None and isinstance(rows, AsyncRecords):
-        columns = list(rows[0].keys())  # type: ignore[index]
-        rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
-    else:
-        columns = list(rows[0].keys())
-        rows_seq = rows
+    # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
+    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+    columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
     _validate_row_shapes(rows_seq, columns, table_name=handle.name)
@@ -202,13 +197,9 @@ async def merge_rows_async(
     if not on:
         raise ValidationError("merge requires at least one column in 'on' for conflict detection")
 
-    # Handle AsyncRecords
-    if AsyncRecords is not None and isinstance(rows, AsyncRecords):
-        columns = list(rows[0].keys())  # type: ignore[index]
-        rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
-    else:
-        columns = list(rows[0].keys())
-        rows_seq = rows
+    # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
+    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+    columns = list(rows_seq[0].keys())
 
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
