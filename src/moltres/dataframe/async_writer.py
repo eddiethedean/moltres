@@ -706,7 +706,7 @@ class AsyncDataFrameWriter:
                 quoted_name = quote_identifier(table_name, '"')
                 sql = f"SELECT name FROM sqlite_master WHERE type='table' AND name={quoted_name}"
                 result = await db.executor.fetch(sql)
-                return result.rows is not None and len(result.rows) > 0  # type: ignore[arg-type]
+                return result.rows is not None and len(result.rows) > 0
             except (ExecutionError, ValidationError) as e:
                 logger.debug("Error checking table existence (SQLite): %s", e)
                 return False
@@ -728,7 +728,7 @@ class AsyncDataFrameWriter:
                         sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :table_name"
                         params = {"table_name": table_name}
                     result = await db.executor.fetch(sql, params=params)
-                    return result.rows is not None and len(result.rows) > 0  # type: ignore[arg-type]
+                    return result.rows is not None and len(result.rows) > 0
                 else:
                     # Fallback: try to access the table
                     try:

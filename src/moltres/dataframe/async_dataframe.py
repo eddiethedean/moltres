@@ -717,11 +717,11 @@ class AsyncDataFrame:
                     return []
                 # Convert to list if it's a DataFrame
                 if hasattr(result.rows, "to_dict"):
-                    records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload, no-any-return]
+                    records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
                     # Convert Hashable keys to str keys
                     return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
                 if hasattr(result.rows, "to_dicts"):
-                    records = list(result.rows.to_dicts())  # type: ignore[attr-defined, no-any-return]
+                    records = list(result.rows.to_dicts())  # type: ignore[attr-defined]
                     # Convert Hashable keys to str keys
                     return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
                 return result.rows  # type: ignore[return-value]
@@ -747,11 +747,11 @@ class AsyncDataFrame:
         if hasattr(result.rows, "to_dict"):
             records = result.rows.to_dict("records")  # type: ignore[attr-defined, call-overload]
             # Convert Hashable keys to str keys
-            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
         if hasattr(result.rows, "to_dicts"):
             records = list(result.rows.to_dicts())  # type: ignore[attr-defined]
             # Convert Hashable keys to str keys
-            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr]
+            return [{str(k): v for k, v in row.items()} for row in records]  # type: ignore[union-attr, arg-type]
         return result.rows  # type: ignore[return-value]
 
     async def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
