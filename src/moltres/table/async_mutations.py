@@ -11,6 +11,8 @@ from ..utils.exceptions import ValidationError
 from .async_table import AsyncTableHandle
 
 if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
     from ..io.records import AsyncRecords
 else:
     # Import at runtime for isinstance check
@@ -22,14 +24,20 @@ else:
 
 async def insert_rows_async(
     handle: AsyncTableHandle,
-    rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"],
+    rows: Union[
+        Sequence[Mapping[str, object]],
+        "AsyncRecords",
+        "pd.DataFrame",
+        "pl.DataFrame",
+        "pl.LazyFrame",
+    ],
     transaction: Optional[Any] = None,
 ) -> int:
     """Insert rows into a table using batch inserts for better performance.
 
     Args:
         handle: The table handle to insert into
-        rows: Sequence of row dictionaries to insert
+        rows: Sequence of row dictionaries, AsyncRecords, pandas DataFrame, polars DataFrame, or polars LazyFrame
 
     Returns:
         Number of rows affected
@@ -37,6 +45,20 @@ async def insert_rows_async(
     Raises:
         ValidationError: If rows are empty or have inconsistent schemas
     """
+    # Convert DataFrame to Records if needed (async version would need async conversion)
+    # For now, convert synchronously since DataFrames are typically in-memory
+    from ..io.records import (
+        _is_pandas_dataframe,
+        _is_polars_dataframe,
+        _is_polars_lazyframe,
+        _dataframe_to_records,
+    )
+
+    if _is_pandas_dataframe(rows) or _is_polars_dataframe(rows) or _is_polars_lazyframe(rows):
+        # Convert to Records, then extract rows
+        records = _dataframe_to_records(rows, database=handle.database)
+        rows = records.rows()
+
     if not rows:
         return 0
     # AsyncRecords implements Sequence, so it's indexable and iterable
@@ -127,7 +149,13 @@ def _compile_condition(condition: Column, handle: AsyncTableHandle) -> str:
 
 async def merge_rows_async(
     handle: AsyncTableHandle,
-    rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"],
+    rows: Union[
+        Sequence[Mapping[str, object]],
+        "AsyncRecords",
+        "pd.DataFrame",
+        "pl.DataFrame",
+        "pl.LazyFrame",
+    ],
     *,
     on: Sequence[str],
     when_matched: Optional[Mapping[str, object]] = None,
@@ -156,6 +184,19 @@ async def merge_rows_async(
     Raises:
         ValidationError: If rows are empty, on columns are invalid, or when_matched/when_not_matched are invalid
     """
+    # Convert DataFrame to Records if needed
+    from ..io.records import (
+        _is_pandas_dataframe,
+        _is_polars_dataframe,
+        _is_polars_lazyframe,
+        _dataframe_to_records,
+    )
+
+    if _is_pandas_dataframe(rows) or _is_polars_dataframe(rows) or _is_polars_lazyframe(rows):
+        # Convert to Records, then extract rows
+        records = _dataframe_to_records(rows, database=handle.database)
+        rows = records.rows()
+
     if not rows:
         return 0
     if not on:

@@ -63,51 +63,7 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 
 ## 📈 Short-term (v0.14.0)
 
-### 4. **QUALIFY Clause** (High Impact, Medium Effort)
-**Priority: HIGH**
-
-- [ ] `QUALIFY` clause for filtering window function results
-
-**Why:**
-- **Modern SQL feature**: PostgreSQL 12+, BigQuery, Snowflake
-- **Performance**: Eliminates need for subqueries around window functions
-- **Clean API**: Natural extension to window function support
-- **User demand**: Frequently requested for analytics workflows
-
-**Estimated Effort:** 2 weeks
-
----
-
-### 5. **ALTER TABLE Operations** (Medium-High Impact, Medium Effort)
-**Priority: MEDIUM-HIGH**
-
-- [ ] `ALTER TABLE ADD COLUMN`
-- [ ] `ALTER TABLE DROP COLUMN`
-- [ ] `ALTER TABLE MODIFY COLUMN`
-- [ ] `ALTER TABLE RENAME COLUMN`
-
-**Why:**
-- **Schema evolution**: Critical for production systems
-- **Migration support**: Enables programmatic schema changes
-- **SQL standard**: Well-defined operations
-
-**Estimated Effort:** 2 weeks
-
----
-
-### 6. **Views Support** (Medium Impact, Low-Medium Effort)
-**Priority: MEDIUM**
-
-- [ ] `CREATE VIEW`
-- [ ] `DROP VIEW`
-- [ ] Query views as tables
-
-**Why:**
-- **Common database pattern**: Views are widely used
-- **Logical abstraction**: Enables better data organization
-- **SQL standard**: Straightforward to implement
-
-**Estimated Effort:** 1-2 weeks
+*No items currently planned for v0.14.0*
 
 ---
 
@@ -254,13 +210,10 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 
 ### Foundation Building (Do Early)
 1. Schema management (constraints, indexes)
-2. ALTER TABLE operations
-3. Views support
 
 ### High-Value Features (Do Soon)
-1. QUALIFY clause
-2. Better type safety
-3. Test coverage improvements
+1. Better type safety
+2. Test coverage improvements
 
 ### Ecosystem Expansion (Do When Ready)
 1. BigQuery support
@@ -283,7 +236,7 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 
 ### Risk Assessment
 - **Low Risk**: Schema inspection, FILTER clause, DuckDB support
-- **Medium Risk**: QUALIFY clause, schema management
+- **Medium Risk**: Schema management
 - **High Risk**: Type safety overhaul, UNNEST support
 
 ### Effort vs Impact Matrix
@@ -294,7 +247,6 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 - DuckDB support
 
 **High Impact, Medium Effort:**
-- QUALIFY clause
 - Schema management
 - BigQuery support
 
@@ -313,10 +265,7 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 3. Schema management (UNIQUE, CHECK, FOREIGN KEY, Indexes) ✅
 
 ### Sprint 2 (v0.14.0) - 4-6 weeks
-1. QUALIFY clause
-2. ALTER TABLE operations
-3. Views support
-4. Foreign keys & indexes
+*No items currently planned*
 
 ### Sprint 3 (v0.15.0) - 4-6 weeks
 1. Type safety improvements (incremental)

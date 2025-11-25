@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2025-01-27
+
+### Added
+- **DataFrame Attributes** - PySpark-compatible introspection properties:
+  - `.columns` property - Returns list of column names from logical plans
+  - `.schema` property - Returns `List[ColumnInfo]` with column names and types
+  - `.dtypes` property - Returns `List[Tuple[str, str]]` of (column_name, type_name) pairs
+  - `.printSchema()` method - Prints formatted schema tree similar to PySpark
+  - Works with both `DataFrame` and `AsyncDataFrame`
+  - Supports all logical plan types: TableScan, FileScan, Project, Aggregate, Join, Filter, Limit, Sort, etc.
+  - Handles edge cases: aliases, star columns, nested projects, Explode operations
+  - Lazy evaluation - extracts schema information without executing queries
+
+### Changed
+- Expanded `moltres.utils.inspector` module with async database support
+- Improved schema introspection utilities for both sync and async databases
+
 ## [0.13.0] - 2025-11-24
 
 ### Added
@@ -506,7 +523,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/eddiethedean/moltres/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/eddiethedean/moltres/compare/v0.12.0...v0.13.0
 [0.8.0]: https://github.com/eddiethedean/moltres/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/eddiethedean/moltres/compare/v0.6.0...v0.7.0

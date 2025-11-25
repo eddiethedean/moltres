@@ -7,7 +7,6 @@ This file tracks planned features, improvements, and tasks for Moltres.
 ## 🎯 High Priority
 
 ### Core Features
-- [ ] `QUALIFY` clause for filtering window function results without subqueries (SQL standard, PostgreSQL 12+, BigQuery, Snowflake)
 - [ ] `UNNEST()` / table-valued functions for array/JSON expansion in FROM clause (`UNNEST(array)`, `jsonb_array_elements()`, `jsonb_each()` in FROM) - dialect-specific
   - Note: `explode()` API is complete, but SQL compilation needs table-valued function support
 - [x] `FILTER` clause for conditional aggregation (`COUNT(*) FILTER (WHERE condition)`) - SQL standard (PostgreSQL, MySQL 8.0+, SQL Server, Oracle)
@@ -27,8 +26,6 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Unique constraints (`UNIQUE`) - SQL standard
 - [x] Check constraints (`CHECK`) - SQL standard
 - [x] Indexes (`CREATE INDEX`, `DROP INDEX`) - SQL standard
-- [ ] Views (`CREATE VIEW`, `DROP VIEW`) - SQL standard
-- [ ] Alter table operations (`ALTER TABLE ADD COLUMN`, `DROP COLUMN`, etc.) - SQL standard
 
 ## 📊 Medium Priority
 

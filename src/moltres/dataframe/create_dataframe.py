@@ -23,6 +23,9 @@ def normalize_data_to_rows(
         Records,
         LazyRecords,
         "AsyncRecords",
+        "pd.DataFrame",  # noqa: F821
+        "pl.DataFrame",  # noqa: F821
+        "pl.LazyFrame",  # noqa: F821
     ],
 ) -> List[dict[str, object]]:
     """Normalize various input formats to a list of dictionaries.
@@ -34,6 +37,9 @@ def normalize_data_to_rows(
             - Records object: Extract _data
             - LazyRecords object: Auto-materializes and extracts _data
             - AsyncRecords object: Extract _data
+            - pandas DataFrame: Converts to list of dicts
+            - polars DataFrame: Converts to list of dicts
+            - polars LazyFrame: Materializes and converts to list of dicts
 
     Returns:
         List of row dictionaries
@@ -42,6 +48,18 @@ def normalize_data_to_rows(
         ValueError: If data format is not supported or data is empty
         ValidationError: If list of tuples provided without schema
     """
+    # Handle DataFrames by converting to Records first
+    from ..io.records import (
+        _is_pandas_dataframe,
+        _is_polars_dataframe,
+        _is_polars_lazyframe,
+        _dataframe_to_records,
+    )
+
+    if _is_pandas_dataframe(data) or _is_polars_dataframe(data) or _is_polars_lazyframe(data):
+        records = _dataframe_to_records(data)
+        return normalize_data_to_rows(records)  # Recursively handle Records
+
     # Handle LazyRecords by auto-materializing
     if isinstance(data, LazyRecords):
         materialized_records = data.collect()  # Auto-materialize
@@ -58,6 +76,11 @@ def normalize_data_to_rows(
             for chunk in data._generator():
                 all_rows.extend(chunk)
             return all_rows
+        elif data._dataframe is not None:
+            # Materialize from DataFrame
+            from ..io.records import _convert_dataframe_to_rows
+
+            return _convert_dataframe_to_rows(data._dataframe)
         else:
             return []
 

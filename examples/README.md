@@ -17,6 +17,8 @@ This directory contains example code demonstrating various features of Moltres.
 11. **11_window_functions.py** - Window functions for analytical queries
 12. **12_sql_operations.py** - Raw SQL and SQL operations (CTEs, unions, etc.)
 13. **13_transactions.py** - Transaction management
+14. **14_reflection.py** - Schema inspection and reflection
+15. **15_pandas_polars_dataframes.py** - Using pandas and polars DataFrames with moltres
 
 ## Running Examples
 
@@ -29,6 +31,7 @@ python examples/01_connecting.py
 Note: Some examples require additional dependencies:
 - Async examples require: `pip install moltres[async]`
 - Parquet examples require: `pip install pyarrow`
+- Pandas/polars examples require: `pip install moltres[pandas,polars]` or `pip install pandas polars`
 - PostgreSQL examples require: `pip install moltres[async-postgresql]` or `psycopg2-binary`
 - MySQL examples require: `pip install moltres[async-mysql]` or `pymysql`
 

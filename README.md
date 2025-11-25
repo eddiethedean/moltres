@@ -28,6 +28,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 - 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—no data loading into memory
 - ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE operations with DataFrame-style syntax
 - 📊 **Multiple Formats** - Read/write CSV, JSON, JSONL, Parquet, and more
+- 🐼 **Pandas & Polars Integration** - Pass pandas/polars DataFrames directly to moltres operations (insert, createDataFrame, etc.)
 - 🌊 **Streaming Support** - Handle datasets larger than memory with chunked processing
 - ⚡ **Async Support** - Full async/await support for all operations
 - 🔒 **Security First** - Built-in SQL injection prevention and validation
@@ -116,6 +117,51 @@ result = df.write.update(
 df.write.delete("customers", where=col("email").is_null())  # Executes immediately
 # Output: None (operation executes immediately, returns None)
 ```
+
+### Pandas & Polars DataFrame Integration
+
+Moltres seamlessly integrates with pandas and polars DataFrames. You can pass DataFrames directly to moltres operations without manual conversion:
+
+```python
+import pandas as pd
+import polars as pl
+
+# Create pandas DataFrame
+pandas_df = pd.DataFrame([
+    {"id": 1, "name": "Alice", "age": 30},
+    {"id": 2, "name": "Bob", "age": 25},
+])
+
+# Create polars DataFrame
+polars_df = pl.DataFrame([
+    {"id": 3, "name": "Charlie", "age": 35},
+    {"id": 4, "name": "Diana", "age": 28},
+])
+
+# Pass pandas DataFrame directly to insert_into
+from moltres.io.records import Records
+records = Records.from_dataframe(pandas_df, database=db)
+records.insert_into("users")  # Schema is automatically inferred!
+
+# Pass polars DataFrame to createDataFrame
+df = db.createDataFrame(polars_df, pk="id")
+df.write.insertInto("users")
+
+# Polars LazyFrame support (lazy conversion)
+lazy_df = pl.scan_csv("data.csv")
+df = db.createDataFrame(lazy_df)  # Conversion happens lazily
+df.write.insertInto("users")
+
+# Direct insertion with pandas/polars DataFrames
+pandas_df = pd.read_csv("data.csv")
+Records.from_dataframe(pandas_df, database=db).insert_into("users")
+```
+
+**Key Features:**
+- **Lazy Conversion** - DataFrames are converted to Records only when data is accessed
+- **Schema Preservation** - Column types and nullability are automatically inferred
+- **No Manual Conversion** - Pass DataFrames directly to `insert_into()`, `createDataFrame()`, etc.
+- **Polars LazyFrame Support** - Works with both eager and lazy polars DataFrames
 
 ### Async Support
 
@@ -393,6 +439,7 @@ Comprehensive examples demonstrating all Moltres features:
 - **[12_sql_operations.py](https://github.com/eddiethedean/moltres/blob/main/examples/12_sql_operations.py)** - Raw SQL and SQL operations (CTEs, unions, etc.)
 - **[13_transactions.py](https://github.com/eddiethedean/moltres/blob/main/examples/13_transactions.py)** - Transaction management
 - **[14_reflection.py](https://github.com/eddiethedean/moltres/blob/main/examples/14_reflection.py)** - Schema inspection and reflection
+- **[15_pandas_polars_dataframes.py](https://github.com/eddiethedean/moltres/blob/main/examples/15_pandas_polars_dataframes.py)** - Using pandas and polars DataFrames with moltres
 
 See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
 

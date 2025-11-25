@@ -658,16 +658,23 @@ class AsyncDatabase:
     async def createDataFrame(
         self,
         data: Union[
-            Sequence[dict[str, object]], Sequence[tuple], "AsyncRecords", "AsyncLazyRecords"
+            Sequence[dict[str, object]],
+            Sequence[tuple],
+            "AsyncRecords",
+            "AsyncLazyRecords",
+            "pd.DataFrame",  # noqa: F821
+            "pl.DataFrame",  # noqa: F821
+            "pl.LazyFrame",  # noqa: F821
         ],
         schema: Optional[Sequence[ColumnDef]] = None,
         pk: Optional[Union[str, Sequence[str]]] = None,
         auto_pk: Optional[Union[str, Sequence[str]]] = None,
     ) -> "AsyncDataFrame":
-        """Create an AsyncDataFrame from Python data (list of dicts, list of tuples, AsyncRecords, or AsyncLazyRecords).
+        """Create an AsyncDataFrame from Python data (list of dicts, list of tuples, AsyncRecords, AsyncLazyRecords, pandas DataFrame, polars DataFrame, or polars LazyFrame).
 
         Creates a temporary table, inserts the data, and returns an AsyncDataFrame querying from that table.
         If AsyncLazyRecords is provided, it will be auto-materialized.
+        If pandas/polars DataFrame or LazyFrame is provided, it will be converted to Records with lazy conversion.
 
         Args:
             data: Input data in one of supported formats:
@@ -675,6 +682,9 @@ class AsyncDatabase:
                 - List of tuples: Requires schema parameter with column names
                 - AsyncRecords object: Extracts data and schema if available
                 - AsyncLazyRecords object: Auto-materializes and extracts data and schema
+                - pandas DataFrame: Converts to Records with schema preservation
+                - polars DataFrame: Converts to Records with schema preservation
+                - polars LazyFrame: Materializes and converts to Records with schema preservation
             schema: Optional explicit schema. If not provided, schema is inferred from data.
             pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
             auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
@@ -702,12 +712,26 @@ class AsyncDatabase:
             get_schema_from_records,
         )
         from ..dataframe.readers.schema_inference import infer_schema_from_rows
-        from ..io.records import AsyncLazyRecords, AsyncRecords
+        from ..io.records import (
+            AsyncLazyRecords,
+            AsyncRecords,
+            _is_pandas_dataframe,
+            _is_polars_dataframe,
+            _is_polars_lazyframe,
+            _dataframe_to_records,
+        )
         from ..utils.exceptions import ValidationError
 
+        # Convert DataFrame to Records if needed, then extract rows synchronously
+        if _is_pandas_dataframe(data) or _is_polars_dataframe(data) or _is_polars_lazyframe(data):
+            records = _dataframe_to_records(data, database=self)
+            rows = records.rows()
+            # Use schema from Records if available and no explicit schema provided
+            if schema is None:
+                schema = get_schema_from_records(records)
         # Normalize data to list of dicts
         # Handle AsyncLazyRecords by auto-materializing
-        if isinstance(data, AsyncLazyRecords):
+        elif isinstance(data, AsyncLazyRecords):
             materialized_records = await data.collect()  # Auto-materialize
             rows = await materialized_records.rows()
             # Use schema from AsyncRecords if available and no explicit schema provided

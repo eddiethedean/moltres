@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 
 if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
     from ..expressions.column import Column
     from ..io.records import Records
     from .schema import (
@@ -22,7 +24,9 @@ class InsertMutation:
     """Lazy insert operation that executes on collect()."""
 
     handle: "TableHandle"
-    rows: Union[Sequence[Mapping[str, object]], "Records"]
+    rows: Union[
+        Sequence[Mapping[str, object]], "Records", "pd.DataFrame", "pl.DataFrame", "pl.LazyFrame"
+    ]
 
     def collect(self) -> int:
         """Execute the insert operation and return number of rows affected.
@@ -150,7 +154,9 @@ class MergeMutation:
     """Lazy merge (upsert) operation that executes on collect()."""
 
     handle: "TableHandle"
-    rows: Union[Sequence[Mapping[str, object]], "Records"]
+    rows: Union[
+        Sequence[Mapping[str, object]], "Records", "pd.DataFrame", "pl.DataFrame", "pl.LazyFrame"
+    ]
     on: Sequence[str]
     when_matched: Optional[Mapping[str, object]] = None
     when_not_matched: Optional[Mapping[str, object]] = None

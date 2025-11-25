@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 
 if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
     from ..expressions.column import Column
     from ..io.records import AsyncRecords
     from .schema import (
@@ -22,7 +24,13 @@ class AsyncInsertMutation:
     """Lazy async insert operation that executes on collect()."""
 
     handle: "AsyncTableHandle"
-    rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]
+    rows: Union[
+        Sequence[Mapping[str, object]],
+        "AsyncRecords",
+        "pd.DataFrame",
+        "pl.DataFrame",
+        "pl.LazyFrame",
+    ]
 
     async def collect(self) -> int:
         """Execute the insert operation and return number of rows affected.
@@ -164,7 +172,13 @@ class AsyncMergeMutation:
     """Lazy async merge (upsert) operation that executes on collect()."""
 
     handle: "AsyncTableHandle"
-    rows: Union[Sequence[Mapping[str, object]], "AsyncRecords"]
+    rows: Union[
+        Sequence[Mapping[str, object]],
+        "AsyncRecords",
+        "pd.DataFrame",
+        "pl.DataFrame",
+        "pl.LazyFrame",
+    ]
     on: Sequence[str]
     when_matched: Optional[Mapping[str, object]] = None
     when_not_matched: Optional[Mapping[str, object]] = None

@@ -605,15 +605,24 @@ class Database:
 
     def createDataFrame(
         self,
-        data: Union[Sequence[dict[str, object]], Sequence[tuple], Records, "LazyRecords"],
+        data: Union[
+            Sequence[dict[str, object]],
+            Sequence[tuple],
+            Records,
+            "LazyRecords",
+            "pd.DataFrame",  # noqa: F821
+            "pl.DataFrame",  # noqa: F821
+            "pl.LazyFrame",  # noqa: F821
+        ],
         schema: Optional[Sequence[ColumnDef]] = None,
         pk: Optional[Union[str, Sequence[str]]] = None,
         auto_pk: Optional[Union[str, Sequence[str]]] = None,
     ) -> "DataFrame":
-        """Create a DataFrame from Python data (list of dicts, list of tuples, Records, or LazyRecords).
+        """Create a DataFrame from Python data (list of dicts, list of tuples, Records, LazyRecords, pandas DataFrame, polars DataFrame, or polars LazyFrame).
 
         Creates a temporary table, inserts the data, and returns a DataFrame querying from that table.
         If LazyRecords is provided, it will be auto-materialized.
+        If pandas/polars DataFrame or LazyFrame is provided, it will be converted to Records with lazy conversion.
 
         Args:
             data: Input data in one of supported formats:
@@ -621,6 +630,9 @@ class Database:
                 - List of tuples: Requires schema parameter with column names
                 - Records object: Extracts data and schema if available
                 - LazyRecords object: Auto-materializes and extracts data and schema
+                - pandas DataFrame: Converts to Records with schema preservation
+                - polars DataFrame: Converts to Records with schema preservation
+                - polars LazyFrame: Materializes and converts to Records with schema preservation
             schema: Optional explicit schema. If not provided, schema is inferred from data.
             pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
             auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
@@ -644,6 +656,14 @@ class Database:
             >>> # Create DataFrame from LazyRecords (auto-materializes)
             >>> lazy_records = db.read.records.csv("data.csv")
             >>> df = db.createDataFrame(lazy_records, pk="id")
+            >>> # Create DataFrame from pandas DataFrame
+            >>> import pandas as pd
+            >>> pdf = pd.DataFrame([{"id": 1, "name": "Alice"}])
+            >>> df = db.createDataFrame(pdf, pk="id")
+            >>> # Create DataFrame from polars DataFrame
+            >>> import polars as pl
+            >>> plf = pl.DataFrame([{"id": 1, "name": "Alice"}])
+            >>> df = db.createDataFrame(plf, pk="id")
         """
         from ..dataframe.create_dataframe import (
             ensure_primary_key,
@@ -653,8 +673,19 @@ class Database:
         )
         from ..dataframe.dataframe import DataFrame
         from ..dataframe.readers.schema_inference import infer_schema_from_rows
-        from ..io.records import LazyRecords, Records
+        from ..io.records import (
+            LazyRecords,
+            Records,
+            _is_pandas_dataframe,
+            _is_polars_dataframe,
+            _is_polars_lazyframe,
+            _dataframe_to_records,
+        )
         from ..utils.exceptions import ValidationError
+
+        # Convert DataFrame to Records if needed
+        if _is_pandas_dataframe(data) or _is_polars_dataframe(data) or _is_polars_lazyframe(data):
+            data = _dataframe_to_records(data, database=self)
 
         # Normalize data to list of dicts
         # Handle LazyRecords by auto-materializing

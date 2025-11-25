@@ -4,12 +4,240 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, overload
 
 if TYPE_CHECKING:
     from ..table.async_table import AsyncDatabase, AsyncTableHandle
     from ..table.schema import ColumnDef
     from ..table.table import Database, TableHandle
+
+
+def _is_pandas_dataframe(obj: Any) -> bool:
+    """Check if object is a pandas DataFrame."""
+    try:
+        import pandas as pd
+
+        return isinstance(obj, pd.DataFrame)
+    except ImportError:
+        return False
+
+
+def _is_polars_dataframe(obj: Any) -> bool:
+    """Check if object is a polars DataFrame."""
+    try:
+        import polars as pl
+
+        return isinstance(obj, pl.DataFrame)
+    except ImportError:
+        return False
+
+
+def _is_polars_lazyframe(obj: Any) -> bool:
+    """Check if object is a polars LazyFrame."""
+    try:
+        import polars as pl
+
+        return isinstance(obj, pl.LazyFrame)
+    except ImportError:
+        return False
+
+
+def _convert_pandas_dtype_to_sql_type(dtype: Any) -> str:
+    """Convert pandas dtype to SQL type name.
+
+    Args:
+        dtype: pandas dtype object
+
+    Returns:
+        SQL type name string
+    """
+    dtype_str = str(dtype)
+
+    # Handle nullable integer types
+    if dtype_str.startswith("Int"):
+        return "INTEGER"
+
+    # Handle standard types
+    if dtype_str in ("int64", "int32", "int16", "int8", "int"):
+        return "INTEGER"
+    if dtype_str in ("float64", "float32", "float"):
+        return "REAL"
+    if dtype_str in ("bool", "boolean"):
+        return "INTEGER"  # SQLite uses INTEGER for booleans
+    if dtype_str.startswith("datetime"):
+        return "TIMESTAMP"
+    if dtype_str.startswith("date"):
+        return "DATE"
+    if dtype_str.startswith("timedelta"):
+        return "TEXT"  # No standard SQL type for timedelta
+    if dtype_str in ("object", "string", "str"):
+        return "TEXT"
+
+    # Default to TEXT for unknown types
+    return "TEXT"
+
+
+def _convert_polars_type_to_sql_type(polars_type: Any) -> str:
+    """Convert polars type to SQL type name.
+
+    Args:
+        polars_type: polars DataType object or string representation
+
+    Returns:
+        SQL type name string
+    """
+    type_str = str(polars_type).lower()
+
+    # Handle polars types
+    if "int" in type_str:
+        return "INTEGER"
+    if "float" in type_str or "f64" in type_str or "f32" in type_str:
+        return "REAL"
+    if "bool" in type_str:
+        return "INTEGER"  # SQLite uses INTEGER for booleans
+    if "datetime" in type_str or "timestamp" in type_str:
+        return "TIMESTAMP"
+    if "date" in type_str:
+        return "DATE"
+    if "duration" in type_str or "timedelta" in type_str:
+        return "TEXT"  # No standard SQL type for duration
+    if "str" in type_str or "string" in type_str or "utf8" in type_str:
+        return "TEXT"
+    if "null" in type_str:
+        return "TEXT"  # Nullable type, default to TEXT
+
+    # Default to TEXT for unknown types
+    return "TEXT"
+
+
+def _extract_schema_from_pandas_dataframe(df: Any) -> Optional[List["ColumnDef"]]:
+    """Extract schema from pandas DataFrame.
+
+    Args:
+        df: pandas DataFrame
+
+    Returns:
+        List of ColumnDef objects or None if extraction fails
+    """
+    try:
+        from ..table.schema import ColumnDef
+
+        columns = []
+        for col_name, dtype in df.dtypes.items():
+            sql_type = _convert_pandas_dtype_to_sql_type(dtype)
+            # Check if column has any nulls - convert numpy boolean to Python boolean
+            nullable = bool(df[col_name].isna().any())
+            columns.append(ColumnDef(name=str(col_name), type_name=sql_type, nullable=nullable))
+        return columns
+    except Exception:
+        return None
+
+
+def _extract_schema_from_polars_dataframe(df: Any) -> Optional[List["ColumnDef"]]:
+    """Extract schema from polars DataFrame.
+
+    Args:
+        df: polars DataFrame
+
+    Returns:
+        List of ColumnDef objects or None if extraction fails
+    """
+    try:
+        from ..table.schema import ColumnDef
+
+        columns = []
+        schema = df.schema
+        for col_name, polars_type in schema.items():
+            sql_type = _convert_polars_type_to_sql_type(polars_type)
+            # Check if type is nullable - convert to Python boolean
+            nullable = bool(
+                polars_type.is_nullable() if hasattr(polars_type, "is_nullable") else True
+            )
+            columns.append(ColumnDef(name=str(col_name), type_name=sql_type, nullable=nullable))
+        return columns
+    except Exception:
+        return None
+
+
+def _extract_schema_from_polars_lazyframe(lf: Any) -> Optional[List["ColumnDef"]]:
+    """Extract schema from polars LazyFrame.
+
+    Args:
+        lf: polars LazyFrame
+
+    Returns:
+        List of ColumnDef objects or None if extraction fails
+    """
+    try:
+        from ..table.schema import ColumnDef
+
+        columns = []
+        # Use collect_schema() to avoid performance warning
+        schema = lf.collect_schema() if hasattr(lf, "collect_schema") else lf.schema
+        for col_name, polars_type in schema.items():
+            sql_type = _convert_polars_type_to_sql_type(polars_type)
+            # Check if type is nullable - convert to Python boolean
+            nullable = bool(
+                polars_type.is_nullable() if hasattr(polars_type, "is_nullable") else True
+            )
+            columns.append(ColumnDef(name=str(col_name), type_name=sql_type, nullable=nullable))
+        return columns
+    except Exception:
+        return None
+
+
+def _convert_dataframe_to_rows(df: Any) -> List[dict[str, object]]:
+    """Convert pandas/polars DataFrame or polars LazyFrame to list of dictionaries.
+
+    Args:
+        df: pandas DataFrame, polars DataFrame, or polars LazyFrame
+
+    Returns:
+        List of row dictionaries
+
+    Raises:
+        ValueError: If DataFrame type is not supported
+    """
+    if _is_pandas_dataframe(df):
+        # Convert pandas DataFrame to list of dicts
+        return df.to_dict("records")  # type: ignore[no-any-return]
+    elif _is_polars_dataframe(df):
+        # Convert polars DataFrame to list of dicts
+        return df.to_dicts()  # type: ignore[no-any-return]
+    elif _is_polars_lazyframe(df):
+        # Materialize LazyFrame first, then convert
+        materialized = df.collect()
+        return materialized.to_dicts()  # type: ignore[no-any-return]
+    else:
+        raise ValueError(f"Unsupported DataFrame type: {type(df)}")
+
+
+def _dataframe_to_records(df: Any, database: Optional["Database"] = None) -> "Records":
+    """Convert pandas/polars DataFrame or polars LazyFrame to Records with lazy conversion.
+
+    Args:
+        df: pandas DataFrame, polars DataFrame, or polars LazyFrame
+        database: Optional database reference
+
+    Returns:
+        Records object with lazy DataFrame conversion
+    """
+    # Extract schema if possible
+    schema = None
+    if _is_pandas_dataframe(df):
+        schema = _extract_schema_from_pandas_dataframe(df)
+    elif _is_polars_dataframe(df):
+        schema = _extract_schema_from_polars_dataframe(df)
+    elif _is_polars_lazyframe(df):
+        schema = _extract_schema_from_polars_lazyframe(df)
+
+    return Records(
+        _data=None,
+        _generator=None,
+        _dataframe=df,
+        _schema=schema,
+        _database=database,
+    )
 
 
 @dataclass
@@ -22,14 +250,35 @@ class Records(Sequence[Mapping[str, object]]):
     Attributes:
         _data: Materialized list of row dictionaries (for small files)
         _generator: Callable that returns an iterator of row chunks (for large files)
+        _dataframe: Optional pandas/polars DataFrame or polars LazyFrame for lazy conversion
         _schema: Optional schema information
         _database: Optional database reference for insert operations
     """
 
     _data: Optional[List[dict[str, object]]] = None
     _generator: Optional[Callable[[], Iterator[List[dict[str, object]]]]] = None
+    _dataframe: Optional[Any] = None  # pandas DataFrame, polars DataFrame, or polars LazyFrame
     _schema: Optional[Sequence["ColumnDef"]] = None
     _database: Optional["Database"] = None
+
+    @classmethod
+    def from_dataframe(cls, df: Any, database: Optional["Database"] = None) -> "Records":
+        """Create Records from pandas/polars DataFrame or polars LazyFrame.
+
+        Args:
+            df: pandas DataFrame, polars DataFrame, or polars LazyFrame
+            database: Optional database reference for insert operations
+
+        Returns:
+            Records object with lazy DataFrame conversion
+
+        Example:
+            >>> import pandas as pd
+            >>> df = pd.DataFrame([{"id": 1, "name": "Alice"}])
+            >>> records = Records.from_dataframe(df, database=db)
+            >>> records.insert_into("users")
+        """
+        return _dataframe_to_records(df, database=database)
 
     def __iter__(self) -> Iterator[dict[str, object]]:
         """Make Records directly iterable."""
@@ -42,6 +291,11 @@ class Records(Sequence[Mapping[str, object]]):
             for chunk in self._generator():
                 for row in chunk:
                     yield row
+        elif self._dataframe is not None:
+            # DataFrame mode - convert and iterate
+            rows = _convert_dataframe_to_rows(self._dataframe)
+            for row in rows:
+                yield row
         # Empty records - nothing to yield
 
     def __len__(self) -> int:
@@ -54,8 +308,18 @@ class Records(Sequence[Mapping[str, object]]):
             for chunk in self._generator():
                 count += len(chunk)
             return count
-        else:
-            return 0
+        elif self._dataframe is not None:
+            # DataFrame mode - get length from DataFrame
+            if _is_pandas_dataframe(self._dataframe):
+                return len(self._dataframe)  # type: ignore[arg-type]
+            elif _is_polars_dataframe(self._dataframe):
+                return len(self._dataframe)  # type: ignore[arg-type]
+            elif _is_polars_lazyframe(self._dataframe):
+                # For LazyFrame, we need to materialize to get length
+                # This is expensive, but necessary for __len__
+                materialized = self._dataframe.collect()
+                return len(materialized)  # type: ignore[arg-type]
+        return 0
 
     @overload
     def __getitem__(self, index: int) -> Mapping[str, object]: ...
@@ -77,8 +341,14 @@ class Records(Sequence[Mapping[str, object]]):
             # Materialize to get item
             rows = self.rows()
             return rows[index]
+        elif self._dataframe is not None:
+            # DataFrame mode - materialize to get item
+            rows = self.rows()
+            return rows[index]
         else:
-            raise IndexError("Records is empty")
+            raise IndexError(
+                "Cannot access Records: Records is empty. Use .rows() to check if data exists."
+            )
 
     def rows(self) -> List[dict[str, object]]:
         """Return materialized list of all rows.
@@ -94,6 +364,13 @@ class Records(Sequence[Mapping[str, object]]):
             for chunk in self._generator():
                 all_rows.extend(chunk)
             return all_rows
+        elif self._dataframe is not None:
+            # DataFrame mode - convert to rows and cache in _data
+            rows = _convert_dataframe_to_rows(self._dataframe)
+            # Cache the converted data for future use
+            self._data = rows
+            self._dataframe = None  # Clear DataFrame reference after conversion
+            return rows
         else:
             return []
 
@@ -109,6 +386,211 @@ class Records(Sequence[Mapping[str, object]]):
     def schema(self) -> Optional[Sequence["ColumnDef"]]:
         """Get the schema for these records."""
         return self._schema
+
+    def select(self, *columns: str) -> "Records":
+        """Select specific columns from records (in-memory operation).
+
+        Args:
+            *columns: Column names to select. Must be strings.
+
+        Returns:
+            New Records instance with only the selected columns
+
+        Raises:
+            ValueError: If no columns provided or column doesn't exist
+            RuntimeError: If Records is empty
+
+        Example:
+            >>> records = Records(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
+            >>> selected = records.select("id", "name")
+            >>> list(selected)
+            [{"id": 1, "name": "Alice"}]
+        """
+        if not columns:
+            raise ValueError("select() requires at least one column name")
+
+        rows = self.rows()
+        if not rows:
+            raise RuntimeError("Cannot select columns from empty Records")
+
+        # Get all available columns from first row
+        available_columns = set(rows[0].keys())
+
+        # Validate all requested columns exist
+        missing_columns = [col for col in columns if col not in available_columns]
+        if missing_columns:
+            available_str = ", ".join(sorted(available_columns))
+            raise ValueError(
+                f"Column(s) not found: {', '.join(missing_columns)}. "
+                f"Available columns: {available_str}"
+            )
+
+        # Filter rows to only include selected columns
+        filtered_rows = [{col: row[col] for col in columns} for row in rows]
+
+        # Filter schema if available
+        filtered_schema = None
+        if self._schema is not None:
+            schema_dict = {col.name: col for col in self._schema}
+            filtered_schema = [schema_dict[col] for col in columns if col in schema_dict]
+
+        return Records(
+            _data=filtered_rows,
+            _generator=None,
+            _schema=filtered_schema,
+            _database=self._database,
+        )
+
+    def rename(
+        self, columns: Union[Dict[str, str], str], new_name: Optional[str] = None
+    ) -> "Records":
+        """Rename columns in records (in-memory operation).
+
+        Args:
+            columns: Either a dict mapping old_name -> new_name, or a single column name (if new_name provided)
+            new_name: New name for the column (required if columns is a string)
+
+        Returns:
+            New Records instance with renamed columns
+
+        Raises:
+            ValueError: If column doesn't exist or new name conflicts with existing column
+            RuntimeError: If Records is empty
+
+        Example:
+            >>> records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> renamed = records.rename({"id": "user_id", "name": "user_name"})
+            >>> list(renamed)
+            [{"user_id": 1, "user_name": "Alice"}]
+
+            >>> renamed = records.rename("id", "user_id")
+            >>> list(renamed)
+            [{"user_id": 1, "name": "Alice"}]
+        """
+        rows = self.rows()
+        if not rows:
+            raise RuntimeError("Cannot rename columns in empty Records")
+
+        # Normalize to dict format
+        if isinstance(columns, str):
+            if new_name is None:
+                raise ValueError("new_name is required when columns is a string")
+            rename_map: Dict[str, str] = {columns: new_name}
+        else:
+            rename_map = columns
+
+        if not rename_map:
+            raise ValueError("rename() requires at least one column to rename")
+
+        # Get all available columns from first row
+        available_columns = set(rows[0].keys())
+
+        # Validate all old columns exist
+        missing_columns = [
+            old_col for old_col in rename_map.keys() if old_col not in available_columns
+        ]
+        if missing_columns:
+            available_str = ", ".join(sorted(available_columns))
+            raise ValueError(
+                f"Column(s) not found: {', '.join(missing_columns)}. "
+                f"Available columns: {available_str}"
+            )
+
+        # Check for name conflicts (new name conflicts with existing column that's not being renamed)
+        new_names = set(rename_map.values())
+        conflicting = new_names & (available_columns - set(rename_map.keys()))
+        if conflicting:
+            raise ValueError(
+                f"New column name(s) conflict with existing columns: {', '.join(conflicting)}"
+            )
+
+        # Rename columns in rows
+        renamed_rows = []
+        for row in rows:
+            new_row = {}
+            for key, value in row.items():
+                if key in rename_map:
+                    new_row[rename_map[key]] = value
+                else:
+                    new_row[key] = value
+            renamed_rows.append(new_row)
+
+        # Update schema if available
+        updated_schema = None
+        if self._schema is not None:
+            from ..table.schema import ColumnDef
+
+            updated_schema = []
+            for col_def in self._schema:
+                if col_def.name in rename_map:
+                    updated_schema.append(
+                        ColumnDef(
+                            name=rename_map[col_def.name],
+                            type_name=col_def.type_name,
+                            nullable=col_def.nullable,
+                        )
+                    )
+                else:
+                    updated_schema.append(col_def)
+
+        return Records(
+            _data=renamed_rows,
+            _generator=None,
+            _schema=updated_schema,
+            _database=self._database,
+        )
+
+    def head(self, n: int = 5) -> List[dict[str, object]]:
+        """Return first n rows as list.
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of first n row dictionaries
+
+        Raises:
+            ValueError: If n is negative
+        """
+        if n < 0:
+            raise ValueError(f"n must be non-negative, got {n}")
+        rows = self.rows()
+        return rows[:n]
+
+    def tail(self, n: int = 5) -> List[dict[str, object]]:
+        """Return last n rows as list.
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of last n row dictionaries
+
+        Raises:
+            ValueError: If n is negative
+        """
+        if n < 0:
+            raise ValueError(f"n must be non-negative, got {n}")
+        rows = self.rows()
+        return rows[-n:]
+
+    def first(self) -> Optional[dict[str, object]]:
+        """Return first row or None if empty.
+
+        Returns:
+            First row dictionary or None if Records is empty
+        """
+        rows = self.rows()
+        return rows[0] if rows else None
+
+    def last(self) -> Optional[dict[str, object]]:
+        """Return last row or None if empty.
+
+        Returns:
+            Last row dictionary or None if Records is empty
+        """
+        rows = self.rows()
+        return rows[-1] if rows else None
 
     def insert_into(self, table: Union[str, "TableHandle"]) -> int:
         """Insert records into a table.
@@ -127,7 +609,11 @@ class Records(Sequence[Mapping[str, object]]):
             and using df.write.insertInto() instead.
         """
         if self._database is None:
-            raise RuntimeError("Cannot insert Records without an attached Database")
+            raise RuntimeError(
+                "Cannot insert Records without an attached Database. "
+                "For DataFrame-based operations, consider creating a DataFrame from the data "
+                "and using df.write.insertInto() instead."
+            )
 
         from ..table.mutations import insert_rows
 
@@ -204,6 +690,209 @@ class AsyncRecords:
         """Get the schema for these records."""
         return self._schema
 
+    async def select(self, *columns: str) -> "AsyncRecords":
+        """Select specific columns from records (in-memory operation).
+
+        Args:
+            *columns: Column names to select. Must be strings.
+
+        Returns:
+            New AsyncRecords instance with only the selected columns
+
+        Raises:
+            ValueError: If no columns provided or column doesn't exist
+            RuntimeError: If AsyncRecords is empty
+
+        Example:
+            >>> records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
+            >>> selected = await records.select("id", "name")
+            >>> async for row in selected:
+            ...     print(row)
+            {"id": 1, "name": "Alice"}
+        """
+        if not columns:
+            raise ValueError("select() requires at least one column name")
+
+        rows = await self.rows()
+        if not rows:
+            raise RuntimeError("Cannot select columns from empty AsyncRecords")
+
+        # Get all available columns from first row
+        available_columns = set(rows[0].keys())
+
+        # Validate all requested columns exist
+        missing_columns = [col for col in columns if col not in available_columns]
+        if missing_columns:
+            available_str = ", ".join(sorted(available_columns))
+            raise ValueError(
+                f"Column(s) not found: {', '.join(missing_columns)}. "
+                f"Available columns: {available_str}"
+            )
+
+        # Filter rows to only include selected columns
+        filtered_rows = [{col: row[col] for col in columns} for row in rows]
+
+        # Filter schema if available
+        filtered_schema = None
+        if self._schema is not None:
+            schema_dict = {col.name: col for col in self._schema}
+            filtered_schema = [schema_dict[col] for col in columns if col in schema_dict]
+
+        return AsyncRecords(
+            _data=filtered_rows,
+            _generator=None,
+            _schema=filtered_schema,
+            _database=self._database,
+        )
+
+    async def rename(
+        self, columns: Union[Dict[str, str], str], new_name: Optional[str] = None
+    ) -> "AsyncRecords":
+        """Rename columns in records (in-memory operation).
+
+        Args:
+            columns: Either a dict mapping old_name -> new_name, or a single column name (if new_name provided)
+            new_name: New name for the column (required if columns is a string)
+
+        Returns:
+            New AsyncRecords instance with renamed columns
+
+        Raises:
+            ValueError: If column doesn't exist or new name conflicts with existing column
+            RuntimeError: If AsyncRecords is empty
+
+        Example:
+            >>> records = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> renamed = await records.rename({"id": "user_id", "name": "user_name"})
+            >>> async for row in renamed:
+            ...     print(row)
+            {"user_id": 1, "user_name": "Alice"}
+        """
+        rows = await self.rows()
+        if not rows:
+            raise RuntimeError("Cannot rename columns in empty AsyncRecords")
+
+        # Normalize to dict format
+        if isinstance(columns, str):
+            if new_name is None:
+                raise ValueError("new_name is required when columns is a string")
+            rename_map: Dict[str, str] = {columns: new_name}
+        else:
+            rename_map = columns
+
+        if not rename_map:
+            raise ValueError("rename() requires at least one column to rename")
+
+        # Get all available columns from first row
+        available_columns = set(rows[0].keys())
+
+        # Validate all old columns exist
+        missing_columns = [
+            old_col for old_col in rename_map.keys() if old_col not in available_columns
+        ]
+        if missing_columns:
+            available_str = ", ".join(sorted(available_columns))
+            raise ValueError(
+                f"Column(s) not found: {', '.join(missing_columns)}. "
+                f"Available columns: {available_str}"
+            )
+
+        # Check for name conflicts (new name conflicts with existing column that's not being renamed)
+        new_names = set(rename_map.values())
+        conflicting = new_names & (available_columns - set(rename_map.keys()))
+        if conflicting:
+            raise ValueError(
+                f"New column name(s) conflict with existing columns: {', '.join(conflicting)}"
+            )
+
+        # Rename columns in rows
+        renamed_rows = []
+        for row in rows:
+            new_row = {}
+            for key, value in row.items():
+                if key in rename_map:
+                    new_row[rename_map[key]] = value
+                else:
+                    new_row[key] = value
+            renamed_rows.append(new_row)
+
+        # Update schema if available
+        updated_schema = None
+        if self._schema is not None:
+            from ..table.schema import ColumnDef
+
+            updated_schema = []
+            for col_def in self._schema:
+                if col_def.name in rename_map:
+                    updated_schema.append(
+                        ColumnDef(
+                            name=rename_map[col_def.name],
+                            type_name=col_def.type_name,
+                            nullable=col_def.nullable,
+                        )
+                    )
+                else:
+                    updated_schema.append(col_def)
+
+        return AsyncRecords(
+            _data=renamed_rows,
+            _generator=None,
+            _schema=updated_schema,
+            _database=self._database,
+        )
+
+    async def head(self, n: int = 5) -> List[dict[str, object]]:
+        """Return first n rows as list.
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of first n row dictionaries
+
+        Raises:
+            ValueError: If n is negative
+        """
+        if n < 0:
+            raise ValueError(f"n must be non-negative, got {n}")
+        rows = await self.rows()
+        return rows[:n]
+
+    async def tail(self, n: int = 5) -> List[dict[str, object]]:
+        """Return last n rows as list.
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of last n row dictionaries
+
+        Raises:
+            ValueError: If n is negative
+        """
+        if n < 0:
+            raise ValueError(f"n must be non-negative, got {n}")
+        rows = await self.rows()
+        return rows[-n:]
+
+    async def first(self) -> Optional[dict[str, object]]:
+        """Return first row or None if empty.
+
+        Returns:
+            First row dictionary or None if AsyncRecords is empty
+        """
+        rows = await self.rows()
+        return rows[0] if rows else None
+
+    async def last(self) -> Optional[dict[str, object]]:
+        """Return last row or None if empty.
+
+        Returns:
+            Last row dictionary or None if AsyncRecords is empty
+        """
+        rows = await self.rows()
+        return rows[-1] if rows else None
+
     async def insert_into(self, table: Union[str, "AsyncTableHandle"]) -> int:
         """Insert records into a table.
 
@@ -221,7 +910,11 @@ class AsyncRecords:
             and using df.write.insertInto() instead.
         """
         if self._database is None:
-            raise RuntimeError("Cannot insert AsyncRecords without an attached AsyncDatabase")
+            raise RuntimeError(
+                "Cannot insert AsyncRecords without an attached AsyncDatabase. "
+                "For DataFrame-based operations, consider creating an AsyncDataFrame from the data "
+                "and using df.write.insertInto() instead."
+            )
 
         from ..table.async_mutations import insert_rows_async
 
@@ -318,6 +1011,81 @@ class LazyRecords(Sequence[Mapping[str, object]]):
         # Otherwise materialize to get schema from Records
         return self.collect().schema
 
+    def select(self, *columns: str) -> "Records":
+        """Select specific columns from records (auto-materializes).
+
+        Args:
+            *columns: Column names to select. Must be strings.
+
+        Returns:
+            New Records with selected columns (materialized)
+
+        Example:
+            >>> lazy_records = LazyRecords(_read_func=lambda: Records(_data=[{"id": 1, "name": "Alice"}]))
+            >>> selected = lazy_records.select("id")
+            >>> list(selected)
+            [{"id": 1}]
+        """
+        return self.collect().select(*columns)
+
+    def rename(
+        self, columns: Union[Dict[str, str], str], new_name: Optional[str] = None
+    ) -> "Records":
+        """Rename columns in records (auto-materializes).
+
+        Args:
+            columns: Either a dict mapping old_name -> new_name, or a single column name
+            new_name: New name for the column (required if columns is a string)
+
+        Returns:
+            New Records with renamed columns (materialized)
+
+        Example:
+            >>> lazy_records = LazyRecords(_read_func=lambda: Records(_data=[{"id": 1}]))
+            >>> renamed = lazy_records.rename("id", "user_id")
+            >>> list(renamed)
+            [{"user_id": 1}]
+        """
+        return self.collect().rename(columns, new_name)
+
+    def head(self, n: int = 5) -> List[dict[str, object]]:
+        """Return first n rows as list (auto-materializes).
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of first n row dictionaries
+        """
+        return self.collect().head(n)
+
+    def tail(self, n: int = 5) -> List[dict[str, object]]:
+        """Return last n rows as list (auto-materializes).
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of last n row dictionaries
+        """
+        return self.collect().tail(n)
+
+    def first(self) -> Optional[dict[str, object]]:
+        """Return first row or None if empty (auto-materializes).
+
+        Returns:
+            First row dictionary or None if LazyRecords is empty
+        """
+        return self.collect().first()
+
+    def last(self) -> Optional[dict[str, object]]:
+        """Return last row or None if empty (auto-materializes).
+
+        Returns:
+            Last row dictionary or None if LazyRecords is empty
+        """
+        return self.collect().last()
+
     def insert_into(self, table: Union[str, "TableHandle"]) -> int:
         """Insert records into a table (auto-materializes).
 
@@ -402,6 +1170,83 @@ class AsyncLazyRecords:
         # Otherwise would need to materialize, but property can't be async
         # So return None and let materialized Records provide schema
         return None
+
+    async def select(self, *columns: str) -> "AsyncRecords":
+        """Select specific columns from records (auto-materializes).
+
+        Args:
+            *columns: Column names to select. Must be strings.
+
+        Returns:
+            New AsyncRecords with selected columns
+
+        Example:
+            >>> async_lazy_records = AsyncLazyRecords(_read_func=lambda: AsyncRecords(_data=[{"id": 1, "name": "Alice"}]))
+            >>> selected = await async_lazy_records.select("id")
+            >>> async for row in selected:
+            ...     print(row)
+            {"id": 1}
+        """
+        return await (await self.collect()).select(*columns)
+
+    async def rename(
+        self, columns: Union[Dict[str, str], str], new_name: Optional[str] = None
+    ) -> "AsyncRecords":
+        """Rename columns in records (auto-materializes).
+
+        Args:
+            columns: Either a dict mapping old_name -> new_name, or a single column name
+            new_name: New name for the column (required if columns is a string)
+
+        Returns:
+            New AsyncRecords with renamed columns
+
+        Example:
+            >>> async_lazy_records = AsyncLazyRecords(_read_func=lambda: AsyncRecords(_data=[{"id": 1}]))
+            >>> renamed = await async_lazy_records.rename("id", "user_id")
+            >>> async for row in renamed:
+            ...     print(row)
+            {"user_id": 1}
+        """
+        return await (await self.collect()).rename(columns, new_name)
+
+    async def head(self, n: int = 5) -> List[dict[str, object]]:
+        """Return first n rows as list (auto-materializes).
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of first n row dictionaries
+        """
+        return await (await self.collect()).head(n)
+
+    async def tail(self, n: int = 5) -> List[dict[str, object]]:
+        """Return last n rows as list (auto-materializes).
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of last n row dictionaries
+        """
+        return await (await self.collect()).tail(n)
+
+    async def first(self) -> Optional[dict[str, object]]:
+        """Return first row or None if empty (auto-materializes).
+
+        Returns:
+            First row dictionary or None if AsyncLazyRecords is empty
+        """
+        return await (await self.collect()).first()
+
+    async def last(self) -> Optional[dict[str, object]]:
+        """Return last row or None if empty (auto-materializes).
+
+        Returns:
+            Last row dictionary or None if AsyncLazyRecords is empty
+        """
+        return await (await self.collect()).last()
 
     async def insert_into(self, table: Union[str, "AsyncTableHandle"]) -> int:
         """Insert records into a table (auto-materializes).
