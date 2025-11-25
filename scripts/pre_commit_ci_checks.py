@@ -160,13 +160,26 @@ def check_mypy() -> bool:
                 return False
 
     # Check for specific error types that CI flags (redundant-cast, unused-ignore, etc.)
+    # Check for error codes in brackets (e.g., [unused-ignore], [redundant-cast])
+    error_codes = [
+        "[unused-ignore]",
+        "[redundant-cast]",
+    ]
+    for code in error_codes:
+        if code in output:
+            print_error(f"mypy found {code} errors in output")
+            print(stdout)
+            print(stderr)
+            return False
+
+    # Also check for error message patterns
     error_patterns = [
-        "redundant-cast",
-        "unused-ignore",
         'unused "type: ignore"',
+        "unused 'type: ignore'",
+        "redundant cast",
     ]
     for pattern in error_patterns:
-        if pattern in output.lower():
+        if pattern.lower() in output.lower():
             print_error(f"mypy found {pattern} errors in output")
             print(stdout)
             print(stderr)
