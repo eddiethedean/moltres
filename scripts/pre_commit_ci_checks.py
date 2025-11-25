@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -114,20 +115,46 @@ def check_ruff() -> bool:
 def check_mypy() -> bool:
     """Run mypy type checking."""
     print_header("mypy Type Checking")
-
+    
+    # Clear mypy cache to ensure fresh check (matches CI behavior)
+    cache_dir = Path(".mypy_cache")
+    if cache_dir.exists():
+        print(f"  Clearing mypy cache: {cache_dir}")
+        shutil.rmtree(cache_dir)
+    
+    # Match CI exactly: mypy src examples (no --show-error-codes in CI)
     returncode, stdout, stderr = run_command(
         ["mypy", "src", "examples"],
         "mypy type checking",
         check=False,
         capture_output=True,
     )
-
+    
     if returncode != 0:
         print_error("mypy type checking failed")
         print(stdout)
         print(stderr)
         return False
-
+    
+    # Also check for any error messages in output (in case return code is 0 but errors exist)
+    # This can happen with some mypy configurations
+    output = stdout + stderr
+    if "error:" in output:
+        print_error("mypy found errors in output (even though return code was 0)")
+        print(stdout)
+        print(stderr)
+        return False
+    
+    # Check for "Found X errors" pattern
+    if "Found" in output and "error" in output.lower():
+        # Extract error count
+        for line in output.split("\n"):
+            if "Found" in line and "error" in line.lower():
+                print_error(f"mypy found errors: {line}")
+                print(stdout)
+                print(stderr)
+                return False
+    
     print_success("mypy type checking passed")
     return True
 

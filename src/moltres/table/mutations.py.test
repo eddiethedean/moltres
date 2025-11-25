@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -49,9 +49,9 @@ def insert_rows(
 
     if not rows:
         return 0
-    # Type narrowing: after conversion, rows is Records which implements Sequence[Mapping[str, object]]
-    # Use cast to help mypy understand the type after DataFrame conversion
-    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
+    # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
+    # Records implements Sequence[Mapping[str, object]], but mypy needs help with the type
+    rows_seq: Sequence[Mapping[str, object]] = rows 
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
@@ -180,9 +180,9 @@ def merge_rows(
     if not on:
         raise ValidationError("merge requires at least one column in 'on' for conflict detection")
 
-    # Type narrowing: after conversion, rows is Records which implements Sequence[Mapping[str, object]]
-    # Use cast to help mypy understand the type after DataFrame conversion
-    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
+    # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
+    # Records implements Sequence[Mapping[str, object]], but mypy needs help with the type
+    rows_seq: Sequence[Mapping[str, object]] = rows 
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
