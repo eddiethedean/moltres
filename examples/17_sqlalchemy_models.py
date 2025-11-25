@@ -154,7 +154,7 @@ print(f"\nOrders with user names ({len(results)}):")
 # Output:
 # Output: Orders with user names (3):
 for result in results:
-    amount = result['amount']
+    amount = result["amount"]
     amount_float = float(amount) if amount is not None else 0.0  # type: ignore[arg-type]
     print(f"  - {result['name']}: ${amount_float:.2f}")
 # Output:   - Alice: $100.50
