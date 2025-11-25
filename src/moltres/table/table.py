@@ -520,7 +520,7 @@ class Database:
             # Model-based creation
             model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
             schema = model_to_schema(model_class)
-            
+
             op = CreateTableOperation(
                 database=self,
                 name=schema.name,

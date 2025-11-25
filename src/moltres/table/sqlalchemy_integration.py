@@ -402,7 +402,9 @@ def model_to_schema(model_class: Type["DeclarativeBase"]) -> TableSchema:
                             name_str = str(arg.name)
                             if name_str and not name_str.startswith("_"):
                                 unique_constraint_name = name_str
-                        constraints.append(UniqueConstraint(name=unique_constraint_name, columns=cols))
+                        constraints.append(
+                            UniqueConstraint(name=unique_constraint_name, columns=cols)
+                        )
                 elif hasattr(arg, "sqltext") or hasattr(arg, "sqltext"):
                     # CheckConstraint
                     from sqlalchemy import CheckConstraint as SACheckConstraint
@@ -415,7 +417,9 @@ def model_to_schema(model_class: Type["DeclarativeBase"]) -> TableSchema:
                             name_str = str(arg.name)
                             if name_str and not name_str.startswith("_"):
                                 check_constraint_name = name_str
-                        constraints.append(CheckConstraint(name=check_constraint_name, expression=expr))
+                        constraints.append(
+                            CheckConstraint(name=check_constraint_name, expression=expr)
+                        )
 
     # Extract foreign keys
     fk_constraints = extract_foreign_keys(model_class)
