@@ -250,8 +250,10 @@ class SQLCompiler:
 
             fraction_literal = literal(plan.fraction)
 
+            from sqlalchemy.sql.elements import ColumnElement
+
             if self.dialect.name == "mysql":
-                rand_expr = sa_func.rand(plan.seed) if plan.seed is not None else sa_func.rand()
+                rand_expr: ColumnElement[Any] = sa_func.rand(plan.seed) if plan.seed is not None else sa_func.rand()
             elif self.dialect.name == "sqlite":
                 # SQLite random() returns signed 64-bit integer; normalize to [0,1)
                 rand_expr = sa_func.abs(sa_func.random()) / literal(9223372036854775808.0)
@@ -355,7 +357,7 @@ class SQLCompiler:
             from sqlalchemy import literal_column
 
             # Handle LATERAL joins (PostgreSQL, MySQL 8.0+)
-            stmt: Select[Any]
+            join_stmt: Select[Any]
             if plan.lateral:
                 if self.dialect.name not in ("postgresql", "mysql"):
                     raise CompilationError(
@@ -882,7 +884,8 @@ class SQLCompiler:
         if isinstance(plan_side, TableScan):
             sa_tbl = sa_table(plan_side.table)
             if plan_side.alias:
-                sa_tbl = sa_tbl.alias(plan_side.alias)
+                aliased_tbl = sa_tbl.alias(plan_side.alias)
+                return aliased_tbl, aliased_tbl
             return sa_tbl, sa_tbl
 
         if isinstance(compiled_stmt, Select):
@@ -1684,13 +1687,13 @@ class ExpressionCompiler:
                 else:
                     sa_type = sa_types.Numeric()
             elif type_name_upper == "TIMESTAMP":
-                sa_type = sa_types.TIMESTAMP
+                sa_type = sa_types.TIMESTAMP()
             elif type_name_upper == "DATE":
-                sa_type = sa_types.DATE
+                sa_type = sa_types.DATE()
             elif type_name_upper == "TIME":
-                sa_type = sa_types.TIME
+                sa_type = sa_types.TIME()
             elif type_name_upper == "INTERVAL":
-                sa_type = sa_types.Interval
+                sa_type = sa_types.Interval()
             elif type_name_upper == "UUID":
                 # Handle UUID type with dialect-specific implementations
                 if self.dialect.name == "postgresql":
@@ -1712,27 +1715,27 @@ class ExpressionCompiler:
                     # SQLite and others: use String
                     sa_type = sa_types.String()
             elif type_name_upper == "INTEGER" or type_name_upper == "INT":
-                sa_type = sa_types.Integer
+                sa_type = sa_types.Integer()
             elif type_name_upper == "TEXT":
-                sa_type = sa_types.Text
+                sa_type = sa_types.Text()
             elif (
                 type_name_upper == "REAL"
                 or type_name_upper == "FLOAT"
                 or type_name_upper == "DOUBLE"
             ):
-                sa_type = sa_types.Float
+                sa_type = sa_types.Float()
             elif type_name_upper == "VARCHAR" or type_name_upper == "STRING":
                 if precision is not None:
                     sa_type = sa_types.String(length=precision)
                 else:
-                    sa_type = sa_types.String
+                    sa_type = sa_types.String()
             elif type_name_upper == "CHAR":
                 if precision is not None:
                     sa_type = sa_types.CHAR(length=precision)
                 else:
-                    sa_type = sa_types.CHAR
+                    sa_type = sa_types.CHAR()
             elif type_name_upper == "BOOLEAN" or type_name_upper == "BOOL":
-                sa_type = sa_types.Boolean
+                sa_type = sa_types.Boolean()
             elif "[]" in type_name_upper:
                 # PostgreSQL array types like INTEGER[], TEXT[], etc.
                 # Extract base type before []
@@ -1755,10 +1758,10 @@ class ExpressionCompiler:
                         sa_type = PG_ARRAY(sa_types_array.Text)
                 else:
                     # For non-PostgreSQL dialects, fallback to String
-                    sa_type = sa_types.String
+                    sa_type = sa_types.String()
             else:
                 # Fallback to String for unknown types
-                sa_type = sa_types.String
+                sa_type = sa_types.String()
 
             result = sqlalchemy_cast(self._compile(column), sa_type)
             if expression._alias:
@@ -2935,6 +2938,9 @@ class ExpressionCompiler:
 
     def _get_table(self, table_name: str) -> "TableClause":
         """Get or create a SQLAlchemy table object for the given table name."""
+        from sqlalchemy import table as sa_table
+
         if table_name not in self._table_cache:
-            self._table_cache[table_name] = table(table_name)
-        return self._table_cache[table_name]
+            self._table_cache[table_name] = sa_table(table_name)
+        result = self._table_cache[table_name]
+        return result  # type: ignore[no-any-return]
