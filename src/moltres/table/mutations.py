@@ -175,15 +175,15 @@ def merge_rows(
 
     if _is_pandas_dataframe(rows) or _is_polars_dataframe(rows) or _is_polars_lazyframe(rows):
         rows = _dataframe_to_records(rows, database=handle.database)
-        # After conversion, rows is Records which implements Sequence[Mapping[str, object]]
-        rows = cast(Sequence[Mapping[str, object]], rows)
 
     if not rows:
         return 0
     if not on:
         raise ValidationError("merge requires at least one column in 'on' for conflict detection")
 
-    # rows is now guaranteed to be Sequence[Mapping[str, object]] after DataFrame conversion
+    # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
+    # Use cast to help mypy understand the type narrowing (CI's mypy can infer but accepts cast)
+    rows = cast(Sequence[Mapping[str, object]], rows)
     rows_seq: Sequence[Mapping[str, object]] = rows
     columns = list(rows_seq[0].keys())
     if not columns:
