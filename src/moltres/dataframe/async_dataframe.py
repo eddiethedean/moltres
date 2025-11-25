@@ -25,6 +25,7 @@ from ..sql.compiler import compile_plan
 if TYPE_CHECKING:
     from ..io.records import AsyncRecords
     from ..table.async_table import AsyncDatabase, AsyncTableHandle
+    from ..utils.inspector import ColumnInfo
     from .async_groupby import AsyncGroupedDataFrame
     from .async_writer import AsyncDataFrameWriter
 
@@ -969,6 +970,96 @@ class AsyncDataFrame:
 
         return AsyncDataFrameWriter(self)
 
+    @property
+    def columns(self) -> List[str]:
+        """Return a list of column names in this DataFrame.
+
+        Similar to PySpark's DataFrame.columns property, this extracts column
+        names from the logical plan without requiring query execution.
+
+        Returns:
+            List of column name strings
+
+        Raises:
+            RuntimeError: If column names cannot be determined (e.g., RawSQL without execution)
+
+        Example:
+            >>> df = await db.table("users").select()
+            >>> print(df.columns)  # ['id', 'name', 'email', ...]
+            >>> df2 = df.select("id", "name")
+            >>> print(df2.columns)  # ['id', 'name']
+        """
+        return self._extract_column_names(self.plan)
+
+    @property
+    def schema(self) -> List["ColumnInfo"]:
+        """Return the schema of this DataFrame as a list of ColumnInfo objects.
+
+        Similar to PySpark's DataFrame.schema property, this extracts column
+        names and types from the logical plan without requiring query execution.
+
+        Returns:
+            List of ColumnInfo objects with column names and types
+
+        Raises:
+            RuntimeError: If schema cannot be determined (e.g., RawSQL without execution)
+
+        Example:
+            >>> df = await db.table("users").select()
+            >>> schema = df.schema
+            >>> for col_info in schema:
+            ...     print(f"{col_info.name}: {col_info.type_name}")
+            # id: INTEGER
+            # name: VARCHAR(255)
+            # email: VARCHAR(255)
+        """
+        return self._extract_schema_from_plan(self.plan)
+
+    @property
+    def dtypes(self) -> List[Tuple[str, str]]:
+        """Return a list of tuples containing column names and their data types.
+
+        Similar to PySpark's DataFrame.dtypes property, this returns a list
+        of (column_name, type_name) tuples.
+
+        Returns:
+            List of tuples (column_name, type_name)
+
+        Raises:
+            RuntimeError: If schema cannot be determined (e.g., RawSQL without execution)
+
+        Example:
+            >>> df = await db.table("users").select()
+            >>> print(df.dtypes)
+            # [('id', 'INTEGER'), ('name', 'VARCHAR(255)'), ('email', 'VARCHAR(255)')]
+        """
+        schema = self.schema
+        return [(col_info.name, col_info.type_name) for col_info in schema]
+
+    def printSchema(self) -> None:
+        """Print the schema of this DataFrame in a tree format.
+
+        Similar to PySpark's DataFrame.printSchema() method, this prints
+        a formatted representation of the DataFrame's schema.
+
+        Example:
+            >>> df = await db.table("users").select()
+            >>> df.printSchema()
+            # root
+            #  |-- id: INTEGER (nullable = true)
+            #  |-- name: VARCHAR(255) (nullable = true)
+            #  |-- email: VARCHAR(255) (nullable = true)
+
+        Note:
+            Currently, nullable information is not available from the schema,
+            so it's always shown as `nullable = true`.
+        """
+        schema = self.schema
+        print("root")
+        for col_info in schema:
+            # Format similar to PySpark: |-- column_name: type_name (nullable = true)
+            print(f" |-- {col_info.name}: {col_info.type_name} (nullable = true)")
+
     def __getattr__(self, name: str) -> Column:
         """Enable dot notation column access (e.g., df.id, df.name).
 
@@ -1024,6 +1115,328 @@ class AsyncDataFrame:
         if isinstance(expr, Column):
             return expr
         return col(expr)
+
+    def _extract_column_name(self, col_expr: Column) -> Optional[str]:
+        """Extract column name from a Column expression.
+
+        Args:
+            col_expr: Column expression to extract name from
+
+        Returns:
+            Column name string, or None if cannot be determined
+        """
+        # If column has an alias, use that
+        if col_expr._alias:
+            return col_expr._alias
+
+        # For simple column references
+        if col_expr.op == "column" and col_expr.args:
+            return str(col_expr.args[0])
+
+        # For star columns, return None (will need to query schema)
+        if col_expr.op == "star":
+            return None
+
+        # For other expressions, try to infer name from expression
+        # This is a best-effort approach
+        if col_expr.source:
+            return col_expr.source
+
+        # If we can't determine, return None
+        return None
+
+    def _find_base_plan(self, plan: LogicalPlan) -> LogicalPlan:
+        """Find the base plan (TableScan, FileScan, or Project) by traversing down.
+
+        Args:
+            plan: Logical plan to traverse
+
+        Returns:
+            Base plan (TableScan, FileScan, or Project with no Project child)
+        """
+        from ..logical.plan import (
+            Aggregate,
+            Distinct,
+            Explode,
+            Filter,
+            Join,
+            Limit,
+            Sample,
+            Sort,
+            TableScan,
+            FileScan,
+            Project,
+        )
+
+        # If this is a base plan type, return it
+        if isinstance(plan, (TableScan, FileScan)):
+            return plan
+
+        # If this is a Project, check if child is also a Project
+        if isinstance(plan, Project):
+            child_base = self._find_base_plan(plan.child)
+            # If child is also a Project, return the child (more specific)
+            if isinstance(child_base, Project):
+                return child_base
+            # Otherwise, return this Project (it's the final projection)
+            return plan
+
+        # For operations that have a single child, traverse down
+        if isinstance(plan, (Filter, Limit, Sample, Sort, Distinct, Explode)):
+            return self._find_base_plan(plan.child)
+
+        # For Aggregate, the schema comes from aggregates, not child
+        if isinstance(plan, Aggregate):
+            return plan
+
+        # For Join, we need to handle both sides - return the plan itself
+        # as we'll need to combine schemas
+        if isinstance(plan, Join):
+            return plan
+
+        # For other plan types, return as-is
+        return plan
+
+    def _extract_column_names(self, plan: LogicalPlan) -> List[str]:
+        """Extract column names from a logical plan.
+
+        Args:
+            plan: Logical plan to extract column names from
+
+        Returns:
+            List of column name strings
+
+        Raises:
+            RuntimeError: If column names cannot be determined (e.g., RawSQL)
+        """
+        from ..logical.plan import (
+            Aggregate,
+            Explode,
+            FileScan,
+            Join,
+            Project,
+            RawSQL,
+            TableScan,
+        )
+
+        base_plan = self._find_base_plan(plan)
+
+        # Handle RawSQL - cannot determine schema without execution
+        if isinstance(base_plan, RawSQL):
+            raise RuntimeError(
+                "Cannot determine column names from RawSQL without executing the query. "
+                "Use df.collect() first or specify columns explicitly."
+            )
+
+        # Handle Project - extract from projections
+        if isinstance(base_plan, Project):
+            column_names: List[str] = []
+            for proj in base_plan.projections:
+                col_name = self._extract_column_name(proj)
+                if col_name:
+                    column_names.append(col_name)
+                elif proj.op == "star":
+                    # For "*", need to get all columns from underlying plan
+                    child_names = self._extract_column_names(base_plan.child)
+                    column_names.extend(child_names)
+            return column_names
+
+        # Handle Aggregate - extract from aggregates
+        if isinstance(base_plan, Aggregate):
+            column_names: List[str] = []
+            # Add grouping columns
+            for group_col in base_plan.grouping:
+                col_name = self._extract_column_name(group_col)
+                if col_name:
+                    column_names.append(col_name)
+            # Add aggregate columns
+            for agg_col in base_plan.aggregates:
+                col_name = self._extract_column_name(agg_col)
+                if col_name:
+                    column_names.append(col_name)
+            return column_names
+
+        # Handle Join - combine columns from both sides
+        if isinstance(base_plan, Join):
+            left_names = self._extract_column_names(base_plan.left)
+            right_names = self._extract_column_names(base_plan.right)
+            return left_names + right_names
+
+        # Handle Explode - add exploded column alias
+        if isinstance(base_plan, Explode):
+            child_names = self._extract_column_names(base_plan.child)
+            # Add the exploded column alias
+            alias = base_plan.alias or "value"
+            if alias not in child_names:
+                child_names.append(alias)
+            return child_names
+
+        # Handle TableScan - query database metadata
+        if isinstance(base_plan, TableScan):
+            if self.database is None:
+                raise RuntimeError(
+                    "Cannot determine column names: DataFrame has no database connection"
+                )
+            from ..utils.inspector import get_table_columns
+
+            table_name = base_plan.alias or base_plan.table
+            columns = get_table_columns(self.database, table_name)
+            return [col_info.name for col_info in columns]
+
+        # Handle FileScan - use schema if available
+        if isinstance(base_plan, FileScan):
+            if base_plan.schema:
+                return [col_def.name for col_def in base_plan.schema]
+            # If no schema, try to infer from column_name (for text files)
+            if base_plan.column_name:
+                return [base_plan.column_name]
+            # Cannot determine without schema
+            raise RuntimeError(
+                f"Cannot determine column names from FileScan without schema. "
+                f"File: {base_plan.path}, Format: {base_plan.format}"
+            )
+
+        # For other plan types, try to get from child
+        children = base_plan.children()
+        if children:
+            return self._extract_column_names(children[0])
+
+        # If we can't determine, raise error
+        raise RuntimeError(
+            f"Cannot determine column names from plan type: {type(base_plan).__name__}"
+        )
+
+    def _extract_schema_from_plan(self, plan: LogicalPlan) -> List["ColumnInfo"]:
+        """Extract schema information from a logical plan.
+
+        Args:
+            plan: Logical plan to extract schema from
+
+        Returns:
+            List of ColumnInfo objects with column names and types
+
+        Raises:
+            RuntimeError: If schema cannot be determined
+        """
+        from ..logical.plan import (
+            Aggregate,
+            Explode,
+            FileScan,
+            Join,
+            Project,
+            RawSQL,
+            TableScan,
+        )
+        from ..utils.inspector import ColumnInfo
+
+        base_plan = self._find_base_plan(plan)
+
+        # Handle RawSQL - cannot determine schema without execution
+        if isinstance(base_plan, RawSQL):
+            raise RuntimeError(
+                "Cannot determine schema from RawSQL without executing the query. "
+                "Use df.collect() first or specify schema explicitly."
+            )
+
+        # Handle Project - extract from projections
+        if isinstance(base_plan, Project):
+            schema: List[ColumnInfo] = []
+            child_schema = self._extract_schema_from_plan(base_plan.child)
+
+            for proj in base_plan.projections:
+                col_name = self._extract_column_name(proj)
+                if col_name:
+                    # Try to find type from child schema
+                    col_type = "UNKNOWN"
+                    for child_col in child_schema:
+                        if child_col.name == col_name or (
+                            proj.op == "column"
+                            and proj.args
+                            and str(proj.args[0]) == child_col.name
+                        ):
+                            col_type = child_col.type_name
+                            break
+                    schema.append(ColumnInfo(name=col_name, type_name=col_type))
+                elif proj.op == "star":
+                    # For "*", include all columns from child
+                    schema.extend(child_schema)
+            return schema
+
+        # Handle Aggregate - extract from aggregates
+        if isinstance(base_plan, Aggregate):
+            schema: List[ColumnInfo] = []
+            child_schema = self._extract_schema_from_plan(base_plan.child)
+
+            # Add grouping columns
+            for group_col in base_plan.grouping:
+                col_name = self._extract_column_name(group_col)
+                if col_name:
+                    col_type = "UNKNOWN"
+                    for child_col in child_schema:
+                        if child_col.name == col_name:
+                            col_type = child_col.type_name
+                            break
+                    schema.append(ColumnInfo(name=col_name, type_name=col_type))
+
+            # Add aggregate columns (typically numeric types)
+            for agg_col in base_plan.aggregates:
+                col_name = self._extract_column_name(agg_col)
+                if col_name:
+                    # Aggregates are typically numeric, but we can't be sure
+                    # Use a generic type or try to infer from expression
+                    schema.append(ColumnInfo(name=col_name, type_name="NUMERIC"))
+            return schema
+
+        # Handle Join - combine schemas from both sides
+        if isinstance(base_plan, Join):
+            left_schema = self._extract_schema_from_plan(base_plan.left)
+            right_schema = self._extract_schema_from_plan(base_plan.right)
+            return left_schema + right_schema
+
+        # Handle Explode - add exploded column
+        if isinstance(base_plan, Explode):
+            child_schema = self._extract_schema_from_plan(base_plan.child)
+            alias = base_plan.alias or "value"
+            # Add exploded column (typically array/JSON element, so use TEXT)
+            child_schema.append(ColumnInfo(name=alias, type_name="TEXT"))
+            return child_schema
+
+        # Handle TableScan - query database metadata
+        if isinstance(base_plan, TableScan):
+            if self.database is None:
+                raise RuntimeError(
+                    "Cannot determine schema: DataFrame has no database connection"
+                )
+            from ..utils.inspector import get_table_columns
+
+            table_name = base_plan.alias or base_plan.table
+            return get_table_columns(self.database, table_name)
+
+        # Handle FileScan - use schema if available
+        if isinstance(base_plan, FileScan):
+            if base_plan.schema:
+                return [
+                    ColumnInfo(name=col_def.name, type_name=col_def.type_name)
+                    for col_def in base_plan.schema
+                ]
+            # If no schema, try to infer from column_name (for text files)
+            if base_plan.column_name:
+                return [ColumnInfo(name=base_plan.column_name, type_name="TEXT")]
+            # Cannot determine without schema
+            raise RuntimeError(
+                f"Cannot determine schema from FileScan without explicit schema. "
+                f"File: {base_plan.path}, Format: {base_plan.format}"
+            )
+
+        # For other plan types, try to get from child
+        children = base_plan.children()
+        if children:
+            return self._extract_schema_from_plan(children[0])
+
+        # If we can't determine, raise error
+        raise RuntimeError(
+            f"Cannot determine schema from plan type: {type(base_plan).__name__}"
+        )
 
     def _normalize_sort_expression(self, expr: Column) -> SortOrder:
         """Normalize a sort expression to a SortOrder."""
