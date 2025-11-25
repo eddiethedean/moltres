@@ -8,13 +8,26 @@ import logging
 import signal
 import weakref
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    overload,
+    Sequence,
+    Type,
+    Union,
+)
 
 from ..config import MoltresConfig
 
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    from sqlalchemy.orm import DeclarativeBase
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.reader import DataLoader, ReadAccessor
     from ..expressions.column import Column
@@ -52,6 +65,16 @@ class TableHandle:
 
     name: str
     database: "Database"
+    model: Optional[Type["DeclarativeBase"]] = None
+
+    @property
+    def model_class(self) -> Optional[Type["DeclarativeBase"]]:
+        """Get the SQLAlchemy model class if this handle was created from a model.
+
+        Returns:
+            SQLAlchemy model class or None if handle was created from table name
+        """
+        return self.model
 
     def select(self, *columns: str) -> "DataFrame":
         from ..dataframe.dataframe import DataFrame
@@ -157,30 +180,64 @@ class Database:
                 logger.debug("Failed to drop ephemeral table %s: %s", table_name, exc)
         self._ephemeral_tables.clear()
 
+    @overload
     def table(self, name: str) -> TableHandle:
+        """Get a handle to a table in the database from table name."""
+        ...
+
+    @overload
+    def table(self, model_class: Type["DeclarativeBase"]) -> TableHandle:
+        """Get a handle to a table in the database from SQLAlchemy model class."""
+        ...
+
+    def table(  # type: ignore[misc]
+        self, name_or_model: Union[str, Type["DeclarativeBase"]]
+    ) -> TableHandle:
         """Get a handle to a table in the database.
 
         Args:
-            name: Name of the table
+            name_or_model: Name of the table, or SQLAlchemy model class
 
         Returns:
             TableHandle for the specified table
 
         Raises:
             ValidationError: If table name is invalid
+            ValueError: If model_class is not a valid SQLAlchemy model
 
         Example:
             >>> users = db.table("users")
             >>> df = users.select("id", "name")
+
+            >>> # Or with SQLAlchemy model
+            >>> from sqlalchemy.orm import DeclarativeBase
+            >>> class User(Base):
+            ...     __tablename__ = "users"
+            >>> users = db.table(User)
+            >>> df = users.select("id", "name")
         """
         from ..utils.exceptions import ValidationError
         from ..sql.builders import quote_identifier
+        from .sqlalchemy_integration import (
+            is_sqlalchemy_model,
+            get_model_table_name,
+        )
 
-        if not name:
-            raise ValidationError("Table name cannot be empty")
-        # Validate table name format
-        quote_identifier(name, self._dialect.quote_char)
-        return TableHandle(name=name, database=self)
+        # Check if argument is a SQLAlchemy model
+        if is_sqlalchemy_model(name_or_model):
+            model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
+            table_name = get_model_table_name(model_class)
+            # Validate table name format
+            quote_identifier(table_name, self._dialect.quote_char)
+            return TableHandle(name=table_name, database=self, model=model_class)
+        else:
+            # Type narrowing: after is_sqlalchemy_model check, this must be str
+            table_name = name_or_model  # type: ignore[assignment]
+            if not table_name:
+                raise ValidationError("Table name cannot be empty")
+            # Validate table name format
+            quote_identifier(table_name, self._dialect.quote_char)
+            return TableHandle(name=table_name, database=self)
 
     def insert(
         self,
@@ -380,6 +437,7 @@ class Database:
         return DataFrame(plan=plan, database=self)
 
     # -------------------------------------------------------------- DDL operations
+    @overload
     def create_table(
         self,
         name: str,
@@ -391,20 +449,47 @@ class Database:
             Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]]
         ] = None,
     ) -> "CreateTableOperation":
+        """Create a lazy create table operation from table name and columns."""
+        ...
+
+    @overload
+    def create_table(
+        self,
+        model_class: Type["DeclarativeBase"],
+        *,
+        if_not_exists: bool = True,
+        temporary: bool = False,
+    ) -> "CreateTableOperation":
+        """Create a lazy create table operation from SQLAlchemy model class."""
+        ...
+
+    def create_table(  # type: ignore[misc]
+        self,
+        name_or_model: Union[str, Type["DeclarativeBase"]],
+        columns: Optional[Sequence[ColumnDef]] = None,
+        *,
+        if_not_exists: bool = True,
+        temporary: bool = False,
+        constraints: Optional[
+            Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]]
+        ] = None,
+    ) -> "CreateTableOperation":
         """Create a lazy create table operation.
 
         Args:
-            name: Name of the table to create
-            columns: Sequence of ColumnDef objects defining the table schema
+            name_or_model: Name of the table to create, or SQLAlchemy model class
+            columns: Sequence of ColumnDef objects defining the table schema (required if name_or_model is str)
             if_not_exists: If True, don't error if table already exists (default: True)
             temporary: If True, create a temporary table (default: False)
-            constraints: Optional sequence of constraint objects (UniqueConstraint, CheckConstraint, ForeignKeyConstraint)
+            constraints: Optional sequence of constraint objects (UniqueConstraint, CheckConstraint, ForeignKeyConstraint).
+                        Ignored if model_class is provided (constraints are extracted from model).
 
         Returns:
             CreateTableOperation that executes on collect()
 
         Raises:
             ValidationError: If table name or columns are invalid
+            ValueError: If model_class is not a valid SQLAlchemy model
 
         Example:
             >>> from moltres.table.schema import column, unique, check, foreign_key
@@ -414,22 +499,56 @@ class Database:
             ...     constraints=[unique("email"), check("id > 0", name="ck_positive_id")]
             ... )
             >>> table = op.collect()  # Executes the CREATE TABLE
+
+            >>> # Or with SQLAlchemy model
+            >>> from sqlalchemy.orm import DeclarativeBase
+            >>> class User(Base):
+            ...     __tablename__ = "users"
+            ...     id = Column(Integer, primary_key=True)
+            >>> op = db.create_table(User)
+            >>> table = op.collect()
         """
         from ..utils.exceptions import ValidationError
         from .actions import CreateTableOperation
-
-        # Validate early (at operation creation time)
-        if not columns:
-            raise ValidationError(f"Cannot create table '{name}' with no columns")
-
-        op = CreateTableOperation(
-            database=self,
-            name=name,
-            columns=columns,
-            if_not_exists=if_not_exists,
-            temporary=temporary,
-            constraints=constraints or (),
+        from .sqlalchemy_integration import (
+            is_sqlalchemy_model,
+            model_to_schema,
         )
+
+        # Check if first argument is a SQLAlchemy model
+        if is_sqlalchemy_model(name_or_model):
+            # Model-based creation
+            model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
+            schema = model_to_schema(model_class)
+            
+            op = CreateTableOperation(
+                database=self,
+                name=schema.name,
+                columns=schema.columns,
+                if_not_exists=if_not_exists,
+                temporary=temporary,
+                constraints=schema.constraints,
+                model=model_class,
+            )
+        else:
+            # Traditional string + columns creation
+            table_name: str = name_or_model  # type: ignore[assignment]
+            if columns is None:
+                raise ValidationError("columns parameter is required when creating table from name")
+
+            # Validate early (at operation creation time)
+            if not columns:
+                raise ValidationError(f"Cannot create table '{table_name}' with no columns")
+
+            op = CreateTableOperation(
+                database=self,
+                name=table_name,
+                columns=columns,
+                if_not_exists=if_not_exists,
+                temporary=temporary,
+                constraints=constraints or (),
+            )
+
         # Add to active batch if one exists
         from .batch import get_active_batch
 

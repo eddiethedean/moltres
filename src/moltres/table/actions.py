@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Type, Union
 
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    from sqlalchemy.orm import DeclarativeBase
     from ..expressions.column import Column
     from ..io.records import Records
     from .schema import (
@@ -205,6 +206,7 @@ class CreateTableOperation:
     if_not_exists: bool = True
     temporary: bool = False
     constraints: Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]] = ()
+    model: Optional[Type["DeclarativeBase"]] = None
 
     def collect(self) -> "TableHandle":
         """Execute the create table operation and return TableHandle.
@@ -233,7 +235,7 @@ class CreateTableOperation:
         # Check for active transaction
         transaction = self.database.connection_manager.active_transaction
         self.database.executor.execute(sql, transaction=transaction)
-        return TableHandle(name=self.name, database=self.database)
+        return TableHandle(name=self.name, database=self.database, model=self.model)
 
     def to_sql(self) -> str:
         """Return the SQL statement that will be executed.

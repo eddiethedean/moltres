@@ -396,6 +396,85 @@ plan = df.explain(analyze=True)  # Actual execution stats (PostgreSQL)
 # Note: SQLite uses EXPLAIN QUERY PLAN, not EXPLAIN ANALYZE
 ```
 
+### SQLAlchemy ORM Model Integration
+
+Moltres provides seamless integration with SQLAlchemy ORM models, allowing you to create tables and query using your existing model classes:
+
+```python
+from sqlalchemy import Column, ForeignKey, Integer, String, Numeric, DateTime
+from sqlalchemy.orm import DeclarativeBase
+from moltres import col, connect
+from moltres.io.records import Records
+
+# Define SQLAlchemy models
+class Base(DeclarativeBase):
+    pass
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(100), unique=True)
+    age = Column(Integer, nullable=True)
+
+class Order(Base):
+    __tablename__ = "orders"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    amount = Column(Numeric(10, 2))
+    created_at = Column(DateTime)
+
+db = connect("sqlite:///example.db")
+
+# Create tables directly from model classes
+db.create_table(User).collect()
+db.create_table(Order).collect()
+
+# Insert data
+Records.from_list([
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
+    {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
+], database=db).insert_into("users")
+
+# Query using model classes
+df = db.table(User).select().where(col("age") > 25)
+results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'email': 'alice@example.com', 'age': 30}]
+
+# Model-based joins
+df = (
+    db.table(Order)
+    .select()
+    .join(db.table(User), on=[("user_id", "id")])
+)
+results = df.collect()
+print(results)
+# Output: [{'id': 1, 'user_id': 1, 'amount': 100.50, ...}, ...]
+
+# Access model class from table handle
+user_handle = db.table(User)
+print(user_handle.model_class)  # <class '__main__.User'>
+print(user_handle.name)  # 'users'
+
+# Backward compatibility: traditional API still works
+from moltres.table.schema import column
+db.create_table("products", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+```
+
+**Key Features:**
+- ✅ Create tables from SQLAlchemy models automatically
+- ✅ Query using model classes instead of table names
+- ✅ Model-based joins and relationships
+- ✅ Automatic constraint extraction (primary keys, foreign keys, unique, check)
+- ✅ Full backward compatibility with existing API
+- ✅ Async support for SQLAlchemy models
+
+**See more examples:** `examples/17_sqlalchemy_models.py`
+
 ### Async Support
 
 ```python

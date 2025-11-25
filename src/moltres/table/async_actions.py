@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Type, Union
 
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    from sqlalchemy.orm import DeclarativeBase
     from ..expressions.column import Column
     from ..io.records import AsyncRecords
     from .schema import (
@@ -227,6 +228,7 @@ class AsyncCreateTableOperation:
     if_not_exists: bool = True
     temporary: bool = False
     constraints: Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]] = ()
+    model: Optional[Type["DeclarativeBase"]] = None
 
     async def collect(self) -> "AsyncTableHandle":
         """Execute the create table operation and return AsyncTableHandle.
@@ -256,7 +258,7 @@ class AsyncCreateTableOperation:
         # Check for active transaction
         transaction = self.database.connection_manager.active_transaction
         await self.database.executor.execute(sql, transaction=transaction)
-        return AsyncTableHandle(name=self.name, database=self.database)
+        return AsyncTableHandle(name=self.name, database=self.database, model=self.model)
 
     def to_sql(self) -> str:
         """Return the SQL statement that will be executed.

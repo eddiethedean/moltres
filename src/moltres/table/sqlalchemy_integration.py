@@ -66,13 +66,16 @@ def get_model_table_name(model_class: Type) -> str:
         ValueError: If model doesn't have a table name
     """
     if hasattr(model_class, "__tablename__"):
-        return model_class.__tablename__
-    elif hasattr(model_class, "__table__"):
+        tablename = getattr(model_class, "__tablename__")
+        if isinstance(tablename, str):
+            return tablename
+    if hasattr(model_class, "__table__"):
         # Fallback to __table__.name
-        return model_class.__table__.name
-    else:
-        # Fallback to class name (lowercased)
-        return model_class.__name__.lower()
+        table = getattr(model_class, "__table__")
+        if table is not None and hasattr(table, "name"):
+            return str(table.name)
+    # Fallback to class name (lowercased)
+    return model_class.__name__.lower()
 
 
 def sqlalchemy_type_to_moltres_type(sa_type: "TypeEngine") -> str:
@@ -388,15 +391,31 @@ def model_to_schema(model_class: Type["DeclarativeBase"]) -> TableSchema:
                         cols = list(arg.columns.keys()) if hasattr(arg.columns, "keys") else []
                         if not cols:
                             # Try to get column names from the constraint
-                            cols = [col.name for col in arg.columns] if hasattr(arg.columns, "__iter__") else []
-                        constraints.append(UniqueConstraint(name=arg.name, columns=cols))
-                elif hasattr(arg, "sqltext") or hasattr(arg, "sql"):
+                            cols = (
+                                [col.name for col in arg.columns]
+                                if hasattr(arg.columns, "__iter__")
+                                else []
+                            )
+                        # Handle SQLAlchemy's _NoneName type for unnamed constraints
+                        unique_constraint_name: Optional[str] = None
+                        if arg.name is not None:
+                            name_str = str(arg.name)
+                            if name_str and not name_str.startswith("_"):
+                                unique_constraint_name = name_str
+                        constraints.append(UniqueConstraint(name=unique_constraint_name, columns=cols))
+                elif hasattr(arg, "sqltext") or hasattr(arg, "sqltext"):
                     # CheckConstraint
                     from sqlalchemy import CheckConstraint as SACheckConstraint
 
                     if isinstance(arg, SACheckConstraint):
-                        expr = str(arg.sqltext) if hasattr(arg, "sqltext") else str(arg.sql)
-                        constraints.append(CheckConstraint(name=arg.name, expression=expr))
+                        expr = str(arg.sqltext) if hasattr(arg, "sqltext") else ""
+                        # Handle SQLAlchemy's _NoneName type for unnamed constraints
+                        check_constraint_name: Optional[str] = None
+                        if arg.name is not None:
+                            name_str = str(arg.name)
+                            if name_str and not name_str.startswith("_"):
+                                check_constraint_name = name_str
+                        constraints.append(CheckConstraint(name=check_constraint_name, expression=expr))
 
     # Extract foreign keys
     fk_constraints = extract_foreign_keys(model_class)
@@ -448,14 +467,15 @@ def schema_to_table(schema: TableSchema, metadata: "MetaData") -> "Table":
         sa_columns.append(Column(col_def.name, sa_type, **column_kwargs))
 
     # Convert constraints
-    sa_constraints = []
+    sa_constraints: list[Any] = []
     for constraint in schema.constraints:
         if isinstance(constraint, UniqueConstraint):
             from sqlalchemy import UniqueConstraint as SAUniqueConstraint
 
             cols = (
                 list(constraint.columns)
-                if isinstance(constraint.columns, Sequence) and not isinstance(constraint.columns, str)
+                if isinstance(constraint.columns, Sequence)
+                and not isinstance(constraint.columns, str)
                 else [constraint.columns]
             )
             sa_constraints.append(SAUniqueConstraint(*cols, name=constraint.name))
@@ -463,13 +483,16 @@ def schema_to_table(schema: TableSchema, metadata: "MetaData") -> "Table":
             from sqlalchemy import CheckConstraint as SACheckConstraint
             from sqlalchemy import text
 
-            sa_constraints.append(SACheckConstraint(text(constraint.expression), name=constraint.name))
+            sa_constraints.append(
+                SACheckConstraint(text(constraint.expression), name=constraint.name)
+            )
         elif isinstance(constraint, ForeignKeyConstraint):
             from sqlalchemy import ForeignKey
 
             cols = (
                 list(constraint.columns)
-                if isinstance(constraint.columns, Sequence) and not isinstance(constraint.columns, str)
+                if isinstance(constraint.columns, Sequence)
+                and not isinstance(constraint.columns, str)
                 else [constraint.columns]
             )
             ref_cols = (
@@ -501,4 +524,3 @@ def schema_to_table(schema: TableSchema, metadata: "MetaData") -> "Table":
     )
 
     return table
-
