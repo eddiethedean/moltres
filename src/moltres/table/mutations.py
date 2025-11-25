@@ -183,8 +183,9 @@ def merge_rows(
         raise ValidationError("merge requires at least one column in 'on' for conflict detection")
 
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
-    # CI's mypy can infer this type correctly, so no type ignore needed
-    rows_seq: Sequence[Mapping[str, object]] = rows
+    # Use cast to help mypy understand type narrowing (CI's mypy can infer but accepts cast without flagging as redundant)
+    # The cast is necessary for local mypy but CI's mypy won't flag it as redundant because it understands the narrowing
+    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
