@@ -752,7 +752,7 @@ class AsyncDataFrame:
             records = list(result.rows.to_dicts())
             # Convert Hashable keys to str keys
             return [{str(k): v for k, v in row.items()} for row in records]
-        return result.rows  # type: ignore[return-value]
+        return result.rows
 
     async def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
         """Materialize FileScan nodes by reading files and creating temporary tables.
