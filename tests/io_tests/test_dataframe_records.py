@@ -6,7 +6,15 @@ Install with: pip install -e ".[dev]" or pip install pandas polars
 
 from __future__ import annotations
 
+import os
+
 import pytest
+
+if os.environ.get("MOLTRES_SKIP_PANDAS_TESTS") == "1":
+    pytest.skip(
+        "Skipping pandas-dependent tests (MOLTRES_SKIP_PANDAS_TESTS=1)",
+        allow_module_level=True,
+    )
 
 # Require pandas and polars - skip entire test module if not available
 pd = pytest.importorskip("pandas")

@@ -46,6 +46,7 @@ result = df.select(
 )
 results = result.collect()
 print(f"Running total: {results}")
+# Output: Running total: [{'product': 'Widget', 'amount': 100.0, 'running_total': 100.0}, {'product': 'Widget', 'amount': 150.0, 'running_total': 250.0}, {'product': 'Gadget', 'amount': 200.0, 'running_total': 450.0}, {'product': 'Gadget', 'amount': 175.0, 'running_total': 625.0}, {'product': 'Widget', 'amount': 120.0, 'running_total': 745.0}]
 
 # Window function: Partition by
 result = df.select(
@@ -57,6 +58,7 @@ result = df.select(
 )
 results = result.collect()
 print(f"Product running total: {results}")
+# Output: Product running total: [{'product': 'Gadget', 'amount': 200.0, 'product_running_total': 200.0}, {'product': 'Gadget', 'amount': 175.0, 'product_running_total': 375.0}, {'product': 'Widget', 'amount': 100.0, 'product_running_total': 100.0}, {'product': 'Widget', 'amount': 150.0, 'product_running_total': 250.0}, {'product': 'Widget', 'amount': 120.0, 'product_running_total': 370.0}]
 
 # Row number (using ascending order)
 result = df.select(
@@ -67,6 +69,7 @@ result = df.select(
 )
 results = result.collect()
 print(f"Rank in region: {results}")
+# Output: Rank in region: [{'product': 'Widget', 'amount': 100.0, 'region': 'North', 'rank_in_region': 1}, {'product': 'Widget', 'amount': 120.0, 'region': 'North', 'rank_in_region': 2}, {'product': 'Gadget', 'amount': 200.0, 'region': 'North', 'rank_in_region': 3}, {'product': 'Widget', 'amount': 150.0, 'region': 'South', 'rank_in_region': 1}, {'product': 'Gadget', 'amount': 175.0, 'region': 'South', 'rank_in_region': 2}]
 
 # Rank and dense_rank (using ascending order)
 result = df.select(
@@ -77,6 +80,7 @@ result = df.select(
 )
 results = result.collect()
 print(f"Rank and dense_rank: {results}")
+# Output: Rank and dense_rank: [{'product': 'Gadget', 'amount': 175.0, 'rank': 1, 'dense_rank': 1}, {'product': 'Gadget', 'amount': 200.0, 'rank': 2, 'dense_rank': 2}, {'product': 'Widget', 'amount': 100.0, 'rank': 1, 'dense_rank': 1}, {'product': 'Widget', 'amount': 120.0, 'rank': 2, 'dense_rank': 2}, {'product': 'Widget', 'amount': 150.0, 'rank': 3, 'dense_rank': 3}]
 
 # Window with rows between
 result = df.select(
@@ -92,5 +96,6 @@ result = df.select(
 )
 results = result.collect()
 print(f"Cumulative sum: {results}")
+# Output: Cumulative sum: [{'product': 'Gadget', 'amount': 200.0, 'cumulative_sum': 200.0}, {'product': 'Gadget', 'amount': 175.0, 'cumulative_sum': 375.0}, {'product': 'Widget', 'amount': 100.0, 'cumulative_sum': 100.0}, {'product': 'Widget', 'amount': 150.0, 'cumulative_sum': 250.0}, {'product': 'Widget', 'amount': 120.0, 'cumulative_sum': 370.0}]
 
 db.close()

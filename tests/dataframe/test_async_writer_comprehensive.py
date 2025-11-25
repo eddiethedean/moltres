@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
+
+if os.environ.get("MOLTRES_SKIP_PANDAS_TESTS"):
+    pytest.skip(
+        "Skipping pandas-dependent tests (MOLTRES_SKIP_PANDAS_TESTS=1)",
+        allow_module_level=True,
+    )
 
 try:
     import aiosqlite  # noqa: F401

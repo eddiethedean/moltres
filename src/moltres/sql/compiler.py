@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from typing import cast as typing_cast
 
-from sqlalchemy import (
+logger = logging.getLogger(__name__)
+
+from sqlalchemy import (  # noqa: E402
     select,
     table,
     func,
@@ -20,11 +23,16 @@ from sqlalchemy import (
     cast as sqlalchemy_cast,
     text,
 )
-from sqlalchemy.sql import Select, ColumnElement
+from sqlalchemy.sql import Select, ColumnElement  # noqa: E402
 
-from ..engine.dialects import DialectSpec, get_dialect
-from ..expressions.column import Column
-from ..logical.plan import (
+if TYPE_CHECKING:
+    from sqlalchemy import types as sa_types
+    from sqlalchemy.sql import Subquery, TableClause
+    from sqlalchemy.sql.selectable import FromClause
+
+from ..engine.dialects import DialectSpec, get_dialect  # noqa: E402
+from ..expressions.column import Column  # noqa: E402
+from ..logical.plan import (  # noqa: E402
     Aggregate,
     AntiJoin,
     CTE,
@@ -50,8 +58,8 @@ from ..logical.plan import (
     Union as LogicalUnion,
     WindowSpec,
 )
-from ..utils.exceptions import CompilationError, ValidationError
-from .builders import quote_identifier
+from ..utils.exceptions import CompilationError, ValidationError  # noqa: E402
+from .builders import quote_identifier  # noqa: E402
 
 
 def compile_plan(plan: LogicalPlan, dialect: Union[str, DialectSpec] = "ansi") -> Select:
@@ -118,7 +126,7 @@ class SQLCompiler:
             child_stmt = self._compile_plan(plan.child)
             cte_obj = child_stmt.cte(plan.name)
             # Return a select from the CTE
-            from sqlalchemy import literal_column
+            from sqlalchemy import literal, literal_column
 
             return select(literal_column("*")).select_from(cte_obj)
 
@@ -129,7 +137,7 @@ class SQLCompiler:
 
             # Create recursive CTE using SQLAlchemy's recursive CTE support
             # SQLAlchemy uses .cte(recursive=True) for recursive CTEs
-            from sqlalchemy import literal_column
+            from sqlalchemy import literal, literal_column
 
             # For recursive CTEs, we need to combine initial and recursive with UNION/UNION ALL
             if plan.union_all:
@@ -220,24 +228,39 @@ class SQLCompiler:
 
         if isinstance(plan, Limit):
             child_stmt = self._compile_plan(plan.child)
-            return child_stmt.limit(plan.count)
+            stmt = child_stmt.limit(plan.count)
+            if plan.offset:
+                stmt = stmt.offset(plan.offset)
+            return stmt
 
         if isinstance(plan, Sample):
             child_stmt = self._compile_plan(plan.child)
-            # Use ORDER BY RANDOM() with LIMIT based on fraction
-            # This works across most SQL dialects (SQLite, PostgreSQL, MySQL)
-            from sqlalchemy import func as sa_func
+            # Degenerate cases: fraction <= 0 -> empty, fraction >= 1 -> passthrough
+            if plan.fraction <= 0:
+                return child_stmt.limit(0)
+            if plan.fraction >= 1:
+                return child_stmt
 
-            # Calculate approximate limit - use a reasonable default
-            # In practice, for exact fraction sampling, we'd need to know row count first
-            # For now, use a large limit as approximation
-            limit_count = max(1, int(plan.fraction * 10000))  # Reasonable default for large tables
-            result = child_stmt.order_by(sa_func.random())
-            if plan.seed is not None:
-                # Most databases don't support seed in RANDOM(), but we accept it for API consistency
-                # PostgreSQL supports setseed() but it's not easily composable here
-                pass
-            return result.limit(limit_count)
+            from sqlalchemy import func as sa_func, literal, literal_column
+
+            if isinstance(child_stmt, Select):
+                child_subq = child_stmt.subquery()
+            else:
+                child_subq = child_stmt
+
+            fraction_literal = literal(plan.fraction)
+
+            if self.dialect.name == "mysql":
+                rand_expr = sa_func.rand(plan.seed) if plan.seed is not None else sa_func.rand()
+            elif self.dialect.name == "sqlite":
+                # SQLite random() returns signed 64-bit integer; normalize to [0,1)
+                rand_expr = sa_func.abs(sa_func.random()) / literal(9223372036854775808.0)
+            else:
+                rand_expr = sa_func.random()
+
+            predicate = rand_expr <= fraction_literal
+            stmt = select(literal_column("*")).select_from(child_subq).where(predicate)
+            return stmt
 
         if isinstance(plan, Sort):
             child_stmt = self._compile_plan(plan.child)
@@ -273,24 +296,10 @@ class SQLCompiler:
             left_table_name = self._extract_table_name(plan.left)
             right_table_name = self._extract_table_name(plan.right)
 
-            # Convert to subqueries if they're Select statements
-            if isinstance(left_stmt, Select):
-                # Use table name as alias if available, otherwise let SQLAlchemy generate one
-                left_subq = (
-                    left_stmt.subquery(name=left_table_name)
-                    if left_table_name
-                    else left_stmt.subquery()
-                )
-            else:
-                left_subq = left_stmt
-            if isinstance(right_stmt, Select):
-                right_subq = (
-                    right_stmt.subquery(name=right_table_name)
-                    if right_table_name
-                    else right_stmt.subquery()
-                )
-            else:
-                right_subq = right_stmt
+            left_subq, _ = self._normalize_join_side(plan.left, left_stmt, left_table_name)
+            right_subq, right_hint_target = self._normalize_join_side(
+                plan.right, right_stmt, right_table_name
+            )
 
             # Build join condition
             if plan.on:
@@ -304,8 +313,11 @@ class SQLCompiler:
                         try:
                             left_expr = left_subq.c[left_col]
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification
-                            left_expr = literal_column(f'"{left_table_name}"."{left_col}"')
+                            # Fallback to literal with table qualification using dialect quote char
+                            quote = self.dialect.quote_char
+                            left_expr = literal_column(
+                                f"{quote}{left_table_name}{quote}.{quote}{left_col}{quote}"
+                            )
                     else:
                         left_expr = sa_column(left_col)
 
@@ -313,8 +325,11 @@ class SQLCompiler:
                         try:
                             right_expr = right_subq.c[right_col]
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification
-                            right_expr = literal_column(f'"{right_table_name}"."{right_col}"')
+                            # Fallback to literal with table qualification using dialect quote char
+                            quote = self.dialect.quote_char
+                            right_expr = literal_column(
+                                f"{quote}{right_table_name}{quote}.{quote}{right_col}{quote}"
+                            )
                     else:
                         right_expr = sa_column(right_col)
 
@@ -340,6 +355,7 @@ class SQLCompiler:
             from sqlalchemy import literal_column
 
             # Handle LATERAL joins (PostgreSQL, MySQL 8.0+)
+            stmt: Select[Any]
             if plan.lateral:
                 if self.dialect.name not in ("postgresql", "mysql"):
                     raise CompilationError(
@@ -392,6 +408,10 @@ class SQLCompiler:
                         f"Received: {plan.how!r}"
                     ),
                 )
+
+            if plan.hints:
+                hint_target = right_hint_target if right_hint_target is not None else right_subq
+                stmt = self._apply_join_hints(stmt, target=hint_target, hints=plan.hints)
 
             return stmt
 
@@ -484,7 +504,7 @@ class SQLCompiler:
         if isinstance(plan, Pivot):
             # Pivot operation - use CASE WHEN with GROUP BY for cross-dialect compatibility
             child_stmt = self._compile_plan(plan.child)
-            from sqlalchemy import literal_column
+            from sqlalchemy import literal, literal_column
 
             if not plan.pivot_values:
                 raise CompilationError(
@@ -527,7 +547,7 @@ class SQLCompiler:
         if isinstance(plan, GroupedPivot):
             # Grouped pivot operation - combines GROUP BY with pivot
             child_stmt = self._compile_plan(plan.child)
-            from sqlalchemy import literal_column
+            from sqlalchemy import literal, literal_column
 
             # pivot_values should always be provided at this point (inferred in agg() if not provided)
             if not plan.pivot_values:
@@ -815,8 +835,63 @@ class SQLCompiler:
 
         raise CompilationError(
             f"Unsupported logical plan node: {type(plan).__name__}. "
-            f"Supported nodes: TableScan, Project, Filter, Limit, Sample, Sort, Aggregate, Join, SemiJoin, AntiJoin, Pivot, Explode, LogicalUnion, Intersect, Except, CTE, Distinct"
+            f"Supported nodes: TableScan, Project, Filter, Limit, Sample, Sort, Aggregate, Join, SemiJoin, AntiJoin, Pivot, Explode, LogicalUnion, Intersect, Except, CTE, Distinct",
+            context={
+                "plan_type": type(plan).__name__,
+                "plan_attributes": {
+                    k: str(v)[:100]  # Limit string length
+                    for k, v in plan.__dict__.items()
+                    if not k.startswith("_") and len(str(v)) < 200
+                },
+                "dialect": self.dialect.name,
+            },
         )
+
+    def _apply_join_hints(
+        self,
+        stmt: Select[Any],
+        target: "FromClause | None",
+        hints: tuple[str, ...],
+    ) -> Select[Any]:
+        """Attach join hints to the compiled select statement."""
+        if not hints:
+            return stmt
+
+        # MySQL recognizes USE/FORCE/IGNORE INDEX hints placed next to the table reference.
+        if self.dialect.name == "mysql" and target is not None:
+            for hint in hints:
+                stmt = stmt.with_hint(target, hint, dialect_name="mysql")
+            return stmt
+
+        # Fallback: use statement-level hints (e.g., /*+ ... */) for dialects that support them.
+        for hint in hints:
+            stripped = hint.strip()
+            formatted = stripped if stripped.startswith("/*") else f"/*+ {stripped} */"
+            stmt = stmt.with_statement_hint(formatted, dialect_name=self.dialect.name)
+        return stmt
+
+    def _normalize_join_side(
+        self,
+        plan_side: LogicalPlan,
+        compiled_stmt: Select[Any],
+        table_name: Optional[str],
+    ) -> tuple["FromClause", "FromClause | None"]:
+        """Convert a compiled child into a joinable FROM clause and hint target."""
+        from sqlalchemy import table as sa_table
+
+        if isinstance(plan_side, TableScan):
+            sa_tbl = sa_table(plan_side.table)
+            if plan_side.alias:
+                sa_tbl = sa_tbl.alias(plan_side.alias)
+            return sa_tbl, sa_tbl
+
+        if isinstance(compiled_stmt, Select):
+            subq = (
+                compiled_stmt.subquery(name=table_name) if table_name else compiled_stmt.subquery()
+            )
+            return subq, None
+
+        return compiled_stmt, None
 
 
 class ExpressionCompiler:
@@ -825,7 +900,7 @@ class ExpressionCompiler:
     def __init__(self, dialect: DialectSpec, plan_compiler: Optional["SQLCompiler"] = None):
         self.dialect = dialect
         self._table_cache: dict[str, Any] = {}
-        self._current_subq: Any = None
+        self._current_subq: "Subquery | None" = None
         self._join_info: Optional[dict[str, str]] = None
         self._plan_compiler = plan_compiler
 
@@ -1271,9 +1346,18 @@ class ExpressionCompiler:
                     result = col_expr + interval_months
                 else:
                     result = col_expr - interval_months
-            except Exception:
+            except (NotImplementedError, AttributeError, TypeError) as e:
                 # Fallback: use date_add function (MySQL/SQLite compatible)
                 # This is a simplified fallback
+                logger.debug(
+                    "make_interval not available for dialect, using date_add fallback: %s", e
+                )
+                result = func.date_add(col_expr, literal(num_months))
+            except Exception as e:
+                # Catch any other unexpected errors and log them before falling back
+                logger.warning(
+                    "Unexpected error using make_interval, falling back to date_add: %s", e
+                )
                 result = func.date_add(col_expr, literal(num_months))
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1591,7 +1675,7 @@ class ExpressionCompiler:
             # Map type names to SQLAlchemy types
             type_name_upper = type_name.upper()
             # Type can be either a TypeEngine instance or a TypeEngine class
-            sa_type: Any
+            sa_type: "sa_types.TypeEngine[Any]"
             if type_name_upper == "DECIMAL" or type_name_upper == "NUMERIC":
                 if precision is not None and scale is not None:
                     sa_type = sa_types.Numeric(precision=precision, scale=scale)
@@ -2330,8 +2414,24 @@ class ExpressionCompiler:
                 # For SQLite, we'll use a workaround with json_array_length
                 try:
                     result = func.json_contains(col_expr, value_expr)
-                except Exception:
+                except (NotImplementedError, AttributeError, TypeError) as e:
                     # Fallback for SQLite - check if removing the value changes length
+                    logger.debug(
+                        "json_contains not available for dialect, using json_array_length fallback: %s",
+                        e,
+                    )
+                    result = func.json_array_length(col_expr) > func.coalesce(
+                        func.json_array_length(
+                            func.json_remove(col_expr, func.json_quote(value_expr))
+                        ),
+                        0,
+                    )
+                except Exception as e:
+                    # Catch any other unexpected errors and log them before falling back
+                    logger.warning(
+                        "Unexpected error using json_contains, falling back to json_array_length: %s",
+                        e,
+                    )
                     result = func.json_array_length(col_expr) > func.coalesce(
                         func.json_array_length(
                             func.json_remove(col_expr, func.json_quote(value_expr))
@@ -2822,10 +2922,18 @@ class ExpressionCompiler:
 
         raise CompilationError(
             f"Unsupported expression operation '{op}'. "
-            "This may indicate a missing function implementation or an invalid expression."
+            "This may indicate a missing function implementation or an invalid expression.",
+            context={
+                "operation": op,
+                "expression_args": [
+                    str(arg) for arg in expression.args[:3]
+                ],  # Limit to first 3 args
+                "dialect": self.dialect.name,
+                "expression_alias": expression._alias,
+            },
         )
 
-    def _get_table(self, table_name: str) -> Any:
+    def _get_table(self, table_name: str) -> "TableClause":
         """Get or create a SQLAlchemy table object for the given table name."""
         if table_name not in self._table_cache:
             self._table_cache[table_name] = table(table_name)

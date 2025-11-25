@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, overload
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..table.async_table import AsyncDatabase, AsyncTableHandle
@@ -13,33 +16,39 @@ if TYPE_CHECKING:
 
 
 def _is_pandas_dataframe(obj: Any) -> bool:
-    """Check if object is a pandas DataFrame."""
+    """Check if object is a pandas DataFrame without importing pandas unnecessarily."""
+    module = getattr(type(obj), "__module__", "")
+    if "pandas" not in module:
+        return False
     try:
         import pandas as pd
-
-        return isinstance(obj, pd.DataFrame)
     except ImportError:
         return False
+    return isinstance(obj, pd.DataFrame)
 
 
 def _is_polars_dataframe(obj: Any) -> bool:
     """Check if object is a polars DataFrame."""
+    module = getattr(type(obj), "__module__", "")
+    if "polars" not in module:
+        return False
     try:
         import polars as pl
-
-        return isinstance(obj, pl.DataFrame)
     except ImportError:
         return False
+    return isinstance(obj, pl.DataFrame)
 
 
 def _is_polars_lazyframe(obj: Any) -> bool:
     """Check if object is a polars LazyFrame."""
+    module = getattr(type(obj), "__module__", "")
+    if "polars" not in module:
+        return False
     try:
         import polars as pl
-
-        return isinstance(obj, pl.LazyFrame)
     except ImportError:
         return False
+    return isinstance(obj, pl.LazyFrame)
 
 
 def _convert_pandas_dtype_to_sql_type(dtype: Any) -> str:
@@ -129,7 +138,13 @@ def _extract_schema_from_pandas_dataframe(df: Any) -> Optional[List["ColumnDef"]
             nullable = bool(df[col_name].isna().any())
             columns.append(ColumnDef(name=str(col_name), type_name=sql_type, nullable=nullable))
         return columns
-    except Exception:
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        logger.debug("Schema extraction from pandas DataFrame failed: %s", e)
+        return None
+    except Exception as e:
+        logger.warning(
+            "Unexpected error during pandas DataFrame schema extraction: %s", e, exc_info=True
+        )
         return None
 
 
@@ -155,7 +170,13 @@ def _extract_schema_from_polars_dataframe(df: Any) -> Optional[List["ColumnDef"]
             )
             columns.append(ColumnDef(name=str(col_name), type_name=sql_type, nullable=nullable))
         return columns
-    except Exception:
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        logger.debug("Schema extraction from polars DataFrame failed: %s", e)
+        return None
+    except Exception as e:
+        logger.warning(
+            "Unexpected error during polars DataFrame schema extraction: %s", e, exc_info=True
+        )
         return None
 
 
@@ -182,7 +203,13 @@ def _extract_schema_from_polars_lazyframe(lf: Any) -> Optional[List["ColumnDef"]
             )
             columns.append(ColumnDef(name=str(col_name), type_name=sql_type, nullable=nullable))
         return columns
-    except Exception:
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        logger.debug("Schema extraction from polars LazyFrame failed: %s", e)
+        return None
+    except Exception as e:
+        logger.warning(
+            "Unexpected error during polars LazyFrame schema extraction: %s", e, exc_info=True
+        )
         return None
 
 
@@ -260,6 +287,55 @@ class Records(Sequence[Mapping[str, object]]):
     _dataframe: Optional[Any] = None  # pandas DataFrame, polars DataFrame, or polars LazyFrame
     _schema: Optional[Sequence["ColumnDef"]] = None
     _database: Optional["Database"] = None
+
+    @classmethod
+    def from_list(
+        cls, data: List[dict[str, object]], database: Optional["Database"] = None
+    ) -> "Records":
+        """Create Records from a list of dictionaries.
+
+        This is the recommended way to create Records from Python data.
+
+        Args:
+            data: List of row dictionaries
+            database: Optional database reference for insert operations
+
+        Returns:
+            Records object
+
+        Example:
+            >>> records = Records.from_list(
+            ...     [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+            ...     database=db
+            ... )
+            >>> records.insert_into("users")
+        """
+        return cls(_data=data, _database=database)
+
+    @classmethod
+    def from_dicts(
+        cls, *dicts: dict[str, object], database: Optional["Database"] = None
+    ) -> "Records":
+        """Create Records from multiple dictionary arguments.
+
+        Convenience method for creating Records from individual row dictionaries.
+
+        Args:
+            *dicts: Individual row dictionaries
+            database: Optional database reference for insert operations
+
+        Returns:
+            Records object
+
+        Example:
+            >>> records = Records.from_dicts(
+            ...     {"id": 1, "name": "Alice"},
+            ...     {"id": 2, "name": "Bob"},
+            ...     database=db
+            ... )
+            >>> records.insert_into("users")
+        """
+        return cls(_data=list(dicts), _database=database)
 
     @classmethod
     def from_dataframe(cls, df: Any, database: Optional["Database"] = None) -> "Records":
@@ -623,8 +699,21 @@ class Records(Sequence[Mapping[str, object]]):
             table_handle = table
 
         table_handle_strict: "TableHandle" = table_handle
-        rows = self.rows()
         transaction = self._database.connection_manager.active_transaction
+
+        # Stream chunked data without materializing whenever possible
+        if self._generator is not None:
+            total_inserted = 0
+            chunk_iter = self._generator()
+            for chunk in chunk_iter:
+                if not chunk:
+                    continue
+                total_inserted += insert_rows(table_handle_strict, chunk, transaction=transaction)
+            return total_inserted
+
+        rows = self.rows()
+        if not rows:
+            return 0
         return insert_rows(table_handle_strict, rows, transaction=transaction)
 
 
@@ -924,8 +1013,22 @@ class AsyncRecords:
         else:
             table_handle = table
 
-        rows = await self.rows()
         transaction = self._database.connection_manager.active_transaction
+
+        if self._generator is not None:
+            total_inserted = 0
+            chunk_iter = self._generator()
+            async for chunk in chunk_iter:
+                if not chunk:
+                    continue
+                total_inserted += await insert_rows_async(
+                    table_handle, chunk, transaction=transaction
+                )
+            return total_inserted
+
+        rows = await self.rows()
+        if not rows:
+            return 0
         return await insert_rows_async(table_handle, rows, transaction=transaction)
 
 

@@ -9,6 +9,55 @@ from .expressions import col, lit
 from .table.schema import column
 from .table.table import Database
 
+
+def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
+    """Validate connection string format and provide helpful error messages.
+
+    Args:
+        dsn: Connection string to validate
+        is_async: Whether this is for async connection
+
+    Raises:
+        DatabaseConnectionError: If connection string is invalid
+    """
+    from .utils.exceptions import DatabaseConnectionError
+
+    if not dsn or not isinstance(dsn, str):
+        raise DatabaseConnectionError(
+            f"Connection string must be a non-empty string, got: {type(dsn).__name__}"
+        )
+
+    dsn_lower = dsn.lower()
+    # Check for common connection string patterns
+    if dsn_lower.startswith("sqlite"):
+        if is_async and "+aiosqlite" not in dsn_lower:
+            raise DatabaseConnectionError(
+                f"Async SQLite connection requires 'sqlite+aiosqlite://' prefix. "
+                f"Got: {dsn[:50]}...",
+                suggestion="Use 'sqlite+aiosqlite:///path/to/db.db' for async SQLite connections.",
+            )
+    elif dsn_lower.startswith("postgresql"):
+        if is_async and "+asyncpg" not in dsn_lower:
+            raise DatabaseConnectionError(
+                f"Async PostgreSQL connection requires 'postgresql+asyncpg://' prefix. "
+                f"Got: {dsn[:50]}...",
+                suggestion="Use 'postgresql+asyncpg://user:pass@host:port/dbname' for async PostgreSQL connections.",
+            )
+    elif dsn_lower.startswith("mysql"):
+        if is_async and "+aiomysql" not in dsn_lower:
+            raise DatabaseConnectionError(
+                f"Async MySQL connection requires 'mysql+aiomysql://' prefix. Got: {dsn[:50]}...",
+                suggestion="Use 'mysql+aiomysql://user:pass@host:port/dbname' for async MySQL connections.",
+            )
+
+    # Check for basic URL structure
+    if "://" not in dsn:
+        raise DatabaseConnectionError(
+            f"Connection string must include '://' separator. Got: {dsn[:50]}...",
+            suggestion="Connection strings should follow the format: 'dialect://user:pass@host:port/dbname'",
+        )
+
+
 __version__ = "0.14.0"
 
 __all__ = [
@@ -106,6 +155,10 @@ def connect(
         >>> db = connect(engine=engine)  # doctest: +SKIP
     """
     from sqlalchemy.engine import Engine as SQLAlchemyEngine
+
+    # Validate connection string format if provided
+    if dsn is not None:
+        _validate_connection_string(dsn, is_async=False)
 
     # Check if engine is provided in kwargs (for backward compatibility)
     engine_obj: SQLAlchemyEngine | None = None
@@ -212,6 +265,10 @@ def async_connect(
         ) from exc
 
     from sqlalchemy.ext.asyncio import AsyncEngine as SQLAlchemyAsyncEngine
+
+    # Validate connection string format if provided
+    if dsn is not None:
+        _validate_connection_string(dsn, is_async=True)
 
     # Check if engine is provided in kwargs (for backward compatibility)
     engine_obj: SQLAlchemyAsyncEngine | None = None

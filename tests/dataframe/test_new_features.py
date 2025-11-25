@@ -298,7 +298,8 @@ def test_sample_method(tmp_path):
     # Test sample() with very small fraction
     sampled3 = df.sample(0.01)  # 1% of rows
     result3 = sampled3.collect()
-    assert len(result3) >= 1  # Should get at least 1 row
+    # Bernoulli sampling can legitimately return zero rows for small fractions; ensure no errors.
+    assert 0 <= len(result3) <= 100
 
     # Test sample() with fraction=1.0 (should return all or most rows)
     sampled4 = df.sample(1.0)

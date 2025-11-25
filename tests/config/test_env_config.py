@@ -6,6 +6,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import create_engine
 
 from moltres import connect
 from moltres.config import create_config
@@ -89,3 +90,13 @@ def test_connect_with_env():
     with patch.dict(os.environ, {"MOLTRES_DSN": "sqlite:///:memory:"}):
         db = connect()
         assert db.config.engine.dsn == "sqlite:///:memory:"
+
+
+def test_engine_dialect_detection():
+    """Ensure dialect is inferred from provided SQLAlchemy engine instances."""
+    engine = create_engine("sqlite:///:memory:")
+    db = connect(engine=engine)
+    try:
+        assert db.dialect.name == "sqlite"
+    finally:
+        db.close()

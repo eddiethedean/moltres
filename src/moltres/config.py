@@ -176,6 +176,17 @@ def create_config(
     # Merge: kwargs override env vars, env vars override defaults
     merged_kwargs = {**env_config, **kwargs}
 
+    # If an engine object is provided, infer dialect name unless explicitly overridden
+    inferred_engine_dialect: str | None = None
+    if engine is not None:
+        inferred_engine_dialect = getattr(getattr(engine, "dialect", None), "name", None)
+        if inferred_engine_dialect and "+" in inferred_engine_dialect:
+            # Normalize driver variants similar to DSN parsing (e.g., "mysql+aiomysql")
+            inferred_engine_dialect = inferred_engine_dialect.split("+", 1)[0]
+
+    if "dialect" not in merged_kwargs and inferred_engine_dialect:
+        merged_kwargs["dialect"] = inferred_engine_dialect
+
     engine_kwargs: dict[str, object] = {
         k: merged_kwargs.pop(k)
         for k in list(merged_kwargs)

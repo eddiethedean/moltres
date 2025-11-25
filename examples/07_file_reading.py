@@ -40,26 +40,31 @@ text_file.write_text("Line 1\nLine 2\nLine 3\n")
 df = db.load.csv(str(csv_file))
 results = df.collect()
 print(f"CSV data: {results}")
+# Output: CSV data: [{'id': 1, 'name': 'Alice', 'age': 30, '__moltres_rowid__': 1}, {'id': 2, 'name': 'Bob', 'age': 25, '__moltres_rowid__': 2}, {'id': 3, 'name': 'Charlie', 'age': 35, '__moltres_rowid__': 3}]
 
 # Read CSV with options
 df = db.load.option("header", True).option("inferSchema", True).csv(str(csv_file))
 results = df.collect()
 print(f"CSV with options: {results}")
+# Output: CSV with options: [{'id': 1, 'name': 'Alice', 'age': 30, '__moltres_rowid__': 1}, {'id': 2, 'name': 'Bob', 'age': 25, '__moltres_rowid__': 2}, {'id': 3, 'name': 'Charlie', 'age': 35, '__moltres_rowid__': 3}]
 
 # Read JSON
 df = db.load.json(str(json_file))
 results = df.collect()
 print(f"JSON data: {results}")
+# Output: JSON data: [{'id': 1, 'name': 'Alice', 'age': 30, '__moltres_rowid__': 1}, {'id': 2, 'name': 'Bob', 'age': 25, '__moltres_rowid__': 2}, {'id': 3, 'name': 'Charlie', 'age': 35, '__moltres_rowid__': 3}]
 
 # Read JSONL
 df = db.load.jsonl(str(jsonl_file))
 results = df.collect()
 print(f"JSONL data: {results}")
+# Output: JSONL data: [{'id': 1, 'name': 'Alice', 'age': 30, '__moltres_rowid__': 1}, {'id': 2, 'name': 'Bob', 'age': 25, '__moltres_rowid__': 2}, {'id': 3, 'name': 'Charlie', 'age': 35, '__moltres_rowid__': 3}]
 
 # Read Text
 df = db.load.text(str(text_file), column_name="line")
 results = df.collect()
 print(f"Text data: {results}")
+# Output: Text data: [{'line': 'Line 1', '__moltres_rowid__': 1}, {'line': 'Line 2', '__moltres_rowid__': 2}, {'line': 'Line 3', '__moltres_rowid__': 3}]
 
 # Read with explicit schema
 from moltres.table.schema import ColumnDef
@@ -72,9 +77,11 @@ schema = [
 df = db.load.schema(schema).csv(str(csv_file))
 results = df.collect()
 print(f"CSV with schema: {results}")
+# Output: CSV with schema: [{'id': 1, 'name': 'Alice', 'age': 30, '__moltres_rowid__': 1}, {'id': 2, 'name': 'Bob', 'age': 25, '__moltres_rowid__': 2}, {'id': 3, 'name': 'Charlie', 'age': 35, '__moltres_rowid__': 3}]
 
 # Streaming read (for large files)
 for chunk in df.collect(stream=True):
     print(f"Chunk: {chunk}")
+    # Output: Chunk: [{'id': 1, 'name': 'Alice', 'age': 30, '__moltres_rowid__': 1}, {'id': 2, 'name': 'Bob', 'age': 25, '__moltres_rowid__': 2}, {'id': 3, 'name': 'Charlie', 'age': 35, '__moltres_rowid__': 3}]
 
 db.close()

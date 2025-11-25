@@ -19,6 +19,7 @@ This directory contains example code demonstrating various features of Moltres.
 13. **13_transactions.py** - Transaction management
 14. **14_reflection.py** - Schema inspection and reflection
 15. **15_pandas_polars_dataframes.py** - Using pandas and polars DataFrames with moltres
+16. **16_ux_features.py** - UX improvements and convenience methods
 
 ## Running Examples
 

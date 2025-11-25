@@ -63,6 +63,7 @@ with db.transaction() as txn:
 # Verify transfer
 results = df.collect()
 print(f"After transfer: {results}")
+# Output: After transfer: [{'id': 1, 'name': 'Alice', 'balance': 900.0}, {'id': 2, 'name': 'Bob', 'balance': 600.0}]
 
 # Transaction with rollback
 try:
@@ -82,6 +83,7 @@ except ValueError:
 # Verify rollback (balance should be unchanged)
 results = df.collect()
 print(f"After rollback: {results}")
+# Output: After rollback: [{'id': 1, 'name': 'Alice', 'balance': 900.0}, {'id': 2, 'name': 'Bob', 'balance': 600.0}]
 
 # Manual commit/rollback
 with db.transaction() as txn:
@@ -97,5 +99,6 @@ with db.transaction() as txn:
 # Verify manual transaction
 results = df.collect()
 print(f"After manual transaction: {results}")
+# Output: After manual transaction: [{'id': 1, 'name': 'Alice', 'balance': 850.0}, {'id': 2, 'name': 'Bob', 'balance': 600.0}]
 
 db.close()

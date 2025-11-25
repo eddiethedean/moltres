@@ -49,7 +49,7 @@ records.insert_into("users")
 # Schema Inspection - Get table names
 table_names = db.get_table_names()
 print(f"Tables in database: {table_names}")
-# Output: Tables in database: ['users', 'orders']
+# Output: Tables in database: ['accounts', 'orders', 'sales', 'users']
 
 # Schema Inspection - Get view names
 view_names = db.get_view_names()
@@ -94,8 +94,10 @@ for table_name, schema in all_schemas.items():
     print(f"  {table_name}: {len(schema.columns)} columns")
 # Output:
 # Reflected all tables in database:
-#   users: 4 columns
+#   accounts: 3 columns
 #   orders: 4 columns
+#   sales: 5 columns
+#   users: 4 columns
 
 # Using reflected schema to create a new table
 # (demonstrating how reflection can be used for schema migration)

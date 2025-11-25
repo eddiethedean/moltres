@@ -8,7 +8,7 @@ import logging
 import signal
 import weakref
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 
 from ..config import MoltresConfig
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     import polars as pl
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.reader import DataLoader, ReadAccessor
+    from ..expressions.column import Column
     from ..io.records import LazyRecords, Records
     from ..utils.inspector import ColumnInfo
     from .actions import (
@@ -167,6 +168,10 @@ class Database:
 
         Raises:
             ValidationError: If table name is invalid
+
+        Example:
+            >>> users = db.table("users")
+            >>> df = users.select("id", "name")
         """
         from ..utils.exceptions import ValidationError
         from ..sql.builders import quote_identifier
@@ -176,6 +181,145 @@ class Database:
         # Validate table name format
         quote_identifier(name, self._dialect.quote_char)
         return TableHandle(name=name, database=self)
+
+    def insert(
+        self,
+        table_name: str,
+        rows: Union[
+            Sequence[Mapping[str, object]],
+            "Records",
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
+        ],
+    ) -> int:
+        """Insert rows into a table.
+
+        Convenience method for inserting data into a table.
+
+        Args:
+            table_name: Name of the table to insert into
+            rows: Sequence of row dictionaries, Records, pandas DataFrame, polars DataFrame, or polars LazyFrame
+
+        Returns:
+            Number of rows inserted
+
+        Raises:
+            ValidationError: If table name is invalid or rows are empty
+
+        Example:
+            >>> db.insert("users", [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+            >>> # Or with a DataFrame
+            >>> import pandas as pd
+            >>> df = pd.DataFrame([{"id": 3, "name": "Charlie"}])
+            >>> db.insert("users", df)
+        """
+        from .mutations import insert_rows
+
+        handle = self.table(table_name)
+        return insert_rows(handle, rows)
+
+    def update(
+        self,
+        table_name: str,
+        *,
+        where: "Column",
+        set: Mapping[str, object],  # noqa: A002
+    ) -> int:
+        """Update rows in a table.
+
+        Convenience method for updating data in a table.
+
+        Args:
+            table_name: Name of the table to update
+            where: Column expression for the WHERE clause
+            set: Dictionary of column names to new values
+
+        Returns:
+            Number of rows updated
+
+        Raises:
+            ValidationError: If table name is invalid or set dictionary is empty
+
+        Example:
+            >>> from moltres import col
+            >>> db.update("users", where=col("id") == 1, set={"name": "Alice Updated"})
+        """
+        from .mutations import update_rows
+
+        handle = self.table(table_name)
+        return update_rows(handle, where=where, values=set)
+
+    def delete(self, table_name: str, *, where: "Column") -> int:
+        """Delete rows from a table.
+
+        Convenience method for deleting data from a table.
+
+        Args:
+            table_name: Name of the table to delete from
+            where: Column expression for the WHERE clause
+
+        Returns:
+            Number of rows deleted
+
+        Raises:
+            ValidationError: If table name is invalid
+
+        Example:
+            >>> from moltres import col
+            >>> db.delete("users", where=col("id") == 1)
+        """
+        from .mutations import delete_rows
+
+        handle = self.table(table_name)
+        return delete_rows(handle, where=where)
+
+    def merge(
+        self,
+        table_name: str,
+        rows: Union[
+            Sequence[Mapping[str, object]],
+            "Records",
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
+        ],
+        *,
+        on: Sequence[str],
+        when_matched: Optional[Mapping[str, object]] = None,
+        when_not_matched: Optional[Mapping[str, object]] = None,
+    ) -> int:
+        """Merge (upsert) rows into a table.
+
+        Convenience method for merging data into a table with conflict resolution.
+
+        Args:
+            table_name: Name of the table to merge into
+            rows: Sequence of row dictionaries, Records, pandas DataFrame, polars DataFrame, or polars LazyFrame
+            on: Sequence of column names that form the conflict key
+            when_matched: Optional dictionary of column updates when a conflict occurs
+            when_not_matched: Optional dictionary of default values when inserting new rows
+
+        Returns:
+            Number of rows affected (inserted or updated)
+
+        Raises:
+            ValidationError: If table name is invalid, rows are empty, or on columns are invalid
+
+        Example:
+            >>> db.merge(
+            ...     "users",
+            ...     [{"id": 1, "name": "Alice", "email": "alice@example.com"}],
+            ...     on=["id"],
+            ...     when_matched={"name": "Alice Updated"}
+            ... )
+        """
+        from .mutations import merge_rows
+
+        handle = self.table(table_name)
+        return merge_rows(
+            handle, rows, on=on, when_matched=when_matched, when_not_matched=when_not_matched
+        )
 
     @property
     def load(self) -> "DataLoader":
@@ -554,6 +698,92 @@ class Database:
     def execute_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
         return self._executor.fetch(sql, params=params)
 
+    def explain(self, sql: str, params: Optional[Dict[str, Any]] = None) -> str:
+        """Get the execution plan for a SQL query.
+
+        Args:
+            sql: SQL query string
+            params: Optional query parameters
+
+        Returns:
+            Execution plan as a string (dialect-specific)
+
+        Example:
+            >>> plan = db.explain("SELECT * FROM users WHERE id = :id", params={"id": 1})
+            >>> print(plan)
+        """
+        dialect_name = self._dialect.name
+        if dialect_name == "postgresql":
+            explain_sql = f"EXPLAIN ANALYZE {sql}"
+        elif dialect_name == "mysql":
+            explain_sql = f"EXPLAIN {sql}"
+        elif dialect_name == "sqlite":
+            explain_sql = f"EXPLAIN QUERY PLAN {sql}"
+        else:
+            explain_sql = f"EXPLAIN {sql}"
+
+        result = self._executor.fetch(explain_sql, params=params)
+        return "\n".join(" ".join(str(cell) for cell in row) for row in result.rows)
+
+    def show_tables(self, schema: Optional[str] = None) -> None:
+        """Print a formatted list of tables in the database.
+
+        Convenience method for interactive exploration.
+
+        Args:
+            schema: Optional schema name
+
+        Example:
+            >>> db.show_tables()
+            Tables in database:
+            - users
+            - orders
+            - products
+        """
+        tables = self.get_table_names(schema=schema)
+        if tables:
+            print("Tables in database:")
+            for table in sorted(tables):
+                print(f"  - {table}")
+        else:
+            print("No tables found in database.")
+
+    def show_schema(self, table_name: str) -> None:
+        """Print a formatted schema for a table.
+
+        Convenience method for interactive exploration.
+
+        Args:
+            table_name: Name of the table
+
+        Example:
+            >>> db.show_schema("users")
+            Schema for table 'users':
+            - id: INTEGER (primary_key=True)
+            - name: TEXT
+            - email: TEXT
+        """
+        from ..utils.exceptions import ValidationError
+
+        if not table_name:
+            raise ValidationError("Table name cannot be empty")
+
+        columns = self.get_columns(table_name)
+        if columns:
+            print(f"Schema for table '{table_name}':")
+            for col_info in columns:
+                attrs = []
+                if col_info.primary_key:
+                    attrs.append("primary_key=True")
+                if col_info.nullable is False:
+                    attrs.append("nullable=False")
+                if col_info.default is not None:
+                    attrs.append(f"default={col_info.default}")
+                attr_str = f" ({', '.join(attrs)})" if attrs else ""
+                print(f"  - {col_info.name}: {col_info.type_name}{attr_str}")
+        else:
+            print(f"No columns found for table '{table_name}'.")
+
     @property
     def dialect(self) -> DialectSpec:
         return self._dialect
@@ -741,6 +971,7 @@ class Database:
             pk=pk,
             auto_pk=auto_pk,
             dialect_name=self._dialect_name,
+            require_primary_key=False,
         )
 
         # Generate unique table name

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Explode compilation** – `explode()` now emits working SQL for SQLite (via `json_each`) and PostgreSQL (`jsonb_array_elements`), unlocking table-valued expansions for array/JSON columns on those dialects.
+
+### Fixed
+- **FILTER fallback stability** – the CASE-expression fallback used when a dialect lacks native `FILTER` support now compiles with SQLAlchemy’s `sa_case`, avoiding `UnboundLocalError` crashes on SQLite.
+- **Async health checks** – the dev extra now installs `asyncpg`, and the async PostgreSQL health test runs successfully by default.
+
+### Changed
+- **Type-checking polish** – records/dataframe helpers and examples were tightened so `mypy` passes across `src/` and `examples/`, including forward-declared pandas/polars types and stricter Records typing.
+
 ## [0.14.0] - 2025-01-27
 
 ### Added

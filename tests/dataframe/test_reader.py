@@ -1,8 +1,15 @@
 """Tests for data loading operations."""
 
 import json
+import os
 
 import pytest
+
+if os.environ.get("MOLTRES_SKIP_PANDAS_TESTS") == "1":
+    pytest.skip(
+        "Skipping pandas-dependent tests (MOLTRES_SKIP_PANDAS_TESTS=1)",
+        allow_module_level=True,
+    )
 
 from moltres import column, col, connect
 from moltres.io.records import LazyRecords, Records

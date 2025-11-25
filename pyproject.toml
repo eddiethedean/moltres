@@ -93,6 +93,8 @@ markers = [
     "postgres: marks tests as requiring PostgreSQL database",
     "mysql: marks tests as requiring MySQL database",
     "multidb: marks tests that run against multiple databases",
+    "integration: marks tests as integration tests (end-to-end workflows)",
+    "slow: marks tests as slow (may take longer to run)",
 ]
 
 [tool.coverage.run]

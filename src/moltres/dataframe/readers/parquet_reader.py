@@ -33,19 +33,10 @@ def read_parquet(
         FileNotFoundError: If file doesn't exist
         RuntimeError: If pandas or pyarrow are not installed
     """
-    try:
-        import pandas as pd  # noqa: F401
-    except ImportError as exc:
-        raise RuntimeError(
-            "Parquet format requires pandas. Install with: pip install pandas"
-        ) from exc
+    from ...utils.optional_deps import get_pandas, get_pyarrow_parquet
 
-    try:
-        import pyarrow.parquet as pq
-    except ImportError as exc:
-        raise RuntimeError(
-            "Parquet format requires pyarrow. Install with: pip install pyarrow"
-        ) from exc
+    get_pandas(required=True)
+    pq = get_pyarrow_parquet(required=True)
 
     path_obj = Path(path)
     if not path_obj.exists():
@@ -67,6 +58,7 @@ def read_parquet(
     # Note: rebaseDatetimeInRead, datetimeRebaseMode, and int96RebaseMode options
     # are accepted but not yet implemented (PyArrow handles rebasing automatically)
     table = pq.read_table(str(path_obj), **read_options)
+    get_pandas(required=True)
     df = table.to_pandas()
 
     # Convert to list of dicts
@@ -114,12 +106,10 @@ def read_parquet_stream(
         FileNotFoundError: If file doesn't exist
         RuntimeError: If pyarrow is not installed
     """
-    try:
-        import pyarrow.parquet as pq
-    except ImportError as exc:
-        raise RuntimeError(
-            "Parquet format requires pyarrow. Install with: pip install pyarrow"
-        ) from exc
+    from ...utils.optional_deps import get_pandas, get_pyarrow_parquet
+
+    pq = get_pyarrow_parquet(required=True)
+    get_pandas(required=True)
 
     path_obj = Path(path)
     if not path_obj.exists():

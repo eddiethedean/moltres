@@ -219,9 +219,12 @@ class AsyncConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
-        await connection.commit()
-        await connection.close()
-        self._active_transaction = None
+        try:
+            await connection.commit()
+        finally:
+            # Always close connection, even if commit fails
+            await connection.close()
+            self._active_transaction = None
 
     async def rollback_transaction(self, connection: AsyncConnection) -> None:
         """Rollback a transaction.
@@ -231,9 +234,12 @@ class AsyncConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
-        await connection.rollback()
-        await connection.close()
-        self._active_transaction = None
+        try:
+            await connection.rollback()
+        finally:
+            # Always close connection, even if rollback fails
+            await connection.close()
+            self._active_transaction = None
 
     @property
     def active_transaction(self) -> Optional[AsyncConnection]:

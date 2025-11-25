@@ -2,6 +2,8 @@
 
 This example demonstrates how to connect to different database types
 using both synchronous and asynchronous connections.
+
+Note: This example doesn't produce output - it just demonstrates connection setup.
 """
 
 # Synchronous connection

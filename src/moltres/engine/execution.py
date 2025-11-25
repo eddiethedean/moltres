@@ -4,15 +4,22 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SAWarning
 
 from ..config import EngineConfig
 from ..utils.exceptions import ExecutionError
 from .connection import ConnectionManager
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql import Select
+    import pandas as pd
+    import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +29,20 @@ _perf_hooks: dict[str, list[Callable[[str, float, dict[str, Any]], None]]] = {
     "query_end": [],
 }
 
+# Type alias for result rows - can be records, pandas DataFrame, or polars DataFrame
+if TYPE_CHECKING:
+    ResultRows = Union[
+        List[dict[str, object]],
+        "pd.DataFrame",
+        "pl.DataFrame",
+    ]
+else:
+    ResultRows = Any
+
 
 @dataclass
 class QueryResult:
-    rows: Any
+    rows: ResultRows
     rowcount: Optional[int]
 
 
@@ -36,7 +53,9 @@ class QueryExecutor:
         self._connections = connection_manager
         self._config = config
 
-    def fetch(self, stmt: Union[str, Any], params: Optional[Dict[str, Any]] = None) -> QueryResult:
+    def fetch(
+        self, stmt: Union[str, "Select"], params: Optional[Dict[str, Any]] = None
+    ) -> QueryResult:
         """Execute a SELECT query and return results.
 
         Args:
@@ -72,10 +91,15 @@ class QueryExecutor:
 
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
                 if isinstance(stmt, Select):
-                    if execution_options:
-                        result = conn.execution_options(**execution_options).execute(stmt)
-                    else:
-                        result = conn.execute(stmt)
+                    # Suppress cartesian product warnings for cross joins (intentional)
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore", category=SAWarning, message=".*cartesian product.*"
+                        )
+                        if execution_options:
+                            result = conn.execution_options(**execution_options).execute(stmt)
+                        else:
+                            result = conn.execute(stmt)
                 else:
                     if execution_options:
                         result = conn.execution_options(**execution_options).execute(
@@ -98,20 +122,26 @@ class QueryExecutor:
                     {"rowcount": rowcount, "params": params},
                 )
 
-                return QueryResult(rows=payload, rowcount=result.rowcount)
+                return QueryResult(rows=payload, rowcount=rowcount)
         except SQLAlchemyError as exc:
             elapsed = time.perf_counter() - start_time
             logger.error("SQL execution failed after %.3f seconds: %s", elapsed, exc, exc_info=True)
+            _call_hooks("query_end", sql_str, elapsed, {"error": str(exc), "params": params})
             # Check if it's a timeout error
             error_str = str(exc).lower()
+            # Include SQL query text in the error message for easier debugging
+            sql_preview = sql_str[:500] + "..." if len(sql_str) > 500 else sql_str
             if "timeout" in error_str or "timed out" in error_str:
                 from ..utils.exceptions import QueryTimeoutError
 
                 raise QueryTimeoutError(
-                    f"Query exceeded timeout: {exc}",
+                    f"Query exceeded timeout: {exc}\nSQL query: {sql_preview}",
                     timeout=self._config.query_timeout,
                 ) from exc
-            raise ExecutionError(f"Failed to execute query: {exc}") from exc
+            raise ExecutionError(
+                f"SQL execution failed: {exc}\nSQL query: {sql_preview}",
+                context={"sql": sql_str, "params": params, "elapsed_seconds": elapsed},
+            ) from exc
 
     def execute(
         self, sql: str, params: Optional[Dict[str, Any]] = None, transaction: Optional[Any] = None
@@ -169,12 +199,10 @@ class QueryExecutor:
             len(params_list),
             sql[:200] if len(sql) > 200 else sql,
         )
-        total_rowcount = 0
         try:
             with self._connections.connect(transaction=transaction) as conn:
-                for params in params_list:
-                    result = conn.execute(text(sql), params or {})
-                    total_rowcount += result.rowcount or 0
+                result = conn.execute(text(sql), params_list)
+                total_rowcount = result.rowcount or 0
             logger.debug("Batch statement affected %d total rows", total_rowcount)
             return QueryResult(rows=None, rowcount=total_rowcount)
         except SQLAlchemyError as exc:
@@ -212,7 +240,7 @@ class QueryExecutor:
                     chunk = [dict(zip(columns, row)) for row in rows]
                     yield chunk
 
-    def _format_rows(self, rows: Sequence[Sequence[Any]], columns: Sequence[str]) -> Any:
+    def _format_rows(self, rows: Sequence[Sequence[object]], columns: Sequence[str]) -> ResultRows:
         fmt = self._config.fetch_format
         if fmt == "records":
             return [dict(zip(columns, row)) for row in rows]

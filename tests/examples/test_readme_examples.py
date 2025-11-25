@@ -36,38 +36,22 @@ db = connect(f"sqlite:///{temp_db_path}")
 orders_table = db.create_table(
     "orders",
     [
+        ColumnDef(name="id", type_name="INTEGER", primary_key=True),
         ColumnDef(name="customer_id", type_name="INTEGER"),
         ColumnDef(name="amount", type_name="REAL"),
+        ColumnDef(name="country", type_name="TEXT"),
     ],
 ).collect()
-orders_records = Records(
-    _data=[
-    {"customer_id": 1, "amount": 100.0},
-    {"customer_id": 2, "amount": 200.0},
-    ],
-    _database=db,
-)
-orders_records.insert_into("orders")
 
 customers_table = db.create_table(
     "customers",
     [
-        ColumnDef(name="id", type_name="INTEGER"),
+        ColumnDef(name="id", type_name="INTEGER", primary_key=True),
         ColumnDef(name="name", type_name="TEXT"),
-        ColumnDef(name="email", type_name="TEXT"),
         ColumnDef(name="active", type_name="INTEGER"),
         ColumnDef(name="country", type_name="TEXT"),
-        ColumnDef(name="updated_at", type_name="TEXT"),
     ],
 ).collect()
-customers_records = Records(
-    _data=[
-    {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1, "country": "US"},
-    {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 1, "country": "UK"},
-    ],
-    _database=db,
-)
-customers_records.insert_into("customers")
 """
     # Replace temp_db_path in setup
     # Use as_posix() to convert Windows paths to forward slashes (required for SQLite URLs)

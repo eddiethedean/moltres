@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.dialects import mysql as sa_mysql
+from sqlalchemy.dialects import postgresql as sa_postgresql
 
 from moltres.expressions import col
 from moltres.expressions.functions import sum as sum_, count  # noqa: A001
@@ -38,6 +40,16 @@ def test_compile_project_filter_limit():
     assert "country" in sql
     assert "US" in sql
     assert "LIMIT 10" in sql
+
+
+def test_compile_limit_with_offset():
+    """Limit nodes should preserve offsets when compiling."""
+    scan = operators.scan("customers")
+    limited = operators.limit(scan, count=5, offset=3)
+    stmt = compile_plan(limited)
+    sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "LIMIT 5" in sql
+    assert "OFFSET 3" in sql
 
 
 def test_compile_order_and_aliases():
@@ -236,9 +248,10 @@ def test_compile_sample():
     sample = operators.sample(scan, fraction=0.1, seed=None)
     stmt = compile_plan(sample)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    sql_lower = sql.lower()
     assert "users" in sql
-    # Sample uses RANDOM() and LIMIT
-    assert "LIMIT" in sql or "RANDOM" in sql or "RAND" in sql
+    assert "where" in sql_lower
+    assert "random()" in sql_lower
 
 
 def test_compile_sample_with_seed():
@@ -248,6 +261,26 @@ def test_compile_sample_with_seed():
     stmt = compile_plan(sample)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
     assert "users" in sql
+
+
+def test_compile_sample_mysql_seed():
+    """MySQL sampling should use RAND(seed) when provided."""
+    scan = operators.scan("users")
+    sample = operators.sample(scan, fraction=0.25, seed=7)
+    stmt = compile_plan(sample, dialect="mysql")
+    sql = str(stmt.compile(compile_kwargs={"literal_binds": True})).lower()
+    assert "rand(7)" in sql
+    assert "0.25" in sql
+
+
+def test_compile_sample_sqlite_expression():
+    """SQLite sampling should normalize random() to [0,1)."""
+    scan = operators.scan("users")
+    sample = operators.sample(scan, fraction=0.2)
+    stmt = compile_plan(sample, dialect="sqlite")
+    sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "abs(random())" in sql
+    assert "9.223372036854776e+18" in sql
 
 
 def test_compile_explode_unsupported_dialect():
@@ -312,6 +345,38 @@ def test_compile_join_types():
     stmt = compile_plan(cross_join)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
     assert "orders" in sql and "customers" in sql
+
+
+def test_compile_join_mysql_hints():
+    """MySQL join hints should render as USE INDEX comments near the table."""
+    left = operators.scan("orders")
+    right = operators.scan("customers")
+    join_plan = operators.join(
+        left,
+        right,
+        how="inner",
+        on=[("customer_id", "id")],
+        hints=("USE INDEX (idx_customer_id)",),
+    )
+    stmt = compile_plan(join_plan, dialect="mysql")
+    sql = str(stmt.compile(dialect=sa_mysql.dialect(), compile_kwargs={"literal_binds": True}))
+    assert "USE INDEX (idx_customer_id)" in sql
+
+
+def test_compile_join_statement_hints():
+    """Non-MySQL dialects should embed hints as statement hints."""
+    left = operators.scan("orders")
+    right = operators.scan("customers")
+    join_plan = operators.join(
+        left,
+        right,
+        how="inner",
+        on=[("customer_id", "id")],
+        hints=("LEADING(customers orders)",),
+    )
+    stmt = compile_plan(join_plan, dialect="postgresql")
+    sql = str(stmt.compile(dialect=sa_postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+    assert "/*+" in sql and "LEADING" in sql
 
 
 def test_compile_join_with_condition():

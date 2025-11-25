@@ -4,11 +4,23 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Union,
+)
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SAWarning
 
 # AsyncConnection is used via TYPE_CHECKING, but not directly imported here
 # The actual connection is managed by AsyncConnectionManager
@@ -16,6 +28,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..config import EngineConfig
 from ..utils.exceptions import ExecutionError
 from .async_connection import AsyncConnectionManager
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql import Select
+    from sqlalchemy.ext.asyncio import AsyncConnection
+    import pandas as pd
+    import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +43,22 @@ _async_perf_hooks: dict[str, list[Callable[[str, float, dict[str, Any]], None]]]
     "query_end": [],
 }
 
+# Type alias for result rows - can be records, pandas DataFrame, or polars DataFrame
+if TYPE_CHECKING:
+    AsyncResultRows = Union[
+        List[dict[str, object]],
+        "pd.DataFrame",
+        "pl.DataFrame",
+    ]
+else:
+    AsyncResultRows = Any
+
 
 @dataclass
 class AsyncQueryResult:
     """Result from an async query execution."""
 
-    rows: Any
+    rows: AsyncResultRows
     rowcount: Optional[int]
 
 
@@ -42,7 +70,7 @@ class AsyncQueryExecutor:
         self._config = config
 
     async def fetch(
-        self, stmt: Union[str, Any], params: Optional[Dict[str, Any]] = None
+        self, stmt: Union[str, "Select"], params: Optional[Dict[str, Any]] = None
     ) -> AsyncQueryResult:
         """Execute a SELECT query and return results.
 
@@ -72,11 +100,17 @@ class AsyncQueryExecutor:
 
         try:
             async with self._connections.connect() as conn:
+                exec_conn = self._apply_timeout(conn)
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
-                if isinstance(stmt, Select):
-                    result = await conn.execute(stmt)
-                else:
-                    result = await conn.execute(text(stmt), params or {})
+                # Suppress cartesian product warnings for cross joins (intentional)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", category=SAWarning, message=".*cartesian product.*"
+                    )
+                    if isinstance(stmt, Select):
+                        result = await exec_conn.execute(stmt)
+                    else:
+                        result = await exec_conn.execute(text(stmt), params or {})
                 rows = result.fetchall()
                 columns = list(result.keys())
                 payload = await self._format_rows(rows, columns)
@@ -98,7 +132,13 @@ class AsyncQueryExecutor:
             logger.error(
                 "Async SQL execution failed after %.3f seconds: %s", elapsed, exc, exc_info=True
             )
-            raise ExecutionError(f"Failed to execute async query: {exc}") from exc
+            _call_async_hooks("query_end", sql_str, elapsed, {"error": str(exc), "params": params})
+            # Include SQL query text in the error message for easier debugging
+            sql_preview = sql_str[:500] + "..." if len(sql_str) > 500 else sql_str
+            raise ExecutionError(
+                f"Async SQL execution failed: {exc}\nSQL query: {sql_preview}",
+                context={"sql": sql_str, "params": params, "elapsed_seconds": elapsed},
+            ) from exc
 
     async def execute(
         self,
@@ -122,7 +162,8 @@ class AsyncQueryExecutor:
         logger.debug("Executing async statement: %s", sql[:200] if len(sql) > 200 else sql)
         try:
             async with self._connections.connect(transaction=transaction) as conn:
-                result = await conn.execute(text(sql), params or {})
+                exec_conn = self._apply_timeout(conn)
+                result = await exec_conn.execute(text(sql), params or {})
                 rowcount = result.rowcount or 0
                 logger.debug("Async statement affected %d rows", rowcount)
                 return AsyncQueryResult(rows=None, rowcount=rowcount)
@@ -159,12 +200,11 @@ class AsyncQueryExecutor:
             len(params_list),
             sql[:200] if len(sql) > 200 else sql,
         )
-        total_rowcount = 0
         try:
             async with self._connections.connect(transaction=transaction) as conn:
-                for params in params_list:
-                    result = await conn.execute(text(sql), params or {})
-                    total_rowcount += result.rowcount or 0
+                exec_conn = self._apply_timeout(conn)
+                result = await exec_conn.execute(text(sql), params_list)
+                total_rowcount = result.rowcount or 0
             logger.debug("Async batch statement affected %d total rows", total_rowcount)
             return AsyncQueryResult(rows=None, rowcount=total_rowcount)
         except SQLAlchemyError as exc:
@@ -190,11 +230,12 @@ class AsyncQueryExecutor:
         from sqlalchemy.sql import Select
 
         async with self._connections.connect() as conn:
+            exec_conn = self._apply_timeout(conn)
             # Execute SQLAlchemy statement directly or use text() for SQL strings
             if isinstance(stmt, Select):
-                result = await conn.stream(stmt)
+                result = await exec_conn.stream(stmt)
             else:
-                result = await conn.stream(text(stmt), params or {})
+                result = await exec_conn.stream(text(stmt), params or {})
             columns: Optional[List[str]] = None
             chunk: List[Dict[str, Any]] = []
 
@@ -215,7 +256,9 @@ class AsyncQueryExecutor:
             if chunk:
                 yield chunk
 
-    async def _format_rows(self, rows: Sequence[Sequence[Any]], columns: Sequence[str]) -> Any:
+    async def _format_rows(
+        self, rows: Sequence[Sequence[object]], columns: Sequence[str]
+    ) -> AsyncResultRows:
         """Format rows according to fetch_format configuration."""
         fmt = self._config.fetch_format
         if fmt == "records":
@@ -236,6 +279,12 @@ class AsyncQueryExecutor:
         raise ValueError(
             f"Unknown fetch format '{fmt}'. Supported formats: records, pandas, polars"
         )
+
+    def _apply_timeout(self, conn: "AsyncConnection") -> "AsyncConnection":
+        """Apply query timeout to a connection if configured."""
+        if self._config.query_timeout is None:
+            return conn
+        return conn.execution_options(timeout=self._config.query_timeout)
 
 
 def register_async_performance_hook(

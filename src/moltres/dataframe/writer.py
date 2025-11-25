@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import shutil
 from pathlib import Path
 from typing import (
@@ -19,10 +20,13 @@ from typing import (
     cast,
 )
 
-from ..expressions.column import Column
-from ..table.mutations import delete_rows, insert_rows, update_rows
-from ..table.schema import ColumnDef
-from .dataframe import DataFrame
+logger = logging.getLogger(__name__)
+
+from ..expressions.column import Column  # noqa: E402
+from ..table.mutations import delete_rows, insert_rows, update_rows  # noqa: E402
+from ..table.schema import ColumnDef  # noqa: E402
+from ..utils.exceptions import CompilationError, ExecutionError, ValidationError  # noqa: E402
+from .dataframe import DataFrame  # noqa: E402
 
 if TYPE_CHECKING:
     from ..table.table import Database
@@ -163,7 +167,9 @@ class DataFrameWriter:
 
         if self._bucket_by or self._sort_by:
             raise NotImplementedError(
-                "bucketBy/sortBy are not yet supported when writing to tables."
+                "bucketBy/sortBy are not yet supported when writing to tables. "
+                "Alternative: Use ORDER BY in your query before writing, or sort data in memory before insertion. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
         # Get active transaction if available
@@ -283,7 +289,9 @@ class DataFrameWriter:
         elif format_lower == "orc":
             raise NotImplementedError(
                 "ORC write support is not yet available. "
-                "Consider contributing an implementation or using parquet/csv/json."
+                "Alternative: Use parquet format instead: df.write.parquet('path/to/file.parquet'). "
+                "Parquet provides similar columnar storage benefits. "
+                "See https://github.com/eddiethedean/moltres/issues to request ORC support."
             )
         else:
             raise ValueError(
@@ -309,7 +317,9 @@ class DataFrameWriter:
     def orc(self, path: str) -> None:
         """PySpark-style ORC helper (not yet implemented)."""
         raise NotImplementedError(
-            "ORC output is not yet supported. Use parquet or contribute ORC writer support."
+            "ORC output is not yet supported. "
+            "Alternative: Use parquet format (df.write.parquet()) which provides similar columnar storage. "
+            "To contribute ORC support, see https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md"
         )
 
     def parquet(self, path: str) -> None:
@@ -328,7 +338,9 @@ class DataFrameWriter:
 
         if self._bucket_by or self._sort_by:
             raise NotImplementedError(
-                "bucketBy/sortBy are not yet supported when writing to tables."
+                "bucketBy/sortBy are not yet supported when writing to tables. "
+                "Alternative: Use ORDER BY in your query before writing, or sort data in memory before insertion. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
         # Check if table exists
@@ -463,8 +475,19 @@ class DataFrameWriter:
                     for col_name in column_names
                 ]
 
-        except Exception:
+        except (CompilationError, ExecutionError, ValidationError) as e:
             # If inference fails, return None to fall back to materialization
+            logger.debug("Schema inference from plan failed: %s", e)
+            return None
+        except (AttributeError, KeyError, TypeError, ValueError) as e:
+            # Common errors when accessing DataFrame/result attributes
+            logger.debug("Schema inference failed due to attribute/type error: %s", e)
+            return None
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.warning(
+                "Unexpected error during schema inference from plan: %s", e, exc_info=True
+            )
             return None
 
     def _execute_insert_select(self, schema: Sequence[ColumnDef]) -> None:
@@ -584,8 +607,13 @@ class DataFrameWriter:
 
             compile_plan(self._df.plan, dialect=self._df.database.dialect)
             return True
-        except Exception:
+        except (CompilationError, ValidationError) as e:
             # If compilation fails, can't use optimization
+            logger.debug("Plan compilation failed, cannot use optimization: %s", e)
+            return False
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.debug("Unexpected error during plan compilation check: %s", e)
             return False
 
     def _table_exists(self, db: "Database", table_name: str) -> bool:
@@ -606,7 +634,11 @@ class DataFrameWriter:
                 sql = f"SELECT * FROM {quote}{table_name}{quote} LIMIT 0"
                 db.execute_sql(sql)
                 return True
-        except Exception:
+        except (ExecutionError, ValidationError) as e:
+            logger.debug("Error checking table existence: %s", e)
+            return False
+        except Exception as e:
+            logger.debug("Unexpected error checking table existence: %s", e)
             return False
 
     def _infer_or_get_schema(
@@ -690,7 +722,9 @@ class DataFrameWriter:
         """Raise if unsupported bucketing/sorting metadata is set for file sinks."""
         if self._bucket_by or self._sort_by:
             raise NotImplementedError(
-                "bucketBy/sortBy metadata is not yet supported when writing to files."
+                "bucketBy/sortBy metadata is not yet supported when writing to files. "
+                "Alternative: Sort data using orderBy() before writing, or use partitioned writes with partitionBy(). "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
     def _prepare_file_target(self, path_obj: Path) -> bool:
@@ -817,6 +851,14 @@ class DataFrameWriter:
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
+        # Custom JSON encoder to handle Decimal and other non-serializable types
+        def json_default(obj):
+            from decimal import Decimal
+
+            if isinstance(obj, Decimal):
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
         if use_stream:
             chunk_iter = self._df.collect(stream=True)
             with open(path_obj, "w", encoding="utf-8") as f:
@@ -828,14 +870,14 @@ class DataFrameWriter:
                             f.write(",\n")
                         else:
                             first = False
-                        f.write(json.dumps(row, ensure_ascii=False))
+                        f.write(json.dumps(row, ensure_ascii=False, default=json_default))
                 f.write("]")
             return
 
         rows = self._df.collect()
         with open(path_obj, "w", encoding="utf-8") as f:
             indent: Optional[Union[int, str]] = cast(Optional[Union[int, str]], indent_val)
-            json.dump(rows, f, indent=indent, ensure_ascii=False)
+            json.dump(rows, f, indent=indent, ensure_ascii=False, default=json_default)
 
     def _save_jsonl(self, path: str) -> None:
         """Save DataFrame as JSONL file (one JSON object per line)."""
@@ -851,6 +893,14 @@ class DataFrameWriter:
             self._save_partitioned(path, "jsonl", rows, None)
             return
 
+        # Custom JSON encoder to handle Decimal and other non-serializable types
+        def json_default(obj):
+            from decimal import Decimal
+
+            if isinstance(obj, Decimal):
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
         path_obj = Path(path)
         if not self._prepare_file_target(path_obj):
             return
@@ -858,7 +908,7 @@ class DataFrameWriter:
 
         with open(path_obj, "w", encoding="utf-8") as f:
             for row in rows:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                f.write(json.dumps(row, ensure_ascii=False, default=json_default) + "\n")
 
     def _save_jsonl_stream(self, path: str) -> None:
         """Save DataFrame as JSONL file in streaming mode."""
@@ -871,7 +921,17 @@ class DataFrameWriter:
             chunk_iter = self._df.collect(stream=True)
             for chunk in chunk_iter:
                 for row in chunk:
-                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    # Custom JSON encoder to handle Decimal and other non-serializable types
+                    from decimal import Decimal
+
+                    def json_default(obj):
+                        if isinstance(obj, Decimal):
+                            return float(obj)
+                        raise TypeError(
+                            f"Object of type {type(obj).__name__} is not JSON serializable"
+                        )
+
+                    f.write(json.dumps(row, ensure_ascii=False, default=json_default) + "\n")
 
     def _save_text(self, path: str) -> None:
         """Save DataFrame as text file (one value per line)."""
@@ -881,7 +941,11 @@ class DataFrameWriter:
         encoding = cast(str, self._options.get("encoding", "utf-8"))
 
         if self._partition_by:
-            raise NotImplementedError("partitionBy()+text() is not supported yet.")
+            raise NotImplementedError(
+                "partitionBy()+text() is not supported yet. "
+                "Alternative: Write without partitioning, or use CSV/JSON formats which support partitioning. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
 
         path_obj = Path(path)
         if not self._prepare_file_target(path_obj):
@@ -912,20 +976,11 @@ class DataFrameWriter:
     def _save_parquet(self, path: str) -> None:
         """Save DataFrame as Parquet file."""
         self._ensure_file_layout_supported()
-        try:
-            import pandas as pd
-        except ImportError as exc:
-            raise RuntimeError(
-                "Parquet format requires pandas. Install with: pip install pandas"
-            ) from exc
+        from ..utils.optional_deps import get_pandas, get_pyarrow, get_pyarrow_parquet
 
-        try:
-            import pyarrow as pa
-            import pyarrow.parquet as pq
-        except ImportError as exc:
-            raise RuntimeError(
-                "Parquet format requires pyarrow. Install with: pip install pyarrow"
-            ) from exc
+        pd = get_pandas(required=True)
+        pa = get_pyarrow(required=True)
+        pq = get_pyarrow_parquet(required=True)
 
         pa_mod = cast(Any, pa)
         pq_mod = cast(Any, pq)
@@ -1037,22 +1092,42 @@ class DataFrameWriter:
 
     def _write_json_file(self, path: Path, rows: List[dict[str, object]]) -> None:
         """Helper to write JSON file."""
+
+        # Custom JSON encoder to handle Decimal and other non-serializable types
+        def json_default(obj):
+            from decimal import Decimal
+
+            if isinstance(obj, Decimal):
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
         with open(path, "w", encoding="utf-8") as f:
             indent_val = self._options.get("indent", None)
             indent: Optional[Union[int, str]] = cast(Optional[Union[int, str]], indent_val)
-            json.dump(rows, f, indent=indent, ensure_ascii=False)
+            json.dump(rows, f, indent=indent, ensure_ascii=False, default=json_default)
 
     def _write_jsonl_file(self, path: Path, rows: List[dict[str, object]]) -> None:
         """Helper to write JSONL file."""
+
+        # Custom JSON encoder to handle Decimal and other non-serializable types
+        def json_default(obj):
+            from decimal import Decimal
+
+            if isinstance(obj, Decimal):
+                return float(obj)
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
         with open(path, "w", encoding="utf-8") as f:
             for row in rows:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                f.write(json.dumps(row, ensure_ascii=False, default=json_default) + "\n")
 
     def _write_parquet_file(self, path: Path, rows: List[dict[str, object]]) -> None:
         """Helper to write Parquet file."""
-        import pandas as pd
-        import pyarrow as pa
-        import pyarrow.parquet as pq
+        from ..utils.optional_deps import get_pandas, get_pyarrow, get_pyarrow_parquet
+
+        pd = get_pandas(required=True)
+        pa = get_pyarrow(required=True)
+        pq = get_pyarrow_parquet(required=True)
 
         df = pd.DataFrame(rows)
         compression = cast(str, self._options.get("compression", "snappy"))

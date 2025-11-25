@@ -29,20 +29,58 @@ Thank you for your interest in contributing to Moltres! This document provides g
 
 ### Running Tests
 
-Run the full test suite:
+**Using Makefile (Recommended):**
+
 ```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest
+# Sequential test run (default, no pandas)
+make test
+
+# Parallel test run (10 workers, pandas auto-skipped on macOS)
+make test-parallel
+
+# Parallel test run with pandas explicitly skipped
+make test-lite
+
+# Full test suite with pandas (sequential only, recommended for CI)
+make test-pandas
+
+# Test with coverage
+make test-coverage
+
+# Parallel test with coverage (pandas skipped)
+make test-coverage-parallel
 ```
 
-Run tests with coverage:
+**Using pytest directly:**
+
 ```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest --cov=src/moltres --cov-report=html
+# Sequential test run
+pytest
+
+# Parallel test run (10 workers, pandas auto-skipped on macOS)
+pytest -n 10
+
+# Parallel test run with pandas explicitly skipped
+MOLTRES_SKIP_PANDAS_TESTS=1 pytest -n 10
+
+# Full test suite with pandas (sequential only)
+MOLTRES_SKIP_PANDAS_TESTS=0 pytest
+
+# Test with coverage
+pytest --cov=src/moltres --cov-report=html
+
+# Run specific test files
+pytest tests/dataframe/test_reader.py
 ```
 
-Run specific test files:
-```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/dataframe/test_reader.py
-```
+**Note on Parallel Test Runs:**
+
+When running tests in parallel (`pytest -n 10`) on macOS, pandas-dependent tests are automatically skipped to prevent fork-related crashes. The pytest plugin `pytest_parallel_support` automatically detects this scenario and:
+
+- Sets `MOLTRES_USE_MOCK_DEPS=1` to use lightweight mocks instead of heavy imports
+- Sets `MOLTRES_SKIP_PANDAS_TESTS=1` to skip pandas-dependent test modules
+
+For full test coverage including pandas tests, run tests sequentially (`make test-pandas` or `pytest` without `-n`). On Linux CI environments, parallel runs with pandas typically work without issues.
 
 ### Code Quality
 

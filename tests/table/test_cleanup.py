@@ -33,6 +33,16 @@ def test_ephemeral_tables_cleaned_on_gc(tmp_path):
     assert not _table_exists(db_path, ephemeral)
 
 
+def test_create_dataframe_without_primary_key(tmp_path):
+    """createDataFrame should succeed even when no pk/auto_pk is provided."""
+    db_path = tmp_path / "pkless.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    df = db.createDataFrame([{"name": "Alice"}, {"name": "Bob"}])
+    rows = df.collect()
+    assert [row["name"] for row in rows] == ["Alice", "Bob"]
+
+
 @pytest.mark.asyncio
 async def test_async_ephemeral_tables_cleaned_on_gc(tmp_path):
     db_path = tmp_path / "async_cleanup.sqlite"
@@ -48,3 +58,14 @@ async def test_async_ephemeral_tables_cleaned_on_gc(tmp_path):
     del db
 
     assert not _table_exists(db_path, ephemeral)
+
+
+@pytest.mark.asyncio
+async def test_async_create_dataframe_without_primary_key(tmp_path):
+    """Async createDataFrame should also allow PK-less staging tables."""
+    db_path = tmp_path / "async_pkless.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    df = await db.createDataFrame([{"name": "Alice"}])
+    rows = await df.collect()
+    assert rows[0]["name"] == "Alice"

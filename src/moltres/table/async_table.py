@@ -791,6 +791,7 @@ class AsyncDatabase:
             pk=pk,
             auto_pk=auto_pk,
             dialect_name=self._dialect_name,
+            require_primary_key=False,
         )
 
         # Generate unique table name

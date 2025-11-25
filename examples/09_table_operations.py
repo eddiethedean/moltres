@@ -94,8 +94,14 @@ users_data = [
     {"id": 3, "name": "Charlie", "email": "charlie@example.com", "active": 0},
 ]
 
-Records(_data=users_data, _database=db).insert_into("users")
-print("✓ Inserted 3 users")
+# Method 1: Using db.insert() convenience method (recommended)
+db.insert("users", users_data)
+print("✓ Inserted 3 users using db.insert()")
+
+# Method 2: Using Records API
+# Records(_data=users_data, _database=db).insert_into("users")
+# Or using the new convenience methods:
+# Records.from_list(users_data, database=db).insert_into("users")
 
 orders_data = [
     {"id": 1, "user_id": 1, "order_number": "ORD-001", "total": 99.99, "status": "pending"},
@@ -121,32 +127,43 @@ orders = orders_df.collect()
 print(f"Orders: {orders}")
 # Output: Orders: [{'id': 1, 'user_id': 1, 'order_number': 'ORD-001', 'total': 99.99, 'status': 'pending'}, {'id': 2, 'user_id': 1, 'order_number': 'ORD-002', 'total': 149.5, 'status': 'completed'}, {'id': 3, 'user_id': 2, 'order_number': 'ORD-003', 'total': 79.99, 'status': 'pending'}]
 
-# Update rows using mutations API
+# Update rows using convenience methods
 print("\n" + "=" * 70)
 print("Updating data")
 print("=" * 70)
 
-from moltres.table.mutations import update_rows, delete_rows, merge_rows
+# Method 1: Using db.update() convenience method (recommended)
+db.update("users", where=col("id") == 1, set={"name": "Alice Updated"})
+print("✓ Updated user using db.update()")
+
+# Method 2: Using mutations API directly
+from moltres.table.mutations import update_rows
 
 table = db.table("users")
-update_rows(table, where=col("id") == 1, values={"name": "Alice Updated"})
+update_rows(table, where=col("id") == 2, values={"name": "Bob Updated"})
+print("✓ Updated user using update_rows()")
 
 users = users_df.collect()
 print(f"After update: {users}")
-# Output: After update: [{'id': 1, 'name': 'Alice Updated', 'email': 'alice@example.com', 'active': 1}, {'id': 2, 'name': 'Bob', 'email': 'bob@example.com', 'active': 1}, {'id': 3, 'name': 'Charlie', 'email': 'charlie@example.com', 'active': 0}]
+# Output: After update: [{'id': 1, 'name': 'Alice Updated', 'email': 'alice@example.com', 'active': 1}, {'id': 2, 'name': 'Bob Updated', 'email': 'bob@example.com', 'active': 1}, {'id': 3, 'name': 'Charlie', 'email': 'charlie@example.com', 'active': 0}]
 
-# Delete rows
+# Delete rows using convenience methods
 print("\n" + "=" * 70)
 print("Deleting data")
 print("=" * 70)
 
-delete_rows(table, where=col("active") == 0)
+# Method 1: Using db.delete() convenience method (recommended)
+db.delete("users", where=col("active") == 0)
+print("✓ Deleted inactive users using db.delete()")
+
+# Method 2: Using mutations API directly
+# delete_rows(table, where=col("active") == 0)
 
 users = users_df.collect()
 print(f"After delete (inactive users removed): {users}")
-# Output: After delete (inactive users removed): [{'id': 1, 'name': 'Alice Updated', 'email': 'alice@example.com', 'active': 1}, {'id': 2, 'name': 'Bob', 'email': 'bob@example.com', 'active': 1}]
+# Output: After delete (inactive users removed): [{'id': 1, 'name': 'Alice Updated', 'email': 'alice@example.com', 'active': 1}, {'id': 2, 'name': 'Bob Updated', 'email': 'bob@example.com', 'active': 1}]
 
-# Merge (upsert) rows
+# Merge (upsert) rows using convenience methods
 print("\n" + "=" * 70)
 print("Merging (upserting) data")
 print("=" * 70)
@@ -156,17 +173,27 @@ merge_data = [
     {"id": 4, "name": "David", "email": "david@example.com", "active": 1},
 ]
 
-merge_rows(
-    table,
+# Method 1: Using db.merge() convenience method (recommended)
+db.merge(
+    "users",
     merge_data,
     on=["id"],
-    when_matched={"name": "name", "email": "email"},
-    when_not_matched={"name": "name", "email": "email", "active": "active"},
+    when_matched={"name": "Alice Merged"},
 )
+print("✓ Merged users using db.merge()")
+
+# Method 2: Using mutations API directly
+# merge_rows(
+#     table,
+#     merge_data,
+#     on=["id"],
+#     when_matched={"name": "name", "email": "email"},
+#     when_not_matched={"name": "name", "email": "email", "active": "active"},
+# )
 
 users = users_df.collect()
 print(f"After merge: {users}")
-# Output: After merge: [{'id': 1, 'name': 'name', 'email': 'email', 'active': 1}, {'id': 2, 'name': 'Bob', 'email': 'bob@example.com', 'active': 1}, {'id': 4, 'name': 'David', 'email': 'david@example.com', 'active': 1}]
+# Output: After merge: [{'id': 1, 'name': 'Alice Merged', 'email': 'alice@example.com', 'active': 1}, {'id': 2, 'name': 'Bob Updated', 'email': 'bob@example.com', 'active': 1}, {'id': 4, 'name': 'David', 'email': 'david@example.com', 'active': 1}]
 
 # ============================================================================
 # Index Management

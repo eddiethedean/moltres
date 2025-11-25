@@ -89,9 +89,12 @@ class ConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
-        connection.commit()
-        connection.close()
-        self._active_transaction = None
+        try:
+            connection.commit()
+        finally:
+            # Always close connection, even if commit fails
+            connection.close()
+            self._active_transaction = None
 
     def rollback_transaction(self, connection: Connection) -> None:
         """Rollback a transaction.
@@ -101,9 +104,12 @@ class ConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
-        connection.rollback()
-        connection.close()
-        self._active_transaction = None
+        try:
+            connection.rollback()
+        finally:
+            # Always close connection, even if rollback fails
+            connection.close()
+            self._active_transaction = None
 
     @property
     def active_transaction(self) -> Optional[Connection]:

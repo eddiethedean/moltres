@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from pathlib import Path
 from typing import (
@@ -17,6 +18,8 @@ from typing import (
     cast,
 )
 
+logger = logging.getLogger(__name__)
+
 try:
     import aiofiles  # type: ignore[import-untyped]
 except ImportError as exc:
@@ -24,10 +27,11 @@ except ImportError as exc:
         "Async writing requires aiofiles. Install with: pip install moltres[async]"
     ) from exc
 
-from ..expressions.column import Column
-from ..table.async_mutations import delete_rows_async, insert_rows_async, update_rows_async
-from ..table.schema import ColumnDef
-from .async_dataframe import AsyncDataFrame
+from ..expressions.column import Column  # noqa: E402
+from ..table.async_mutations import delete_rows_async, insert_rows_async, update_rows_async  # noqa: E402
+from ..table.schema import ColumnDef  # noqa: E402
+from ..utils.exceptions import CompilationError, ExecutionError, ValidationError  # noqa: E402
+from .async_dataframe import AsyncDataFrame  # noqa: E402
 
 if TYPE_CHECKING:
     from ..table.async_table import AsyncDatabase
@@ -168,7 +172,9 @@ class AsyncDataFrameWriter:
 
         if self._bucket_by or self._sort_by:
             raise NotImplementedError(
-                "bucketBy/sortBy are not yet supported when writing to tables."
+                "bucketBy/sortBy are not yet supported when writing to tables. "
+                "Alternative: Use ORDER BY in your query before writing, or sort data in memory before insertion. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
         # Get active transaction if available
@@ -286,7 +292,12 @@ class AsyncDataFrameWriter:
         elif format_lower == "parquet":
             await self._save_parquet(path)
         elif format_lower == "orc":
-            raise NotImplementedError("ORC write support is not yet available for async writers.")
+            raise NotImplementedError(
+                "ORC write support is not yet available for async writers. "
+                "Alternative: Use parquet format instead: await df.write.parquet('path/to/file.parquet'). "
+                "Parquet provides similar columnar storage benefits. "
+                "See https://github.com/eddiethedean/moltres/issues to request ORC support."
+            )
         else:
             raise ValueError(
                 f"Unsupported format '{format_to_use}'. Supported: csv, json, jsonl, text, parquet"
@@ -311,7 +322,9 @@ class AsyncDataFrameWriter:
     async def orc(self, path: str) -> None:
         """PySpark-style ORC helper (not yet implemented)."""
         raise NotImplementedError(
-            "Async ORC output is not supported. Use parquet or contribute ORC support."
+            "Async ORC output is not supported. "
+            "Alternative: Use parquet format (await df.write.parquet()) which provides similar columnar storage. "
+            "To contribute ORC support, see https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md"
         )
 
     async def parquet(self, path: str) -> None:
@@ -344,8 +357,13 @@ class AsyncDataFrameWriter:
 
             compile_plan(self._df.plan, dialect=self._df.database.dialect)
             return True
-        except Exception:
+        except (CompilationError, ValidationError) as e:
             # If compilation fails, can't use optimization
+            logger.debug("Plan compilation failed, cannot use optimization: %s", e)
+            return False
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.debug("Unexpected error during plan compilation check: %s", e)
             return False
 
     async def _infer_schema_from_plan(self) -> Optional[Sequence[ColumnDef]]:
@@ -416,8 +434,19 @@ class AsyncDataFrameWriter:
                     for col_name in column_names
                 ]
 
-        except Exception:
+        except (CompilationError, ExecutionError, ValidationError) as e:
             # If inference fails, return None to fall back to materialization
+            logger.debug("Schema inference from plan failed: %s", e)
+            return None
+        except (AttributeError, KeyError, TypeError, ValueError) as e:
+            # Common errors when accessing DataFrame/result attributes
+            logger.debug("Schema inference failed due to attribute/type error: %s", e)
+            return None
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.warning(
+                "Unexpected error during schema inference from plan: %s", e, exc_info=True
+            )
             return None
 
     def _infer_type_from_value(self, value: object) -> str:
@@ -464,7 +493,9 @@ class AsyncDataFrameWriter:
         """Raise if unsupported bucketing/sorting metadata is set for file sinks."""
         if self._bucket_by or self._sort_by:
             raise NotImplementedError(
-                "bucketBy/sortBy metadata is not yet supported when writing to files."
+                "bucketBy/sortBy metadata is not yet supported when writing to files. "
+                "Alternative: Sort data using orderBy() before writing, or use partitioned writes with partitionBy(). "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
     def _prepare_file_target(self, path_obj: Path) -> bool:
@@ -526,8 +557,12 @@ class AsyncDataFrameWriter:
         if self._mode == "overwrite":
             try:
                 await db.drop_table(table_name, if_exists=True).collect()
-            except Exception:
-                pass  # Ignore errors if table doesn't exist
+            except (ExecutionError, ValidationError) as e:
+                # Ignore errors if table doesn't exist (expected in some cases)
+                logger.debug("Error dropping table (may not exist): %s", e)
+            except Exception as e:
+                # Log unexpected errors but continue
+                logger.warning("Unexpected error dropping table: %s", e)
             await db.create_table(table_name, final_schema, if_not_exists=False).collect()
         elif not table_exists:
             # Create table if it doesn't exist
@@ -588,7 +623,9 @@ class AsyncDataFrameWriter:
 
         if self._bucket_by or self._sort_by:
             raise NotImplementedError(
-                "bucketBy/sortBy are not yet supported when writing to tables."
+                "bucketBy/sortBy are not yet supported when writing to tables. "
+                "Alternative: Use ORDER BY in your query before writing, or sort data in memory before insertion. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
         if self._mode == "error_if_exists" and table_exists:
@@ -631,8 +668,12 @@ class AsyncDataFrameWriter:
             # Drop and recreate table
             try:
                 await db.drop_table(table_name, if_exists=True).collect()
-            except Exception:
-                pass  # Ignore errors if table doesn't exist
+            except (ExecutionError, ValidationError) as e:
+                # Ignore errors if table doesn't exist (expected in some cases)
+                logger.debug("Error dropping table (may not exist): %s", e)
+            except Exception as e:
+                # Log unexpected errors but continue
+                logger.warning("Unexpected error dropping table: %s", e)
 
         # Create table if needed
         if not table_exists or self._mode == "overwrite":
@@ -666,7 +707,11 @@ class AsyncDataFrameWriter:
                 sql = f"SELECT name FROM sqlite_master WHERE type='table' AND name={quoted_name}"
                 result = await db.executor.fetch(sql)
                 return len(result.rows) > 0
-            except Exception:
+            except (ExecutionError, ValidationError) as e:
+                logger.debug("Error checking table existence (SQLite): %s", e)
+                return False
+            except Exception as e:
+                logger.debug("Unexpected error checking table existence (SQLite): %s", e)
                 return False
         else:
             # For other databases, query information_schema
@@ -689,9 +734,17 @@ class AsyncDataFrameWriter:
                     try:
                         await db.table(table_name)
                         return True
-                    except Exception:
+                    except (ValidationError, ExecutionError) as e:
+                        logger.debug("Error accessing table (fallback check): %s", e)
                         return False
-            except Exception:
+                    except Exception as e:
+                        logger.debug("Unexpected error accessing table (fallback check): %s", e)
+                        return False
+            except (ExecutionError, ValidationError) as e:
+                logger.debug("Error checking table existence: %s", e)
+                return False
+            except Exception as e:
+                logger.debug("Unexpected error checking table existence: %s", e)
                 return False
 
     def _infer_or_get_schema(
@@ -751,7 +804,11 @@ class AsyncDataFrameWriter:
         """Save AsyncDataFrame as CSV file."""
         self._ensure_file_layout_supported()
         if self._partition_by:
-            raise NotImplementedError("partitionBy()+csv() is not supported for async writes.")
+            raise NotImplementedError(
+                "partitionBy()+csv() is not supported for async writes. "
+                "Alternative: Write without partitioning, or use parquet format which supports partitioning. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
         header = cast(bool, self._options.get("header", True))
         delimiter = cast(str, self._options.get("delimiter", ","))
 
@@ -791,7 +848,11 @@ class AsyncDataFrameWriter:
         """Save AsyncDataFrame as JSON file (array of objects)."""
         self._ensure_file_layout_supported()
         if self._partition_by:
-            raise NotImplementedError("partitionBy()+json() is not supported for async writes.")
+            raise NotImplementedError(
+                "partitionBy()+json() is not supported for async writes. "
+                "Alternative: Write without partitioning, or use parquet format which supports partitioning. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
 
         indent = cast(Optional[int], self._options.get("indent"))
         use_stream = self._should_stream_output() and indent in (None, 0)
@@ -824,7 +885,11 @@ class AsyncDataFrameWriter:
         """Save AsyncDataFrame as JSONL file (one JSON object per line)."""
         self._ensure_file_layout_supported()
         if self._partition_by:
-            raise NotImplementedError("partitionBy()+jsonl() is not supported for async writes.")
+            raise NotImplementedError(
+                "partitionBy()+jsonl() is not supported for async writes. "
+                "Alternative: Write without partitioning, or use parquet format which supports partitioning. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
 
         path_obj = Path(path)
         if not self._prepare_file_target(path_obj):
@@ -847,7 +912,11 @@ class AsyncDataFrameWriter:
         """Save AsyncDataFrame as text file (one value per line)."""
         self._ensure_file_layout_supported()
         if self._partition_by:
-            raise NotImplementedError("partitionBy()+text() is not supported for async writes.")
+            raise NotImplementedError(
+                "partitionBy()+text() is not supported for async writes. "
+                "Alternative: Write without partitioning, or use parquet format which supports partitioning. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
         column = cast(str, self._options.get("column", "value"))
         line_sep = cast(str, self._options.get("lineSep", "\n"))
         encoding = cast(str, self._options.get("encoding", "utf-8"))
@@ -882,21 +951,16 @@ class AsyncDataFrameWriter:
         """Save AsyncDataFrame as Parquet file."""
         self._ensure_file_layout_supported()
         if self._partition_by:
-            raise NotImplementedError("partitionBy()+parquet() is not supported for async writes.")
-        try:
-            import pandas as pd
-        except ImportError as exc:
-            raise RuntimeError(
-                "Parquet format requires pandas. Install with: pip install pandas"
-            ) from exc
+            raise NotImplementedError(
+                "partitionBy()+parquet() is not supported for async writes. "
+                "Alternative: Write without partitioning, or use synchronous writes (df.write.parquet()) which support partitioning. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
+        from ..utils.optional_deps import get_pandas, get_pyarrow, get_pyarrow_parquet
 
-        try:
-            import pyarrow as pa
-            import pyarrow.parquet as pq
-        except ImportError as exc:
-            raise RuntimeError(
-                "Parquet format requires pyarrow. Install with: pip install pyarrow"
-            ) from exc
+        pd = get_pandas(required=True)
+        pa = get_pyarrow(required=True)
+        pq = get_pyarrow_parquet(required=True)
 
         pa_mod = cast(Any, pa)
         pq_mod = cast(Any, pq)

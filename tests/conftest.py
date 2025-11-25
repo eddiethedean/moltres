@@ -2,15 +2,36 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import warnings
 from pathlib import Path
 import uuid
 from typing import Generator
-import os
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SAWarning
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+# Module-level singleton for PostgreSQL instance (shared across all workers)
+_postgresql_singleton = None
+_postgresql_singleton_lock_file = None
+
+# Import parallel test support plugin
+try:
+    import pytest_parallel_support  # noqa: F401
+except ImportError:
+    # Plugin not available, skip
+    pass
+
+# Limit math library threads to avoid OpenBLAS crashes when pytest-xdist spawns many workers
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
 
 try:
     import pytest_asyncio
@@ -21,6 +42,45 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+_PG_FIXTURES = {
+    "postgresql_db",
+    "postgresql_admin_engine",
+    "postgresql_schema",
+    "postgresql_connection",
+    "postgresql_async_connection",
+}
+_MYSQL_FIXTURES = {
+    "mysql_db",
+    "mysql_admin_engine",
+    "mysql_database",
+    "mysql_connection",
+    "mysql_async_connection",
+}
+
+
+def pytest_configure(config):
+    """Configure pytest to suppress expected SQLAlchemy warnings."""
+    # Suppress connection cleanup warnings from SQLAlchemy
+    # These occur in test scenarios where connections are properly managed by context managers
+    warnings.filterwarnings(
+        "ignore",
+        message=".*garbage collector is trying to clean up non-checked-in connection.*",
+        category=SAWarning,
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Ensure heavy DB-backed tests run on a dedicated xdist worker."""
+    for item in items:
+        fixturenames = getattr(item, "fixturenames", ())
+        if not fixturenames:
+            continue
+        fixtures = set(fixturenames)
+        if fixtures & _PG_FIXTURES:
+            item.add_marker(pytest.mark.xdist_group("postgresql"))
+        if fixtures & _MYSQL_FIXTURES:
+            item.add_marker(pytest.mark.xdist_group("mysql"))
 
 
 # Fix for ensure_greenlet_context fixture when running tests in parallel with pytest-xdist
@@ -165,34 +225,342 @@ def _dsn_with_database(dsn: str, database: str) -> str:
 
 @pytest.fixture(scope="session")
 def postgresql_db() -> Generator:
-    """Create a reusable PostgreSQL database server for testing."""
+    """Create a reusable PostgreSQL database server for testing.
+
+    In parallel mode (pytest-xdist), each worker gets its own database instance
+    with a unique port to avoid conflicts.
+
+    Uses subprocess-based timeout to prevent hanging during initialization.
+    """
     import os
     import shutil
+    import socket
+    import subprocess
+    import threading
 
     if sys.platform.startswith("win"):
         pytest.skip("PostgreSQL tests require initdb, which is unavailable on Windows runners")
 
+    # Pre-initialization checks
     initdb = shutil.which("initdb")
     if initdb is None:
-        pytest.skip("PostgreSQL initdb command not found")
+        pytest.skip("PostgreSQL initdb command not found. Install PostgreSQL to run these tests.")
+
+    # Verify initdb is executable
+    if not os.access(initdb, os.X_OK):
+        pytest.skip(f"PostgreSQL initdb found at {initdb} but is not executable")
 
     try:
         from testing.postgresql import Postgresql
+        from testing.common.database import get_unused_port
     except ImportError:
-        pytest.skip("testing.postgresql not available")
+        pytest.skip(
+            "testing.postgresql not available. Install with: pip install testing.postgresql"
+        )
 
-    # Set LC_ALL if not already set (required for PostgreSQL on macOS)
-    if "LC_ALL" not in os.environ:
-        os.environ["LC_ALL"] = "en_US.UTF-8"
-
+    # Check for existing PostgreSQL processes that might conflict
+    # This is informational - we'll use different ports anyway
     try:
-        postgres = Postgresql()
-    except RuntimeError as exc:  # pragma: no cover - environment specific
-        pytest.skip(f"PostgreSQL fixture unavailable: {exc}")
+        result = subprocess.run(
+            ["pgrep", "-f", "postgres"],
+            capture_output=True,
+            timeout=2,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # PostgreSQL processes found, but this is OK - we'll use different ports
+            pass
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        # pgrep not available or timed out, continue anyway
+        pass
+
+    # Set locale environment variables (required for PostgreSQL on macOS)
+    # PostgreSQL requires a valid locale to start properly, otherwise it fails with:
+    # "FATAL: postmaster became multithreaded during startup"
+    # Always ensure locale is set before PostgreSQL initialization
+    locale_set = False
+    try:
+        result = subprocess.run(["locale", "-a"], capture_output=True, text=True, timeout=2)
+        available_lines = result.stdout.split("\n")
+
+        # Try to find a UTF-8 locale (preferred order)
+        preferred_locales = ["C.UTF-8", "en_US.UTF-8", "en_US.utf8", "UTF-8"]
+        for pref in preferred_locales:
+            for line in available_lines:
+                line_stripped = line.strip()
+                if line_stripped == pref or line_stripped.lower() == pref.lower():
+                    os.environ["LC_ALL"] = line_stripped
+                    os.environ["LANG"] = line_stripped
+                    locale_set = True
+                    break
+            if locale_set:
+                break
+
+        # Fallback: find any UTF-8 locale
+        if not locale_set:
+            for line in available_lines:
+                line_stripped = line.strip()
+                if ".UTF-8" in line_stripped.upper() or ".utf8" in line_stripped.lower():
+                    os.environ["LC_ALL"] = line_stripped
+                    os.environ["LANG"] = line_stripped
+                    locale_set = True
+                    break
+
+        # Final fallback: use C locale
+        if not locale_set:
+            for line in available_lines:
+                if line.strip() == "C":
+                    os.environ["LC_ALL"] = "C"
+                    os.environ["LANG"] = "C"
+                    locale_set = True
+                    break
+    except Exception:
+        # If locale check fails, try common defaults
+        pass
+
+    # Ensure locale is always set (critical for PostgreSQL)
+    if not locale_set:
+        # Try common locale names that usually exist
+        for locale_candidate in ["C.UTF-8", "en_US.UTF-8", "C"]:
+            try:
+                # Test if locale is valid by trying to set it
+                test_result = subprocess.run(
+                    ["locale", "-a"],
+                    capture_output=True,
+                    text=True,
+                    timeout=1,
+                    env={**os.environ, "LC_ALL": locale_candidate},
+                )
+                if (
+                    locale_candidate in test_result.stdout
+                    or locale_candidate.lower() in test_result.stdout.lower()
+                ):
+                    os.environ["LC_ALL"] = locale_candidate
+                    os.environ["LANG"] = locale_candidate
+                    locale_set = True
+                    break
+            except Exception:
+                continue
+
+    # Absolute last resort: set to C (should always exist)
+    if not locale_set:
+        os.environ["LC_ALL"] = "C"
+        os.environ["LANG"] = "C"
+
+    # Helper function to check if a port is available
+    def is_port_available(port: int) -> bool:
+        """Check if a port is available for binding."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)
+                result = s.connect_ex(("localhost", port))
+                return result != 0  # Port is available if connection fails
+        except Exception:
+            return False
+
+    # Helper function to verify port is actually free (more thorough check)
+    def verify_port_free(port: int) -> bool:
+        """Verify port is free by attempting to bind to it."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(("localhost", port))
+                return True
+        except OSError:
+            return False
+
+    # In parallel mode, use worker-specific port to avoid conflicts
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker_id:
+        # Extract worker number (e.g., "gw0" -> 0, "gw1" -> 1)
+        try:
+            worker_num = int(worker_id.replace("gw", ""))
+            # Use a base port + worker number to ensure uniqueness
+            base_port = 15432  # Base port for PostgreSQL test instances
+            port = base_port + worker_num
+            # Verify port is available, try next few ports if not
+            max_attempts = 10
+            for attempt in range(max_attempts):
+                test_port = port + attempt
+                if is_port_available(test_port) and verify_port_free(test_port):
+                    port = test_port
+                    break
+            else:
+                pytest.skip(
+                    f"Could not find available port starting from {port}. "
+                    "This may indicate port conflicts or system resource issues."
+                )
+        except (ValueError, AttributeError):
+            # Fallback: get any unused port
+            port = get_unused_port()
+
+        # Configure PostgreSQL with specific port
+        settings = {"port": port}
+    else:
+        # Non-parallel mode: use any available port
+        port = get_unused_port()
+        settings = {"port": port}
+
+    # Use a singleton PostgreSQL instance per process (session-scoped)
+    # We use a file-based lock to serialize initialization within each process
+    # and prevent concurrent initialization attempts that can cause hangs
+    import fcntl
+    import tempfile
+    import atexit
+
+    global _postgresql_singleton
+
+    # Check shared memory availability before attempting initialization
+    # PostgreSQL requires shared memory and will hang if it's exhausted
+    try:
+        result = subprocess.run(
+            ["ipcs", "-m"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode == 0:
+            # Count existing shared memory segments
+            lines = result.stdout.strip().split("\n")
+            segment_count = len([line for line in lines if line.startswith("m")])
+            # If there are many segments, shared memory might be exhausted
+            if segment_count > 50:
+                pytest.skip(
+                    f"Too many shared memory segments ({segment_count}) detected. "
+                    "PostgreSQL initialization may hang due to shared memory exhaustion. "
+                    "Clean up shared memory: ipcs -m | awk '/^m/ {print $2}' | xargs -I {} ipcrm -m {}"
+                )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        # ipcs not available or timed out, continue anyway
+        pass
+
+    lock_file_path = os.path.join(tempfile.gettempdir(), f"moltres_postgres_init_{port}.lock")
+
+    # Acquire lock to serialize initialization (only needed if multiple threads try simultaneously)
+    lock_file = open(lock_file_path, "w")
+    try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+
+        # Check if singleton already exists in this process
+        if _postgresql_singleton is None:
+            # Initialize PostgreSQL instance for this process
+            # Note: Postgresql() can hang if shared memory is exhausted
+            # We use threading with timeout to detect hangs
+            try:
+                import threading
+
+                postgres_result = [None]
+                postgres_error = [None]
+                init_complete = threading.Event()
+
+                def init_postgres():
+                    try:
+                        postgres_result[0] = Postgresql(**settings)
+                        init_complete.set()
+                    except Exception as e:
+                        postgres_error[0] = e
+                        init_complete.set()
+
+                init_thread = threading.Thread(target=init_postgres, daemon=True)
+                init_thread.start()
+
+                # Wait up to 10 seconds for initialization (short timeout to fail fast)
+                if not init_complete.wait(timeout=10):
+                    # Timeout - PostgreSQL initialization is hanging
+                    # The daemon thread will continue but won't block process exit
+                    # However, the Postgresql subprocess may still be running
+                    pytest.skip(
+                        f"PostgreSQL initialization timed out after 10 seconds. "
+                        f"Port attempted: {port}. "
+                        "PostgreSQL initialization is hanging. This is a known issue with testing.postgresql. "
+                        "Try: 1) Clean resources: pkill -9 postgres; ipcs -m | awk '/^m/ {print $2}' | xargs -I {} ipcrm -m {} "
+                        "2) Run tests individually: pytest tests/integration/test_postgres_workflows.py::test_postgres_etl_pipeline -n 0"
+                    )
+
+                if postgres_error[0]:
+                    raise postgres_error[0]
+
+                if postgres_result[0] is None:
+                    pytest.skip(
+                        f"PostgreSQL initialization failed (unknown error). Port attempted: {port}."
+                    )
+
+                postgres = postgres_result[0]
+                _postgresql_singleton = postgres
+
+                # Register cleanup at exit
+                def cleanup_singleton():
+                    global _postgresql_singleton
+                    try:
+                        if _postgresql_singleton is not None:
+                            _postgresql_singleton.stop()
+                            _postgresql_singleton = None
+                            # Clean up shared memory segments created by this PostgreSQL instance
+                            try:
+                                result = subprocess.run(
+                                    ["ipcs", "-m"],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=2,
+                                )
+                                if result.returncode == 0:
+                                    # Remove any orphaned shared memory segments
+                                    # (This is best-effort - some may be owned by other processes)
+                                    pass
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
+                atexit.register(cleanup_singleton)
+            except RuntimeError as exc:
+                error_str = str(exc)
+                diagnostic_msg = (
+                    f"PostgreSQL fixture unavailable: {error_str}\nPort attempted: {port}. "
+                )
+                if "failed to launch" in error_str.lower():
+                    diagnostic_msg += (
+                        "PostgreSQL server failed to start. Common causes:\n"
+                        "  - Port conflicts (check for existing PostgreSQL processes)\n"
+                        "  - Locale issues (ensure LC_ALL and LANG are set)\n"
+                        "  - Permission issues (check PostgreSQL data directory permissions)\n"
+                        "  - Insufficient system resources\n"
+                    )
+                elif "port" in error_str.lower():
+                    diagnostic_msg += "Port-related error. Check for port conflicts.\n"
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+                pytest.skip(diagnostic_msg)
+            except Exception as exc:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+                pytest.skip(
+                    f"PostgreSQL fixture failed to initialize: {exc}\nPort attempted: {port}."
+                )
+        else:
+            # Singleton already exists in this process, use it
+            postgres = _postgresql_singleton
+
+        # IMPORTANT: Release the lock immediately after initialization
+        # This allows other threads/workers to proceed
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        lock_file.close()
+    except Exception as exc:
+        if lock_file is not None:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+            except Exception:
+                pass
+        pytest.skip(
+            f"Failed to acquire PostgreSQL initialization lock: {exc}\nPort attempted: {port}."
+        )
+
     try:
         yield postgres
     finally:
-        postgres.stop()
+        # Don't stop the singleton - it's shared across all tests
+        # Cleanup happens at process exit via atexit
+        pass
 
 
 @pytest.fixture(scope="session")
@@ -207,16 +575,67 @@ def postgresql_admin_engine(postgresql_db):
 
 @pytest.fixture(scope="function")
 def postgresql_schema(postgresql_admin_engine):
-    """Provision a unique schema per test function to isolate table names."""
-    schema = f"test_{uuid.uuid4().hex}"
+    """Provision a unique schema per test function to isolate table names.
+
+    In parallel mode, includes worker ID to ensure uniqueness across workers.
+    """
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+    worker_suffix = f"_{worker_id}" if worker_id else ""
+    schema = f"test_{uuid.uuid4().hex}{worker_suffix}"
     with postgresql_admin_engine.begin() as conn:
         conn.execute(text(f'CREATE SCHEMA "{schema}"'))
         conn.execute(text(f'SET search_path TO "{schema}"'))
     try:
         yield schema
     finally:
-        with postgresql_admin_engine.begin() as conn:
-            conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+        # Cleanup schema with timeout to prevent hanging
+        try:
+            import threading
+
+            cleanup_complete = threading.Event()
+            cleanup_error = [None]
+
+            def drop_schema():
+                try:
+                    with postgresql_admin_engine.begin() as conn:
+                        conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+                    cleanup_complete.set()
+                except Exception as e:
+                    cleanup_error[0] = e
+                    cleanup_complete.set()
+
+            cleanup_thread = threading.Thread(target=drop_schema, daemon=True)
+            cleanup_thread.start()
+
+            # Wait up to 5 seconds for cleanup
+            if not cleanup_complete.wait(timeout=5):
+                # Cleanup timed out - log but don't fail
+                import warnings
+
+                warnings.warn(
+                    f"Schema cleanup timed out for {schema}. "
+                    "This may indicate PostgreSQL connection issues.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        except Exception:
+            # If cleanup fails, log but don't fail the test
+            pass
+
+
+@pytest.fixture(scope="function")
+def unique_table_name(request):
+    """Generate a unique table name for each test function.
+
+    Includes worker ID in parallel mode and test function name to ensure uniqueness.
+    """
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+    worker_suffix = f"_{worker_id}" if worker_id else ""
+    test_name = request.node.name.replace("[", "_").replace("]", "_").replace("::", "_")
+    # Limit test name length to avoid overly long table names
+    test_name = test_name[:30] if len(test_name) > 30 else test_name
+    unique_id = uuid.uuid4().hex[:8]
+    return f"{test_name}_{unique_id}{worker_suffix}"
 
 
 @pytest.fixture(scope="function")
@@ -237,7 +656,11 @@ def postgresql_connection(postgresql_db, postgresql_schema) -> Generator:
 
 @pytest.fixture(scope="session")
 def mysql_db() -> Generator:
-    """Create a reusable MySQL database server for testing."""
+    """Create a reusable MySQL database server for testing.
+
+    In parallel mode (pytest-xdist), each worker gets its own database instance
+    with a unique port to avoid conflicts.
+    """
     import os
     import shutil
     import subprocess
@@ -247,6 +670,7 @@ def mysql_db() -> Generator:
 
     try:
         from testing.mysqld import Mysqld
+        from testing.common.database import get_unused_port
     except ImportError:
         pytest.skip("testing.mysqld not available")
 
@@ -256,6 +680,21 @@ def mysql_db() -> Generator:
 
     if not mysqld:
         pytest.skip("MySQL mysqld command not found")
+
+    # In parallel mode, use worker-specific port to avoid conflicts
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker_id:
+        # Extract worker number (e.g., "gw0" -> 0, "gw1" -> 1)
+        try:
+            worker_num = int(worker_id.replace("gw", ""))
+            # Use a base port + worker number to ensure uniqueness
+            base_port = 13306  # Base port for MySQL test instances
+            port = base_port + worker_num
+        except (ValueError, AttributeError):
+            # Fallback: get any unused port
+            port = get_unused_port()
+    else:
+        port = None
 
     # Detect MySQL version
     mysql_version = None
@@ -325,10 +764,15 @@ def mysql_db() -> Generator:
         def patched_initialize_database(self):
             """Patched initialize_database that uses mysqld --initialize for MySQL 8.0+."""
             # Get the original method's logic for setting up my.cnf
+            # Port should already be set from the outer scope if in parallel mode
             if "port" not in self.my_cnf and "skip-networking" not in self.my_cnf:
-                from testing.common.database import get_unused_port
+                # Only get unused port if not already set (non-parallel mode)
+                if port is not None:
+                    self.my_cnf["port"] = port
+                else:
+                    from testing.common.database import get_unused_port
 
-                self.my_cnf["port"] = get_unused_port()
+                    self.my_cnf["port"] = get_unused_port()
 
             # Write my.cnf
             etc_dir = os.path.join(self.base_dir, "etc")
@@ -387,8 +831,13 @@ def mysql_db() -> Generator:
         Mysqld.initialize = patched_initialize
         Mysqld.initialize_database = patched_initialize_database
 
+    # Configure MySQL with specific port if in parallel mode
+    mysql_settings = {}
+    if port is not None:
+        mysql_settings["my_cnf"] = {"port": port}
+
     try:
-        mysql = Mysqld()
+        mysql = Mysqld(**mysql_settings)
     except PermissionError as exc:  # pragma: no cover - environment specific
         pytest.skip(f"MySQL fixture unavailable: {exc}")
     except RuntimeError as e:
@@ -560,7 +1009,9 @@ async def postgresql_async_connection(postgresql_db, postgresql_schema):
 
     # Extract connection info from postgresql_db
     dsn = _dsn_with_search_path(postgresql_db.url(), postgresql_schema)
-    # async_connect will automatically convert postgresql:// to postgresql+asyncpg://
+    # Convert postgresql:// to postgresql+asyncpg:// for async connections
+    if dsn.startswith("postgresql://") and "+asyncpg" not in dsn:
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
     db = async_connect(dsn)
     try:
         yield db
@@ -582,7 +1033,11 @@ async def mysql_async_connection(mysql_db, mysql_database):
 
     # Extract connection info from mysql_db
     dsn = _dsn_with_database(mysql_db.url(), mysql_database)
-    # async_connect will automatically convert mysql:// to mysql+aiomysql://
+    # Convert to async driver format (mysql+pymysql:// -> mysql+aiomysql://)
+    if dsn.startswith("mysql+pymysql://"):
+        dsn = dsn.replace("mysql+pymysql://", "mysql+aiomysql://", 1)
+    elif dsn.startswith("mysql://"):
+        dsn = dsn.replace("mysql://", "mysql+aiomysql://", 1)
     db = async_connect(dsn)
     try:
         yield db

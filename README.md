@@ -54,9 +54,36 @@ pip install moltres[pandas,polars]
 ```python
 from moltres import col, connect
 from moltres.expressions import functions as F
+from moltres.table.schema import column
 
 # Connect to your database
 db = connect("sqlite:///example.db")
+
+# Create tables and insert data (setup)
+db.create_table("orders", [
+    column("id", "INTEGER", primary_key=True),
+    column("customer_id", "INTEGER"),
+    column("amount", "REAL"),
+    column("country", "TEXT"),
+]).collect()
+
+db.create_table("customers", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("active", "INTEGER"),
+    column("country", "TEXT"),
+]).collect()
+
+from moltres.io.records import Records
+Records.from_list([
+    {"id": 1, "customer_id": 1, "amount": 150.0, "country": "UK"},
+    {"id": 2, "customer_id": 2, "amount": 300.0, "country": "USA"},
+], database=db).insert_into("orders")
+
+Records.from_list([
+    {"id": 1, "name": "Alice", "active": 1, "country": "UK"},
+    {"id": 2, "name": "Bob", "active": 1, "country": "USA"},
+], database=db).insert_into("customers")
 
 # DataFrame operations with SQL pushdown (no data loading into memory)
 df = (
@@ -70,52 +97,183 @@ df = (
 
 # Execute and get results (SQL is compiled and executed here)
 results = df.collect()  # Returns list of dicts by default
+print(results)
 # Output: [{'country': 'UK', 'total_amount': 150.0}, {'country': 'USA', 'total_amount': 300.0}]
 ```
 
 ### Raw SQL & SQL Expressions
 
 ```python
+from moltres import col, connect
+from moltres.table.schema import column
+
+db = connect("sqlite:///example.db")
+
+# Create tables and insert data (setup)
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+]).collect()
+
+db.create_table("orders", [
+    column("id", "INTEGER", primary_key=True),
+    column("amount", "REAL"),
+]).collect()
+
+from moltres.io.records import Records
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 25},
+    {"id": 2, "name": "Bob", "age": 17},
+    {"id": 3, "name": "Charlie", "age": 30},
+], database=db).insert_into("users")
+
+Records.from_list([
+    {"id": 1, "amount": 50.0},
+    {"id": 2, "amount": 150.0},
+], database=db).insert_into("orders")
+
 # Raw SQL queries (PySpark-style)
 df = db.sql("SELECT * FROM users WHERE age > 18")
+results = df.collect()
+print(results)
 # Output: [{'id': 1, 'name': 'Alice', 'age': 25}, {'id': 3, 'name': 'Charlie', 'age': 30}]
 
 df = db.sql("SELECT * FROM orders WHERE id = :id", id=1).where(col("amount") > 100)
+results = df.collect()
+print(results)
 # Output: [] (empty if amount <= 100)
 
 # SQL expression selection
-df.selectExpr("amount * 1.1 as with_tax", "amount as amount_original")
-# Output: [{'with_tax': 55.0, 'amount_original': 50.0}, {'with_tax': 165.0, 'amount_original': 150.0}]
+df = db.table("orders").select()
+results = df.selectExpr("amount * 1.1 as with_tax", "amount as amount_original").collect()
+print(results)
+# Output: [{'with_tax': 55.00000000000001, 'amount_original': 50.0}, {'with_tax': 165.0, 'amount_original': 150.0}]
 ```
 
 ### CRUD Operations
 
+Moltres provides multiple ways to perform CRUD operations:
+
+**Using Records API:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
 from moltres.io.records import Records
 
-# Insert rows
-records = Records(
-    _data=[
+db = connect("sqlite:///example.db")
+
+# Create table (setup)
+db.create_table("customers", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("email", "TEXT"),
+    column("active", "INTEGER"),
+]).collect()
+
+# Create Records from list (recommended)
+records = Records.from_list(
+    [
         {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 1},
         {"id": 2, "name": "Bob", "email": "bob@example.com", "active": 0},
     ],
-    _database=db,
+    database=db,
 )
 result = records.insert_into("customers")  # Executes immediately
+print(result)
+# Output: 2 (number of rows inserted)
+
+# Create Records from multiple dicts (convenience method)
+records = Records.from_dicts(
+    {"id": 3, "name": "Charlie"},
+    {"id": 4, "name": "Diana"},
+    database=db,
+)
+result = records.insert_into("customers")
+print(result)
+# Output: 2 (number of rows inserted)
+```
+
+**Using Database convenience methods:**
+```python
+from moltres import col, connect
+from moltres.table.schema import column
+
+db = connect("sqlite:///example.db")
+
+# Create table (setup)
+db.create_table("customers", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("email", "TEXT"),
+    column("active", "INTEGER"),
+]).collect()
+
+# Insert rows directly
+result = db.insert("customers", [
+    {"id": 1, "name": "Alice", "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "email": "bob@example.com"},
+])
+print(result)
 # Output: 2 (number of rows inserted)
 
 # Update rows
+result = db.update("customers", where=col("active") == 0, set={"active": 1})
+print(result)
+# Output: 1 (number of rows updated)
+
+# Delete rows (example: delete rows where email is null)
+# First insert a row without email for demonstration
+db.insert("customers", [{"id": 5, "name": "Eve"}])
+result = db.delete("customers", where=col("email").is_null())
+print(result)
+# Output: 1 (number of rows deleted, if any rows have null email)
+
+# Merge (upsert) rows
+result = db.merge(
+    "customers",
+    [{"id": 1, "name": "Alice Updated"}],
+    on=["id"],
+    when_matched={"name": "Alice Updated"},
+)
+print(result)
+# Output: 1 (number of rows affected)
+```
+
+**Using DataFrame write API:**
+```python
+from moltres import col, connect
+from moltres.table.schema import column
+
+db = connect("sqlite:///example.db")
+
+# Create table (setup)
+db.create_table("customers", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("email", "TEXT"),
+    column("active", "INTEGER"),
+]).collect()
+
+# Insert some data
+from moltres.io.records import Records
+Records.from_list([
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "active": 0},
+    {"id": 2, "name": "Bob", "email": None, "active": 1},
+], database=db).insert_into("customers")
+
+# Update rows
 df = db.table("customers").select()
-result = df.write.update(
+df.write.update(
     "customers",
     where=col("active") == 0,
     set={"active": 1}
 )  # Executes immediately
-# Output: None (operation executes immediately, returns None)
+# Note: Returns None (operation executes immediately)
 
 # Delete rows
 df.write.delete("customers", where=col("email").is_null())  # Executes immediately
-# Output: None (operation executes immediately, returns None)
+# Note: Returns None (operation executes immediately)
 ```
 
 ### Pandas & Polars DataFrame Integration
@@ -125,6 +283,18 @@ Moltres seamlessly integrates with pandas and polars DataFrames. You can pass Da
 ```python
 import pandas as pd
 import polars as pl
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+db = connect("sqlite:///example.db")
+
+# Create table (setup)
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+]).collect()
 
 # Create pandas DataFrame
 pandas_df = pd.DataFrame([
@@ -139,22 +309,25 @@ polars_df = pl.DataFrame([
 ])
 
 # Pass pandas DataFrame directly to insert_into
-from moltres.io.records import Records
 records = Records.from_dataframe(pandas_df, database=db)
-records.insert_into("users")  # Schema is automatically inferred!
+result = records.insert_into("users")  # Schema is automatically inferred!
+print(f"Inserted {result} rows from pandas DataFrame")
+# Output: Inserted 2 rows from pandas DataFrame
 
 # Pass polars DataFrame to createDataFrame
 df = db.createDataFrame(polars_df, pk="id")
 df.write.insertInto("users")
+# Note: Returns None (operation executes immediately)
 
 # Polars LazyFrame support (lazy conversion)
-lazy_df = pl.scan_csv("data.csv")
-df = db.createDataFrame(lazy_df)  # Conversion happens lazily
-df.write.insertInto("users")
+# Note: Requires a CSV file named "data.csv" to exist
+# lazy_df = pl.scan_csv("data.csv")
+# df = db.createDataFrame(lazy_df)  # Conversion happens lazily
+# df.write.insertInto("users")
 
 # Direct insertion with pandas/polars DataFrames
-pandas_df = pd.read_csv("data.csv")
-Records.from_dataframe(pandas_df, database=db).insert_into("users")
+# pandas_df = pd.read_csv("data.csv")
+# Records.from_dataframe(pandas_df, database=db).insert_into("users")
 ```
 
 **Key Features:**
@@ -163,6 +336,66 @@ Records.from_dataframe(pandas_df, database=db).insert_into("users")
 - **No Manual Conversion** - Pass DataFrames directly to `insert_into()`, `createDataFrame()`, etc.
 - **Polars LazyFrame Support** - Works with both eager and lazy polars DataFrames
 
+### Convenient Data Inspection
+
+Moltres provides convenient methods for exploring your data:
+
+```python
+from moltres import connect
+from moltres.table.schema import column
+
+db = connect("sqlite:///example.db")
+
+# Create table and insert data (setup)
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+]).collect()
+
+from moltres.io.records import Records
+Records.from_list([
+    {"id": i, "name": f"User{i}", "age": 20 + i} for i in range(1, 16)
+], database=db).insert_into("users")
+
+df = db.table("users").select()
+
+# Get first few rows
+first_rows = df.head(10)  # Returns first 10 rows
+print(f"First row: {first_rows[0] if first_rows else None}")
+# Output: First row: {'id': 1, 'name': 'User1', 'age': 21}
+
+# Get last few rows (requires materializing entire DataFrame)
+last_rows = df.tail(5)  # Returns last 5 rows
+print(f"Last row: {last_rows[-1] if last_rows else None}")
+# Output: Last row: {'id': 15, 'name': 'User15', 'age': 35}
+
+# Show DataFrame contents (formatted output)
+df.show(20)  # Prints first 20 rows in a formatted table
+# Output:
+# id | name   | age
+# -----------------
+# 1  | User1  | 21
+# 2  | User2  | 22
+# ... (truncated)
+
+# Print schema
+df.printSchema()  # Prints schema in tree format
+# Output:
+# root
+#  |-- id: INTEGER (nullable = true)
+#  |-- name: TEXT (nullable = true)
+#  |-- age: INTEGER (nullable = true)
+
+# Get query execution plan
+plan = df.explain()  # Estimated plan
+print(f"Plan length: {len(plan)}")
+# Output: Plan length: 60 (varies by database)
+
+plan = df.explain(analyze=True)  # Actual execution stats (PostgreSQL)
+# Note: SQLite uses EXPLAIN QUERY PLAN, not EXPLAIN ANALYZE
+```
+
 ### Async Support
 
 ```python
@@ -170,18 +403,23 @@ import asyncio
 from moltres import async_connect, col
 
 async def main():
+    # Note: Requires async dependencies: pip install moltres[async-postgresql]
     db = await async_connect("postgresql+asyncpg://user:pass@localhost/db")
     
     df = await db.table("orders").select()
     results = await df.collect()
+    print(f"Results: {results}")
+    # Output: Results: [{'id': 1, ...}, {'id': 2, ...}]  # Actual output depends on data
     
     # Streaming support
     async for chunk in await df.collect(stream=True):
-        process_chunk(chunk)
+        print(f"Chunk: {chunk}")
+        # Output: Chunk: [{'id': 1, ...}, ...]  # Processed in chunks
     
     await db.close()
 
-asyncio.run(main())
+# Uncomment to run:
+# asyncio.run(main())
 ```
 
 ## 📖 Core Concepts
@@ -197,6 +435,7 @@ df = db.table("users").select().where(col("age") > 18)
 # SQL is compiled and executed here
 results = df.collect()
 # Output: [{'id': 1, 'name': 'Alice', 'age': 25}, {'id': 3, 'name': 'Charlie', 'age': 30}]
+# Note: Requires users table with data to produce this output
 ```
 
 ### Column Expressions
@@ -271,7 +510,10 @@ Create, drop, and manage database tables with explicit schemas or from DataFrame
 
 **Example:**
 ```python
+from moltres import connect
 from moltres.table.schema import column, unique, check, foreign_key
+
+db = connect("sqlite:///example.db")
 
 # Create table with constraints
 db.create_table(
@@ -286,6 +528,7 @@ db.create_table(
         check("age >= 0", name="ck_positive_age"),
     ],
 ).collect()
+# Note: Returns TableHandle, executes on .collect()
 
 # Create table with foreign key
 db.create_table(
@@ -294,6 +537,7 @@ db.create_table(
         column("id", "INTEGER", primary_key=True),
         column("user_id", "INTEGER"),
         column("total", "REAL"),
+        column("status", "TEXT"),  # Added for composite index example
     ],
     constraints=[
         foreign_key("user_id", "users", "id", on_delete="CASCADE"),
@@ -304,9 +548,11 @@ db.create_table(
 db.create_index("idx_user_email", "users", "email").collect()
 db.create_index("idx_order_user", "orders", "user_id").collect()
 db.create_index("idx_order_user_status", "orders", ["user_id", "status"]).collect()
+# Note: All return CreateIndexOperation, execute on .collect()
 
 # Drop index
 db.drop_index("idx_user_email", "users").collect()
+# Note: Returns DropIndexOperation, executes on .collect()
 ```
 
 **📚 See detailed examples:**
@@ -318,31 +564,92 @@ db.drop_index("idx_user_email", "users").collect()
 Inspect and reflect existing database schemas without manually defining them.
 
 **Key Features:**
-- List tables: `db.get_table_names()`
+- List tables: `db.get_table_names()` or `db.show_tables()` (formatted output)
 - List views: `db.get_view_names()`
-- Get column metadata: `db.get_columns("table_name")`
+- Get column metadata: `db.get_columns("table_name")` or `db.show_schema("table_name")` (formatted output)
 - Reflect single table: `db.reflect_table("table_name")`
 - Reflect entire database: `db.reflect()`
+- Query execution plans: `db.explain(sql)` or `df.explain()`
 - Full async support: All methods available on `AsyncDatabase`
 
 **Example:**
 ```python
-# Get list of tables
-tables = db.get_table_names()
-# Output: ['users', 'orders', 'products']
+from moltres import connect, col
+from moltres.table.schema import column
 
-# Get column information
+db = connect("sqlite:///example.db")
+
+# Create tables (setup)
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("email", "TEXT"),
+]).collect()
+
+db.create_table("orders", [
+    column("id", "INTEGER", primary_key=True),
+    column("user_id", "INTEGER"),
+]).collect()
+
+db.create_table("products", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Get list of tables (programmatic)
+tables = db.get_table_names()
+print(tables)
+# Output: ['orders', 'products', 'users']  # Order may vary
+
+# Show tables (formatted for interactive use)
+db.show_tables()
+# Output:
+# Tables in database:
+#   - orders
+#   - products
+#   - users
+
+# Get column information (programmatic)
 columns = db.get_columns("users")
-for col in columns:
-    print(f"{col.name}: {col.type_name} (nullable={col.nullable}, pk={col.primary_key})")
+for col_info in columns:
+    print(f"{col_info.name}: {col_info.type_name} (nullable={col_info.nullable}, pk={col_info.primary_key})")
+# Output:
+# id: INTEGER (nullable=True, pk=True)
+# name: TEXT (nullable=True, pk=False)
+# email: TEXT (nullable=True, pk=False)
+
+# Show schema (formatted for interactive use)
+db.show_schema("users")
+# Output:
+# Schema for table 'users':
+#   - id: INTEGER (primary_key=True)
+#   - name: TEXT
+#   - email: TEXT
 
 # Reflect a single table
 schema = db.reflect_table("users")
+print(f"Table: {schema.name}, Columns: {len(schema.columns)}")
 # Returns: TableSchema(name='users', columns=[ColumnDef(...), ...])
 
 # Reflect entire database
 all_schemas = db.reflect()
-# Returns: {'users': TableSchema(...), 'orders': TableSchema(...)}
+for table_name, schema in all_schemas.items():
+    print(f"{table_name}: {len(schema.columns)} columns")
+# Output:
+# orders: 2 columns
+# products: 2 columns
+# users: 3 columns
+
+# Get query execution plan
+plan = db.explain("SELECT * FROM users WHERE id = :id", params={"id": 1})
+print(f"Plan length: {len(plan)}")
+# Output: Plan length: 24 (varies by database)
+
+# Or from a DataFrame
+df = db.table("users").select().where(col("id") == 1)
+plan = df.explain()  # Shows estimated plan
+plan = df.explain(analyze=True)  # Shows actual execution stats (PostgreSQL)
+# Note: SQLite uses EXPLAIN QUERY PLAN, not EXPLAIN ANALYZE
 ```
 
 **📚 See detailed examples:**
@@ -385,7 +692,7 @@ db = connect(
     fetch_format="records",  # Default result format
     pool_size=5,  # Connection pool size
 )
-# Output: Database configured with custom settings
+# Note: No output - connection is created silently
 ```
 
 **Environment Variables:**
@@ -393,6 +700,38 @@ db = connect(
 - `MOLTRES_ECHO` - Enable SQL logging (true/false)
 - `MOLTRES_FETCH_FORMAT` - Result format: "records", "pandas", or "polars"
 - `MOLTRES_POOL_SIZE`, `MOLTRES_MAX_OVERFLOW`, etc. - Connection pool settings
+
+**Connection String Validation:**
+Moltres validates connection strings and provides helpful error messages:
+- Validates format (must include `://` separator)
+- Checks for async driver requirements (`+asyncpg`, `+aiomysql`, `+aiosqlite`)
+- Provides suggestions for fixing connection string issues
+
+```python
+# Invalid connection string - helpful error message
+try:
+    from moltres.utils.exceptions import DatabaseConnectionError
+    db = connect("invalid-connection-string")
+except DatabaseConnectionError as e:
+    print(e)  # Clear error message with suggestions
+    # Output: Connection string must include '://' separator. Got: invalid-connection-string...
+    #         Suggestion: Connection strings should follow the format: 'dialect://user:pass@host:port/dbname'
+
+# Missing async driver - helpful error message
+try:
+    from moltres import async_connect
+    db = async_connect("sqlite:///example.db")  # Missing +aiosqlite
+except DatabaseConnectionError as e:
+    print(e)  # Suggests using 'sqlite+aiosqlite://'
+    # Output: Async SQLite connection requires 'sqlite+aiosqlite://' prefix. Got: sqlite:///example.db...
+    #         Suggestion: Use 'sqlite+aiosqlite:///path/to/db.db' for async SQLite connections.
+```
+
+**Error Messages with Suggestions:**
+Moltres provides helpful "Did you mean?" suggestions for common errors:
+- Column name typos suggest similar column names
+- Table name typos suggest similar table names
+- Connection string issues provide format guidance
 
 See [connection examples](https://github.com/eddiethedean/moltres/blob/main/examples/01_connecting.py) for more details.
 
@@ -407,7 +746,8 @@ def log_query(sql: str, elapsed: float, metadata: dict):
     print(f"Query took {elapsed:.3f}s, returned {metadata.get('rowcount', 0)} rows")
 
 register_performance_hook("query_end", log_query)
-# Output: Query took 0.000s, returned 2 rows (when query executes)
+# Note: Output appears when queries execute, e.g.:
+# Query took 0.000s, returned 2 rows
 ```
 
 See the [telemetry module](https://github.com/eddiethedean/moltres/blob/main/src/moltres/utils/telemetry.py) for more details.
@@ -440,6 +780,7 @@ Comprehensive examples demonstrating all Moltres features:
 - **[13_transactions.py](https://github.com/eddiethedean/moltres/blob/main/examples/13_transactions.py)** - Transaction management
 - **[14_reflection.py](https://github.com/eddiethedean/moltres/blob/main/examples/14_reflection.py)** - Schema inspection and reflection
 - **[15_pandas_polars_dataframes.py](https://github.com/eddiethedean/moltres/blob/main/examples/15_pandas_polars_dataframes.py)** - Using pandas and polars DataFrames with moltres
+- **[16_ux_features.py](https://github.com/eddiethedean/moltres/blob/main/examples/16_ux_features.py)** - UX improvements and convenience methods
 
 See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
 

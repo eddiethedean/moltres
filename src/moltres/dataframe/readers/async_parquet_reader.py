@@ -3,14 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Dict, List, Optional, Sequence, cast
-
-try:
-    import pyarrow.parquet as pq
-except ImportError as exc:
-    raise ImportError(
-        "Async Parquet reading requires pyarrow. Install with: pip install pyarrow"
-    ) from exc
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Sequence, cast
 
 # aiofiles is not directly used here, but required for async file operations
 # The import check is handled by the caller
@@ -58,6 +51,10 @@ async def read_parquet(
     import asyncio
 
     def _read_parquet_sync() -> List[Dict[str, object]]:
+        from ...utils.optional_deps import get_pyarrow_parquet
+
+        pq = get_pyarrow_parquet(required=True)
+
         read_options: Dict[str, object] = {}
         if merge_schema:
             # Note: PyArrow's read_table doesn't directly support mergeSchema
@@ -66,12 +63,9 @@ async def read_parquet(
             pass
 
         table = pq.read_table(str(path_obj), **read_options)
-        try:
-            import pandas as pd  # noqa: F401
-        except ImportError as exc:
-            raise RuntimeError(
-                "Parquet format requires pandas. Install with: pip install pandas"
-            ) from exc
+        from ...utils.optional_deps import get_pandas
+
+        get_pandas(required=True)
         df = table.to_pandas()
         return df.to_dict("records")  # type: ignore[no-any-return]
 
@@ -124,8 +118,11 @@ async def read_parquet_stream(
         raise FileNotFoundError(f"Parquet file not found: {path}")
 
     import asyncio
+    from ...utils.optional_deps import get_pyarrow_parquet
 
-    def _get_parquet_file() -> pq.ParquetFile:
+    pq = get_pyarrow_parquet(required=True)
+
+    def _get_parquet_file() -> Any:
         return pq.ParquetFile(str(path_obj))
 
     parquet_file = await asyncio.to_thread(_get_parquet_file)
@@ -134,11 +131,10 @@ async def read_parquet_stream(
         for i in range(parquet_file.num_row_groups):
 
             def _read_row_group(idx: int) -> List[Dict[str, object]]:
+                from ...utils.optional_deps import get_pandas
+
                 row_group = parquet_file.read_row_group(idx)
-                try:
-                    import pandas as pd  # noqa: F401
-                except ImportError:
-                    raise RuntimeError("Parquet requires pandas") from None
+                get_pandas(required=True)
                 df = row_group.to_pandas()
                 return df.to_dict("records")  # type: ignore[no-any-return]
 

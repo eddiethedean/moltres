@@ -52,9 +52,15 @@ try:
         # Streaming results
         async for chunk in await df.collect(stream=True):
             print(f"Chunk: {chunk}")
+            # Output: Chunk: [{'id': 1, 'name': 'Laptop', 'price': 999.99, 'category': 'Electronics'}, ...]
 
         await db.close()
 
+    # Uncomment to run:
+    # import asyncio
     # asyncio.run(main())
+    # Expected output:
+    # Expensive products: [{'id': 1, 'name': 'Laptop', 'price': 999.99, 'category': 'Electronics'}, {'id': 3, 'name': 'Desk', 'price': 199.99, 'category': 'Furniture'}]
+    # Total price: [{'total_price': 1229.97}]
 except ImportError:
     print("Async dependencies not installed. Install with: pip install moltres[async]")

@@ -189,7 +189,7 @@ async def test_async_select_expr_basic(tmp_path):
     from moltres import async_connect
 
     db_path = tmp_path / "test.sqlite"
-    db = async_connect(f"sqlite:///{db_path}")
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
     engine = db.connection_manager.engine
 
     async with engine.begin() as conn:

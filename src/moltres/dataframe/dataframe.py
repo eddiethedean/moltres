@@ -891,12 +891,20 @@ class DataFrame:
     def explain(self, analyze: bool = False) -> str:
         """Get the query execution plan using SQL EXPLAIN.
 
+        Convenience method for query debugging and optimization.
+
         Args:
             analyze: If True, use EXPLAIN ANALYZE (executes query and shows actual execution stats).
                     If False, use EXPLAIN (shows estimated plan without executing).
 
         Returns:
             Query plan as a string
+
+        Example:
+            >>> plan = df.explain()
+            >>> print(plan)
+            >>> # Or with actual execution stats
+            >>> plan = df.explain(analyze=True)
 
         Raises:
             RuntimeError: If DataFrame is not bound to a Database
@@ -912,7 +920,20 @@ class DataFrame:
             raise RuntimeError("Cannot explain a plan without an attached Database")
 
         sql = self.to_sql()
-        explain_sql = f"EXPLAIN ANALYZE {sql}" if analyze else f"EXPLAIN {sql}"
+        # SQLite uses EXPLAIN QUERY PLAN, not EXPLAIN ANALYZE
+        dialect_name = self.database.dialect.name if self.database else "sqlite"
+        if analyze:
+            if dialect_name == "sqlite":
+                explain_sql = f"EXPLAIN QUERY PLAN {sql}"
+            elif dialect_name == "postgresql":
+                explain_sql = f"EXPLAIN ANALYZE {sql}"
+            else:
+                explain_sql = f"EXPLAIN {sql}"
+        else:
+            if dialect_name == "sqlite":
+                explain_sql = f"EXPLAIN QUERY PLAN {sql}"
+            else:
+                explain_sql = f"EXPLAIN {sql}"
 
         # Execute EXPLAIN query
         result = self.database.execute_sql(explain_sql)
@@ -1246,18 +1267,43 @@ class DataFrame:
         return rows[0] if rows else None
 
     def head(self, n: int = 5) -> List[Dict[str, object]]:
-        """Return the first n rows as a list.
+        """Return the first n rows of the DataFrame.
+
+        Convenience method for quickly inspecting data.
 
         Args:
             n: Number of rows to return (default: 5)
 
         Returns:
-            List of dictionaries representing the rows
+            List of row dictionaries
+
+        Example:
+            >>> df.head(10)  # Get first 10 rows
         """
         rows = self.limit(n).collect()
         if not isinstance(rows, list):
             raise TypeError("head() requires collect() to return a list, not an iterator")
         return rows
+
+    def tail(self, n: int = 5) -> List[Dict[str, object]]:
+        """Return the last n rows of the DataFrame.
+
+        Note: This requires materializing the entire DataFrame, so it may be slow for large datasets.
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            List of row dictionaries
+
+        Example:
+            >>> df.tail(10)  # Get last 10 rows
+        """
+        all_rows = self.collect()
+        if not isinstance(all_rows, list):
+            # If collect() returns an iterator, convert to list
+            all_rows = list(all_rows)
+        return all_rows[-n:] if len(all_rows) > n else all_rows
 
     def count(self) -> int:
         """Return the number of rows in the DataFrame.

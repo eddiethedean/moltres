@@ -1,6 +1,72 @@
 """Custom exception hierarchy."""
 
-from typing import Optional
+from typing import Optional, Sequence
+
+
+def _levenshtein_distance(s1: str, s2: str) -> int:
+    """Calculate Levenshtein distance between two strings."""
+    if len(s1) < len(s2):
+        return _levenshtein_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    previous_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+def _suggest_column_name(column_name: str, available_columns: Sequence[str]) -> str:
+    """Suggest similar column names when a column is not found."""
+    if not available_columns:
+        return f"Column '{column_name}' does not exist. No columns are available in this context."
+    # Calculate similarity scores
+    scores = [
+        (col, _levenshtein_distance(column_name.lower(), col.lower())) for col in available_columns
+    ]
+    scores.sort(key=lambda x: x[1])
+    # Get top 3 suggestions
+    suggestions = [col for col, _ in scores[:3] if scores[0][1] <= len(column_name)]
+    if suggestions:
+        if len(suggestions) == 1:
+            return f"Column '{column_name}' does not exist. Did you mean: '{suggestions[0]}'?"
+        else:
+            suggestions_str = ", ".join(f"'{s}'" for s in suggestions)
+            return f"Column '{column_name}' does not exist. Did you mean one of: {suggestions_str}?"
+    return (
+        f"Column '{column_name}' does not exist. "
+        f"Available columns: {', '.join(available_columns[:10])}"
+        + ("..." if len(available_columns) > 10 else "")
+    )
+
+
+def _suggest_table_name(table_name: str, available_tables: Sequence[str]) -> str:
+    """Suggest similar table names when a table is not found."""
+    if not available_tables:
+        return f"Table '{table_name}' does not exist. No tables are available in this database."
+    # Calculate similarity scores
+    scores = [
+        (tbl, _levenshtein_distance(table_name.lower(), tbl.lower())) for tbl in available_tables
+    ]
+    scores.sort(key=lambda x: x[1])
+    # Get top 3 suggestions
+    suggestions = [tbl for tbl, _ in scores[:3] if scores[0][1] <= len(table_name)]
+    if suggestions:
+        if len(suggestions) == 1:
+            return f"Table '{table_name}' does not exist. Did you mean: '{suggestions[0]}'?"
+        else:
+            suggestions_str = ", ".join(f"'{s}'" for s in suggestions)
+            return f"Table '{table_name}' does not exist. Did you mean one of: {suggestions_str}?"
+    return (
+        f"Table '{table_name}' does not exist. "
+        f"Available tables: {', '.join(available_tables[:10])}"
+        + ("..." if len(available_tables) > 10 else "")
+    )
 
 
 class MoltresError(Exception):
@@ -85,11 +151,23 @@ class ExecutionError(MoltresError):
                     "The table does not exist. Check the table name spelling and "
                     "ensure the table has been created. Use db.table('name') to verify."
                 )
+                # Try to extract table name and suggest similar ones
+                context = context or {}
+                if "table_name" in context and "available_tables" in context:
+                    suggestion = _suggest_table_name(
+                        context["table_name"], context["available_tables"]
+                    )
             elif "no such column" in message.lower():
                 suggestion = (
                     "The column does not exist. Check the column name spelling. "
                     "Use df.select() to see available columns."
                 )
+                # Try to extract column name and suggest similar ones
+                context = context or {}
+                if "column_name" in context and "available_columns" in context:
+                    suggestion = _suggest_column_name(
+                        context["column_name"], context["available_columns"]
+                    )
             elif "syntax error" in message.lower():
                 suggestion = (
                     "There's a SQL syntax error. Check your query structure. "

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, List, Optional, Union, cast
 
 from ..io.records import LazyRecords, Records
 from ..table.schema import ColumnDef
-from ..utils.exceptions import ValidationError
+from ..utils.exceptions import ExecutionError, ValidationError
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -140,6 +143,8 @@ def ensure_primary_key(
     pk: Optional[Union[str, Sequence[str]]] = None,
     auto_pk: Optional[Union[str, Sequence[str]]] = None,
     dialect_name: str = "sqlite",
+    *,
+    require_primary_key: bool = True,
 ) -> tuple[List[ColumnDef], set[str]]:
     """Ensure schema has a primary key specified.
 
@@ -177,12 +182,14 @@ def ensure_primary_key(
 
     # Validate at least one primary key specification
     if not has_existing_pk and not pk_list and not auto_pk_list:
-        raise ValueError(
-            "Table must have a primary key. "
-            "Either provide a schema with primary_key=True, "
-            "specify pk='column_name' to mark an existing column as primary key, "
-            "or specify auto_pk='column_name' to create an auto-incrementing primary key."
-        )
+        if require_primary_key:
+            raise ValueError(
+                "Table must have a primary key. "
+                "Either provide a schema with primary_key=True, "
+                "specify pk='column_name' to mark an existing column as primary key, "
+                "or specify auto_pk='column_name' to create an auto-incrementing primary key."
+            )
+        return schema, new_auto_increment_cols
 
     # Build column name set for validation
     column_names = {col.name for col in schema}
@@ -325,6 +332,7 @@ def create_temp_table_from_streaming(
                 list(records._schema) if schema is None else list(schema),
                 auto_pk=auto_pk,
                 dialect_name=database._dialect_name,
+                require_primary_key=False,
             )
             table_name = generate_unique_table_name()
             table_handle = database.create_table(
@@ -363,6 +371,7 @@ def create_temp_table_from_streaming(
             list(schema),
             auto_pk=auto_pk,
             dialect_name=database._dialect_name,
+            require_primary_key=False,
         )
         table_name = generate_unique_table_name()
         table_handle = database.create_table(
@@ -387,6 +396,7 @@ def create_temp_table_from_streaming(
         inferred_schema_list,
         auto_pk=auto_pk,
         dialect_name=database._dialect_name,
+        require_primary_key=False,
     )
 
     # Generate unique table name
@@ -437,8 +447,12 @@ def create_temp_table_from_streaming(
             database.drop_table(table_name, if_exists=True).collect()
             if not use_temp_tables:
                 database._unregister_ephemeral_table(table_name)
-        except Exception:
-            pass  # Ignore cleanup errors
+        except (ExecutionError, ValidationError) as cleanup_error:
+            # Ignore expected cleanup errors (table may not exist, etc.)
+            logger.debug("Error during temp table cleanup (expected): %s", cleanup_error)
+        except Exception as cleanup_error:
+            # Log unexpected cleanup errors but don't fail
+            logger.warning("Unexpected error during temp table cleanup: %s", cleanup_error)
         raise RuntimeError(f"Failed to insert data into temporary table: {e}") from e
 
     return table_name, tuple(final_schema_list)
@@ -480,6 +494,7 @@ async def create_temp_table_from_streaming_async(
                 list(records._schema) if schema is None else list(schema),
                 auto_pk=auto_pk,
                 dialect_name=database._dialect_name,
+                require_primary_key=False,
             )
             table_name = generate_unique_table_name()
             table_handle = await database.create_table(
@@ -518,6 +533,7 @@ async def create_temp_table_from_streaming_async(
             list(schema),
             auto_pk=auto_pk,
             dialect_name=database._dialect_name,
+            require_primary_key=False,
         )
         table_name = generate_unique_table_name()
         table_handle = await database.create_table(
@@ -542,6 +558,7 @@ async def create_temp_table_from_streaming_async(
         inferred_schema_list,
         auto_pk=auto_pk,
         dialect_name=database._dialect_name,
+        require_primary_key=False,
     )
 
     # Generate unique table name
@@ -592,8 +609,12 @@ async def create_temp_table_from_streaming_async(
             await database.drop_table(table_name, if_exists=True).collect()
             if not use_temp_tables:
                 database._unregister_ephemeral_table(table_name)
-        except Exception:
-            pass  # Ignore cleanup errors
+        except (ExecutionError, ValidationError) as cleanup_error:
+            # Ignore expected cleanup errors (table may not exist, etc.)
+            logger.debug("Error during temp table cleanup (expected): %s", cleanup_error)
+        except Exception as cleanup_error:
+            # Log unexpected cleanup errors but don't fail
+            logger.warning("Unexpected error during temp table cleanup: %s", cleanup_error)
         raise RuntimeError(f"Failed to insert data into temporary table: {e}") from e
 
     return table_name, tuple(final_schema_list)
