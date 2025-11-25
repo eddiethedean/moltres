@@ -63,7 +63,7 @@ def insert_rows(
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     # Use batch insert for better performance
-    params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]  # type: ignore[call-overload]
+    params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]
     result = handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 
@@ -262,7 +262,7 @@ def merge_rows(
     # Prepare parameters for batch insert
     params_list: list[Dict[str, object]] = []
     for row in rows_seq:
-        params = dict(row)  # type: ignore[call-overload]
+        params = dict(row)
         # Add update parameters if when_matched is provided
         if when_matched:
             for col_name, value in when_matched.items():
