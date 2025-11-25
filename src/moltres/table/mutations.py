@@ -51,9 +51,7 @@ def insert_rows(
         return 0
     # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
     # Records implements Sequence[Mapping[str, object]], but mypy needs help with the type
-    from typing import cast
-
-    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
+    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
@@ -184,9 +182,7 @@ def merge_rows(
 
     # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
     # Records implements Sequence[Mapping[str, object]], but mypy needs help with the type
-    from typing import cast
-
-    rows_seq: Sequence[Mapping[str, object]] = cast(Sequence[Mapping[str, object]], rows)
+    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
