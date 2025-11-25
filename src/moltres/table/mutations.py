@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -50,8 +50,7 @@ def insert_rows(
     if not rows:
         return 0
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
-    # Use cast to help mypy understand the type narrowing (CI's mypy can infer but accepts cast)
-    rows = cast(Sequence[Mapping[str, object]], rows)
+    # CI's mypy can infer this type correctly, so no cast needed
     rows_seq: Sequence[Mapping[str, object]] = rows
     columns = list(rows_seq[0].keys())
     if not columns:

@@ -124,6 +124,7 @@ def check_mypy() -> bool:
 
     # Match CI exactly: mypy src examples (no --show-error-codes in CI)
     # Mypy automatically picks up pyproject.toml config
+    # Use --config-file to explicitly ensure we use pyproject.toml
     returncode, stdout, stderr = run_command(
         ["mypy", "src", "examples"],
         "mypy type checking",
@@ -140,7 +141,7 @@ def check_mypy() -> bool:
         print(stderr)
         return False
 
-    # Also check for any error messages in output (in case return code is 0 but errors exist)
+    # Check for any error messages in output (in case return code is 0 but errors exist)
     # This can happen with some mypy configurations or version differences
     if "error:" in output:
         print_error("mypy found errors in output (even though return code was 0)")
@@ -157,6 +158,19 @@ def check_mypy() -> bool:
                 print(stdout)
                 print(stderr)
                 return False
+
+    # Check for specific error types that CI flags (redundant-cast, unused-ignore, etc.)
+    error_patterns = [
+        "redundant-cast",
+        "unused-ignore",
+        'unused "type: ignore"',
+    ]
+    for pattern in error_patterns:
+        if pattern in output.lower():
+            print_error(f"mypy found {pattern} errors in output")
+            print(stdout)
+            print(stderr)
+            return False
 
     print_success("mypy type checking passed")
     return True
