@@ -53,11 +53,14 @@ def insert_rows(
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
     # Use isinstance check to help mypy understand type narrowing (works for both local and CI mypy)
     from ..io.records import Records
-    if isinstance(rows, Records):
-        rows_seq: Sequence[Mapping[str, object]] = rows
+    
+    # Type narrowing: after DataFrame check, rows is either Records or Sequence[Mapping[str, object]]
+    # Both implement Sequence[Mapping[str, object]], so this assignment is safe
+    if isinstance(rows, Records) or isinstance(rows, Sequence):
+        rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
     else:
-        # rows is already Sequence[Mapping[str, object]] if not a DataFrame
-        rows_seq: Sequence[Mapping[str, object]] = rows
+        # This branch should never be reached after DataFrame conversion, but mypy needs it
+        rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
