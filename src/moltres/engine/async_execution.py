@@ -58,7 +58,7 @@ else:
 class AsyncQueryResult:
     """Result from an async query execution."""
 
-    rows: AsyncResultRows
+    rows: Optional[AsyncResultRows]
     rowcount: Optional[int]
 
 
@@ -100,7 +100,7 @@ class AsyncQueryExecutor:
 
         try:
             async with self._connections.connect() as conn:
-                exec_conn = self._apply_timeout(conn)
+                exec_conn = await self._apply_timeout(conn)
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
                 # Suppress cartesian product warnings for cross joins (intentional)
                 with warnings.catch_warnings():
@@ -162,7 +162,7 @@ class AsyncQueryExecutor:
         logger.debug("Executing async statement: %s", sql[:200] if len(sql) > 200 else sql)
         try:
             async with self._connections.connect(transaction=transaction) as conn:
-                exec_conn = self._apply_timeout(conn)
+                exec_conn = await self._apply_timeout(conn)
                 result = await exec_conn.execute(text(sql), params or {})
                 rowcount = result.rowcount or 0
                 logger.debug("Async statement affected %d rows", rowcount)
@@ -202,7 +202,7 @@ class AsyncQueryExecutor:
         )
         try:
             async with self._connections.connect(transaction=transaction) as conn:
-                exec_conn = self._apply_timeout(conn)
+                exec_conn = await self._apply_timeout(conn)
                 result = await exec_conn.execute(text(sql), params_list)
                 total_rowcount = result.rowcount or 0
             logger.debug("Async batch statement affected %d total rows", total_rowcount)
@@ -284,7 +284,8 @@ class AsyncQueryExecutor:
         """Apply query timeout to a connection if configured."""
         if self._config.query_timeout is None:
             return conn
-        return conn.execution_options(timeout=self._config.query_timeout)
+        # execution_options returns a new connection with options applied
+        return conn.execution_options(timeout=self._config.query_timeout)  # type: ignore[return-value]
 
 
 def register_async_performance_hook(

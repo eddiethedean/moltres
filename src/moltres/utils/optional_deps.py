@@ -67,13 +67,19 @@ class MockPyArrowTable:
 
     def to_pandas(self) -> PandasDataFrameLike:
         """Convert to pandas DataFrame (returns mock)."""
-        return get_pandas().DataFrame(self._data)  # type: ignore[return-value]
+        pandas_module = get_pandas()
+        # Access DataFrame attribute - mypy can't verify dynamic module attributes
+        dataframe_class = getattr(pandas_module, "DataFrame", MockPandasDataFrame)
+        result: PandasDataFrameLike = dataframe_class(self._data)
+        return result
 
 
 if TYPE_CHECKING:
-    PandasModule = type(pd)
+    from types import ModuleType
+
+    PandasModule = ModuleType
 else:
-    PandasModule = Any
+    PandasModule = Any  # type: ignore[assignment, misc]
 
 
 def get_pandas(required: bool = True) -> PandasModule:
@@ -86,12 +92,13 @@ def get_pandas(required: bool = True) -> PandasModule:
     Returns:
         pandas module or mock
     """
+    # Define mock class once to avoid redefinition
+    class MockPandas:
+        DataFrame = MockPandasDataFrame
+
     if _USE_MOCK_DEPS or _SKIP_PANDAS:
         # Return a mock module
-        class MockPandas:
-            DataFrame = MockPandasDataFrame
-
-        return MockPandas()
+        return MockPandas()  # type: ignore[return-value]
 
     try:
         import pandas as pd
@@ -102,16 +109,15 @@ def get_pandas(required: bool = True) -> PandasModule:
             raise
 
         # Return mock when not required
-        class MockPandas:
-            DataFrame = MockPandasDataFrame
-
-        return MockPandas()
+        return MockPandas()  # type: ignore[return-value]
 
 
 if TYPE_CHECKING:
-    PyArrowModule = type(pa)
+    from types import ModuleType
+
+    PyArrowModule = ModuleType
 else:
-    PyArrowModule = Any
+    PyArrowModule = Any  # type: ignore[assignment, misc]
 
 
 def get_pyarrow(required: bool = True) -> PyArrowModule:
@@ -124,25 +130,26 @@ def get_pyarrow(required: bool = True) -> PyArrowModule:
     Returns:
         pyarrow module or mock
     """
+    # Define mock class once to avoid redefinition
+    class MockPyArrow:
+        Table = MockPyArrowTable
+
+        class parquet:
+            @staticmethod
+            def read_table(*args: Any, **kwargs: Any) -> Any:
+                raise RuntimeError("Parquet operations disabled in mock mode")
+
+            @staticmethod
+            def write_table(*args: Any, **kwargs: Any) -> None:
+                raise RuntimeError("Parquet operations disabled in mock mode")
+
+            class ParquetFile:
+                def __init__(self, *args: Any, **kwargs: Any) -> None:
+                    raise RuntimeError("Parquet operations disabled in mock mode")
+
     if _USE_MOCK_DEPS or _SKIP_PANDAS:
         # Return a mock module
-        class MockPyArrow:
-            Table = MockPyArrowTable
-
-            class parquet:
-                @staticmethod
-                def read_table(*args: Any, **kwargs: Any) -> Any:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-                @staticmethod
-                def write_table(*args: Any, **kwargs: Any) -> None:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-                class ParquetFile:
-                    def __init__(self, *args: Any, **kwargs: Any) -> None:
-                        raise RuntimeError("Parquet operations disabled in mock mode")
-
-        return MockPyArrow()
+        return MockPyArrow()  # type: ignore[return-value]
 
     try:
         import pyarrow as pa
@@ -153,29 +160,15 @@ def get_pyarrow(required: bool = True) -> PyArrowModule:
             raise
 
         # Return mock when not required
-        class MockPyArrow:
-            Table = MockPyArrowTable
-
-            class parquet:
-                @staticmethod
-                def read_table(*args: Any, **kwargs: Any) -> Any:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-                @staticmethod
-                def write_table(*args: Any, **kwargs: Any) -> None:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-                class ParquetFile:
-                    def __init__(self, *args: Any, **kwargs: Any) -> None:
-                        raise RuntimeError("Parquet operations disabled in mock mode")
-
-        return MockPyArrow()
+        return MockPyArrow()  # type: ignore[return-value]
 
 
 if TYPE_CHECKING:
-    PyArrowParquetModule = type(pq)
+    from types import ModuleType
+
+    PyArrowParquetModule = ModuleType
 else:
-    PyArrowParquetModule = Any
+    PyArrowParquetModule = Any  # type: ignore[assignment, misc]
 
 
 def get_pyarrow_parquet(required: bool = True) -> PyArrowParquetModule:
@@ -188,29 +181,30 @@ def get_pyarrow_parquet(required: bool = True) -> PyArrowParquetModule:
     Returns:
         pyarrow.parquet module or mock
     """
+    # Define mock class once to avoid redefinition
+    class MockParquet:
+        @staticmethod
+        def read_table(*args: Any, **kwargs: Any) -> Any:
+            raise RuntimeError("Parquet operations disabled in mock mode")
+
+        @staticmethod
+        def write_table(*args: Any, **kwargs: Any) -> None:
+            raise RuntimeError("Parquet operations disabled in mock mode")
+
+        class ParquetFile:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise RuntimeError("Parquet operations disabled in mock mode")
+
+            @property
+            def num_row_groups(self) -> int:
+                return 0
+
+            def read_row_group(self, *args: Any, **kwargs: Any) -> Any:
+                raise RuntimeError("Parquet operations disabled in mock mode")
+
     if _USE_MOCK_DEPS or _SKIP_PANDAS:
         # Return a mock module
-        class MockParquet:
-            @staticmethod
-            def read_table(*args: Any, **kwargs: Any) -> Any:
-                raise RuntimeError("Parquet operations disabled in mock mode")
-
-            @staticmethod
-            def write_table(*args: Any, **kwargs: Any) -> None:
-                raise RuntimeError("Parquet operations disabled in mock mode")
-
-            class ParquetFile:
-                def __init__(self, *args: Any, **kwargs: Any) -> None:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-                @property
-                def num_row_groups(self) -> int:
-                    return 0
-
-                def read_row_group(self, *args: Any, **kwargs: Any) -> Any:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-        return MockParquet()
+        return MockParquet()  # type: ignore[return-value]
 
     try:
         import pyarrow.parquet as pq
@@ -221,24 +215,4 @@ def get_pyarrow_parquet(required: bool = True) -> PyArrowParquetModule:
             raise
 
         # Return mock when not required
-        class MockParquet:
-            @staticmethod
-            def read_table(*args: Any, **kwargs: Any) -> Any:
-                raise RuntimeError("Parquet operations disabled in mock mode")
-
-            @staticmethod
-            def write_table(*args: Any, **kwargs: Any) -> None:
-                raise RuntimeError("Parquet operations disabled in mock mode")
-
-            class ParquetFile:
-                def __init__(self, *args: Any, **kwargs: Any) -> None:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-                @property
-                def num_row_groups(self) -> int:
-                    return 0
-
-                def read_row_group(self, *args: Any, **kwargs: Any) -> Any:
-                    raise RuntimeError("Parquet operations disabled in mock mode")
-
-        return MockParquet()
+        return MockParquet()  # type: ignore[return-value]

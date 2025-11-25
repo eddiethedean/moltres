@@ -42,7 +42,7 @@ else:
 
 @dataclass
 class QueryResult:
-    rows: ResultRows
+    rows: Optional[ResultRows]
     rowcount: Optional[int]
 
 
