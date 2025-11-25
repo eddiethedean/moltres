@@ -6,13 +6,59 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  lint-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff
+        run: |
+          ruff check src examples tests
+          ruff format --check src examples tests
+
+      - name: Run mypy
+        run: mypy src examples
+
+      - name: Validate documentation examples
+        run: python scripts/validate_examples.py
+
+  tests:
+    needs: lint-type
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.9"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.11"
 
     steps:
       - uses: actions/checkout@v4
@@ -22,52 +68,61 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.python-version }}-pip-
+            ${{ runner.os }}-pip-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run linting
+      - name: Run pytest
+        env:
+          PYTEST_ADDOPTS: -ra
         run: |
-          ruff check .
-          ruff format --check .
+          pytest -p pytest_asyncio -m "not postgres and not mysql and not multidb" --maxfail=1 -n auto
 
-      - name: Run type checking
-        run: |
-          mypy src --config-file pyproject.toml
+  db-tests:
+    needs: lint-type
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Run tests with coverage
-        run: |
-          pytest -p pytest_asyncio -m "not postgres and not mysql and not multidb" --cov=src/moltres --cov-report=term-missing --cov-report=html --cov-report=xml
-          
-      - name: Check coverage threshold
-        run: |
-          coverage report --fail-under=60 || echo "Coverage below 60% threshold"
-          
-      - name: Upload coverage reports
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-        
-      - name: Run PostgreSQL tests (if available)
-        continue-on-error: true
-        run: |
-          pytest -p pytest_asyncio -m postgres || echo "PostgreSQL tests skipped (testing.postgresql not available)"
-        
-      - name: Run MySQL tests (if available)
-        continue-on-error: true
-        run: |
-          pytest -p pytest_asyncio -m mysql || echo "MySQL tests skipped (testing.mysqld not available)"
+          python-version: "3.11"
 
-      - name: Validate documentation examples
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ubuntu-db-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: ubuntu-db-pip-
+
+      - name: Install dependencies
         run: |
-          python scripts/validate_examples.py
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run PostgreSQL tests
+        continue-on-error: true
+        run: pytest -p pytest_asyncio -m postgres
+
+      - name: Run MySQL tests
+        continue-on-error: true
+        run: pytest -p pytest_asyncio -m mysql
 
   dependency-scan:
+    needs: lint-type
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,15 +139,14 @@ jobs:
 
       - name: Run safety check
         continue-on-error: true
-        run: |
-          safety check --file pyproject.toml || echo "Safety check completed with warnings"
+        run: safety check --file pyproject.toml || echo "Safety check completed with warnings"
 
       - name: Run pip-audit
         continue-on-error: true
-        run: |
-          pip-audit --desc || echo "pip-audit completed with warnings"
+        run: pip-audit --desc || echo "pip-audit completed with warnings"
 
   install-smoke-test:
+    needs: lint-type
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

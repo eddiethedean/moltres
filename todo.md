@@ -8,7 +8,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 
 ### Core Features
 - [ ] `UNNEST()` / table-valued functions for array/JSON expansion in FROM clause (`UNNEST(array)`, `jsonb_array_elements()`, `jsonb_each()` in FROM) - dialect-specific
-  - Note: `explode()` API is complete, but SQL compilation needs table-valued function support
+  - Initial implementation covers SQLite (`json_each`) and PostgreSQL (`jsonb_array_elements`) via the `explode()` API. Additional dialect support will be tracked separately.
 - [x] `FILTER` clause for conditional aggregation (`COUNT(*) FILTER (WHERE condition)`) - SQL standard (PostgreSQL, MySQL 8.0+, SQL Server, Oracle)
 - [ ] `DISTINCT ON` for selecting distinct rows based on specific columns (PostgreSQL-specific)
 
