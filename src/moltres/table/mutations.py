@@ -50,8 +50,8 @@ def insert_rows(
     if not rows:
         return 0
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
-    # CI's mypy can infer this type correctly, so no cast needed
-    rows_seq: Sequence[Mapping[str, object]] = rows
+    # CI's mypy can infer this, but local mypy needs help - use type ignore for assignment error
+    rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
     columns = list(rows_seq[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
