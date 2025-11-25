@@ -123,10 +123,12 @@ def check_mypy() -> bool:
         shutil.rmtree(cache_dir)
 
     # Match CI exactly: mypy src examples (no --show-error-codes in CI)
-    # Mypy automatically picks up pyproject.toml config
-    # Use --config-file to explicitly ensure we use pyproject.toml
+    # Use the same Python interpreter that's running this script to ensure consistent mypy behavior
+    import sys
+
+    mypy_cmd = [sys.executable, "-m", "mypy", "src", "examples"]
     returncode, stdout, stderr = run_command(
-        ["mypy", "src", "examples"],
+        mypy_cmd,
         "mypy type checking",
         check=False,
         capture_output=True,
