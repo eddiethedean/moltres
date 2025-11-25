@@ -56,7 +56,7 @@ async def insert_rows_async(
 
     if _is_pandas_dataframe(rows) or _is_polars_dataframe(rows) or _is_polars_lazyframe(rows):
         # Convert to Records, then extract rows
-        records = _dataframe_to_records(rows, database=handle.database)
+        records = _dataframe_to_records(rows)
         rows = records.rows()
 
     if not rows:
@@ -194,7 +194,7 @@ async def merge_rows_async(
 
     if _is_pandas_dataframe(rows) or _is_polars_dataframe(rows) or _is_polars_lazyframe(rows):
         # Convert to Records, then extract rows
-        records = _dataframe_to_records(rows, database=handle.database)
+        records = _dataframe_to_records(rows)
         rows = records.rows()
 
     if not rows:

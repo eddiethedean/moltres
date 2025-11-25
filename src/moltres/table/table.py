@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence,
 from ..config import MoltresConfig
 
 if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.reader import DataLoader, ReadAccessor
     from ..io.records import LazyRecords, Records
@@ -610,9 +612,9 @@ class Database:
             Sequence[tuple],
             Records,
             "LazyRecords",
-            "pd.DataFrame",  # noqa: F821
-            "pl.DataFrame",  # noqa: F821
-            "pl.LazyFrame",  # noqa: F821
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
         ],
         schema: Optional[Sequence[ColumnDef]] = None,
         pk: Optional[Union[str, Sequence[str]]] = None,

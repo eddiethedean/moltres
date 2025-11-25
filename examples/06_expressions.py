@@ -77,17 +77,17 @@ results = result.collect()
 print(f"String operations: {results}")
 # Output: String operations: [{'name': 'Alice Smith', 'name_upper': 'ALICE SMITH', 'name_lower': 'alice smith', 'name_prefix': 'Alice'}, {'name': 'Bob Jones', 'name_upper': 'BOB JONES', 'name_lower': 'bob jones', 'name_prefix': 'Bob J'}, {'name': 'Charlie Brown', 'name_upper': 'CHARLIE BROWN', 'name_lower': 'charlie brown', 'name_prefix': 'Charl'}]
 
-# Conditional expressions (CASE WHEN) - commented out due to compiler issue
-# Note: CASE WHEN expressions have a known compiler bug, using simple comparison instead
-# result = df.select(
-#     col("name"),
-#     col("salary"),
-#     F.when(col("salary") > 75000, lit("High")).otherwise(lit("Low")).alias("salary_tier"),
-# )
-# results = result.collect()
-# print(f"Conditional expressions: {results}")
+# Conditional expressions (CASE WHEN)
+result = df.select(
+    col("name"),
+    col("salary"),
+    F.when(col("salary") > 75000, lit("High")).otherwise(lit("Low")).alias("salary_tier"),
+)
+results = result.collect()
+print(f"Conditional expressions: {results}")
+# Output: Conditional expressions: [{'name': 'Alice Smith', 'salary': 75000.0, 'salary_tier': 'Low'}, {'name': 'Bob Jones', 'salary': 80000.0, 'salary_tier': 'High'}, {'name': 'Charlie Brown', 'salary': 70000.0, 'salary_tier': 'Low'}]
 
-# Using simple comparison instead
+# Using simple comparison as alternative
 result = df.select(
     col("name"),
     col("salary"),

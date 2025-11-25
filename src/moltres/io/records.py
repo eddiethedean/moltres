@@ -311,14 +311,14 @@ class Records(Sequence[Mapping[str, object]]):
         elif self._dataframe is not None:
             # DataFrame mode - get length from DataFrame
             if _is_pandas_dataframe(self._dataframe):
-                return len(self._dataframe)  # type: ignore[arg-type]
+                return len(self._dataframe)
             elif _is_polars_dataframe(self._dataframe):
-                return len(self._dataframe)  # type: ignore[arg-type]
+                return len(self._dataframe)
             elif _is_polars_lazyframe(self._dataframe):
                 # For LazyFrame, we need to materialize to get length
                 # This is expensive, but necessary for __len__
                 materialized = self._dataframe.collect()
-                return len(materialized)  # type: ignore[arg-type]
+                return len(materialized)
         return 0
 
     @overload
@@ -622,9 +622,10 @@ class Records(Sequence[Mapping[str, object]]):
         else:
             table_handle = table
 
+        table_handle_strict: "TableHandle" = table_handle
         rows = self.rows()
         transaction = self._database.connection_manager.active_transaction
-        return insert_rows(table_handle, rows, transaction=transaction)
+        return insert_rows(table_handle_strict, rows, transaction=transaction)
 
 
 @dataclass

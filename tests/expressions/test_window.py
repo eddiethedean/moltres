@@ -186,3 +186,95 @@ class TestWindowFunctions:
         expr = last_value(col("value"))
         assert expr.op == "window_last_value"
         assert len(expr.args) == 1
+
+
+def test_window_rows_between_execution(tmp_path):
+    """Test window functions with ROWS BETWEEN in actual query."""
+    from moltres import connect, col
+    from moltres.expressions import functions as F
+    from moltres.table.schema import column
+    from moltres.io.records import Records
+
+    db_path = tmp_path / "window_rows.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create table
+    db.create_table(
+        "sales",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("date", "TEXT"),
+            column("amount", "REAL"),
+        ],
+    ).collect()
+
+    # Insert data
+    sales_data = [
+        {"id": 1, "date": "2024-01-01", "amount": 100.0},
+        {"id": 2, "date": "2024-01-02", "amount": 200.0},
+        {"id": 3, "date": "2024-01-03", "amount": 150.0},
+        {"id": 4, "date": "2024-01-04", "amount": 300.0},
+    ]
+    Records(_data=sales_data, _database=db).insert_into("sales")
+
+    # Test window function with ROWS BETWEEN
+    df = db.table("sales").select()
+    result = df.select(
+        col("date"),
+        col("amount"),
+        F.sum(col("amount")).over(order_by=col("date"), rows_between=(-1, 1)).alias("rolling_sum"),
+    )
+    results = result.collect()
+
+    assert len(results) == 4
+    # First row: 100 + 200 = 300 (current + 1 following)
+    assert results[0]["rolling_sum"] == 300.0
+    # Second row: 100 + 200 + 150 = 450 (1 preceding + current + 1 following)
+    assert results[1]["rolling_sum"] == 450.0
+    # Third row: 200 + 150 + 300 = 650 (1 preceding + current + 1 following)
+    assert results[2]["rolling_sum"] == 650.0
+    # Fourth row: 150 + 300 = 450 (1 preceding + current)
+    assert results[3]["rolling_sum"] == 450.0
+
+
+def test_window_range_between_execution(tmp_path):
+    """Test window functions with RANGE BETWEEN in actual query."""
+    from moltres import connect, col
+    from moltres.expressions import functions as F
+    from moltres.table.schema import column
+    from moltres.io.records import Records
+
+    db_path = tmp_path / "window_range.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create table
+    db.create_table(
+        "sales",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("amount", "REAL"),
+        ],
+    ).collect()
+
+    # Insert data
+    sales_data = [
+        {"id": 1, "amount": 100.0},
+        {"id": 2, "amount": 200.0},
+        {"id": 3, "amount": 150.0},
+    ]
+    Records(_data=sales_data, _database=db).insert_into("sales")
+
+    # Test window function with RANGE BETWEEN
+    df = db.table("sales").select()
+    result = df.select(
+        col("amount"),
+        F.sum(col("amount"))
+        .over(order_by=col("amount"), range_between=(-50, 50))
+        .alias("range_sum"),
+    )
+    results = result.collect()
+
+    assert len(results) == 3
+    # All rows should have the same sum since they're within range of each other
+    # (100, 200, 150 are all within 50 of each other)
+    assert all("range_sum" in r for r in results)

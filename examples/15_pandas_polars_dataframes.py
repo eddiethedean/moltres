@@ -14,13 +14,13 @@ import os
 try:
     import pandas as pd
 except ImportError:
-    pd = None
+    pd = None  # type: ignore[assignment]
     print("⚠️  pandas not installed. Install with: pip install pandas")
 
 try:
     import polars as pl
 except ImportError:
-    pl = None
+    pl = None  # type: ignore[assignment]
     print("⚠️  polars not installed. Install with: pip install polars")
 
 # Clean up any existing database file

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union, cast
 
 from ..io.records import LazyRecords, Records
 from ..table.schema import ColumnDef
 from ..utils.exceptions import ValidationError
 
 if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
     from ..io.records import AsyncLazyRecords, AsyncRecords
     from ..table.async_table import AsyncDatabase
     from ..table.table import Database
@@ -23,9 +25,9 @@ def normalize_data_to_rows(
         Records,
         LazyRecords,
         "AsyncRecords",
-        "pd.DataFrame",  # noqa: F821
-        "pl.DataFrame",  # noqa: F821
-        "pl.LazyFrame",  # noqa: F821
+        "pd.DataFrame",
+        "pl.DataFrame",
+        "pl.LazyFrame",
     ],
 ) -> List[dict[str, object]]:
     """Normalize various input formats to a list of dictionaries.
@@ -88,7 +90,7 @@ def normalize_data_to_rows(
     if hasattr(data, "_data") and hasattr(data, "_generator"):
         # Looks like AsyncRecords
         if data._data is not None:
-            return data._data.copy()
+            return cast(List[dict[str, object]], data._data).copy()
         elif data._generator is not None:
             # For async, we'd need to await, but we can't do that here
             # This should be handled in the async version

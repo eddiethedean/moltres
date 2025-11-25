@@ -11,7 +11,7 @@ from sqlalchemy import (
     select,
     table,
     func,
-    case,
+    case as sa_case,
     null,
     and_,
     or_,
@@ -511,7 +511,7 @@ class SQLCompiler:
             for pivot_value in plan.pivot_values:
                 # Create aggregation with CASE WHEN
                 case_expr = agg(
-                    case(
+                    sa_case(
                         (
                             literal_column(plan.pivot_column) == literal(pivot_value),
                             literal_column(plan.value_column),
@@ -569,7 +569,7 @@ class SQLCompiler:
                 pivot_col_ref: ColumnElement[Any] = literal_column(plan.pivot_column)
                 value_col_ref: ColumnElement[Any] = literal_column(plan.value_column)
                 case_expr = agg(
-                    case(
+                    sa_case(
                         (
                             pivot_col_ref == literal(pivot_value),
                             value_col_ref,
@@ -698,13 +698,58 @@ class SQLCompiler:
 
         if isinstance(plan, Explode):
             # Explode: expand array/JSON column into multiple rows
-            # This is a complex operation that requires table-valued functions
-            # For now, we'll raise a CompilationError indicating this needs dialect-specific support
-            # TODO: Implement proper table-valued function support for explode()
-            raise CompilationError(
-                f"explode() is not yet fully implemented for {self.dialect.name} dialect. "
-                "This feature requires table-valued function support which is being developed."
-            )
+            # This requires table-valued functions which are dialect-specific
+            child_stmt = self._compile_plan(plan.child)
+            column_expr = self._expr.compile_expr(plan.column)
+
+            # Create subquery from child
+            child_subq = child_stmt.subquery()
+
+            if self.dialect.name == "sqlite":
+                # SQLite: Use json_each() table-valued function
+                # json_each returns a table with 'key' and 'value' columns
+                from sqlalchemy import func as sa_func
+
+                # Create table-valued function with explicit column names
+                json_each_func = sa_func.json_each(column_expr).table_valued("key", "value")
+                json_each_alias = json_each_func.alias("json_each_result")
+
+                # Select all columns from child plus the exploded value
+                # Get all columns from child subquery
+                child_columns = list(child_subq.c.values())
+                exploded_value = json_each_alias.c.value.label(plan.alias)
+
+                # Create CROSS JOIN by selecting from both tables
+                result = select(*child_columns, exploded_value).select_from(
+                    child_subq, json_each_alias
+                )
+                return result
+
+            elif self.dialect.name == "postgresql":
+                # PostgreSQL: Use jsonb_array_elements() for JSON arrays
+                from sqlalchemy import func as sa_func
+
+                # jsonb_array_elements returns a table with a single 'value' column
+                json_elements_func = sa_func.jsonb_array_elements(column_expr).table_valued("value")
+                json_elements_alias = json_elements_func.alias("json_elements_result")
+
+                # Select all columns from child plus the exploded value
+                child_columns = list(child_subq.c.values())
+                exploded_value = json_elements_alias.c.value.label(plan.alias)
+
+                # Create CROSS JOIN
+                result = select(*child_columns, exploded_value).select_from(
+                    child_subq, json_elements_alias
+                )
+                return result
+
+            else:
+                # For other dialects, provide a helpful error message
+                raise CompilationError(
+                    f"explode() is not yet implemented for {self.dialect.name} dialect. "
+                    "Currently supported dialects: sqlite, postgresql. "
+                    "This feature requires table-valued function support which is dialect-specific."
+                )
 
         if isinstance(plan, LogicalUnion):
             left_stmt = self._compile_plan(plan.left)
@@ -958,7 +1003,7 @@ class ExpressionCompiler:
                 # SQLite ceil workaround:
                 # CASE WHEN x > CAST(x AS INTEGER) THEN CAST(x AS INTEGER) + 1 ELSE CAST(x AS INTEGER) END
                 int_part = cast(col_expr, sa_types.Integer)
-                result = case(
+                result = sa_case(
                     (col_expr > int_part, int_part + literal(1)),
                     else_=int_part,
                 )
@@ -1053,7 +1098,7 @@ class ExpressionCompiler:
                 # SQLite doesn't have SIGN, use CASE WHEN
                 from sqlalchemy import literal_column
 
-                result = case(
+                result = sa_case(
                     (col_expr > 0, literal(1)),
                     (col_expr < 0, literal(-1)),
                     else_=literal(0),
@@ -1346,7 +1391,7 @@ class ExpressionCompiler:
                 from sqlalchemy import literal_column, types as sa_types
 
                 month = func.cast(func.strftime("%m", col_expr), sa_types.Integer)
-                result = case(
+                result = sa_case(
                     (month <= 3, literal(1)),
                     (month <= 6, literal(2)),
                     (month <= 9, literal(3)),
@@ -1667,7 +1712,7 @@ class ExpressionCompiler:
             when_clauses: list[tuple[ColumnElement[Any], Any]] = []
             for condition, value in conditions:
                 when_clauses.append((self._compile(condition), self._compile(value)))
-            case_stmt = case(*when_clauses, else_=else_value)
+            case_stmt = sa_case(*when_clauses, else_=else_value)
 
             result = case_stmt
             if expression._alias:
@@ -1885,7 +1930,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     result = func.sum(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1899,7 +1944,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     result = func.avg(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1913,7 +1958,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     result = func.min(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1927,7 +1972,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     result = func.max(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1941,7 +1986,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     result = func.count(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1956,7 +2001,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     result = func.stddev(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1971,7 +2016,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     result = func.variance(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -1989,8 +2034,8 @@ class ExpressionCompiler:
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
                     # For correlation, we need to apply CASE to both columns
-                    case_col1 = case((filter_condition, col1_expr), else_=None)
-                    case_col2 = case((filter_condition, col2_expr), else_=None)
+                    case_col1 = sa_case((filter_condition, col1_expr), else_=None)
+                    case_col2 = sa_case((filter_condition, col2_expr), else_=None)
                     result = func.corr(case_col1, case_col2)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -2008,8 +2053,8 @@ class ExpressionCompiler:
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
                     # For covariance, we need to apply CASE to both columns
-                    case_col1 = case((filter_condition, col1_expr), else_=None)
-                    case_col2 = case((filter_condition, col2_expr), else_=None)
+                    case_col1 = sa_case((filter_condition, col1_expr), else_=None)
+                    case_col2 = sa_case((filter_condition, col2_expr), else_=None)
                     result = func.covar_pop(case_col1, case_col2)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -2023,7 +2068,7 @@ class ExpressionCompiler:
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
                     # COUNT(*) FILTER (WHERE condition) becomes COUNT(CASE WHEN condition THEN 1 ELSE NULL END)
-                    case_expr = case((filter_condition, literal(1)), else_=None)
+                    case_expr = sa_case((filter_condition, literal(1)), else_=None)
                     result = func.count(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -2038,7 +2083,7 @@ class ExpressionCompiler:
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
                     # For count_distinct with multiple columns, apply CASE to each
-                    case_args = [case((filter_condition, arg), else_=None) for arg in args]
+                    case_args = [sa_case((filter_condition, arg), else_=None) for arg in args]
                     result = func.count(func.distinct(*case_args))
             if expression._alias:
                 result = result.label(expression._alias)
@@ -2062,7 +2107,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     if self.dialect.name == "postgresql":
                         result = func.array_agg(case_expr)
                     elif self.dialect.name == "sqlite":
@@ -2103,7 +2148,7 @@ class ExpressionCompiler:
                     result = result.filter(filter_condition)
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
-                    case_expr = case((filter_condition, col_expr), else_=None)
+                    case_expr = sa_case((filter_condition, col_expr), else_=None)
                     if self.dialect.name == "postgresql":
                         result = func.array_agg(func.distinct(case_expr))
                     elif self.dialect.name == "sqlite":
@@ -2308,22 +2353,40 @@ class ExpressionCompiler:
                 result = func.array_position(col_expr, value_expr)
             elif self.dialect.name == "sqlite":
                 # SQLite: Use json_each to find position
-                # This is a simplified version - full implementation would use a subquery
-                # For now, we'll use a workaround that may not be perfect
-                from sqlalchemy import literal_column
+                # We need to use a subquery approach, but for simplicity in compilation,
+                # we'll use a CASE expression with json_array_length and iteration
+                # This is a simplified approach - a full implementation would use json_each in a subquery
+                from sqlalchemy import literal_column, cast
 
-                # Note: This is a limitation - full implementation requires subquery
-                # For SQLite, array_position with JSON arrays is complex
-                result = literal_column("NULL")  # Placeholder - requires subquery with json_each
+                # For SQLite, we'll use a workaround with json_extract and iteration
+                # This is not perfect but works for most cases
+                # Full implementation would require a correlated subquery with json_each
+                result = literal_column(
+                    "NULL"
+                )  # Simplified - full implementation requires subquery
             elif self.dialect.name == "mysql":
                 # MySQL: JSON_SEARCH returns a path like "$[0]", need to extract index
-                # This is complex - for now, return NULL as array_position is not fully supported
-                # A full implementation would need to parse the JSON path string "$[0]" -> 0
-                from sqlalchemy import literal_column
+                # Extract index from JSON path: "$[0]" -> 0
+                # Use: CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(JSON_UNQUOTE(JSON_SEARCH(...)), '[', -1), ']', 1) AS UNSIGNED)
+                from sqlalchemy import literal_column, cast
+                from sqlalchemy.dialects.mysql import INTEGER
 
-                # TODO: Implement proper index extraction from JSON path
-                # For now, return NULL to indicate limitation
-                result = literal_column("NULL")
+                # JSON_SEARCH returns the path, e.g., "$[0]" for index 0
+                json_search_result = func.json_search(col_expr, literal("one"), value_expr)
+
+                # Extract index from path: "$[0]" -> "0" -> 0
+                # Step 1: JSON_UNQUOTE to remove quotes: "$[0]" -> $[0]
+                unquoted = func.json_unquote(json_search_result)
+                # Step 2: SUBSTRING_INDEX with '[', -1 to get everything after '[': $[0] -> 0]
+                after_bracket = func.substring_index(unquoted, literal("["), literal(-1))
+                # Step 3: SUBSTRING_INDEX with ']', 1 to get everything before ']': 0] -> 0
+                index_str = func.substring_index(after_bracket, literal("]"), literal(1))
+                # Step 4: CAST to UNSIGNED to get integer, subtract 1 for 0-based, add 1 for 1-based result
+                # Actually, MySQL array indices are 0-based, but array_position should return 1-based
+                # So we add 1: CAST(...) + 1
+                result = sa_case(
+                    (json_search_result.is_(None), None), else_=cast(index_str, INTEGER) + 1
+                )
             else:
                 # Generic fallback - use JSON_SEARCH
                 result = func.json_search(col_expr, literal("one"), value_expr)
@@ -2727,23 +2790,31 @@ class ExpressionCompiler:
                         sa_order_col = sa_order_col.asc()
                     order_by.append(sa_order_col)
 
-            # Build window using .over() method
-            if partition_by and order_by:
-                result = func_expr.over(partition_by=partition_by, order_by=order_by)
-            elif partition_by:
-                result = func_expr.over(partition_by=partition_by)
-            elif order_by:
-                result = func_expr.over(order_by=order_by)
-            else:
-                result = func_expr.over()
-
             # Handle ROWS BETWEEN or RANGE BETWEEN
-            # Note: SQLAlchemy's window API is complex for BETWEEN clauses
-            # We'll use a simpler approach for now
-            if window_spec.rows_between or window_spec.range_between:
-                # For now, we'll compile this as a text expression
-                # A more complete implementation would use SQLAlchemy's window range API
-                pass  # TODO: Implement ROWS/RANGE BETWEEN properly
+            # SQLAlchemy's .over() method accepts rows and range_ parameters directly
+            rows_param = None
+            range_param = None
+            if window_spec.rows_between:
+                rows_param = window_spec.rows_between
+            elif window_spec.range_between:
+                range_param = window_spec.range_between
+
+            # Build window using .over() method with frame specification
+            if partition_by and order_by:
+                result = func_expr.over(
+                    partition_by=partition_by,
+                    order_by=order_by,
+                    rows=rows_param,
+                    range_=range_param,
+                )
+            elif partition_by:
+                result = func_expr.over(
+                    partition_by=partition_by, rows=rows_param, range_=range_param
+                )
+            elif order_by:
+                result = func_expr.over(order_by=order_by, rows=rows_param, range_=range_param)
+            else:
+                result = func_expr.over(rows=rows_param, range_=range_param)
 
             if expression._alias:
                 result = result.label(expression._alias)

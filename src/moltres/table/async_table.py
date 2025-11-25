@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Sequ
 from ..config import MoltresConfig
 
 if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
     from ..dataframe.async_dataframe import AsyncDataFrame
     from ..dataframe.async_reader import AsyncDataLoader, AsyncReadAccessor
     from ..io.records import AsyncLazyRecords, AsyncRecords
@@ -662,9 +664,9 @@ class AsyncDatabase:
             Sequence[tuple],
             "AsyncRecords",
             "AsyncLazyRecords",
-            "pd.DataFrame",  # noqa: F821
-            "pl.DataFrame",  # noqa: F821
-            "pl.LazyFrame",  # noqa: F821
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
         ],
         schema: Optional[Sequence[ColumnDef]] = None,
         pk: Optional[Union[str, Sequence[str]]] = None,
@@ -724,7 +726,7 @@ class AsyncDatabase:
 
         # Convert DataFrame to Records if needed, then extract rows synchronously
         if _is_pandas_dataframe(data) or _is_polars_dataframe(data) or _is_polars_lazyframe(data):
-            records = _dataframe_to_records(data, database=self)
+            records = _dataframe_to_records(data)
             rows = records.rows()
             # Use schema from Records if available and no explicit schema provided
             if schema is None:

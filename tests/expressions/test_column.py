@@ -92,3 +92,59 @@ def test_cast_decimal_with_precision_scale_execution(tmp_path):
     # The cast should work (SQLite will handle it)
     assert result[0]["id"] == 1
     assert result[1]["id"] == 2
+
+
+def test_case_when_expression(tmp_path):
+    """Test CASE WHEN expressions work correctly."""
+    from moltres import connect, col
+    from moltres.table.schema import column
+    from moltres.io.records import Records
+
+    db_path = tmp_path / "case_when.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+
+    # Create table
+    db.create_table(
+        "employees",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("name", "TEXT"),
+            column("salary", "REAL"),
+        ],
+    ).collect()
+
+    # Insert data
+    employees_data = [
+        {"id": 1, "name": "Alice", "salary": 80000.0},
+        {"id": 2, "name": "Bob", "salary": 50000.0},
+        {"id": 3, "name": "Charlie", "salary": 60000.0},
+    ]
+    Records(_data=employees_data, _database=db).insert_into("employees")
+
+    # Test CASE WHEN with single condition
+    df = db.table("employees").select()
+    result = df.select(
+        col("name"),
+        col("salary"),
+        F.when(col("salary") > 75000, lit("High")).otherwise(lit("Low")).alias("tier"),
+    )
+    results = result.collect()
+
+    assert len(results) == 3
+    assert results[0]["tier"] == "High"  # Alice: 80000 > 75000
+    assert results[1]["tier"] == "Low"  # Bob: 50000 <= 75000
+    assert results[2]["tier"] == "Low"  # Charlie: 60000 <= 75000
+
+    # Test CASE WHEN with multiple conditions
+    result2 = df.select(
+        col("name"),
+        F.when(col("salary") > 75000, lit("High"))
+        .when(col("salary") > 55000, lit("Medium"))
+        .otherwise(lit("Low"))
+        .alias("tier"),
+    )
+    results2 = result2.collect()
+
+    assert results2[0]["tier"] == "High"  # Alice: 80000 > 75000
+    assert results2[1]["tier"] == "Low"  # Bob: 50000 <= 55000
+    assert results2[2]["tier"] == "Medium"  # Charlie: 55000 < 60000 <= 75000

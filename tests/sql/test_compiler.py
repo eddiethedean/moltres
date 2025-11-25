@@ -250,12 +250,32 @@ def test_compile_sample_with_seed():
     assert "users" in sql
 
 
-def test_compile_explode_error():
-    """Test that Explode raises CompilationError."""
+def test_compile_explode_unsupported_dialect():
+    """Explode should raise for unsupported (ANSI) dialect."""
     scan = operators.scan("users")
     explode = operators.explode(scan, column=col("tags"))
-    with pytest.raises(CompilationError, match="explode.*not yet fully implemented"):
-        compile_plan(explode)
+    with pytest.raises(CompilationError, match="explode.*not yet implemented"):
+        compile_plan(explode, dialect="ansi")
+
+
+def test_compile_explode_sqlite():
+    """Explode should compile for SQLite using json_each."""
+    scan = operators.scan("users")
+    explode = operators.explode(scan, column=col("tags"), alias="tag_value")
+    stmt = compile_plan(explode, dialect="sqlite")
+    sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "json_each" in sql
+    assert "tag_value" in sql
+
+
+def test_compile_explode_postgresql():
+    """Explode should compile for PostgreSQL using jsonb_array_elements."""
+    scan = operators.scan("users")
+    explode = operators.explode(scan, column=col("tags"), alias="tag_value")
+    stmt = compile_plan(explode, dialect="postgresql")
+    sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "jsonb_array_elements" in sql
+    assert "tag_value" in sql
 
 
 def test_compile_join_types():
