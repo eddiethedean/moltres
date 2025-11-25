@@ -41,9 +41,9 @@ This file tracks planned features, improvements, and tasks for Moltres.
 
 ### Data Types
 - [ ] Better support for complex types (arrays, maps, structs) - SQL standard/dialect-specific
-- [ ] SQLAlchemy TypeEngine integration - Leverage SQLAlchemy's type system for better type mapping
+- [x] SQLAlchemy TypeEngine integration - Leverage SQLAlchemy's type system for better type mapping ✅ **COMPLETED**
 - [ ] Type coercion utilities - Automatic type conversion based on SQLAlchemy TypeEngine
-- [ ] Dialect-specific type mapping - Use SQLAlchemy's dialect-specific type mapping
+- [x] Dialect-specific type mapping - Use SQLAlchemy's dialect-specific type mapping ✅ **COMPLETED**
 
 ### File Formats
 - [ ] Excel/ODS file support
@@ -160,7 +160,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 
 ### Migration Guides
 - [ ] Create docs/MIGRATION_PANDAS.md guide showing how to convert common Pandas workflows to Moltres
-- [ ] Create docs/MIGRATION_SQLALCHEMY.md guide showing how to replace SQLAlchemy ORM operations with Moltres DataFrame CRUD
+- [ ] Create docs/MIGRATION_SQLALCHEMY.md guide showing how to replace SQLAlchemy ORM operations with Moltres DataFrame CRUD (Note: SQLAlchemy model integration now allows using models directly with Moltres)
 - [ ] Create docs/MIGRATION_SPARK.md guide for teams moving from PySpark to Moltres
 
 ### Integration Examples
@@ -187,6 +187,22 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Better handling of edge cases in file readers
 
 ## ✅ Recently Completed
+
+### SQLAlchemy ORM Model Integration ✅ **COMPLETED**
+- ✅ SQLAlchemy model detection and table name extraction
+- ✅ Type mapping between SQLAlchemy types and Moltres type names (bidirectional)
+- ✅ Constraint extraction from SQLAlchemy models (primary keys, foreign keys, unique, check)
+- ✅ Model-to-schema conversion (`model_to_schema()`) - Convert SQLAlchemy models to Moltres TableSchema
+- ✅ Schema-to-table conversion (`schema_to_table()`) - Convert Moltres TableSchema to SQLAlchemy Table
+- ✅ Extended `Database.create_table()` to accept SQLAlchemy model classes
+- ✅ Extended `Database.table()` to accept SQLAlchemy model classes
+- ✅ Extended `AsyncDatabase.create_table()` and `AsyncDatabase.table()` for async support
+- ✅ Model reference storage in `TableHandle` and `AsyncTableHandle`
+- ✅ Comprehensive test suite (19 tests, all passing)
+- ✅ Example file (`examples/17_sqlalchemy_models.py`) with real outputs
+- ✅ README.md documentation with SQLAlchemy integration section
+- ✅ Full backward compatibility maintained
+- ✅ All mypy type errors fixed
 
 ### v0.13.0
 

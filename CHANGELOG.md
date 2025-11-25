@@ -8,6 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **SQLAlchemy ORM Model Integration** – Comprehensive bidirectional integration between SQLAlchemy ORM models and Moltres:
+  - **Model-based table creation** – Create tables directly from SQLAlchemy model classes:
+    - `db.create_table(User)` – Automatically extracts schema, constraints, and types from model
+    - Supports all SQLAlchemy column types with automatic type mapping
+    - Extracts primary keys, foreign keys, unique constraints, and check constraints
+  - **Model-based table references** – Query using SQLAlchemy model classes instead of table names:
+    - `db.table(User).select()` – Get table handle from model class
+    - `db.table(User).select().where(col("age") > 25)` – Query using model references
+    - Model class stored in `TableHandle` for later reference
+  - **Bidirectional type mapping** – Automatic conversion between SQLAlchemy types and Moltres types:
+    - SQLAlchemy → Moltres: `Integer` → `"INTEGER"`, `String(100)` → `"VARCHAR(100)"`, etc.
+    - Moltres → SQLAlchemy: `"DECIMAL(10,2)"` → `Numeric(10, 2)`, etc.
+    - Supports dialect-specific types (PostgreSQL JSONB, UUID, etc.)
+  - **Constraint extraction** – Automatic extraction of all constraints from SQLAlchemy models:
+    - Primary keys from `primary_key=True` columns
+    - Foreign keys from `ForeignKey` column definitions
+    - Unique constraints from `UniqueConstraint` in `__table_args__`
+    - Check constraints from `CheckConstraint` in `__table_args__`
+  - **Async support** – Full async support for SQLAlchemy model operations:
+    - `await async_db.create_table(User).collect()`
+    - `await async_db.table(User).select().collect()`
+  - **Backward compatibility** – Traditional string-based API still works:
+    - `db.create_table("users", [column(...)])` – Still supported
+    - `db.table("users")` – Still supported
+    - All existing code continues to work unchanged
+  - **Comprehensive test coverage** – 19 tests covering all integration features
+  - **Example file** – `examples/17_sqlalchemy_models.py` demonstrating usage
+  - **Documentation** – README.md updated with SQLAlchemy integration section
 - **Explode compilation** – `explode()` now emits working SQL for SQLite (via `json_each`) and PostgreSQL (`jsonb_array_elements`), unlocking table-valued expansions for array/JSON columns on those dialects.
 
 ### Fixed
