@@ -10,14 +10,15 @@ class DialectSpec:
     name: str
     supports_cte: bool = True
     quote_char: str = '"'
+    supports_filter_clause: bool = True
 
 
 DIALECTS: dict[str, DialectSpec] = {
-    "ansi": DialectSpec(name="ansi"),
-    "postgresql": DialectSpec(name="postgresql", quote_char='"'),
-    "sqlite": DialectSpec(name="sqlite", quote_char='"'),
-    "mysql": DialectSpec(name="mysql", quote_char="`"),
-    "mysql+pymysql": DialectSpec(name="mysql", quote_char="`"),
+    "ansi": DialectSpec(name="ansi", supports_filter_clause=True),
+    "postgresql": DialectSpec(name="postgresql", quote_char='"', supports_filter_clause=True),
+    "sqlite": DialectSpec(name="sqlite", quote_char='"', supports_filter_clause=False),
+    "mysql": DialectSpec(name="mysql", quote_char="`", supports_filter_clause=True),
+    "mysql+pymysql": DialectSpec(name="mysql", quote_char="`", supports_filter_clause=True),
 }
 
 

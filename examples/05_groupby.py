@@ -19,6 +19,7 @@ db.create_table(
         column("category", "TEXT"),
         column("amount", "REAL"),
         column("region", "TEXT"),
+        column("status", "TEXT"),
     ],
 ).collect()
 
@@ -26,11 +27,46 @@ db.create_table(
 from moltres.io.records import Records
 
 sales_data = [
-    {"id": 1, "product": "Widget A", "category": "Electronics", "amount": 100.0, "region": "North"},
-    {"id": 2, "product": "Widget B", "category": "Electronics", "amount": 150.0, "region": "South"},
-    {"id": 3, "product": "Gadget X", "category": "Electronics", "amount": 200.0, "region": "North"},
-    {"id": 4, "product": "Tool Y", "category": "Hardware", "amount": 75.0, "region": "South"},
-    {"id": 5, "product": "Tool Z", "category": "Hardware", "amount": 125.0, "region": "North"},
+    {
+        "id": 1,
+        "product": "Widget A",
+        "category": "Electronics",
+        "amount": 100.0,
+        "region": "North",
+        "status": "active",
+    },
+    {
+        "id": 2,
+        "product": "Widget B",
+        "category": "Electronics",
+        "amount": 150.0,
+        "region": "South",
+        "status": "active",
+    },
+    {
+        "id": 3,
+        "product": "Gadget X",
+        "category": "Electronics",
+        "amount": 200.0,
+        "region": "North",
+        "status": "inactive",
+    },
+    {
+        "id": 4,
+        "product": "Tool Y",
+        "category": "Hardware",
+        "amount": 75.0,
+        "region": "South",
+        "status": "active",
+    },
+    {
+        "id": 5,
+        "product": "Tool Z",
+        "category": "Hardware",
+        "amount": 125.0,
+        "region": "North",
+        "status": "inactive",
+    },
 ]
 
 Records(_data=sales_data, _database=db).insert_into("sales")
@@ -74,5 +110,17 @@ result = grouped.agg(F.sum(col("amount")).alias("total")).order_by(col("total").
 results = result.collect()
 print(f"Ordered by total: {results}")
 # Output: Ordered by total: [{'category': 'Electronics', 'total': 450.0}, {'category': 'Hardware', 'total': 200.0}]
+
+# Conditional aggregation with FILTER clause
+# Use FILTER clause for conditional aggregation
+df = db.table("sales").select()
+result = grouped.agg(
+    F.sum(col("amount")).filter(col("status") == "active").alias("active_total"),
+    F.sum(col("amount")).filter(col("status") == "inactive").alias("inactive_total"),
+    F.count("*").filter(col("status") == "active").alias("active_count"),
+)
+results = result.collect()
+print(f"Conditional aggregation with FILTER: {results}")
+# Output: Conditional aggregation with FILTER: [{'category': 'Electronics', 'active_total': 250.0, 'inactive_total': 200.0, 'active_count': 2}, {'category': 'Hardware', 'active_total': 75.0, 'inactive_total': 125.0, 'active_count': 1}]
 
 db.close()

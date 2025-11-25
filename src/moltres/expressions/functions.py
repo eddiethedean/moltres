@@ -176,19 +176,74 @@ def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
         >>> from moltres import col
         >>> from moltres.expressions import functions as F
         >>> df.group_by("category").agg(F.sum(col("amount")))
+        >>> # With FILTER clause for conditional aggregation
+        >>> df.group_by("category").agg(
+        ...     F.sum(col("amount")).filter(col("status") == "active")
+        ... )
     """
     return _aggregate("agg_sum", column)
 
 
 def avg(column: ColumnLike) -> Column:
+    """Compute the average of a column.
+
+    Args:
+        column: Column expression or literal value
+
+    Returns:
+        Column expression for the average aggregate
+
+    Example:
+        >>> from moltres import col
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.avg(col("price")))
+        >>> # With FILTER clause for conditional aggregation
+        >>> df.group_by("category").agg(
+        ...     F.avg(col("price")).filter(col("active") == True)
+        ... )
+    """
     return _aggregate("agg_avg", column)
 
 
 def min(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
+    """Compute the minimum value of a column.
+
+    Args:
+        column: Column expression or literal value
+
+    Returns:
+        Column expression for the minimum aggregate
+
+    Example:
+        >>> from moltres import col
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.min(col("price")))
+        >>> # With FILTER clause for conditional aggregation
+        >>> df.group_by("category").agg(
+        ...     F.min(col("price")).filter(col("active") == True)
+        ... )
+    """
     return _aggregate("agg_min", column)
 
 
 def max(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
+    """Compute the maximum value of a column.
+
+    Args:
+        column: Column expression or literal value
+
+    Returns:
+        Column expression for the maximum aggregate
+
+    Example:
+        >>> from moltres import col
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.max(col("price")))
+        >>> # With FILTER clause for conditional aggregation
+        >>> df.group_by("category").agg(
+        ...     F.max(col("price")).filter(col("active") == True)
+        ... )
+    """
     return _aggregate("agg_max", column)
 
 
@@ -206,6 +261,10 @@ def count(column: Union[ColumnLike, str] = "*") -> Column:
         >>> from moltres.expressions import functions as F
         >>> df.group_by("category").agg(F.count("*"))
         >>> df.group_by("category").agg(F.count(col("id")))
+        >>> # With FILTER clause for conditional aggregation
+        >>> df.group_by("category").agg(
+        ...     F.count("*").filter(col("active") == True)
+        ... )
     """
     if isinstance(column, str) and column == "*":
         return Column(op="agg_count_star", args=())
@@ -213,6 +272,23 @@ def count(column: Union[ColumnLike, str] = "*") -> Column:
 
 
 def count_distinct(*columns: ColumnLike) -> Column:
+    """Count distinct values in one or more columns.
+
+    Args:
+        *columns: One or more column expressions
+
+    Returns:
+        Column expression for the count distinct aggregate
+
+    Example:
+        >>> from moltres import col
+        >>> from moltres.expressions import functions as F
+        >>> df.group_by("category").agg(F.count_distinct(col("user_id")))
+        >>> # With FILTER clause for conditional aggregation
+        >>> df.group_by("category").agg(
+        ...     F.count_distinct(col("user_id")).filter(col("active") == True)
+        ... )
+    """
     if not columns:
         raise ValueError("count_distinct requires at least one column")
     exprs = tuple(ensure_column(column) for column in columns)

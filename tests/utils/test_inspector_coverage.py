@@ -37,12 +37,10 @@ def test_get_table_columns_async_engine_no_running_loop(tmp_path):
     asyncio.run(async_db.close())
 
 
-
-
 def test_get_table_columns_type_parsing_with_parentheses(tmp_path):
     """Test type name parsing with parentheses (line 126)."""
     from moltres.utils.inspector import get_table_columns
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock
     import asyncio
 
     # Ensure no event loop is running to avoid conflicts
@@ -90,7 +88,6 @@ def test_get_table_columns_async_thread_exception_handling(tmp_path):
     """Test exception handling in async thread path (lines 95-96, 105-106)."""
     from moltres.utils.inspector import get_table_columns
     import asyncio
-    import threading
 
     db_path = tmp_path / "test.db"
     async_db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -112,4 +109,3 @@ def test_get_table_columns_async_thread_exception_handling(tmp_path):
         get_table_columns(async_db, "nonexistent_table")
 
     asyncio.run(async_db.close())
-

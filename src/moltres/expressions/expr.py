@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from .column import Column
 
 
 @dataclass(frozen=True)
@@ -14,6 +17,7 @@ class Expression:
     op: str
     args: tuple[Any, ...]
     _alias: str | None = None
+    _filter: Optional["Column"] = None
 
     def with_alias(self, alias: str) -> Expression:
         return replace(self, _alias=alias)

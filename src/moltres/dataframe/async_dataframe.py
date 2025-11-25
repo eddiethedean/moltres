@@ -1243,7 +1243,7 @@ class AsyncDataFrame:
 
         # Handle Aggregate - extract from aggregates
         if isinstance(base_plan, Aggregate):
-            column_names: List[str] = []
+            column_names = []
             # Add grouping columns
             for group_col in base_plan.grouping:
                 col_name = self._extract_column_name(group_col)
@@ -1364,7 +1364,7 @@ class AsyncDataFrame:
 
         # Handle Aggregate - extract from aggregates
         if isinstance(base_plan, Aggregate):
-            schema: List[ColumnInfo] = []
+            schema = []
             child_schema = self._extract_schema_from_plan(base_plan.child)
 
             # Add grouping columns
@@ -1404,9 +1404,7 @@ class AsyncDataFrame:
         # Handle TableScan - query database metadata
         if isinstance(base_plan, TableScan):
             if self.database is None:
-                raise RuntimeError(
-                    "Cannot determine schema: DataFrame has no database connection"
-                )
+                raise RuntimeError("Cannot determine schema: DataFrame has no database connection")
             from ..utils.inspector import get_table_columns
 
             table_name = base_plan.alias or base_plan.table
@@ -1434,9 +1432,7 @@ class AsyncDataFrame:
             return self._extract_schema_from_plan(children[0])
 
         # If we can't determine, raise error
-        raise RuntimeError(
-            f"Cannot determine schema from plan type: {type(base_plan).__name__}"
-        )
+        raise RuntimeError(f"Cannot determine schema from plan type: {type(base_plan).__name__}")
 
     def _normalize_sort_expression(self, expr: Column) -> SortOrder:
         """Normalize a sort expression to a SortOrder."""

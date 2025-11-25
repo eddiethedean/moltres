@@ -16,9 +16,18 @@ if TYPE_CHECKING:
     from ..dataframe.async_dataframe import AsyncDataFrame
     from ..dataframe.async_reader import AsyncDataLoader, AsyncReadAccessor
     from ..io.records import AsyncLazyRecords, AsyncRecords
+    from ..utils.inspector import ColumnInfo
     from .async_actions import (
+        AsyncCreateIndexOperation,
         AsyncCreateTableOperation,
+        AsyncDropIndexOperation,
         AsyncDropTableOperation,
+    )
+    from .schema import (
+        CheckConstraint,
+        ForeignKeyConstraint,
+        TableSchema,
+        UniqueConstraint,
     )
 try:
     from sqlalchemy.ext.asyncio.engine import AsyncConnection
@@ -193,6 +202,9 @@ class AsyncDatabase:
         *,
         if_not_exists: bool = True,
         temporary: bool = False,
+        constraints: Optional[
+            Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]]
+        ] = None,
     ) -> "AsyncCreateTableOperation":
         """Create a lazy async create table operation.
 
@@ -225,6 +237,7 @@ class AsyncDatabase:
             columns=columns,
             if_not_exists=if_not_exists,
             temporary=temporary,
+            constraints=constraints or (),
         )
 
     def drop_table(self, name: str, *, if_exists: bool = True) -> "AsyncDropTableOperation":
@@ -244,6 +257,346 @@ class AsyncDatabase:
         from .async_actions import AsyncDropTableOperation
 
         return AsyncDropTableOperation(database=self, name=name, if_exists=if_exists)
+
+    def create_index(
+        self,
+        name: str,
+        table: str,
+        columns: Union[str, Sequence[str]],
+        *,
+        unique: bool = False,
+        if_not_exists: bool = True,
+    ) -> "AsyncCreateIndexOperation":
+        """Create a lazy async create index operation.
+
+        Args:
+            name: Name of the index to create
+            table: Name of the table to create the index on
+            columns: Column name(s) to index (single string or sequence)
+            unique: If True, create a UNIQUE index (default: False)
+            if_not_exists: If True, don't error if index already exists (default: True)
+
+        Returns:
+            AsyncCreateIndexOperation that executes on collect()
+
+        Example:
+            >>> op = db.create_index("idx_email", "users", "email")
+            >>> await op.collect()  # Executes the CREATE INDEX
+            >>> # Multi-column index
+            >>> op2 = db.create_index("idx_name_age", "users", ["name", "age"], unique=True)
+        """
+        from .async_actions import AsyncCreateIndexOperation
+
+        return AsyncCreateIndexOperation(
+            database=self,
+            name=name,
+            table_name=table,
+            columns=columns,
+            unique=unique,
+            if_not_exists=if_not_exists,
+        )
+
+    def drop_index(
+        self,
+        name: str,
+        table: Optional[str] = None,
+        *,
+        if_exists: bool = True,
+    ) -> "AsyncDropIndexOperation":
+        """Create a lazy async drop index operation.
+
+        Args:
+            name: Name of the index to drop
+            table: Optional table name (required for some dialects like MySQL)
+            if_exists: If True, don't error if index doesn't exist (default: True)
+
+        Returns:
+            AsyncDropIndexOperation that executes on collect()
+
+        Example:
+            >>> op = db.drop_index("idx_email", "users")
+            >>> await op.collect()  # Executes the DROP INDEX
+        """
+        from .async_actions import AsyncDropIndexOperation
+
+        return AsyncDropIndexOperation(
+            database=self,
+            name=name,
+            table_name=table,
+            if_exists=if_exists,
+        )
+
+    # -------------------------------------------------------------- schema inspection
+    async def get_table_names(self, schema: Optional[str] = None) -> List[str]:
+        """Get list of table names in the database.
+
+        Args:
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+
+        Returns:
+            List of table names
+
+        Raises:
+            ValueError: If database connection is not available
+            RuntimeError: If inspection fails
+
+        Example:
+            >>> tables = await db.get_table_names()
+            >>> # Returns: ['users', 'orders', 'products']
+        """
+        from sqlalchemy import inspect as sa_inspect
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        if self.connection_manager is None:
+            raise ValueError("Database connection manager is not available")
+
+        engine = self.connection_manager.engine
+
+        if not isinstance(engine, AsyncEngine):
+            raise TypeError("Expected AsyncEngine for async database")
+
+        try:
+            async with engine.begin() as conn:
+
+                def _inspect_sync(sync_conn: Any) -> List[str]:
+                    inspector = sa_inspect(sync_conn)
+                    return inspector.get_table_names(schema=schema)  # type: ignore[no-any-return]
+
+                return await conn.run_sync(_inspect_sync)
+        except Exception as e:
+            raise RuntimeError(f"Failed to get table names: {e}") from e
+
+    async def get_view_names(self, schema: Optional[str] = None) -> List[str]:
+        """Get list of view names in the database.
+
+        Args:
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+
+        Returns:
+            List of view names
+
+        Raises:
+            ValueError: If database connection is not available
+            RuntimeError: If inspection fails
+
+        Example:
+            >>> views = await db.get_view_names()
+            >>> # Returns: ['active_users_view', 'order_summary_view']
+        """
+        from sqlalchemy import inspect as sa_inspect
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        if self.connection_manager is None:
+            raise ValueError("Database connection manager is not available")
+
+        engine = self.connection_manager.engine
+
+        if not isinstance(engine, AsyncEngine):
+            raise TypeError("Expected AsyncEngine for async database")
+
+        try:
+            async with engine.begin() as conn:
+
+                def _inspect_sync(sync_conn: Any) -> List[str]:
+                    inspector = sa_inspect(sync_conn)
+                    return inspector.get_view_names(schema=schema)  # type: ignore[no-any-return]
+
+                return await conn.run_sync(_inspect_sync)
+        except Exception as e:
+            raise RuntimeError(f"Failed to get view names: {e}") from e
+
+    async def get_columns(self, table_name: str) -> List["ColumnInfo"]:
+        """Get column information for a table.
+
+        Args:
+            table_name: Name of the table to inspect
+
+        Returns:
+            List of ColumnInfo objects with column metadata
+
+        Raises:
+            ValidationError: If table name is invalid
+            ValueError: If database connection is not available
+            RuntimeError: If table does not exist or cannot be inspected
+
+        Example:
+            >>> columns = await db.get_columns("users")
+            >>> # Returns: [ColumnInfo(name='id', type_name='INTEGER', ...), ...]
+        """
+        from ..utils.exceptions import ValidationError
+        from ..utils.inspector import ColumnInfo
+        from ..sql.builders import quote_identifier
+        from sqlalchemy import inspect as sa_inspect
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        if not table_name:
+            raise ValidationError("Table name cannot be empty")
+        # Validate table name format
+        quote_identifier(table_name, self._dialect.quote_char)
+
+        if self.connection_manager is None:
+            raise ValueError("Database connection manager is not available")
+
+        engine = self.connection_manager.engine
+        if not isinstance(engine, AsyncEngine):
+            raise TypeError("Expected AsyncEngine for async database")
+
+        try:
+            async with engine.begin() as conn:
+
+                def _inspect_sync(sync_conn: Any) -> List[Dict[str, Any]]:
+                    inspector = sa_inspect(sync_conn)
+                    return inspector.get_columns(table_name)  # type: ignore[no-any-return]
+
+                columns = await conn.run_sync(_inspect_sync)
+        except Exception as e:
+            from sqlalchemy.exc import NoSuchTableError
+
+            # Check if the exception or its cause is NoSuchTableError
+            is_no_such_table = isinstance(e, NoSuchTableError)
+            if not is_no_such_table and e.__cause__:
+                is_no_such_table = isinstance(e.__cause__, NoSuchTableError)
+
+            if is_no_such_table:
+                raise RuntimeError(f"Failed to inspect table '{table_name}': {e}") from e
+            raise
+
+        # Convert to ColumnInfo objects
+        result: List[ColumnInfo] = []
+        for col_info in columns:
+            # Convert SQLAlchemy type to string representation
+            type_name = str(col_info["type"])
+            # Clean up type string
+            if "(" in type_name:
+                type_name = type_name.split("(")[0] + "(" + type_name.split("(")[1]
+            else:
+                type_name = type_name.split(".")[-1].replace("()", "")
+
+            # Extract precision and scale from numeric types
+            precision = None
+            scale = None
+            sa_type = col_info.get("type")
+            if (
+                sa_type is not None
+                and hasattr(sa_type, "precision")
+                and sa_type.precision is not None
+            ):
+                precision = sa_type.precision
+            if sa_type is not None and hasattr(sa_type, "scale") and sa_type.scale is not None:
+                scale = sa_type.scale
+
+            # Convert primary_key to boolean (SQLAlchemy returns 1/0)
+            primary_key = col_info.get("primary_key", False)
+            if isinstance(primary_key, int):
+                primary_key = bool(primary_key)
+
+            result.append(
+                ColumnInfo(
+                    name=col_info["name"],
+                    type_name=type_name,
+                    nullable=col_info.get("nullable", True),
+                    default=col_info.get("default"),
+                    primary_key=primary_key,
+                    precision=precision,
+                    scale=scale,
+                )
+            )
+
+        return result
+
+    async def reflect_table(self, name: str, schema: Optional[str] = None) -> "TableSchema":
+        """Reflect a single table from the database.
+
+        Args:
+            name: Name of the table to reflect
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+
+        Returns:
+            TableSchema object with table metadata
+
+        Raises:
+            ValidationError: If table name is invalid
+            ValueError: If database connection is not available
+            RuntimeError: If table does not exist or reflection fails
+
+        Example:
+            >>> schema = await db.reflect_table("users")
+            >>> # Returns: TableSchema(name='users', columns=[ColumnDef(...), ...])
+        """
+        from ..utils.exceptions import ValidationError
+        from ..sql.builders import quote_identifier
+        from .schema import TableSchema
+
+        if not name:
+            raise ValidationError("Table name cannot be empty")
+        # Validate table name format
+        quote_identifier(name, self._dialect.quote_char)
+
+        # Use get_columns which handles async properly
+        columns = await self.get_columns(name)
+        column_defs = [col_info.to_column_def() for col_info in columns]
+
+        return TableSchema(name=name, columns=column_defs)
+
+    async def reflect(
+        self, schema: Optional[str] = None, views: bool = False
+    ) -> Dict[str, "TableSchema"]:
+        """Reflect entire database schema.
+
+        Args:
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+            views: If True, also reflect views (default: False)
+
+        Returns:
+            Dictionary mapping table/view names to TableSchema objects
+
+        Raises:
+            ValueError: If database connection is not available
+            RuntimeError: If reflection fails
+
+        Example:
+            >>> schemas = await db.reflect()
+            >>> # Returns: {'users': TableSchema(...), 'orders': TableSchema(...)}
+        """
+
+        # Get all table names
+        table_names = await self.get_table_names(schema=schema)
+
+        # Optionally get view names
+        view_names: List[str] = []
+        if views:
+            view_names = await self.get_view_names(schema=schema)
+
+        # Reflect each table
+        result: Dict[str, TableSchema] = {}
+        for table_name in table_names:
+            try:
+                schema_obj = await self.reflect_table(table_name, schema=schema)
+                result[table_name] = schema_obj
+            except Exception as e:
+                # Log but continue with other tables
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to reflect table '{table_name}': {e}")
+
+        # Reflect views if requested
+        for view_name in view_names:
+            try:
+                view_schema = await self.reflect_table(view_name, schema=schema)
+                result[view_name] = view_schema
+            except Exception as e:
+                # Log but continue with other views
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to reflect view '{view_name}': {e}")
+
+        return result
 
     # -------------------------------------------------------------- query utils
     def compile_plan(self, plan: LogicalPlan) -> Any:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Optional, Union
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,44 @@ class ColumnDef:
 
 
 @dataclass(frozen=True)
+class UniqueConstraint:
+    """Definition of a UNIQUE constraint."""
+
+    name: Optional[str] = None
+    columns: Union[str, Sequence[str]] = ()
+
+    def __post_init__(self) -> None:
+        """Validate constraint definition."""
+        if not self.columns:
+            raise ValueError("UniqueConstraint must specify at least one column")
+
+
+@dataclass(frozen=True)
+class CheckConstraint:
+    """Definition of a CHECK constraint."""
+
+    name: Optional[str] = None
+    expression: str = ""  # SQL expression string
+
+    def __post_init__(self) -> None:
+        """Validate constraint definition."""
+        if not self.expression:
+            raise ValueError("CheckConstraint must specify an expression")
+
+
+@dataclass(frozen=True)
+class ForeignKeyConstraint:
+    """Definition of a FOREIGN KEY constraint."""
+
+    name: Optional[str] = None
+    columns: Union[str, Sequence[str]] = ()
+    references_table: str = ""
+    references_columns: Union[str, Sequence[str]] = ()
+    on_delete: Optional[str] = None  # e.g., "CASCADE", "SET NULL", "RESTRICT"
+    on_update: Optional[str] = None  # e.g., "CASCADE", "SET NULL", "RESTRICT"
+
+
+@dataclass(frozen=True)
 class TableSchema:
     """Complete schema definition for a table."""
 
@@ -27,6 +66,7 @@ class TableSchema:
     columns: Sequence[ColumnDef]
     if_not_exists: bool = True
     temporary: bool = False
+    constraints: Sequence[Union[UniqueConstraint, CheckConstraint, ForeignKeyConstraint]] = ()
 
 
 def column(
@@ -145,4 +185,107 @@ def json(
         nullable=nullable,
         default=default,
         primary_key=False,  # JSON columns typically aren't primary keys
+    )
+
+
+def unique(columns: Union[str, Sequence[str]], name: Optional[str] = None) -> UniqueConstraint:
+    """Convenience helper for creating UNIQUE constraints.
+
+    Args:
+        columns: Column name(s) for the unique constraint
+        name: Optional constraint name
+
+    Returns:
+        UniqueConstraint object
+
+    Example:
+        >>> from moltres.table.schema import unique
+        >>> # Single column unique constraint
+        >>> uq1 = unique("email")
+        >>> # Multi-column unique constraint
+        >>> uq2 = unique(["user_id", "session_id"], name="uq_user_session")
+    """
+    if not columns:
+        raise ValueError("UniqueConstraint must specify at least one column")
+    # Normalize to tuple for consistency
+    if isinstance(columns, str):
+        columns = (columns,)
+    elif isinstance(columns, Sequence):
+        columns = tuple(columns)
+    return UniqueConstraint(name=name, columns=columns)
+
+
+def check(expression: str, name: Optional[str] = None) -> CheckConstraint:
+    """Convenience helper for creating CHECK constraints.
+
+    Args:
+        expression: SQL expression for the check constraint (e.g., "age > 0")
+        name: Optional constraint name
+
+    Returns:
+        CheckConstraint object
+
+    Example:
+        >>> from moltres.table.schema import check
+        >>> ck = check("age >= 0 AND age <= 150", name="ck_valid_age")
+    """
+    return CheckConstraint(name=name, expression=expression)
+
+
+def foreign_key(
+    columns: Union[str, Sequence[str]],
+    references_table: str,
+    references_columns: Union[str, Sequence[str]],
+    name: Optional[str] = None,
+    on_delete: Optional[str] = None,
+    on_update: Optional[str] = None,
+) -> ForeignKeyConstraint:
+    """Convenience helper for creating FOREIGN KEY constraints.
+
+    Args:
+        columns: Column name(s) in this table
+        references_table: Name of the referenced table
+        references_columns: Column name(s) in the referenced table
+        name: Optional constraint name
+        on_delete: Optional action on delete (e.g., "CASCADE", "SET NULL", "RESTRICT")
+        on_update: Optional action on update (e.g., "CASCADE", "SET NULL", "RESTRICT")
+
+    Returns:
+        ForeignKeyConstraint object
+
+    Example:
+        >>> from moltres.table.schema import foreign_key
+        >>> # Single column foreign key
+        >>> fk1 = foreign_key("user_id", "users", "id", on_delete="CASCADE")
+        >>> # Multi-column foreign key
+        >>> fk2 = foreign_key(["order_id", "item_id"], "order_items", ["id", "id"])
+    """
+    if not columns:
+        raise ValueError("ForeignKeyConstraint must specify at least one column")
+    if not references_table:
+        raise ValueError("ForeignKeyConstraint must specify a references_table")
+    if not references_columns:
+        raise ValueError("ForeignKeyConstraint must specify at least one references_column")
+    # Normalize to tuples for consistency
+    if isinstance(columns, str):
+        columns = (columns,)
+    elif isinstance(columns, Sequence):
+        columns = tuple(columns)
+    if isinstance(references_columns, str):
+        references_columns = (references_columns,)
+    elif isinstance(references_columns, Sequence):
+        references_columns = tuple(references_columns)
+    # Validate column counts match
+    if len(columns) != len(references_columns):
+        raise ValueError(
+            f"ForeignKeyConstraint columns count ({len(columns)}) "
+            f"must match references_columns count ({len(references_columns)})"
+        )
+    return ForeignKeyConstraint(
+        name=name,
+        columns=columns,
+        references_table=references_table,
+        references_columns=references_columns,
+        on_delete=on_delete,
+        on_update=on_update,
     )

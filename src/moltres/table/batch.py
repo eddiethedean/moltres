@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 if TYPE_CHECKING:
     from .actions import (
+        CreateIndexOperation,
         CreateTableOperation,
+        DropIndexOperation,
         DropTableOperation,
     )
     from .table import Database
@@ -23,7 +25,9 @@ class OperationBatch:
         self.database = database
         self._operations: List[
             Union[
+                "CreateIndexOperation",
                 "CreateTableOperation",
+                "DropIndexOperation",
                 "DropTableOperation",
             ]
         ] = []
@@ -31,7 +35,9 @@ class OperationBatch:
     def add(
         self,
         operation: Union[
+            "CreateIndexOperation",
             "CreateTableOperation",
+            "DropIndexOperation",
             "DropTableOperation",
         ],
     ) -> "OperationBatch":

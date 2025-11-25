@@ -1633,13 +1633,9 @@ class DataFrame:
         if isinstance(plan, (TableScan, FileScan)):
             return plan
 
-        # If this is a Project, check if child is also a Project
+        # If this is a Project, return it (it's the final projection)
+        # Even if the child is also a Project, we want the outermost one
         if isinstance(plan, Project):
-            child_base = self._find_base_plan(plan.child)
-            # If child is also a Project, return the child (more specific)
-            if isinstance(child_base, Project):
-                return child_base
-            # Otherwise, return this Project (it's the final projection)
             return plan
 
         # For operations that have a single child, traverse down
@@ -1704,7 +1700,7 @@ class DataFrame:
 
         # Handle Aggregate - extract from aggregates
         if isinstance(base_plan, Aggregate):
-            column_names: List[str] = []
+            column_names = []
             # Add grouping columns
             for group_col in base_plan.grouping:
                 col_name = self._extract_column_name(group_col)
@@ -1825,7 +1821,7 @@ class DataFrame:
 
         # Handle Aggregate - extract from aggregates
         if isinstance(base_plan, Aggregate):
-            schema: List[ColumnInfo] = []
+            schema = []
             child_schema = self._extract_schema_from_plan(base_plan.child)
 
             # Add grouping columns
@@ -1865,9 +1861,7 @@ class DataFrame:
         # Handle TableScan - query database metadata
         if isinstance(base_plan, TableScan):
             if self.database is None:
-                raise RuntimeError(
-                    "Cannot determine schema: DataFrame has no database connection"
-                )
+                raise RuntimeError("Cannot determine schema: DataFrame has no database connection")
             from ..utils.inspector import get_table_columns
 
             table_name = base_plan.alias or base_plan.table
@@ -1895,9 +1889,7 @@ class DataFrame:
             return self._extract_schema_from_plan(children[0])
 
         # If we can't determine, raise error
-        raise RuntimeError(
-            f"Cannot determine schema from plan type: {type(base_plan).__name__}"
-        )
+        raise RuntimeError(f"Cannot determine schema from plan type: {type(base_plan).__name__}")
 
     def _normalize_sort_expression(self, expr: Column) -> SortOrder:
         if expr.op == "sort_desc":

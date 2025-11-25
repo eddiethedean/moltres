@@ -10,7 +10,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] `QUALIFY` clause for filtering window function results without subqueries (SQL standard, PostgreSQL 12+, BigQuery, Snowflake)
 - [ ] `UNNEST()` / table-valued functions for array/JSON expansion in FROM clause (`UNNEST(array)`, `jsonb_array_elements()`, `jsonb_each()` in FROM) - dialect-specific
   - Note: `explode()` API is complete, but SQL compilation needs table-valued function support
-- [ ] `FILTER` clause for conditional aggregation (`COUNT(*) FILTER (WHERE condition)`) - SQL standard (PostgreSQL, MySQL 8.0+, SQL Server, Oracle)
+- [x] `FILTER` clause for conditional aggregation (`COUNT(*) FILTER (WHERE condition)`) - SQL standard (PostgreSQL, MySQL 8.0+, SQL Server, Oracle)
 - [ ] `DISTINCT ON` for selecting distinct rows based on specific columns (PostgreSQL-specific)
 
 ### SQL Dialects
@@ -22,11 +22,11 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Snowflake support
 - [ ] DuckDB support
 
-### Schema Management
-- [ ] Foreign key constraints (`FOREIGN KEY ... REFERENCES`) - SQL standard
-- [ ] Unique constraints (`UNIQUE`) - SQL standard
-- [ ] Check constraints (`CHECK`) - SQL standard
-- [ ] Indexes (`CREATE INDEX`, `DROP INDEX`) - SQL standard
+### Schema Management ✅ **COMPLETED**
+- [x] Foreign key constraints (`FOREIGN KEY ... REFERENCES`) - SQL standard
+- [x] Unique constraints (`UNIQUE`) - SQL standard
+- [x] Check constraints (`CHECK`) - SQL standard
+- [x] Indexes (`CREATE INDEX`, `DROP INDEX`) - SQL standard
 - [ ] Views (`CREATE VIEW`, `DROP VIEW`) - SQL standard
 - [ ] Alter table operations (`ALTER TABLE ADD COLUMN`, `DROP COLUMN`, etc.) - SQL standard
 
@@ -56,11 +56,11 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Arrow IPC format support
 - [ ] Better compression options for all formats
 
-### Schema Inspection
-- [ ] Table reflection (`db.reflect_table(name)`) - Automatically introspect table schemas from database
-- [ ] Database reflection (`db.reflect()`) - Introspect all tables, views, indexes in database schema
-- [ ] Schema introspection utilities (`db.get_table_names()`, `db.get_view_names()`, etc.)
-- [ ] Column metadata introspection (`db.get_columns(table_name)`, etc.)
+### Schema Inspection ✅ **COMPLETED**
+- [x] Table reflection (`db.reflect_table(name)`) - Automatically introspect table schemas from database
+- [x] Database reflection (`db.reflect()`) - Introspect all tables, views, indexes in database schema
+- [x] Schema introspection utilities (`db.get_table_names()`, `db.get_view_names()`, etc.)
+- [x] Column metadata introspection (`db.get_columns(table_name)`, etc.)
 
 ### Transaction Control
 - [ ] Explicit transaction control improvements (`BEGIN`, `COMMIT`, `ROLLBACK`) - expand API
@@ -189,7 +189,38 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Refactor compiler for better maintainability
 - [ ] Better handling of edge cases in file readers
 
-## ✅ Recently Completed (v0.12.0)
+## ✅ Recently Completed
+
+### v0.13.0
+
+#### Schema Management - Constraints & Indexes
+- ✅ Unique constraints (`UNIQUE`) - Single and multi-column support via `unique()` helper
+- ✅ Check constraints (`CHECK`) - SQL expression-based validation via `check()` helper
+- ✅ Foreign key constraints (`FOREIGN KEY ... REFERENCES`) - Single and multi-column with cascade options via `foreign_key()` helper
+- ✅ Indexes (`CREATE INDEX`, `DROP INDEX`) - Single and multi-column indexes, unique indexes via `create_index()` and `drop_index()` methods
+- ✅ SQLAlchemy DDL Integration - All DDL operations now use SQLAlchemy's declarative API instead of raw SQL strings
+- ✅ Async support for all constraint and index operations
+- ✅ Comprehensive test coverage (41 tests) for constraints, indexes, and edge cases
+- ✅ Updated examples demonstrating constraint and index usage
+
+#### Schema Inspection & Reflection
+- ✅ Table reflection (`db.reflect_table(name)`) - Automatically introspect table schemas from database
+- ✅ Database reflection (`db.reflect()`) - Introspect all tables, views, indexes in database schema
+- ✅ Schema introspection utilities (`db.get_table_names()`, `db.get_view_names()`, etc.)
+- ✅ Column metadata introspection (`db.get_columns(table_name)`, etc.)
+- ✅ Enhanced `ColumnInfo` dataclass with full metadata (nullable, default, primary_key, precision, scale)
+- ✅ Comprehensive test coverage for both sync and async reflection methods
+- ✅ Example file demonstrating reflection features (`examples/14_reflection.py`)
+
+#### FILTER Clause for Conditional Aggregation
+- ✅ Extended `Expression` dataclass with `_filter` field for storing FILTER clause conditions
+- ✅ Added `filter()` method to `Column` class for conditional aggregation
+- ✅ Updated `ExpressionCompiler` to handle FILTER clause for all aggregation functions (sum, avg, count, min, max, count_distinct, collect_list, collect_set, corr, covar, stddev, variance)
+- ✅ Implemented dialect-specific support (PostgreSQL, MySQL 8.0+ use native FILTER; SQLite uses CASE WHEN fallback)
+- ✅ Added comprehensive test coverage (18 tests covering all aggregation functions, edge cases, and error handling)
+- ✅ Updated documentation with examples in `examples/05_groupby.py` and README.md
+
+### v0.12.0
 
 ### Examples & Documentation
 - ✅ Created comprehensive examples directory with 13 example files

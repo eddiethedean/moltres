@@ -9,7 +9,7 @@ from .expressions import col, lit
 from .table.schema import column
 from .table.table import Database
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 __all__ = [
     "AsyncDatabase",

@@ -219,11 +219,88 @@ Create, drop, and manage database tables with explicit schemas or from DataFrame
 - Create tables: `db.create_table("name", [column(...)])`
 - Create from DataFrames: `df.write.save_as_table("table_name")`
 - Drop tables: `db.drop_table("name", if_exists=True)`
+- **Constraints**: UNIQUE, CHECK, and FOREIGN KEY constraints
+- **Indexes**: Create and drop indexes for better query performance
 - Temporary tables, primary keys, and schema validation
+
+**Example:**
+```python
+from moltres.table.schema import column, unique, check, foreign_key
+
+# Create table with constraints
+db.create_table(
+    "users",
+    [
+        column("id", "INTEGER", primary_key=True),
+        column("email", "TEXT"),
+        column("age", "INTEGER"),
+    ],
+    constraints=[
+        unique("email", name="uq_user_email"),
+        check("age >= 0", name="ck_positive_age"),
+    ],
+).collect()
+
+# Create table with foreign key
+db.create_table(
+    "orders",
+    [
+        column("id", "INTEGER", primary_key=True),
+        column("user_id", "INTEGER"),
+        column("total", "REAL"),
+    ],
+    constraints=[
+        foreign_key("user_id", "users", "id", on_delete="CASCADE"),
+    ],
+).collect()
+
+# Create indexes
+db.create_index("idx_user_email", "users", "email").collect()
+db.create_index("idx_order_user", "orders", "user_id").collect()
+db.create_index("idx_order_user_status", "orders", ["user_id", "status"]).collect()
+
+# Drop index
+db.drop_index("idx_user_email", "users").collect()
+```
 
 **📚 See detailed examples:**
 - [Table operations](https://github.com/eddiethedean/moltres/blob/main/examples/09_table_operations.py)
 - [Creating DataFrames from Python data](https://github.com/eddiethedean/moltres/blob/main/examples/10_create_dataframe.py)
+
+## 🔍 Schema Inspection & Reflection
+
+Inspect and reflect existing database schemas without manually defining them.
+
+**Key Features:**
+- List tables: `db.get_table_names()`
+- List views: `db.get_view_names()`
+- Get column metadata: `db.get_columns("table_name")`
+- Reflect single table: `db.reflect_table("table_name")`
+- Reflect entire database: `db.reflect()`
+- Full async support: All methods available on `AsyncDatabase`
+
+**Example:**
+```python
+# Get list of tables
+tables = db.get_table_names()
+# Output: ['users', 'orders', 'products']
+
+# Get column information
+columns = db.get_columns("users")
+for col in columns:
+    print(f"{col.name}: {col.type_name} (nullable={col.nullable}, pk={col.primary_key})")
+
+# Reflect a single table
+schema = db.reflect_table("users")
+# Returns: TableSchema(name='users', columns=[ColumnDef(...), ...])
+
+# Reflect entire database
+all_schemas = db.reflect()
+# Returns: {'users': TableSchema(...), 'orders': TableSchema(...)}
+```
+
+**📚 See detailed examples:**
+- [Schema inspection and reflection](https://github.com/eddiethedean/moltres/blob/main/examples/14_reflection.py)
 
 ## ✏️ Data Mutations
 
@@ -315,6 +392,7 @@ Comprehensive examples demonstrating all Moltres features:
 - **[11_window_functions.py](https://github.com/eddiethedean/moltres/blob/main/examples/11_window_functions.py)** - Window functions for analytical queries
 - **[12_sql_operations.py](https://github.com/eddiethedean/moltres/blob/main/examples/12_sql_operations.py)** - Raw SQL and SQL operations (CTEs, unions, etc.)
 - **[13_transactions.py](https://github.com/eddiethedean/moltres/blob/main/examples/13_transactions.py)** - Transaction management
+- **[14_reflection.py](https://github.com/eddiethedean/moltres/blob/main/examples/14_reflection.py)** - Schema inspection and reflection
 
 See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
 
@@ -349,6 +427,7 @@ See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/e
   - **String**: `concat()`, `upper()`, `lower()`, `substring()`, `trim()`, `length()`, `replace()`, `regexp_extract()`, `split()`, etc.
   - **Date/Time**: `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`, `date_format()`, `to_date()`, `datediff()`, `date_add()`, etc.
   - **Aggregate**: `sum()`, `avg()`, `min()`, `max()`, `count()`, `count_distinct()`, `stddev()`, `variance()`, etc.
+    - **FILTER clause**: Conditional aggregation with `.filter()` method (e.g., `F.sum(col("amount")).filter(col("status") == "active")`)
   - **Window**: `row_number()`, `rank()`, `dense_rank()`, `lag()`, `lead()`, etc.
   - **Array**: `array()`, `array_length()`, `array_contains()`, `array_position()`, etc.
   - **JSON**: `json_extract()`, `from_json()`, `to_json()`, etc.
@@ -407,7 +486,7 @@ mypy src
 
 Additional documentation is available:
 
-- **[Examples Directory](https://github.com/eddiethedean/moltres/tree/main/examples)** - 13 comprehensive example files covering all features
+- **[Examples Directory](https://github.com/eddiethedean/moltres/tree/main/examples)** - 14 comprehensive example files covering all features
 - **[Examples Guide](https://github.com/eddiethedean/moltres/blob/main/docs/EXAMPLES.md)** - Common patterns and use cases
 - **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
 - **[Security Guide](https://github.com/eddiethedean/moltres/blob/main/docs/SECURITY.md)** - Security best practices

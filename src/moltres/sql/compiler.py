@@ -1875,65 +1875,171 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
+
         if op == "agg_sum":
-            result = func.sum(self._compile(expression.args[0]))
+            col_expr = self._compile(expression.args[0])
+            result = func.sum(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    result = func.sum(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_avg":
-            result = func.avg(self._compile(expression.args[0]))
+            col_expr = self._compile(expression.args[0])
+            result = func.avg(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    result = func.avg(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_min":
-            result = func.min(self._compile(expression.args[0]))
+            col_expr = self._compile(expression.args[0])
+            result = func.min(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    result = func.min(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_max":
-            result = func.max(self._compile(expression.args[0]))
+            col_expr = self._compile(expression.args[0])
+            result = func.max(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    result = func.max(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_count":
-            result = func.count(self._compile(expression.args[0]))
+            col_expr = self._compile(expression.args[0])
+            result = func.count(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    result = func.count(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_stddev":
             # Use stddev_pop or stddev_samp - SQLAlchemy uses stddev_samp by default
-            result = func.stddev(self._compile(expression.args[0]))
+            col_expr = self._compile(expression.args[0])
+            result = func.stddev(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    result = func.stddev(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_variance":
             # Use var_pop or var_samp - SQLAlchemy uses var_samp by default
-            result = func.variance(self._compile(expression.args[0]))
+            col_expr = self._compile(expression.args[0])
+            result = func.variance(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    result = func.variance(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_corr":
             # Correlation between two columns
             col1, col2 = expression.args
-            result = func.corr(self._compile(col1), self._compile(col2))
+            col1_expr = self._compile(col1)
+            col2_expr = self._compile(col2)
+            result = func.corr(col1_expr, col2_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    # For correlation, we need to apply CASE to both columns
+                    case_col1 = case((filter_condition, col1_expr), else_=None)
+                    case_col2 = case((filter_condition, col2_expr), else_=None)
+                    result = func.corr(case_col1, case_col2)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_covar":
             # Covariance between two columns
             col1, col2 = expression.args
-            result = func.covar_pop(self._compile(col1), self._compile(col2))
+            col1_expr = self._compile(col1)
+            col2_expr = self._compile(col2)
+            result = func.covar_pop(col1_expr, col2_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    # For covariance, we need to apply CASE to both columns
+                    case_col1 = case((filter_condition, col1_expr), else_=None)
+                    case_col2 = case((filter_condition, col2_expr), else_=None)
+                    result = func.covar_pop(case_col1, case_col2)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_count_star":
             result = func.count()
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    # COUNT(*) FILTER (WHERE condition) becomes COUNT(CASE WHEN condition THEN 1 ELSE NULL END)
+                    case_expr = case((filter_condition, literal(1)), else_=None)
+                    result = func.count(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "agg_count_distinct":
             args = [self._compile(arg) for arg in expression.args]
             result = func.count(func.distinct(*args))
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    # For count_distinct with multiple columns, apply CASE to each
+                    case_args = [case((filter_condition, arg), else_=None) for arg in args]
+                    result = func.count(func.distinct(*case_args))
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -1950,6 +2056,19 @@ class ExpressionCompiler:
             else:
                 # MySQL and others - use JSON_ARRAYAGG
                 result = func.json_arrayagg(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    if self.dialect.name == "postgresql":
+                        result = func.array_agg(case_expr)
+                    elif self.dialect.name == "sqlite":
+                        result = func.json_group_array(case_expr)
+                    else:
+                        result = func.json_arrayagg(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -1978,6 +2097,19 @@ class ExpressionCompiler:
                 # Or use JSON_ARRAYAGG on a subquery with DISTINCT
                 # For now, just use json_arrayagg without distinct (limitation)
                 result = func.json_arrayagg(col_expr)
+            if expression._filter is not None:
+                filter_condition = self._compile(expression._filter)
+                if self.dialect.supports_filter_clause:
+                    result = result.filter(filter_condition)
+                else:
+                    # Fallback to CASE WHEN for unsupported dialects
+                    case_expr = case((filter_condition, col_expr), else_=None)
+                    if self.dialect.name == "postgresql":
+                        result = func.array_agg(func.distinct(case_expr))
+                    elif self.dialect.name == "sqlite":
+                        result = func.json_group_array(func.distinct(case_expr))
+                    else:
+                        result = func.json_arrayagg(case_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result

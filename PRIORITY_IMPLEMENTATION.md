@@ -4,13 +4,13 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 
 ## 🚀 Immediate Next Steps (v0.13.0)
 
-### 1. **Schema Inspection & Reflection** (High Impact, Medium Effort)
+### 1. **Schema Inspection & Reflection** (High Impact, Medium Effort) ✅ **COMPLETED**
 **Priority: CRITICAL**
 
-- [ ] Table reflection (`db.reflect_table(name)`)
-- [ ] Database reflection (`db.reflect()`)
-- [ ] Schema introspection utilities (`db.get_table_names()`, `db.get_view_names()`, etc.)
-- [ ] Column metadata introspection (`db.get_columns(table_name)`, etc.)
+- [x] Table reflection (`db.reflect_table(name)`)
+- [x] Database reflection (`db.reflect()`)
+- [x] Schema introspection utilities (`db.get_table_names()`, `db.get_view_names()`, etc.)
+- [x] Column metadata introspection (`db.get_columns(table_name)`, etc.)
 
 **Why First:**
 - **Foundation for other features**: Enables better schema management, migrations, and tooling
@@ -22,10 +22,10 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 
 ---
 
-### 2. **FILTER Clause for Conditional Aggregation** (High Impact, Low-Medium Effort)
+### 2. **FILTER Clause for Conditional Aggregation** (High Impact, Low-Medium Effort) ✅ **COMPLETED**
 **Priority: HIGH**
 
-- [ ] `FILTER` clause support (`COUNT(*) FILTER (WHERE condition)`)
+- [x] `FILTER` clause support (`COUNT(*) FILTER (WHERE condition)`)
 
 **Why Second:**
 - **SQL standard**: Supported by PostgreSQL, MySQL 8.0+, SQL Server, Oracle
@@ -36,14 +36,17 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 **Estimated Effort:** 1-2 weeks
 
 ---
+**Status: COMPLETED (v0.13.0)**
 
-### 3. **Schema Management - Constraints** (High Impact, Medium Effort)
+---
+
+### 3. **Schema Management - Constraints** (High Impact, Medium Effort) ✅ **COMPLETED**
 **Priority: HIGH**
 
-- [ ] Unique constraints (`UNIQUE`)
-- [ ] Check constraints (`CHECK`)
-- [ ] Foreign key constraints (`FOREIGN KEY ... REFERENCES`)
-- [ ] Indexes (`CREATE INDEX`, `DROP INDEX`)
+- [x] Unique constraints (`UNIQUE`)
+- [x] Check constraints (`CHECK`)
+- [x] Foreign key constraints (`FOREIGN KEY ... REFERENCES`)
+- [x] Indexes (`CREATE INDEX`, `DROP INDEX`)
 
 **Why Third:**
 - **Database fundamentals**: Essential for production use
@@ -52,6 +55,9 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 - **SQL standard**: Well-defined, low ambiguity
 
 **Estimated Effort:** 2-3 weeks
+
+---
+**Status: COMPLETED (v0.13.0)**
 
 ---
 
@@ -301,10 +307,10 @@ Based on analysis of `todo.md` and current project state (post v0.12.0), here's 
 
 ## 🎯 Recommended Sprint Plan
 
-### Sprint 1 (v0.13.0) - 4-6 weeks
-1. Schema inspection & reflection
-2. FILTER clause
-3. Basic constraints (UNIQUE, CHECK)
+### Sprint 1 (v0.13.0) - 4-6 weeks ✅ **COMPLETED**
+1. Schema inspection & reflection ✅
+2. FILTER clause ✅
+3. Schema management (UNIQUE, CHECK, FOREIGN KEY, Indexes) ✅
 
 ### Sprint 2 (v0.14.0) - 4-6 weeks
 1. QUALIFY clause

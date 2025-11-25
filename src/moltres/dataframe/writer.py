@@ -526,18 +526,37 @@ class DataFrameWriter:
         # Get column names from schema
         column_names = [col.name for col in final_schema]
 
-        # Compile INSERT INTO ... SELECT statement
-        from ..sql.ddl import compile_insert_select
+        # Execute INSERT INTO ... SELECT using SQLAlchemy statement directly
+        # This ensures parameters from WHERE clauses are properly handled
+        from sqlalchemy import insert, types as sa_types
+        from sqlalchemy.schema import MetaData, Table, Column
 
-        insert_sql = compile_insert_select(
-            target_table=table_name,
-            select_stmt=select_stmt,
-            dialect=db.dialect,
-            columns=column_names,
-        )
+        metadata = MetaData()
+        table = Table(table_name, metadata)
 
-        # Execute the compiled SQL directly
-        db.executor.execute(insert_sql)
+        # Add columns to the table if specified (needed for from_select)
+        if column_names:
+            for col_name in column_names:
+                table.append_column(Column(col_name, sa_types.String()))
+            insert_stmt = insert(table).from_select(
+                [table.c[col] for col in column_names], select_stmt
+            )
+        else:
+            # Insert all columns
+            col_names = [
+                col.name if hasattr(col, "name") else str(col)
+                for col in select_stmt.selected_columns
+            ]
+            for col_name in col_names:
+                table.append_column(Column(col_name, sa_types.String()))
+            insert_stmt = insert(table).from_select(
+                [table.c[col] for col in col_names], select_stmt
+            )
+
+        # Execute the SQLAlchemy statement directly (handles parameters automatically)
+        with db.connection_manager.connect() as conn:
+            conn.execute(insert_stmt)
+            conn.commit()
 
     def _can_use_insert_select(self) -> bool:
         """Check if we can use INSERT INTO ... SELECT optimization.

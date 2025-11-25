@@ -1,7 +1,6 @@
 """Tests for DataFrame attributes: columns, schema, dtypes, printSchema."""
 
 import io
-import sys
 from contextlib import redirect_stdout
 
 import pytest
@@ -101,13 +100,11 @@ def test_columns_property_join(tmp_path):
 
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
-        conn.exec_driver_sql("CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, amount REAL)")
         conn.exec_driver_sql(
-            "INSERT INTO users (id, name) VALUES (1, 'Alice')"
+            "CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, amount REAL)"
         )
-        conn.exec_driver_sql(
-            "INSERT INTO orders (id, user_id, amount) VALUES (1, 1, 100.0)"
-        )
+        conn.exec_driver_sql("INSERT INTO users (id, name) VALUES (1, 'Alice')")
+        conn.exec_driver_sql("INSERT INTO orders (id, user_id, amount) VALUES (1, 1, 100.0)")
 
     users_df = db.table("users").select()
     orders_df = db.table("orders").select()
@@ -138,9 +135,7 @@ def test_schema_property_table_scan(tmp_path):
     engine = db.connection_manager.engine
 
     with engine.begin() as conn:
-        conn.exec_driver_sql(
-            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
-        )
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
 
     df = db.table("users").select()
     schema = df.schema
@@ -357,11 +352,8 @@ def test_get_table_columns_inspection_error(tmp_path):
         get_table_columns(db, "nonexistent_table")
 
 
-
-
 def test_extract_column_name_edge_cases(tmp_path):
     """Test _extract_column_name with various edge cases."""
-    from moltres.dataframe.dataframe import DataFrame
     from moltres.expressions.column import Column
 
     db_path = tmp_path / "test.db"
@@ -386,8 +378,6 @@ def test_extract_column_name_edge_cases(tmp_path):
 
 def test_extract_column_names_explode(tmp_path):
     """Test _extract_column_names with Explode operation."""
-    from moltres.dataframe.dataframe import DataFrame
-    from moltres.logical import operators
 
     db_path = tmp_path / "test.db"
     db = connect(f"sqlite:///{db_path}")
@@ -480,7 +470,7 @@ def test_extract_column_names_file_scan_with_schema(tmp_path):
     """Test _extract_column_names with FileScan that has schema."""
     from moltres.dataframe.dataframe import DataFrame
     from moltres.logical.plan import FileScan
-    from moltres.table.schema import ColumnDef, column
+    from moltres.table.schema import column
 
     db_path = tmp_path / "test.db"
     db = connect(f"sqlite:///{db_path}")
@@ -516,7 +506,7 @@ def test_extract_schema_file_scan_with_schema(tmp_path):
     """Test _extract_schema_from_plan with FileScan that has schema."""
     from moltres.dataframe.dataframe import DataFrame
     from moltres.logical.plan import FileScan
-    from moltres.table.schema import ColumnDef, column
+    from moltres.table.schema import column
 
     db_path = tmp_path / "test.db"
     db = connect(f"sqlite:///{db_path}")
@@ -589,7 +579,6 @@ def test_extract_column_names_sample(tmp_path):
 def test_find_base_plan_nested_project(tmp_path):
     """Test _find_base_plan with nested Project plans."""
     from moltres.dataframe.dataframe import DataFrame
-    from moltres.logical import operators
     from moltres.logical.plan import Project, TableScan
 
     db_path = tmp_path / "test.db"
@@ -639,9 +628,7 @@ def test_extract_column_names_aggregate_no_name(tmp_path):
 
     with engine.begin() as conn:
         conn.exec_driver_sql("CREATE TABLE orders (id INTEGER, amount REAL, status TEXT)")
-        conn.exec_driver_sql(
-            "INSERT INTO orders (id, amount, status) VALUES (1, 100.0, 'pending')"
-        )
+        conn.exec_driver_sql("INSERT INTO orders (id, amount, status) VALUES (1, 100.0, 'pending')")
 
     # Create an aggregate with a column that has an alias (should work)
     df = db.table("orders").select().groupBy("status").agg(sum(col("amount")).alias("total"))
@@ -695,4 +682,3 @@ def test_extract_schema_explode_alias_in_child(tmp_path):
     assert "value" in col_names
     # Value should appear only once
     assert col_names.count("value") == 1
-

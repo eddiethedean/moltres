@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-11-24
+
+### Added
+- **Schema Management - Constraints & Indexes** - Comprehensive support for database constraints and indexes:
+  - **Unique Constraints** - Single and multi-column unique constraints via `unique()` helper:
+    - `db.create_table("users", [...], constraints=[unique("email")])`
+    - `db.create_table("sessions", [...], constraints=[unique(["user_id", "session_id"], name="uq_user_session")])`
+  - **Check Constraints** - SQL expression-based validation via `check()` helper:
+    - `db.create_table("products", [...], constraints=[check("price >= 0", name="ck_positive_price")])`
+  - **Foreign Key Constraints** - Referential integrity with cascade options via `foreign_key()` helper:
+    - Single column: `foreign_key("user_id", "users", "id", on_delete="CASCADE")`
+    - Multi-column: `foreign_key(["order_id", "item_id"], "order_items", ["id", "id"])`
+    - Supports `on_delete` and `on_update` actions (CASCADE, SET NULL, RESTRICT, etc.)
+  - **Index Management** - Create and drop indexes for performance optimization:
+    - `db.create_index("idx_email", "users", "email")` - Single column index
+    - `db.create_index("idx_user_status", "orders", ["user_id", "status"])` - Multi-column index
+    - `db.create_index("idx_unique_email", "users", "email", unique=True)` - Unique index
+    - `db.drop_index("idx_email", "users")` - Drop index
+  - **SQLAlchemy DDL Integration** - All DDL operations now use SQLAlchemy's declarative API:
+    - Replaced raw SQL string generation with SQLAlchemy `Table`, `Column`, `Index`, `CreateTable`, `DropTable`, `CreateIndex`, `DropIndex` objects
+    - Better dialect compatibility and abstraction
+    - Automatic handling of dialect-specific syntax differences
+  - **Async Support** - Full async support for all constraint and index operations:
+    - `await async_db.create_table(..., constraints=[...])`
+    - `await async_db.create_index(...)`
+    - `await async_db.drop_index(...)`
+  - **Comprehensive Test Coverage** - 41 tests covering all constraint types, indexes, edge cases, and async operations
+  - **Example Updates** - Updated `examples/09_table_operations.py` with constraint and index examples
+
+### Changed
+- **DDL Compilation** - Refactored all DDL compilation to use SQLAlchemy objects instead of raw SQL strings:
+  - `compile_create_table()` now uses SQLAlchemy's `CreateTable` with `Table` and `Column` objects
+  - `compile_drop_table()` uses SQLAlchemy's `DropTable`
+  - `compile_create_index()` uses SQLAlchemy's `CreateIndex` with `Index` objects
+  - `compile_drop_index()` uses SQLAlchemy's `DropIndex`
+  - `compile_insert_select()` uses SQLAlchemy's `insert().from_select()`
+  - Improved dialect compatibility and maintainability
+- **Type Safety** - Enhanced type hints with proper TYPE_CHECKING imports for constraint and index operation types
+
+### Fixed
+- Fixed foreign key constraint compilation when referenced tables aren't in the same MetaData (fallback to string-based FK handling)
+- Fixed index compilation to properly handle column references in SQLAlchemy Index objects
+- Fixed async index operations to use correct import paths
+
 ## [0.12.0] - 2025-11-24
 
 ### Added
@@ -462,7 +506,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/eddiethedean/moltres/compare/v0.12.0...v0.13.0
 [0.8.0]: https://github.com/eddiethedean/moltres/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/eddiethedean/moltres/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/eddiethedean/moltres/compare/v0.5.0...v0.6.0

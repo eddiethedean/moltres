@@ -16,11 +16,20 @@ if TYPE_CHECKING:
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.reader import DataLoader, ReadAccessor
     from ..io.records import LazyRecords, Records
+    from ..utils.inspector import ColumnInfo
     from .actions import (
+        CreateIndexOperation,
         CreateTableOperation,
+        DropIndexOperation,
         DropTableOperation,
     )
     from .batch import OperationBatch
+    from .schema import (
+        CheckConstraint,
+        ForeignKeyConstraint,
+        TableSchema,
+        UniqueConstraint,
+    )
 from sqlalchemy.engine import Connection
 
 from ..engine.connection import ConnectionManager
@@ -232,6 +241,9 @@ class Database:
         *,
         if_not_exists: bool = True,
         temporary: bool = False,
+        constraints: Optional[
+            Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]]
+        ] = None,
     ) -> "CreateTableOperation":
         """Create a lazy create table operation.
 
@@ -240,6 +252,7 @@ class Database:
             columns: Sequence of ColumnDef objects defining the table schema
             if_not_exists: If True, don't error if table already exists (default: True)
             temporary: If True, create a temporary table (default: False)
+            constraints: Optional sequence of constraint objects (UniqueConstraint, CheckConstraint, ForeignKeyConstraint)
 
         Returns:
             CreateTableOperation that executes on collect()
@@ -248,7 +261,12 @@ class Database:
             ValidationError: If table name or columns are invalid
 
         Example:
-            >>> op = db.create_table("users", [column("id", "INTEGER")])
+            >>> from moltres.table.schema import column, unique, check, foreign_key
+            >>> op = db.create_table(
+            ...     "users",
+            ...     [column("id", "INTEGER", primary_key=True), column("email", "TEXT")],
+            ...     constraints=[unique("email"), check("id > 0", name="ck_positive_id")]
+            ... )
             >>> table = op.collect()  # Executes the CREATE TABLE
         """
         from ..utils.exceptions import ValidationError
@@ -264,6 +282,7 @@ class Database:
             columns=columns,
             if_not_exists=if_not_exists,
             temporary=temporary,
+            constraints=constraints or (),
         )
         # Add to active batch if one exists
         from .batch import get_active_batch
@@ -295,6 +314,226 @@ class Database:
         if batch is not None:
             batch.add(op)
         return op
+
+    def create_index(
+        self,
+        name: str,
+        table: str,
+        columns: Union[str, Sequence[str]],
+        *,
+        unique: bool = False,
+        if_not_exists: bool = True,
+    ) -> "CreateIndexOperation":
+        """Create a lazy create index operation.
+
+        Args:
+            name: Name of the index to create
+            table: Name of the table to create the index on
+            columns: Column name(s) to index (single string or sequence)
+            unique: If True, create a UNIQUE index (default: False)
+            if_not_exists: If True, don't error if index already exists (default: True)
+
+        Returns:
+            CreateIndexOperation that executes on collect()
+
+        Example:
+            >>> op = db.create_index("idx_email", "users", "email")
+            >>> op.collect()  # Executes the CREATE INDEX
+            >>> # Multi-column index
+            >>> op2 = db.create_index("idx_name_age", "users", ["name", "age"], unique=True)
+        """
+        from .actions import CreateIndexOperation
+        from .batch import get_active_batch
+
+        op = CreateIndexOperation(
+            database=self,
+            name=name,
+            table_name=table,
+            columns=columns,
+            unique=unique,
+            if_not_exists=if_not_exists,
+        )
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
+
+    def drop_index(
+        self,
+        name: str,
+        table: Optional[str] = None,
+        *,
+        if_exists: bool = True,
+    ) -> "DropIndexOperation":
+        """Create a lazy drop index operation.
+
+        Args:
+            name: Name of the index to drop
+            table: Optional table name (required for some dialects like MySQL)
+            if_exists: If True, don't error if index doesn't exist (default: True)
+
+        Returns:
+            DropIndexOperation that executes on collect()
+
+        Example:
+            >>> op = db.drop_index("idx_email", "users")
+            >>> op.collect()  # Executes the DROP INDEX
+        """
+        from .actions import DropIndexOperation
+        from .batch import get_active_batch
+
+        op = DropIndexOperation(
+            database=self,
+            name=name,
+            table_name=table,
+            if_exists=if_exists,
+        )
+        batch = get_active_batch()
+        if batch is not None:
+            batch.add(op)
+        return op
+
+    # -------------------------------------------------------------- schema inspection
+    def get_table_names(self, schema: Optional[str] = None) -> List[str]:
+        """Get list of table names in the database.
+
+        Args:
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+
+        Returns:
+            List of table names
+
+        Raises:
+            ValueError: If database connection is not available
+            RuntimeError: If inspection fails
+
+        Example:
+            >>> tables = db.get_table_names()
+            >>> # Returns: ['users', 'orders', 'products']
+        """
+        from ..utils.inspector import get_table_names
+
+        return get_table_names(self, schema=schema)
+
+    def get_view_names(self, schema: Optional[str] = None) -> List[str]:
+        """Get list of view names in the database.
+
+        Args:
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+
+        Returns:
+            List of view names
+
+        Raises:
+            ValueError: If database connection is not available
+            RuntimeError: If inspection fails
+
+        Example:
+            >>> views = db.get_view_names()
+            >>> # Returns: ['active_users_view', 'order_summary_view']
+        """
+        from ..utils.inspector import get_view_names
+
+        return get_view_names(self, schema=schema)
+
+    def get_columns(self, table_name: str) -> List["ColumnInfo"]:
+        """Get column information for a table.
+
+        Args:
+            table_name: Name of the table to inspect
+
+        Returns:
+            List of ColumnInfo objects with column metadata
+
+        Raises:
+            ValidationError: If table name is invalid
+            ValueError: If database connection is not available
+            RuntimeError: If table does not exist or cannot be inspected
+
+        Example:
+            >>> columns = db.get_columns("users")
+            >>> # Returns: [ColumnInfo(name='id', type_name='INTEGER', ...), ...]
+        """
+        from ..utils.exceptions import ValidationError
+        from ..utils.inspector import get_table_columns
+        from ..sql.builders import quote_identifier
+
+        if not table_name:
+            raise ValidationError("Table name cannot be empty")
+        # Validate table name format
+        quote_identifier(table_name, self._dialect.quote_char)
+
+        return get_table_columns(self, table_name)
+
+    def reflect_table(self, name: str, schema: Optional[str] = None) -> "TableSchema":
+        """Reflect a single table from the database.
+
+        Args:
+            name: Name of the table to reflect
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+
+        Returns:
+            TableSchema object with table metadata
+
+        Raises:
+            ValidationError: If table name is invalid
+            ValueError: If database connection is not available
+            RuntimeError: If table does not exist or reflection fails
+
+        Example:
+            >>> schema = db.reflect_table("users")
+            >>> # Returns: TableSchema(name='users', columns=[ColumnDef(...), ...])
+        """
+        from ..utils.exceptions import ValidationError
+        from ..utils.inspector import reflect_table
+        from ..sql.builders import quote_identifier
+        from .schema import TableSchema
+
+        if not name:
+            raise ValidationError("Table name cannot be empty")
+        # Validate table name format
+        quote_identifier(name, self._dialect.quote_char)
+
+        reflected = reflect_table(self, name, schema=schema)
+        column_defs = reflected[name]
+
+        return TableSchema(name=name, columns=column_defs)
+
+    def reflect(
+        self, schema: Optional[str] = None, views: bool = False
+    ) -> Dict[str, "TableSchema"]:
+        """Reflect entire database schema.
+
+        Args:
+            schema: Optional schema name (for multi-schema databases like PostgreSQL).
+                    If None, uses default schema.
+            views: If True, also reflect views (default: False)
+
+        Returns:
+            Dictionary mapping table/view names to TableSchema objects
+
+        Raises:
+            ValueError: If database connection is not available
+            RuntimeError: If reflection fails
+
+        Example:
+            >>> schemas = db.reflect()
+            >>> # Returns: {'users': TableSchema(...), 'orders': TableSchema(...)}
+        """
+        from ..utils.inspector import reflect_database
+        from .schema import TableSchema
+
+        reflected = reflect_database(self, schema=schema, views=views)
+
+        # Convert to TableSchema objects
+        result: Dict[str, TableSchema] = {}
+        for table_name, column_defs in reflected.items():
+            result[table_name] = TableSchema(name=table_name, columns=column_defs)
+
+        return result
 
     # -------------------------------------------------------------- query utils
     def compile_plan(self, plan: LogicalPlan) -> Any:

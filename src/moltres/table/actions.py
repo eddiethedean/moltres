@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 if TYPE_CHECKING:
     from ..expressions.column import Column
     from ..io.records import Records
-    from .schema import ColumnDef
+    from .schema import (
+        ColumnDef,
+        UniqueConstraint,
+        CheckConstraint,
+        ForeignKeyConstraint,
+    )
     from .table import Database, TableHandle
 
 
@@ -193,6 +198,7 @@ class CreateTableOperation:
     columns: Sequence["ColumnDef"]
     if_not_exists: bool = True
     temporary: bool = False
+    constraints: Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]] = ()
 
     def collect(self) -> "TableHandle":
         """Execute the create table operation and return TableHandle.
@@ -211,10 +217,13 @@ class CreateTableOperation:
             columns=self.columns,
             if_not_exists=self.if_not_exists,
             temporary=self.temporary,
+            constraints=self.constraints,
         )
         from ..sql.ddl import compile_create_table
 
-        sql = compile_create_table(schema, self.database.dialect)
+        # Pass engine to use SQLAlchemy Table API
+        engine = self.database.connection_manager.engine
+        sql = compile_create_table(schema, self.database.dialect, engine=engine)
         # Check for active transaction
         transaction = self.database.connection_manager.active_transaction
         self.database.executor.execute(sql, transaction=transaction)
@@ -234,8 +243,11 @@ class CreateTableOperation:
             columns=self.columns,
             if_not_exists=self.if_not_exists,
             temporary=self.temporary,
+            constraints=self.constraints,
         )
-        return compile_create_table(schema, self.database.dialect)
+        # Pass engine to use SQLAlchemy Table API
+        engine = self.database.connection_manager.engine
+        return compile_create_table(schema, self.database.dialect, engine=engine)
 
 
 @dataclass(frozen=True)
@@ -255,7 +267,10 @@ class DropTableOperation:
         """
         from ..sql.ddl import compile_drop_table
 
-        sql = compile_drop_table(self.name, self.database.dialect, if_exists=self.if_exists)
+        engine = self.database.connection_manager.engine
+        sql = compile_drop_table(
+            self.name, self.database.dialect, if_exists=self.if_exists, engine=engine
+        )
         # Check for active transaction
         transaction = self.database.connection_manager.active_transaction
         self.database.executor.execute(sql, transaction=transaction)
@@ -268,4 +283,103 @@ class DropTableOperation:
         """
         from ..sql.ddl import compile_drop_table
 
-        return compile_drop_table(self.name, self.database.dialect, if_exists=self.if_exists)
+        engine = self.database.connection_manager.engine
+        return compile_drop_table(
+            self.name, self.database.dialect, if_exists=self.if_exists, engine=engine
+        )
+
+
+@dataclass(frozen=True)
+class CreateIndexOperation:
+    """Lazy create index operation that executes on collect()."""
+
+    database: "Database"
+    name: str
+    table_name: str
+    columns: Union[str, Sequence[str]]
+    unique: bool = False
+    if_not_exists: bool = True
+
+    def collect(self) -> None:
+        """Execute the create index operation.
+
+        Raises:
+            ExecutionError: If index creation fails
+        """
+        from ..sql.ddl import compile_create_index
+
+        engine = self.database.connection_manager.engine
+        sql = compile_create_index(
+            self.name,
+            self.table_name,
+            self.columns,
+            unique=self.unique,
+            engine=engine,
+            if_not_exists=self.if_not_exists,
+        )
+        # Check for active transaction
+        transaction = self.database.connection_manager.active_transaction
+        self.database.executor.execute(sql, transaction=transaction)
+
+    def to_sql(self) -> str:
+        """Return the SQL statement that will be executed.
+
+        Returns:
+            SQL CREATE INDEX statement as a string
+        """
+        from ..sql.ddl import compile_create_index
+
+        engine = self.database.connection_manager.engine
+        return compile_create_index(
+            self.name,
+            self.table_name,
+            self.columns,
+            unique=self.unique,
+            engine=engine,
+            if_not_exists=self.if_not_exists,
+        )
+
+
+@dataclass(frozen=True)
+class DropIndexOperation:
+    """Lazy drop index operation that executes on collect()."""
+
+    database: "Database"
+    name: str
+    table_name: Optional[str] = None
+    if_exists: bool = True
+
+    def collect(self) -> None:
+        """Execute the drop index operation.
+
+        Raises:
+            ExecutionError: If index dropping fails (when if_exists=False and index doesn't exist)
+        """
+        from ..sql.ddl import compile_drop_index
+
+        engine = self.database.connection_manager.engine
+        sql = compile_drop_index(
+            self.name,
+            table_name=self.table_name,
+            engine=engine,
+            if_exists=self.if_exists,
+        )
+        # Check for active transaction
+        transaction = self.database.connection_manager.active_transaction
+        self.database.executor.execute(sql, transaction=transaction)
+
+    def to_sql(self) -> str:
+        """Return the SQL statement that will be executed.
+
+        Returns:
+            SQL DROP INDEX statement as a string
+        """
+        from ..sql.ddl import compile_drop_index
+
+        engine = self.database.connection_manager.engine
+        return compile_drop_index(
+            self.name,
+            table_name=self.table_name,
+            engine=engine,
+            if_exists=self.if_exists,
+        )

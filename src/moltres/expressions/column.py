@@ -211,6 +211,33 @@ class Column(Expression):
         )
         return Column(op="window", args=(self, window_spec))
 
+    def filter(self, condition: ColumnLike) -> "Column":
+        """Apply a FILTER clause to an aggregation expression.
+
+        The FILTER clause allows conditional aggregation without subqueries.
+        This is supported by PostgreSQL 9.4+, MySQL 8.0+, SQL Server, Oracle.
+        For unsupported dialects (e.g., SQLite), it will be compiled as a
+        CASE WHEN expression.
+
+        Args:
+            condition: Column expression representing the filter condition
+
+        Returns:
+            Column expression with FILTER clause attached
+
+        Example:
+            >>> from moltres import col
+            >>> from moltres.expressions import functions as F
+            >>> # Conditional aggregation with FILTER clause
+            >>> F.sum(col("amount")).filter(col("status") == "active")
+            >>> # Compiles to: SUM(amount) FILTER (WHERE status = 'active')
+        """
+        if not self.op.startswith("agg_"):
+            raise ValueError(
+                f"Filter clause can only be applied to aggregate functions, not {self.op!r}"
+            )
+        return replace(self, _filter=ensure_column(condition))
+
     def __bool__(self) -> bool:  # pragma: no cover - defensive
         raise TypeError("Column expressions cannot be used as booleans")
 

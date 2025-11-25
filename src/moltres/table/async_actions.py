@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 if TYPE_CHECKING:
     from ..expressions.column import Column
     from ..io.records import AsyncRecords
-    from .schema import ColumnDef
+    from .schema import (
+        ColumnDef,
+        UniqueConstraint,
+        CheckConstraint,
+        ForeignKeyConstraint,
+    )
     from .async_table import AsyncDatabase, AsyncTableHandle
 
 
@@ -207,6 +212,7 @@ class AsyncCreateTableOperation:
     columns: Sequence["ColumnDef"]
     if_not_exists: bool = True
     temporary: bool = False
+    constraints: Sequence[Union["UniqueConstraint", "CheckConstraint", "ForeignKeyConstraint"]] = ()
 
     async def collect(self) -> "AsyncTableHandle":
         """Execute the create table operation and return AsyncTableHandle.
@@ -225,10 +231,14 @@ class AsyncCreateTableOperation:
             columns=self.columns,
             if_not_exists=self.if_not_exists,
             temporary=self.temporary,
+            constraints=self.constraints,
         )
         from ..sql.ddl import compile_create_table
 
-        sql = compile_create_table(schema, self.database.dialect)
+        # Pass engine to use SQLAlchemy Table API
+        # SQLAlchemy Table API can compile with AsyncEngine (it just needs dialect info)
+        engine = self.database.connection_manager.engine
+        sql = compile_create_table(schema, self.database.dialect, engine=engine)
         # Check for active transaction
         transaction = self.database.connection_manager.active_transaction
         await self.database.executor.execute(sql, transaction=transaction)
@@ -269,7 +279,10 @@ class AsyncDropTableOperation:
         """
         from ..sql.ddl import compile_drop_table
 
-        sql = compile_drop_table(self.name, self.database.dialect, if_exists=self.if_exists)
+        engine = self.database.connection_manager.engine
+        sql = compile_drop_table(
+            self.name, self.database.dialect, if_exists=self.if_exists, engine=engine
+        )
         # Check for active transaction
         transaction = self.database.connection_manager.active_transaction
         await self.database.executor.execute(sql, transaction=transaction)
@@ -282,4 +295,115 @@ class AsyncDropTableOperation:
         """
         from ..sql.ddl import compile_drop_table
 
-        return compile_drop_table(self.name, self.database.dialect, if_exists=self.if_exists)
+        engine = self.database.connection_manager.engine
+        return compile_drop_table(
+            self.name, self.database.dialect, if_exists=self.if_exists, engine=engine
+        )
+
+
+@dataclass(frozen=True)
+class AsyncCreateIndexOperation:
+    """Lazy async create index operation that executes on collect()."""
+
+    database: "AsyncDatabase"
+    name: str
+    table_name: str
+    columns: Union[str, Sequence[str]]
+    unique: bool = False
+    if_not_exists: bool = True
+
+    async def collect(self) -> None:
+        """Execute the create index operation.
+
+        Raises:
+            ExecutionError: If index creation fails
+        """
+        from ..sql.ddl import compile_create_index
+
+        engine = self.database.connection_manager.engine
+        sql = compile_create_index(
+            self.name,
+            self.table_name,
+            self.columns,
+            unique=self.unique,
+            engine=engine,
+            if_not_exists=self.if_not_exists,
+        )
+        # Check for active transaction
+        transaction = self.database.connection_manager.active_transaction
+        await self.database.executor.execute(sql, transaction=transaction)
+
+    def to_sql(self) -> str:
+        """Return the SQL statement that will be executed.
+
+        Returns:
+            SQL CREATE INDEX statement as a string
+        """
+        from ..sql.ddl import compile_create_index
+
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        engine = self.database.connection_manager.engine
+        if isinstance(engine, AsyncEngine):
+            sync_engine = engine.sync_engine
+        else:
+            sync_engine = engine
+        return compile_create_index(
+            self.name,
+            self.table_name,
+            self.columns,
+            unique=self.unique,
+            engine=sync_engine,
+            if_not_exists=self.if_not_exists,
+        )
+
+
+@dataclass(frozen=True)
+class AsyncDropIndexOperation:
+    """Lazy async drop index operation that executes on collect()."""
+
+    database: "AsyncDatabase"
+    name: str
+    table_name: Optional[str] = None
+    if_exists: bool = True
+
+    async def collect(self) -> None:
+        """Execute the drop index operation.
+
+        Raises:
+            ExecutionError: If index dropping fails (when if_exists=False and index doesn't exist)
+        """
+        from ..sql.ddl import compile_drop_index
+
+        engine = self.database.connection_manager.engine
+        sql = compile_drop_index(
+            self.name,
+            table_name=self.table_name,
+            engine=engine,
+            if_exists=self.if_exists,
+        )
+        # Check for active transaction
+        transaction = self.database.connection_manager.active_transaction
+        await self.database.executor.execute(sql, transaction=transaction)
+
+    def to_sql(self) -> str:
+        """Return the SQL statement that will be executed.
+
+        Returns:
+            SQL DROP INDEX statement as a string
+        """
+        from ..sql.ddl import compile_drop_index
+
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        engine = self.database.connection_manager.engine
+        if isinstance(engine, AsyncEngine):
+            sync_engine = engine.sync_engine
+        else:
+            sync_engine = engine
+        return compile_drop_index(
+            self.name,
+            table_name=self.table_name,
+            engine=sync_engine,
+            if_exists=self.if_exists,
+        )

@@ -118,7 +118,9 @@ async def test_async_dtypes_property(tmp_path):
     engine = async_db.connection_manager.engine
 
     async with engine.begin() as conn:
-        await conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        await conn.exec_driver_sql(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+        )
 
     table_handle = await async_db.table("users")
     df = table_handle.select()
@@ -149,7 +151,9 @@ async def test_async_print_schema(tmp_path):
     engine = async_db.connection_manager.engine
 
     async with engine.begin() as conn:
-        await conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        await conn.exec_driver_sql(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+        )
 
     table_handle = await async_db.table("users")
     df = table_handle.select()
@@ -199,7 +203,9 @@ async def test_async_columns_property_filter(tmp_path):
     engine = async_db.connection_manager.engine
 
     async with engine.begin() as conn:
-        await conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        await conn.exec_driver_sql(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+        )
 
     table_handle = await async_db.table("users")
     df = table_handle.select("id", "name").where(col("age") > 18)
@@ -274,4 +280,3 @@ async def test_async_extract_schema_star_expansion(tmp_path):
     assert "id" in col_names
     assert "name" in col_names
     assert "age" in col_names
-
