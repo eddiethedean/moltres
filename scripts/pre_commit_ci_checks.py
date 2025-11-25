@@ -123,6 +123,7 @@ def check_mypy() -> bool:
         shutil.rmtree(cache_dir)
     
     # Match CI exactly: mypy src examples (no --show-error-codes in CI)
+    # Use --config-file to ensure we use the same config as CI
     returncode, stdout, stderr = run_command(
         ["mypy", "src", "examples"],
         "mypy type checking",
