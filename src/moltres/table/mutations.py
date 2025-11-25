@@ -63,7 +63,7 @@ def insert_rows(
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     # Use batch insert for better performance
-    params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]  # type: ignore[call-overload]
+    params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]  # type: ignore[call-overload, arg-type]
     result = handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 

@@ -724,7 +724,7 @@ class AsyncDataFrame:
                     records = list(result.rows.to_dicts())
                     # Convert Hashable keys to str keys
                     return [{str(k): v for k, v in row.items()} for row in records]
-                return result.rows  # type: ignore[return-value]
+                return result.rows
 
         # Handle FileScan by materializing file data into a temporary table
         plan = await self._materialize_filescan(self.plan)
