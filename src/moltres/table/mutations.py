@@ -262,7 +262,7 @@ def merge_rows(
     # Prepare parameters for batch insert
     params_list: list[Dict[str, object]] = []
     for row in rows_seq:
-        params = dict(row)  # type: ignore[call-overload, arg-type]
+        params = dict(row)  # type: ignore[call-overload]
         # Add update parameters if when_matched is provided
         if when_matched:
             for col_name, value in when_matched.items():

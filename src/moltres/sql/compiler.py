@@ -250,10 +250,11 @@ class SQLCompiler:
 
             fraction_literal = literal(plan.fraction)
 
-            from sqlalchemy.sql.elements import ColumnElement
 
             if self.dialect.name == "mysql":
-                rand_expr: ColumnElement[Any] = sa_func.rand(plan.seed) if plan.seed is not None else sa_func.rand()
+                rand_expr: ColumnElement[Any] = (
+                    sa_func.rand(plan.seed) if plan.seed is not None else sa_func.rand()
+                )
             elif self.dialect.name == "sqlite":
                 # SQLite random() returns signed 64-bit integer; normalize to [0,1)
                 rand_expr = sa_func.abs(sa_func.random()) / literal(9223372036854775808.0)
@@ -357,7 +358,6 @@ class SQLCompiler:
             from sqlalchemy import literal_column
 
             # Handle LATERAL joins (PostgreSQL, MySQL 8.0+)
-            join_stmt: Select[Any]
             if plan.lateral:
                 if self.dialect.name not in ("postgresql", "mysql"):
                     raise CompilationError(

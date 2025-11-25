@@ -11,9 +11,7 @@ import os
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    import pandas as pd
-    import pyarrow as pa
-    import pyarrow.parquet as pq
+    pass
 
 # Environment flag to disable heavy imports (for parallel test runs)
 _USE_MOCK_DEPS = os.environ.get("MOLTRES_USE_MOCK_DEPS", "0") == "1"
@@ -92,6 +90,7 @@ def get_pandas(required: bool = True) -> PandasModule:
     Returns:
         pandas module or mock
     """
+
     # Define mock class once to avoid redefinition
     class MockPandas:
         DataFrame = MockPandasDataFrame
@@ -130,6 +129,7 @@ def get_pyarrow(required: bool = True) -> PyArrowModule:
     Returns:
         pyarrow module or mock
     """
+
     # Define mock class once to avoid redefinition
     class MockPyArrow:
         Table = MockPyArrowTable
@@ -181,6 +181,7 @@ def get_pyarrow_parquet(required: bool = True) -> PyArrowParquetModule:
     Returns:
         pyarrow.parquet module or mock
     """
+
     # Define mock class once to avoid redefinition
     class MockParquet:
         @staticmethod
