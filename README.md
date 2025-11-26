@@ -92,7 +92,7 @@ df = (
     db.table("orders")
     .select()
     .join(db.table("customers").select(), on=[col("orders.customer_id") == col("customers.id")])
-    .where(col("active") == True)  # noqa: E712
+    .where(col("active") == True)
     .group_by("country")
     .agg(F.sum(col("amount")).alias("total_amount"))
 )
