@@ -9,6 +9,12 @@ from .expressions import col, lit
 from .table.schema import column
 from .table.table import Database
 
+# Optional pandas interface - only import if available
+try:
+    from .dataframe.pandas_dataframe import PandasDataFrame
+except ImportError:
+    PandasDataFrame = None  # type: ignore
+
 
 def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
     """Validate connection string format and provide helpful error messages.
@@ -64,6 +70,7 @@ __all__ = [
     "AsyncDatabase",
     "Database",
     "MoltresConfig",
+    "PandasDataFrame",
     "__version__",
     "async_connect",
     "col",

@@ -24,6 +24,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 ## ✨ Features
 
 - 🚀 **DataFrame API** - Familiar operations (select, filter, join, groupBy, etc.) like Pandas/Polars/PySpark
+- 🐼 **Pandas-Style Interface** - Familiar pandas API (df.query(), df.groupby(), df.merge()) with SQL pushdown
 - 🎯 **98% PySpark API Compatibility** - Near-complete compatibility for seamless migration
 - 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—no data loading into memory
 - ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE operations with DataFrame-style syntax
@@ -99,6 +100,66 @@ df = (
 results = df.collect()  # Returns list of dicts by default
 print(results)
 # Output: [{'country': 'UK', 'total_amount': 150.0}, {'country': 'USA', 'total_amount': 300.0}]
+```
+
+### Pandas-Style Interface
+
+Moltres also provides a pandas-style interface for users familiar with pandas:
+
+```python
+from moltres import connect
+from moltres.table.schema import column
+
+db = connect("sqlite:///example.db")
+
+# Create tables and insert data (setup)
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+    column("country", "TEXT"),
+]).collect()
+
+from moltres.io.records import Records
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30, "country": "USA"},
+    {"id": 2, "name": "Bob", "age": 25, "country": "UK"},
+    {"id": 3, "name": "Charlie", "age": 35, "country": "USA"},
+], database=db).insert_into("users")
+
+# Create PandasDataFrame using .pandas() method
+df = db.table("users").pandas()
+
+# Column access (pandas-style)
+df[['id', 'name']]  # Select columns
+df['age']  # Get column expression for filtering
+
+# Query method (pandas-style filtering)
+df_filtered = df.query('age > 25 and country == "USA"')
+results = df_filtered.collect()
+# Output: [{'id': 1, 'name': 'Alice', ...}, {'id': 3, 'name': 'Charlie', ...}]
+
+# GroupBy with dictionary aggregation
+grouped = df.groupby('country')
+agg_result = grouped.agg(age='mean', id='count')
+results = agg_result.collect()
+
+# Merge (pandas-style joins)
+df1 = db.table("users").pandas()
+df2 = db.table("orders").pandas()
+merged = df1.merge(df2, left_on='id', right_on='user_id', how='inner')
+
+# Sort values
+df_sorted = df.sort_values('age', ascending=False)
+
+# Other pandas-style methods
+df.rename(columns={'name': 'full_name'})
+df.drop(columns=['age'])
+df.assign(age_plus_10=df['age'] + 10)
+
+# Collect returns pandas DataFrame (if pandas is installed)
+import pandas as pd
+pdf = df.collect()  # Returns pd.DataFrame
 ```
 
 ### Raw SQL & SQL Expressions

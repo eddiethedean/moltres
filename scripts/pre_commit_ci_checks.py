@@ -120,7 +120,12 @@ def check_mypy() -> bool:
     cache_dir = Path(".mypy_cache")
     if cache_dir.exists():
         print(f"  Clearing mypy cache: {cache_dir}")
-        shutil.rmtree(cache_dir)
+        try:
+            shutil.rmtree(cache_dir)
+        except OSError:
+            # Cache deletion may fail on some systems, but that's okay
+            # mypy will still work correctly
+            print_warning("Could not fully clear mypy cache (non-critical)")
 
     # Match CI exactly: mypy src examples (no --show-error-codes in CI)
     # Use the same Python interpreter that's running this script to ensure consistent mypy behavior

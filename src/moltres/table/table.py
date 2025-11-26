@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     import polars as pl
     from sqlalchemy.orm import DeclarativeBase
     from ..dataframe.dataframe import DataFrame
+    from ..dataframe.pandas_dataframe import PandasDataFrame
     from ..dataframe.reader import DataLoader, ReadAccessor
     from ..expressions.column import Column
     from ..io.records import LazyRecords, Records
@@ -80,6 +81,25 @@ class TableHandle:
         from ..dataframe.dataframe import DataFrame
 
         return DataFrame.from_table(self, columns=list(columns))
+
+    def pandas(self, *columns: str) -> "PandasDataFrame":
+        """Create a PandasDataFrame from this table.
+
+        Args:
+            *columns: Optional column names to select
+
+        Returns:
+            PandasDataFrame for pandas-style operations
+
+        Example:
+            >>> df = db.table('users').pandas()
+            >>> df = db.table('users').pandas('id', 'name')
+        """
+        from ..dataframe.pandas_dataframe import PandasDataFrame
+        from ..dataframe.dataframe import DataFrame
+
+        df = DataFrame.from_table(self, columns=list(columns) if columns else None)
+        return PandasDataFrame.from_dataframe(df)
 
 
 class Transaction:
