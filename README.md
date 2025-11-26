@@ -23,8 +23,8 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 
 ## ✨ Features
 
-- 🚀 **DataFrame API** - Familiar operations (select, filter, join, groupBy, etc.) like Pandas/Polars/PySpark
-- 🐼 **Pandas-Style Interface** - Familiar pandas API (df.query(), df.groupby(), df.merge()) with SQL pushdown
+- 🚀 **PySpark-Style DataFrame API** - Primary API with familiar operations (select, filter, join, groupBy, etc.) for seamless migration from PySpark
+- 🐼 **Optional Pandas-Style Interface** - Alternative Pandas-like API (df.query(), df.groupby(), df.merge()) for users familiar with Pandas
 - 🎯 **98% PySpark API Compatibility** - Near-complete compatibility for seamless migration
 - 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—no data loading into memory
 - ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE operations with DataFrame-style syntax
