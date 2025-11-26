@@ -144,7 +144,9 @@ print("\nPerforming model-based joins...")
 # Join orders with users using model classes
 orders_df = db.table(Order).select()
 users_df = db.table(User).select()
-joined_df = orders_df.join(users_df, on=[("user_id", "id")])
+from moltres import col
+
+joined_df = orders_df.join(users_df, on=[col("orders.user_id") == col("users.id")])
 # After join, select specific columns using col() or column names
 joined_df = joined_df.select(col("name"), col("amount"))
 

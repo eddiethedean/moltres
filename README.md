@@ -87,10 +87,11 @@ Records.from_list([
 ], database=db).insert_into("customers")
 
 # DataFrame operations with SQL pushdown (no data loading into memory)
+# PySpark-style join syntax (new) - use table-qualified names to avoid ambiguity
 df = (
     db.table("orders")
     .select()
-    .join(db.table("customers").select(), on=[("customer_id", "id")])
+    .join(db.table("customers").select(), on=[col("orders.customer_id") == col("customers.id")])
     .where(col("active") == True)  # noqa: E712
     .group_by("country")
     .agg(F.sum(col("amount")).alias("total_amount"))
@@ -507,7 +508,8 @@ print(results)
 df = (
     db.table(Order)
     .select()
-    .join(db.table(User), on=[("user_id", "id")])
+    .join(db.table(User), on=[col("user_id") == col("id")])  # PySpark-style
+    # .join(db.table(User), on=[("user_id", "id")])  # Tuple syntax also works
 )
 results = df.collect()
 print(results)
@@ -935,7 +937,7 @@ See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/e
 - `order_by()` / `orderBy()` / `sort()` - Sort rows
 - `limit()` - Limit number of rows
 - `distinct()` - Remove duplicate rows
-- `withColumn()` / `withColumnRenamed()` - Add or rename columns
+- `withColumn()` / `withColumnRenamed()` - Add or rename columns (supports window functions, v0.16.0+)
 - `pivot()` - Pivot operations (including `groupBy().pivot()`)
 - `explode()` - Explode array/JSON columns
 - `db.sql()` - Execute raw SQL queries
@@ -956,11 +958,11 @@ See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/e
   - **Date/Time**: `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`, `date_format()`, `to_date()`, `datediff()`, `date_add()`, etc.
   - **Aggregate**: `sum()`, `avg()`, `min()`, `max()`, `count()`, `count_distinct()`, `stddev()`, `variance()`, etc.
     - **FILTER clause**: Conditional aggregation with `.filter()` method (e.g., `F.sum(col("amount")).filter(col("status") == "active")`)
-  - **Window**: `row_number()`, `rank()`, `dense_rank()`, `lag()`, `lead()`, etc.
+  - **Window**: `row_number()`, `rank()`, `dense_rank()`, `lag()`, `lead()`, etc. (works in both `select()` and `withColumn()`, v0.16.0+)
   - **Array**: `array()`, `array_length()`, `array_contains()`, `array_position()`, etc.
   - **JSON**: `json_extract()`, `from_json()`, `to_json()`, etc.
   - **Utility**: `coalesce()`, `greatest()`, `least()`, `when()`, `isnull()`, `isnotnull()`, etc.
-- **Window Functions**: `over()`, `partition_by()`, `order_by()`
+- **Window Functions**: `over()`, `partition_by()`, `order_by()` - Full PySpark compatibility (v0.16.0+)
 
 ### Supported SQL Dialects
 - ✅ **SQLite** - Full support

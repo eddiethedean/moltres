@@ -1,6 +1,7 @@
 """Tests for DataFrame operations: withColumn, withColumnRenamed, drop, union, distinct, dropDuplicates."""
 
 from moltres import col, connect
+from moltres.expressions import functions as F
 
 
 def test_withColumn(tmp_path):
@@ -88,6 +89,22 @@ def test_drop(tmp_path):
     assert "email" not in result2[0]
     assert "id" in result2[0]
     assert "name" in result2[0]
+
+    # Test dropping with Column objects (PySpark compatibility)
+    df_dropped_column = df.drop(col("email"))
+    result3 = df_dropped_column.collect()
+    assert "email" not in result3[0]
+    assert "id" in result3[0]
+    assert "name" in result3[0]
+    assert "age" in result3[0]
+
+    # Test dropping with mixed string and Column objects
+    df_dropped_mixed = df.drop("age", col("email"))
+    result4 = df_dropped_mixed.collect()
+    assert "age" not in result4[0]
+    assert "email" not in result4[0]
+    assert "id" in result4[0]
+    assert "name" in result4[0]
 
 
 def test_union(tmp_path):
@@ -341,6 +358,64 @@ def test_dot_notation_order_by(tmp_path):
     assert result[2]["name"] == "Charlie"
 
 
+def test_order_by_string_parameter(tmp_path):
+    """Test order_by() with string column names (PySpark compatibility)."""
+    db_path = tmp_path / "order_by_string.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+        conn.exec_driver_sql(
+            "INSERT INTO users (id, name, age) VALUES (1, 'Charlie', 35), (2, 'Alice', 30), (3, 'Bob', 25)"
+        )
+
+    df = db.table("users").select()
+
+    # Test string column name (PySpark-style)
+    result = df.order_by("name").collect()
+    assert len(result) == 3
+    assert result[0]["name"] == "Alice"
+    assert result[1]["name"] == "Bob"
+    assert result[2]["name"] == "Charlie"
+
+    # Test Column object (backward compatibility)
+    result2 = df.order_by(col("name")).collect()
+    assert len(result2) == 3
+    assert result2[0]["name"] == "Alice"
+    assert result2[1]["name"] == "Bob"
+    assert result2[2]["name"] == "Charlie"
+
+    # Test mixed string and Column
+    result3 = df.order_by("age", col("name")).collect()
+    assert len(result3) == 3
+    assert result3[0]["age"] == 25  # Bob
+    assert result3[1]["age"] == 30  # Alice
+    assert result3[2]["age"] == 35  # Charlie
+
+    # Test PySpark-style aliases with strings
+    result4 = df.orderBy("name").collect()
+    assert len(result4) == 3
+    assert result4[0]["name"] == "Alice"
+
+    result5 = df.sort("name").collect()
+    assert len(result5) == 3
+    assert result5[0]["name"] == "Alice"
+
+    # Test descending with Column (strings can't have .desc(), need Column)
+    result6 = df.order_by(col("age").desc()).collect()
+    assert len(result6) == 3
+    assert result6[0]["age"] == 35  # Charlie (oldest first)
+    assert result6[2]["age"] == 25  # Bob (youngest last)
+
+    # Test multiple columns with mixed types and descending
+    result7 = df.order_by("age", col("name").desc()).collect()
+    assert len(result7) == 3
+    assert result7[0]["age"] == 25  # Bob
+    assert result7[1]["age"] == 30  # Alice
+    assert result7[2]["age"] == 35  # Charlie
+
+
 def test_dot_notation_group_by(tmp_path):
     """Test dot notation column selection in group_by()."""
     db_path = tmp_path / "dot_notation_group_by.sqlite"
@@ -373,6 +448,162 @@ def test_dot_notation_group_by(tmp_path):
     assert result[0]["total"] == 30.0
     assert result[1]["category"] == "B"
     assert result[1]["total"] == 15.0
+
+
+def test_withColumn_window_function(tmp_path):
+    """Test withColumn() with window functions (PySpark compatibility)."""
+    db_path = tmp_path / "withcolumn_window.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE sales (id INTEGER PRIMARY KEY, category TEXT, amount REAL, date TEXT)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO sales (id, category, amount, date) VALUES "
+            "(1, 'A', 100.0, '2024-01-01'), "
+            "(2, 'A', 200.0, '2024-01-02'), "
+            "(3, 'B', 150.0, '2024-01-01'), "
+            "(4, 'B', 250.0, '2024-01-02')"
+        )
+
+    df = db.table("sales").select()
+
+    # Test basic window function in withColumn (no existing Project)
+    df_with_row_num = df.withColumn(
+        "row_num", F.row_number().over(partition_by=col("category"), order_by=col("amount"))
+    )
+    result = df_with_row_num.collect()
+
+    assert len(result) == 4
+    assert "row_num" in result[0]
+    assert "id" in result[0]
+    assert "category" in result[0]
+    assert "amount" in result[0]
+    # Check row numbers are correct (should be 1, 2 for each category)
+    row_nums_by_category = {}
+    for row in result:
+        cat = row["category"]
+        if cat not in row_nums_by_category:
+            row_nums_by_category[cat] = []
+        row_nums_by_category[cat].append(row["row_num"])
+    assert sorted(row_nums_by_category["A"]) == [1, 2]
+    assert sorted(row_nums_by_category["B"]) == [1, 2]
+
+
+def test_withColumn_window_function_with_existing_project(tmp_path):
+    """Test withColumn() with window functions when there's an existing Project."""
+    db_path = tmp_path / "withcolumn_window_project.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE sales (id INTEGER PRIMARY KEY, category TEXT, amount REAL)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO sales (id, category, amount) VALUES "
+            "(1, 'A', 100.0), (2, 'A', 200.0), (3, 'B', 150.0)"
+        )
+
+    # Start with a select (creates a Project)
+    df = db.table("sales").select("id", "category", "amount")
+
+    # Add window function using withColumn
+    df_with_rank = df.withColumn(
+        "rank", F.rank().over(partition_by=col("category"), order_by=col("amount"))
+    )
+    result = df_with_rank.collect()
+
+    assert len(result) == 3
+    assert "rank" in result[0]
+    assert "id" in result[0]
+    assert "category" in result[0]
+    assert "amount" in result[0]
+    # All original columns should be present
+    assert all("id" in row for row in result)
+    assert all("category" in row for row in result)
+    assert all("amount" in row for row in result)
+
+
+def test_withColumn_multiple_window_functions(tmp_path):
+    """Test withColumn() with multiple window functions."""
+    db_path = tmp_path / "withcolumn_multiple_window.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE sales (id INTEGER PRIMARY KEY, category TEXT, amount REAL)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO sales (id, category, amount) VALUES "
+            "(1, 'A', 100.0), (2, 'A', 200.0), (3, 'B', 150.0)"
+        )
+
+    df = db.table("sales").select()
+
+    # Add multiple window functions
+    df_with_windows = (
+        df.withColumn(
+            "row_num",
+            F.row_number().over(partition_by=col("category"), order_by=col("amount")),
+        )
+        .withColumn("rank", F.rank().over(partition_by=col("category"), order_by=col("amount")))
+        .withColumn(
+            "dense_rank",
+            F.dense_rank().over(partition_by=col("category"), order_by=col("amount")),
+        )
+    )
+    result = df_with_windows.collect()
+
+    assert len(result) == 3
+    assert "row_num" in result[0]
+    assert "rank" in result[0]
+    assert "dense_rank" in result[0]
+    assert "id" in result[0]
+    assert "category" in result[0]
+    assert "amount" in result[0]
+
+
+def test_withColumn_window_function_replacing_column(tmp_path):
+    """Test withColumn() with window function replacing an existing column."""
+    db_path = tmp_path / "withcolumn_window_replace.sqlite"
+    db = connect(f"sqlite:///{db_path}")
+    engine = db.connection_manager.engine
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE sales (id INTEGER PRIMARY KEY, category TEXT, amount REAL)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO sales (id, category, amount) VALUES "
+            "(1, 'A', 100.0), (2, 'A', 200.0), (3, 'B', 150.0)"
+        )
+
+    df = db.table("sales").select()
+
+    # Replace id column with row number
+    df_replaced = df.withColumn(
+        "id", F.row_number().over(partition_by=col("category"), order_by=col("amount"))
+    )
+    result = df_replaced.collect()
+
+    assert len(result) == 3
+    # id should now be row numbers, not original ids
+    assert "id" in result[0]
+    assert "category" in result[0]
+    assert "amount" in result[0]
+    # Check that id values are row numbers (1, 2 for each category)
+    ids_by_category = {}
+    for row in result:
+        cat = row["category"]
+        if cat not in ids_by_category:
+            ids_by_category[cat] = []
+        ids_by_category[cat].append(row["id"])
+    assert sorted(ids_by_category["A"]) == [1, 2]
+    assert sorted(ids_by_category["B"]) == [1]
 
 
 def test_dot_notation_methods_still_work(tmp_path):

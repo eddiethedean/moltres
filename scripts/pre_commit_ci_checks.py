@@ -226,8 +226,11 @@ def check_tests(skip_db: bool = False, quick: bool = False) -> bool:
     """Run pytest tests."""
     print_header("Running Tests")
 
-    # Base pytest command
-    cmd = ["pytest", "-p", "pytest_asyncio", "--maxfail=1"]
+    # Use the same Python interpreter that's running this script to ensure consistent behavior
+    import sys
+
+    # Base pytest command - use python -m pytest to ensure correct environment
+    cmd = [sys.executable, "-m", "pytest", "-p", "pytest_asyncio", "--maxfail=1"]
 
     if quick:
         # Quick mode: run a subset of tests

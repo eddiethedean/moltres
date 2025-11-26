@@ -746,13 +746,11 @@ class SQLCompiler:
                 )
                 return result
 
-            elif self.dialect.name == "postgresql" or self.dialect.name == "duckdb":
-                # PostgreSQL/DuckDB: Use jsonb_array_elements() for JSON arrays (PostgreSQL)
-                # or json_array_elements() for DuckDB (handled by SQLAlchemy)
+            elif self.dialect.name == "postgresql":
+                # PostgreSQL: Use jsonb_array_elements() for JSON arrays
                 from sqlalchemy import func as sa_func
 
                 # jsonb_array_elements returns a table with a single 'value' column
-                # DuckDB uses json_array_elements but SQLAlchemy will handle the difference
                 json_elements_func = sa_func.jsonb_array_elements(column_expr).table_valued("value")
                 json_elements_alias = json_elements_func.alias("json_elements_result")
 
@@ -763,6 +761,30 @@ class SQLCompiler:
                 # Create CROSS JOIN
                 result = select(*child_columns, exploded_value).select_from(
                     child_subq, json_elements_alias
+                )
+                return result
+            elif self.dialect.name == "duckdb":
+                # DuckDB: Use unnest() for arrays
+                from sqlalchemy import func as sa_func, literal_column
+
+                # unnest returns a table with a single column
+                # Use table_valued function
+                unnest_func = sa_func.unnest(column_expr).table_valued()
+                unnest_alias = unnest_func.alias("unnest_result")
+
+                # Select all columns from child plus the exploded value
+                child_columns = list(child_subq.c.values())
+                # Get the column from the unnest result - it should have one column
+                unnest_cols = list(unnest_alias.c.values())
+                if unnest_cols:
+                    exploded_value = unnest_cols[0].label(plan.alias)
+                else:
+                    # Fallback: use literal_column if no columns found
+                    exploded_value = literal_column("unnest_result").label(plan.alias)
+
+                # Create CROSS JOIN
+                result = select(*child_columns, exploded_value).select_from(
+                    child_subq, unnest_alias
                 )
                 return result
 
@@ -1171,7 +1193,7 @@ class ExpressionCompiler:
         if op == "signum" or op == "sign":
             col_expr = self._compile(expression.args[0])
             # Use dialect-specific SIGN function
-            if self.dialect.name == "postgresql" or self.dialect.name == "mysql":
+            if self.dialect.name in ("postgresql", "mysql", "duckdb"):
                 result = func.sign(col_expr)
             else:
                 # SQLite doesn't have SIGN, use CASE WHEN
@@ -1296,8 +1318,8 @@ class ExpressionCompiler:
             num, unit = parts
             unit_upper = unit.upper()
 
-            # For PostgreSQL, use INTERVAL literal
-            if self.dialect.name == "postgresql":
+            # For PostgreSQL/DuckDB, use INTERVAL literal
+            if self.dialect.name in ("postgresql", "duckdb"):
                 interval_col: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
                 result = col_expr + interval_col
             elif self.dialect.name == "mysql":
@@ -1325,8 +1347,8 @@ class ExpressionCompiler:
             num, unit = parts
             unit_upper = unit.upper()
 
-            # For PostgreSQL, use INTERVAL literal
-            if self.dialect.name == "postgresql":
+            # For PostgreSQL/DuckDB, use INTERVAL literal
+            if self.dialect.name in ("postgresql", "duckdb"):
                 interval_expr: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
                 result = col_expr - interval_expr
             elif self.dialect.name == "mysql":
@@ -1370,9 +1392,28 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             if len(expression.args) > 1:
                 format_str = expression.args[1]
-                result = func.to_timestamp(col_expr, format_str)
+                if self.dialect.name == "duckdb":
+                    # DuckDB uses strptime for parsing with format (uses %Y format, not yyyy)
+                    from sqlalchemy import literal_column
+
+                    # Convert PySpark format to strptime format
+                    duckdb_format = (
+                        format_str.replace("yyyy", "%Y")
+                        .replace("MM", "%m")
+                        .replace("dd", "%d")
+                        .replace("HH", "%H")
+                        .replace("mm", "%M")
+                        .replace("ss", "%S")
+                    )
+                    result = literal_column(f"strptime({col_expr}, '{duckdb_format}')")
+                else:
+                    result = func.to_timestamp(col_expr, format_str)
             else:
-                result = func.to_timestamp(col_expr)
+                if self.dialect.name == "duckdb":
+                    # DuckDB's to_timestamp expects a numeric unix timestamp
+                    result = func.to_timestamp(col_expr)
+                else:
+                    result = func.to_timestamp(col_expr)
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -1385,6 +1426,9 @@ class ExpressionCompiler:
                     result = func.extract("epoch", func.now())
                 elif self.dialect.name == "mysql":
                     result = func.unix_timestamp()
+                elif self.dialect.name == "duckdb":
+                    # DuckDB: extract(epoch from now())
+                    result = func.extract("epoch", func.now())
                 else:
                     # SQLite: strftime('%s', 'now')
                     result = func.strftime("%s", "now")
@@ -1394,6 +1438,9 @@ class ExpressionCompiler:
                     result = func.extract("epoch", col_expr)
                 elif self.dialect.name == "mysql":
                     result = func.unix_timestamp(col_expr)
+                elif self.dialect.name == "duckdb":
+                    # DuckDB: extract(epoch from col)
+                    result = func.extract("epoch", col_expr)
                 else:
                     # SQLite: strftime('%s', col)
                     result = func.strftime("%s", col_expr)
@@ -1406,6 +1453,10 @@ class ExpressionCompiler:
                     result = func.extract("epoch", parsed)
                 elif self.dialect.name == "mysql":
                     result = func.unix_timestamp(col_expr, format_str)
+                elif self.dialect.name == "duckdb":
+                    # DuckDB: parse with format then extract epoch
+                    parsed = func.to_timestamp(col_expr, format_str)
+                    result = func.extract("epoch", parsed)
                 else:
                     # SQLite: requires parsing first
                     result = func.strftime("%s", func.datetime(col_expr, format_str))
@@ -1420,11 +1471,27 @@ class ExpressionCompiler:
                     result = func.to_char(func.to_timestamp(col_expr), format_str)
                 elif self.dialect.name == "mysql":
                     result = func.from_unixtime(col_expr, format_str)
+                elif self.dialect.name == "duckdb":
+                    # DuckDB: to_timestamp(unix_time) then format with strftime
+                    # DuckDB's strftime is strftime(timestamp, format)
+                    from sqlalchemy import literal_column
+
+                    duckdb_format = (
+                        format_str.replace("yyyy", "%Y")
+                        .replace("MM", "%m")
+                        .replace("dd", "%d")
+                        .replace("HH", "%H")
+                        .replace("mm", "%M")
+                        .replace("ss", "%S")
+                    )
+                    result = literal_column(
+                        f"strftime(to_timestamp({col_expr}), '{duckdb_format}')"
+                    )
                 else:
                     # SQLite: datetime(unix_time, 'unixepoch')
                     result = func.strftime(format_str, func.datetime(col_expr, "unixepoch"))
             else:
-                if self.dialect.name == "postgresql":
+                if self.dialect.name in ("postgresql", "duckdb"):
                     result = func.to_timestamp(col_expr)
                 elif self.dialect.name == "mysql":
                     result = func.from_unixtime(col_expr)
@@ -1527,7 +1594,7 @@ class ExpressionCompiler:
                     + literal_column("INTERVAL '1 month'")
                     - literal_column("INTERVAL '1 day'")
                 )
-            elif self.dialect.name == "mysql":
+            elif self.dialect.name in ("mysql", "duckdb"):
                 result = func.last_day(col_expr)
             else:
                 # SQLite: requires workaround
@@ -1548,6 +1615,12 @@ class ExpressionCompiler:
                 result = func.extract("epoch", date1 - date2) / literal(30.0 * 86400)
             elif self.dialect.name == "mysql":
                 result = func.timestampdiff("month", date2, date1)
+            elif self.dialect.name == "duckdb":
+                # DuckDB: Calculate months using date difference
+                from sqlalchemy import literal_column
+
+                # Use datediff with month unit
+                result = func.datediff("month", date2, date1)
             else:
                 # SQLite: requires calculation
                 from sqlalchemy import literal_column
@@ -1867,6 +1940,12 @@ class ExpressionCompiler:
             # Use dialect-specific initcap
             if self.dialect.name == "postgresql":
                 result = func.initcap(col_expr)
+            elif self.dialect.name == "duckdb":
+                # DuckDB doesn't support initcap
+                raise CompilationError(
+                    f"initcap() is not supported for {self.dialect.name} dialect. "
+                    "Supported dialects: PostgreSQL"
+                )
             else:
                 # MySQL/SQLite: not directly supported, use literal_column for workaround
                 from sqlalchemy import literal_column
@@ -1927,6 +2006,12 @@ class ExpressionCompiler:
             # Use dialect-specific translate
             if self.dialect.name == "postgresql":
                 result = func.translate(col_expr, from_chars, to_chars)
+            elif self.dialect.name == "duckdb":
+                # DuckDB doesn't support translate
+                raise CompilationError(
+                    f"translate() is not supported for {self.dialect.name} dialect. "
+                    "Supported dialects: PostgreSQL"
+                )
             else:
                 # MySQL/SQLite: requires workaround (not directly supported)
                 # Use REPLACE for simple cases, or raise error for complex cases
@@ -2213,6 +2298,9 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             if self.dialect.name == "postgresql":
                 result = func.array_agg(func.distinct(col_expr))
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses array_agg with DISTINCT
+                result = func.array_agg(func.distinct(col_expr))
             elif self.dialect.name == "sqlite":
                 # SQLite doesn't support DISTINCT in json_group_array directly
                 # We'll use a workaround or note the limitation
@@ -2262,10 +2350,19 @@ class ExpressionCompiler:
             else:
                 # For unsupported dialects, raise an error or use a workaround
                 # For now, we'll raise an error to indicate lack of support
-                raise CompilationError(
-                    f"percentile_cont() is not supported for {self.dialect.name} dialect. "
-                    "Supported dialects: PostgreSQL, SQL Server, Oracle"
-                )
+                if self.dialect.name == "duckdb":
+                    # DuckDB supports percentile_cont with WITHIN GROUP syntax
+                    from sqlalchemy import literal_column
+
+                    fraction = expression.args[1]
+                    result = literal_column(
+                        f"percentile_cont({fraction}) WITHIN GROUP (ORDER BY {col_expr})"
+                    )
+                else:
+                    raise CompilationError(
+                        f"percentile_cont() is not supported for {self.dialect.name} dialect. "
+                        "Supported dialects: PostgreSQL, SQL Server, Oracle, DuckDB"
+                    )
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -2284,10 +2381,19 @@ class ExpressionCompiler:
                 result = func.percentile_disc(fraction).within_group(col_expr)
             else:
                 # For unsupported dialects, raise an error
-                raise CompilationError(
-                    f"percentile_disc() is not supported for {self.dialect.name} dialect. "
-                    "Supported dialects: PostgreSQL, SQL Server, Oracle"
-                )
+                if self.dialect.name == "duckdb":
+                    # DuckDB supports percentile_disc with WITHIN GROUP syntax
+                    from sqlalchemy import literal_column
+
+                    fraction = expression.args[1]
+                    result = literal_column(
+                        f"percentile_disc({fraction}) WITHIN GROUP (ORDER BY {col_expr})"
+                    )
+                else:
+                    raise CompilationError(
+                        f"percentile_disc() is not supported for {self.dialect.name} dialect. "
+                        "Supported dialects: PostgreSQL, SQL Server, Oracle, DuckDB"
+                    )
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -2380,10 +2486,13 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             # Use dialect-specific array length
             # PostgreSQL: array_length(array, 1)
+            # DuckDB: array_length(array) - no dimension argument
             # SQLite: json_array_length(json_array)
             # MySQL: JSON_LENGTH(json_array)
             if self.dialect.name == "postgresql":
                 result = func.array_length(col_expr, 1)
+            elif self.dialect.name == "duckdb":
+                result = func.array_length(col_expr)
             elif self.dialect.name == "sqlite":
                 result = func.json_array_length(col_expr)
             else:
@@ -2399,8 +2508,8 @@ class ExpressionCompiler:
             # PostgreSQL: value = ANY(array)
             # SQLite: JSON_CONTAINS (if available) or json_each
             # MySQL: JSON_CONTAINS(json_array, value)
-            if self.dialect.name == "postgresql":
-                # PostgreSQL uses = ANY(array)
+            if self.dialect.name in ("postgresql", "duckdb"):
+                # PostgreSQL/DuckDB uses = ANY(array)
                 from sqlalchemy import any_
 
                 result = value_expr == any_(col_expr)
@@ -2453,7 +2562,7 @@ class ExpressionCompiler:
             # PostgreSQL: array_position(array, value)
             # SQLite: Use json_each with rowid - requires subquery (complex)
             # MySQL: JSON_SEARCH(json_array, 'one', value) - returns path, extract index
-            if self.dialect.name == "postgresql":
+            if self.dialect.name in ("postgresql", "duckdb"):
                 result = func.array_position(col_expr, value_expr)
             elif self.dialect.name == "sqlite":
                 # SQLite: Use json_each to find position
@@ -2500,7 +2609,7 @@ class ExpressionCompiler:
         if op == "array_append":
             col_expr = self._compile(expression.args[0])
             elem_expr = self._compile(expression.args[1])
-            if self.dialect.name == "postgresql":
+            if self.dialect.name in ("postgresql", "duckdb"):
                 result = func.array_append(col_expr, elem_expr)
             else:
                 result = func.json_array_append(col_expr, "$", elem_expr)
@@ -2510,7 +2619,7 @@ class ExpressionCompiler:
         if op == "array_prepend":
             col_expr = self._compile(expression.args[0])
             elem_expr = self._compile(expression.args[1])
-            if self.dialect.name == "postgresql":
+            if self.dialect.name in ("postgresql", "duckdb"):
                 result = func.array_prepend(elem_expr, col_expr)
             else:
                 result = func.json_array_insert(col_expr, "$[0]", elem_expr)
@@ -2519,12 +2628,33 @@ class ExpressionCompiler:
             return result
         if op == "array_remove":
             col_expr = self._compile(expression.args[0])
-            elem_expr = self._compile(expression.args[1])
+            elem_arg = expression.args[1]
+            # For DuckDB, we need the literal value to inline in lambda
+            # Check if it's a literal Column or a raw value
+            from ..expressions.column import Column as MoltresColumn
+            from .builders import format_literal
+
+            if isinstance(elem_arg, MoltresColumn) and elem_arg.op == "literal":
+                # It's a literal, get the value
+                elem_value = elem_arg.args[0] if elem_arg.args else None
+                elem_str = format_literal(elem_value)
+            else:
+                # Compile it normally and hope it works
+                elem_expr = self._compile(elem_arg)
+                elem_str = str(elem_expr)
+
             if self.dialect.name == "postgresql":
+                elem_expr = self._compile(elem_arg)
                 result = func.array_remove(col_expr, elem_expr)
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses list_filter to remove elements
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"list_filter({col_expr}, x -> x != {elem_str})")
             else:
                 from sqlalchemy import literal_column
 
+                elem_expr = self._compile(elem_arg)
                 result = literal_column(
                     f"JSON_REMOVE({col_expr}, JSON_SEARCH({col_expr}, 'one', {elem_expr}))"
                 )
@@ -2537,6 +2667,11 @@ class ExpressionCompiler:
                 from sqlalchemy import literal_column
 
                 result = literal_column(f"ARRAY(SELECT DISTINCT unnest({col_expr}))")
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses list_distinct
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"list_distinct({col_expr})")
             else:
                 from sqlalchemy import literal_column
 
@@ -2548,6 +2683,11 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             if self.dialect.name == "postgresql":
                 result = func.array_sort(col_expr)
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses list_sort
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"list_sort({col_expr})")
             else:
                 from sqlalchemy import literal_column
 
@@ -2559,6 +2699,11 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             if self.dialect.name == "postgresql":
                 result = func.array_max(col_expr)
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses list_max instead of array_max
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"list_max({col_expr})")
             else:
                 # SQLite/MySQL: Use json_each to find max value
                 # This requires a subquery - simplified implementation
@@ -2574,6 +2719,11 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             if self.dialect.name == "postgresql":
                 result = func.array_min(col_expr)
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses list_min instead of array_min
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"list_min({col_expr})")
             else:
                 # SQLite/MySQL: Use json_each to find min value
                 from sqlalchemy import literal_column
@@ -2589,6 +2739,11 @@ class ExpressionCompiler:
                 from sqlalchemy import literal_column
 
                 result = literal_column(f"(SELECT sum(x) FROM unnest({col_expr}) AS x)")
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses list_sum instead of array_sum
+                from sqlalchemy import literal_column
+
+                result = literal_column(f"list_sum({col_expr})")
             else:
                 from sqlalchemy import literal_column
 
@@ -2670,6 +2825,10 @@ class ExpressionCompiler:
 
             if self.dialect.name == "postgresql":
                 result = literal_column("random_normal()")
+            elif self.dialect.name == "duckdb":
+                # DuckDB doesn't have random_normal, use random() as fallback
+                # Note: This is not a true normal distribution
+                result = func.random()
             else:
                 raise CompilationError(
                     f"randn() is not supported for {self.dialect.name} dialect. "
@@ -2743,6 +2902,19 @@ class ExpressionCompiler:
                 result = func.digest(col_expr, algo)
             elif self.dialect.name == "mysql":
                 result = func.sha2(col_expr, num_bits)
+            elif self.dialect.name == "duckdb":
+                # DuckDB uses sha256, sha384, sha512 functions
+                from sqlalchemy import literal_column
+
+                if num_bits == 256:
+                    result = func.sha256(col_expr)
+                elif num_bits == 384:
+                    result = func.sha384(col_expr)
+                elif num_bits == 512:
+                    result = func.sha512(col_expr)
+                else:
+                    # Default to sha256
+                    result = func.sha256(col_expr)
             else:
                 from sqlalchemy import literal_column
 
@@ -2756,6 +2928,13 @@ class ExpressionCompiler:
                 result = func.encode(col_expr, "base64")
             elif self.dialect.name == "mysql":
                 result = func.to_base64(col_expr)
+            elif self.dialect.name == "duckdb":
+                # DuckDB requires BLOB type
+                from sqlalchemy import cast
+                from sqlalchemy import types as sa_types
+
+                blob_expr = cast(col_expr, sa_types.BLOB)
+                result = func.base64(blob_expr)
             else:
                 from sqlalchemy import literal_column
 
@@ -2764,6 +2943,10 @@ class ExpressionCompiler:
                 result = result.label(expression._alias)
             return result
         if op == "monotonically_increasing_id":
+            # monotonically_increasing_id is implemented as row_number()
+            # It always needs an OVER clause, even if empty
+            # If used with .over(), the window handling will apply the .over() call
+            # Otherwise, we use row_number() OVER () for SQLite compatibility
             result = func.row_number().over()
             if expression._alias:
                 result = result.label(expression._alias)
@@ -2785,6 +2968,12 @@ class ExpressionCompiler:
                 result = func.soundex(col_expr)
             elif self.dialect.name == "mysql":
                 result = func.soundex(col_expr)
+            elif self.dialect.name == "duckdb":
+                # DuckDB doesn't support soundex
+                raise CompilationError(
+                    f"soundex() is not supported for {self.dialect.name} dialect. "
+                    "Supported dialects: PostgreSQL, MySQL"
+                )
             else:
                 from sqlalchemy import literal_column
 

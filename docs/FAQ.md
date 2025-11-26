@@ -100,10 +100,11 @@ customers = db.table("customers").select()
 orders = db.table("orders").select()
 
 # Inner join
-df = customers.join(orders, on=[("id", "customer_id")], how="inner")
+from moltres import col
+df = customers.join(orders, on=[col("customers.id") == col("orders.customer_id")], how="inner")
 
 # Left join
-df = customers.join(orders, on=[("id", "customer_id")], how="left")
+df = customers.join(orders, on=[col("customers.id") == col("orders.customer_id")], how="left")
 ```
 
 ### How do I aggregate data?

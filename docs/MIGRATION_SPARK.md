@@ -87,13 +87,13 @@ df.group_by("category").agg(
 **PySpark:**
 ```python
 df1.join(df2, on="id", how="left")
-df1.join(df2, on=[("id", "customer_id")], how="inner")
+df1.join(df2, on=[col("df1.id") == col("df2.customer_id")], how="inner")
 ```
 
 **Moltres:**
 ```python
 df1.join(df2, on="id", how="left")
-df1.join(df2, on=[("id", "customer_id")], how="inner")
+df1.join(df2, on=[col("df1.id") == col("df2.customer_id")], how="inner")
 ```
 
 ### 6. Window Functions
@@ -235,7 +235,7 @@ df1.join(df2, df1.id == df2.customer_id, "left")
 
 **Moltres:**
 ```python
-df1.join(df2, on=[("id", "customer_id")], how="left")
+df1.join(df2, on=[col("df1.id") == col("df2.customer_id")], how="left")
 ```
 
 ## Limitations

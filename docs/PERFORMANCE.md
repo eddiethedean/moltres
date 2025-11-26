@@ -54,14 +54,14 @@ df = (
     db.table("orders")
     .select()
     .where(col("status") == "active")  # Filter early
-    .join(customers, on=[("customer_id", "id")])
+    .join(customers, on=[col("orders.customer_id") == col("customers.id")])
 )
 
 # Less efficient: Join before filter
 df = (
     db.table("orders")
     .select()
-    .join(customers, on=[("customer_id", "id")])
+    .join(customers, on=[col("orders.customer_id") == col("customers.id")])
     .where(col("status") == "active")  # Filter after join
 )
 ```
@@ -102,7 +102,7 @@ db.execute("CREATE INDEX idx_orders_customer_id ON orders(customer_id)")
 db.execute("CREATE INDEX idx_customers_id ON customers(id)")
 
 # Use appropriate join type
-df = customers.join(orders, on=[("id", "customer_id")], how="inner")
+df = customers.join(orders, on=[col("customers.id") == col("orders.customer_id")], how="inner")
 ```
 
 ### 6. Use Aggregations Efficiently
@@ -266,7 +266,7 @@ for customer in customers:
     orders = db.table("orders").select().where(col("customer_id") == customer["id"])
 
 # Good: Single query with join
-df = customers.join(orders, on=[("id", "customer_id")])
+df = customers.join(orders, on=[col("customers.id") == col("orders.customer_id")])
 ```
 
 ### Issue 4: Inefficient Aggregations

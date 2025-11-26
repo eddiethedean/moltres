@@ -68,6 +68,20 @@ class DataLoader:
 
         Note: This is equivalent to db.table(name).select().
         Returns a DataFrame that can be transformed before execution.
+
+        Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+            >>> # Read table using read.table()
+            >>> df = db.read.table("users")
+            >>> results = df.collect()
+            >>> results[0]["name"]
+            'Alice'
+            >>> db.close()
         """
         return self._database.table(name).select()
 
@@ -79,6 +93,26 @@ class DataLoader:
 
         Returns:
             DataFrame containing the CSV data (lazy, materialized on .collect())
+
+        Example:
+            >>> from moltres import connect
+            >>> import tempfile
+            >>> import csv
+            >>> db = connect("sqlite:///:memory:")
+            >>> # Create a CSV file
+            >>> with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            ...     writer = csv.writer(f)
+            ...     writer.writerow(['id', 'name'])
+            ...     writer.writerow(['1', 'Alice'])
+            ...     csv_path = f.name
+            >>> # Read CSV file
+            >>> df = db.read.csv(csv_path)
+            >>> results = df.collect()
+            >>> results[0]['name']
+            'Alice'
+            >>> import os
+            >>> os.unlink(csv_path)
+            >>> db.close()
         """
         plan = file_scan(
             path=path,
@@ -96,6 +130,25 @@ class DataLoader:
 
         Returns:
             DataFrame containing the JSON data (lazy, materialized on .collect())
+
+        Example:
+            >>> from moltres import connect
+            >>> import tempfile
+            >>> import json
+            >>> db = connect("sqlite:///:memory:")
+            >>> # Create a JSON file
+            >>> data = [{"id": 1, "name": "Alice"}]
+            >>> with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            ...     json.dump(data, f)
+            ...     json_path = f.name
+            >>> # Read JSON file
+            >>> df = db.read.json(json_path)
+            >>> results = df.collect()
+            >>> results[0]['name']
+            'Alice'
+            >>> import os
+            >>> os.unlink(json_path)
+            >>> db.close()
         """
         plan = file_scan(
             path=path,
@@ -113,6 +166,28 @@ class DataLoader:
 
         Returns:
             DataFrame containing the JSONL data (lazy, materialized on .collect())
+
+        Example:
+            >>> from moltres import connect
+            >>> import tempfile
+            >>> import json
+            >>> db = connect("sqlite:///:memory:")
+            >>> # Create a JSONL file
+            >>> with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+            ...     json.dump({"id": 1, "name": "Alice"}, f)
+            ...     f.write('\n')
+            ...     json.dump({"id": 2, "name": "Bob"}, f)
+            ...     jsonl_path = f.name
+            >>> # Read JSONL file
+            >>> df = db.read.jsonl(jsonl_path)
+            >>> results = df.collect()
+            >>> len(results)
+            2
+            >>> results[0]['name']
+            'Alice'
+            >>> import os
+            >>> os.unlink(jsonl_path)
+            >>> db.close()
         """
         plan = file_scan(
             path=path,
@@ -133,6 +208,28 @@ class DataLoader:
 
         Raises:
             RuntimeError: If pandas or pyarrow are not installed
+
+        Example:
+            >>> from moltres import connect
+            >>> import tempfile
+            >>> try:
+            ...     import pandas as pd
+            ...     db = connect("sqlite:///:memory:")
+            ...     # Create a Parquet file (requires pandas/pyarrow)
+            ...     df_pd = pd.DataFrame([{"id": 1, "name": "Alice"}])
+            ...     with tempfile.NamedTemporaryFile(suffix='.parquet', delete=False) as f:
+            ...         df_pd.to_parquet(f.name)
+            ...         parquet_path = f.name
+            ...     # Read Parquet file
+            ...     df = db.read.parquet(parquet_path)
+            ...     results = df.collect()
+            ...     results[0]['name']
+            ...     'Alice'
+            ...     import os
+            ...     os.unlink(parquet_path)
+            ...     db.close()
+            ... except ImportError:
+            ...     pass  # Skip if pandas/pyarrow not available
         """
         plan = file_scan(
             path=path,
@@ -151,6 +248,25 @@ class DataLoader:
 
         Returns:
             DataFrame containing the text file lines (lazy, materialized on .collect())
+
+        Example:
+            >>> from moltres import connect
+            >>> import tempfile
+            >>> db = connect("sqlite:///:memory:")
+            >>> # Create a text file
+            >>> with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            ...     f.write("line1\nline2\nline3\n")
+            ...     text_path = f.name
+            >>> # Read text file
+            >>> df = db.read.text(text_path, column_name="line")
+            >>> results = df.collect()
+            >>> len(results)
+            3
+            >>> results[0]['line']
+            'line1'
+            >>> import os
+            >>> os.unlink(text_path)
+            >>> db.close()
         """
         plan = file_scan(
             path=path,

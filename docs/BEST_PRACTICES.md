@@ -179,7 +179,7 @@ df = (
     db.table("orders")
     .select()
     .where(col("status") == "active")  # Filter early
-    .join(customers, on=[("customer_id", "id")])
+    .join(customers, on=[col("orders.customer_id") == col("customers.id")])
 )
 ```
 

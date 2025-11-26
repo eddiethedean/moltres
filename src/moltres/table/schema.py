@@ -78,7 +78,44 @@ def column(
     precision: int | None = None,
     scale: int | None = None,
 ) -> ColumnDef:
-    """Convenience helper for creating column definitions."""
+    """Convenience helper for creating column definitions.
+
+    Args:
+        name: Column name
+        type_name: SQL type name (e.g., "INTEGER", "TEXT", "REAL", "DECIMAL")
+        nullable: Whether the column allows NULL values (default: True)
+        default: Default value for the column (default: None)
+        primary_key: Whether this column is a primary key (default: False)
+        precision: Precision for DECIMAL/NUMERIC types (default: None)
+        scale: Scale for DECIMAL/NUMERIC types (default: None)
+
+    Returns:
+        ColumnDef object for use in table creation
+
+    Example:
+        >>> from moltres import connect
+        >>> from moltres.table.schema import column
+        >>> db = connect("sqlite:///:memory:")
+        >>> # Create table with column definitions
+        >>> _ = db.create_table(
+        ...     "users",
+        ...     [
+        ...         column("id", "INTEGER", primary_key=True),
+        ...         column("name", "TEXT", nullable=False),
+        ...         column("age", "INTEGER"),
+        ...         column("balance", "DECIMAL", precision=10, scale=2)
+        ...     ]
+        ... ).collect()
+        >>> from moltres.io.records import Records
+        >>> _ = Records(_data=[{"id": 1, "name": "Alice", "age": 30, "balance": 100.50}], _database=db).insert_into("users")
+        >>> df = db.table("users").select()
+        >>> results = df.collect()
+        >>> results[0]["name"]
+        'Alice'
+        >>> results[0]["age"]
+        30
+        >>> db.close()
+    """
     return ColumnDef(
         name=name,
         type_name=type_name,

@@ -39,9 +39,18 @@ class Column(Expression):
             Column expression for the cast operation
 
         Example:
-            >>> col("price").cast("DECIMAL", precision=10, scale=2)
-            >>> col("date_str").cast("DATE")
-            >>> col("timestamp_str").cast("TIMESTAMP")
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> _ = db.create_table("products", [column("id", "INTEGER"), column("price", "REAL"), column("date_str", "TEXT")]).collect()  # doctest: +ELLIPSIS
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "price": 10.5, "date_str": "2024-01-01"}], _database=db).insert_into("products")
+            >>> # Cast price to DECIMAL
+            >>> df = db.table("products").select(col("price").cast("DECIMAL", precision=10, scale=2).alias("price_decimal"))
+            >>> results = df.collect()
+            >>> float(results[0]["price_decimal"])
+            10.5
+            >>> db.close()
         """
         args: tuple[Any, ...] = (self, type_name)
         if precision is not None or scale is not None:
@@ -142,8 +151,20 @@ class Column(Expression):
             Column expression for IN clause
 
         Example:
-            >>> col("id").isin([1, 2, 3])  # IN (1, 2, 3)
-            >>> col("id").isin(df.select("customer_id"))  # IN (SELECT customer_id FROM ...)
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> _ = db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}], _database=db).insert_into("users")
+            >>> # Check if id is in a list of values
+            >>> df = db.table("users").select().where(col("id").isin([1, 3]))
+            >>> results = df.collect()
+            >>> len(results)
+            2
+            >>> results[0]["name"]
+            'Alice'
+            >>> db.close()
         """
         # Check if values is a DataFrame (subquery)
         if hasattr(values, "plan") and hasattr(values, "database"):
@@ -226,11 +247,19 @@ class Column(Expression):
             Column expression with FILTER clause attached
 
         Example:
-            >>> from moltres import col
+            >>> from moltres import connect, col
             >>> from moltres.expressions import functions as F
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> _ = db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL"), column("status", "TEXT")]).collect()  # doctest: +ELLIPSIS
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "amount": 100.0, "status": "active"}, {"id": 2, "amount": 200.0, "status": "completed"}], _database=db).insert_into("orders")
             >>> # Conditional aggregation with FILTER clause
-            >>> F.sum(col("amount")).filter(col("status") == "active")
-            >>> # Compiles to: SUM(amount) FILTER (WHERE status = 'active')
+            >>> df = db.table("orders").select(F.sum(col("amount")).filter(col("status") == "active").alias("active_total"))
+            >>> results = df.collect()
+            >>> results[0]["active_total"]
+            100.0
+            >>> db.close()
         """
         if not self.op.startswith("agg_"):
             raise ValueError(
@@ -253,4 +282,30 @@ def ensure_column(value: ColumnLike) -> Column:
 
 
 def col(name: str) -> Column:
+    """Create a Column expression from a column name.
+
+    Args:
+        name: Column name as a string
+
+    Returns:
+        Column expression that can be used in DataFrame operations
+
+    Example:
+        >>> from moltres import connect, col
+        >>> db = connect("sqlite:///:memory:")
+        >>> from moltres.table.schema import column
+        >>> _ = db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
+        >>> from moltres.io.records import Records
+        >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+        >>> df = db.table("users").select(col("name"))
+        >>> results = df.collect()
+        >>> results[0]["name"]
+        'Alice'
+        >>> # Use in expressions
+        >>> df2 = db.table("users").select((col("id") * 2).alias("double_id"))
+        >>> results2 = df2.collect()
+        >>> results2[0]["double_id"]
+        2
+        >>> db.close()
+    """
     return Column(op="column", args=(name,), source=name)

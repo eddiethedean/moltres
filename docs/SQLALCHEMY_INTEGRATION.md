@@ -182,7 +182,7 @@ results = df.collect()
 df = (
     db.table(Order)
     .select()
-    .join(db.table(User), on=[("user_id", "id")])
+    .join(db.table(User), on=[col("orders.user_id") == col("users.id")])
 )
 ```
 

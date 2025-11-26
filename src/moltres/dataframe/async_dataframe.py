@@ -61,14 +61,23 @@ class AsyncDataFrame:
             New AsyncDataFrame with selected columns
 
         Example:
-            >>> # Select specific columns
-            >>> df = await db.table("users").select("id", "name", "email")
-
-            >>> # Select all columns (empty select or "*")
-            >>> df = await db.table("users").select()  # or .select("*")
-
-            >>> # Select all columns plus new ones
-            >>> df = await db.table("orders").select("*", (col("amount") * 1.1).alias("with_tax"))
+            >>> import asyncio
+            >>> from moltres import async_connect, col
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("email", "TEXT")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db)
+            ...     await records.insert_into("users")
+            ...     # Select specific columns
+            ...     table_handle = await db.table("users")
+            ...     df = table_handle.select("id", "name")
+            ...     results = await df.collect()
+            ...     results[0]["name"]
+            ...     'Alice'
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
         """
         if not columns:
             return self
@@ -160,11 +169,24 @@ class AsyncDataFrame:
             New AsyncDataFrame with selected expressions
 
         Example:
-            >>> # Basic column selection
-            >>> await df.selectExpr("id", "name", "email")
-
-            >>> # With expressions and aliases
-            >>> await df.selectExpr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
+            >>> import asyncio
+            >>> from moltres import async_connect
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL"), column("name", "TEXT")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records = AsyncRecords(_data=[{"id": 1, "amount": 100.0, "name": "Alice"}], _database=db)
+            ...     await records.insert_into("orders")
+            ...     # With expressions and aliases
+            ...     table_handle = await db.table("orders")
+            ...     df = table_handle.select()
+            ...     df2 = df.selectExpr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
+            ...     results = await df2.collect()
+            ...     results[0]["with_tax"]
+            ...     110.0
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
         """
         from ..expressions.sql_parser import parse_sql_expr
 
@@ -204,15 +226,25 @@ class AsyncDataFrame:
             New AsyncDataFrame with filtered rows
 
         Example:
-            >>> from moltres import col
-            >>> # Filter by condition using Column
-            >>> df = await db.table("users").select().where(col("age") >= 18)
-
-            >>> # Filter using SQL string
-            >>> df = await db.table("users").select().where("age > 18")
-
-            >>> # Multiple conditions with SQL string
-            >>> df = await db.table("orders").select().where("amount > 100 AND status = 'active'")
+            >>> import asyncio
+            >>> from moltres import async_connect, col
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db)
+            ...     await records.insert_into("users")
+            ...     # Filter by condition using Column
+            ...     table_handle = await db.table("users")
+            ...     df = table_handle.select().where(col("age") >= 18)
+            ...     results = await df.collect()
+            ...     len(results)
+            ...     1
+            ...     results[0]["name"]
+            ...     'Alice'
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
         """
         # If predicate is a string, parse it into a Column expression
         if isinstance(predicate, str):
@@ -240,10 +272,53 @@ class AsyncDataFrame:
     def join(
         self,
         other: "AsyncDataFrame",
-        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+        on: Optional[
+            Union[str, Sequence[str], Sequence[Tuple[str, str]], Column, Sequence[Column]]
+        ] = None,
         how: str = "inner",
     ) -> "AsyncDataFrame":
-        """Join with another DataFrame."""
+        """Join with another DataFrame.
+
+        Args:
+            other: Another DataFrame to join with
+            on: Join condition - can be:
+                - A single column name (assumes same name in both DataFrames): ``on="order_id"``
+                - A sequence of column names (assumes same names in both): ``on=["col1", "col2"]``
+                - A sequence of (left_column, right_column) tuples: ``on=[("id", "customer_id")]``
+                - A Column expression (PySpark-style): ``on=[col("left_col") == col("right_col")]``
+                - A single Column expression: ``on=col("left_col") == col("right_col")``
+            how: Join type ("inner", "left", "right", "full", "cross")
+
+        Returns:
+            New AsyncDataFrame containing the join result
+
+        Example:
+            >>> import asyncio
+            >>> from moltres import async_connect, col
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("customers", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            ...     await db.create_table("orders", [column("id", "INTEGER"), column("customer_id", "INTEGER"), column("amount", "REAL")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records1 = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            ...     await records1.insert_into("customers")
+            ...     records2 = AsyncRecords(_data=[{"id": 1, "customer_id": 1, "amount": 100.0}], _database=db)
+            ...     await records2.insert_into("orders")
+            ...     # PySpark-style join
+            ...     customers_table = await db.table("customers")
+            ...     orders_table = await db.table("orders")
+            ...     customers_df = customers_table.select()
+            ...     orders_df = orders_table.select()
+            ...     df = customers_df.join(orders_df, on=[col("customers.id") == col("orders.customer_id")], how="inner")
+            ...     results = await df.collect()
+            ...     len(results)
+            ...     1
+            ...     results[0]["name"]
+            ...     'Alice'
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
+        """
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before joining")
         if self.database is not other.database:
@@ -252,10 +327,21 @@ class AsyncDataFrame:
         # Cross joins don't require an 'on' clause
         if how.lower() == "cross":
             normalized_on = None
+            condition = None
         else:
-            normalized_on = self._normalize_join_keys(on)
+            normalized_condition = self._normalize_join_condition(on)
+            if isinstance(normalized_condition, Column):
+                # PySpark-style Column expression
+                normalized_on = None
+                condition = normalized_condition
+            else:
+                # Tuple-based join (backward compatible)
+                normalized_on = normalized_condition
+                condition = None
         return self._with_plan(
-            operators.join(self.plan, other.plan, how=how.lower(), on=normalized_on)
+            operators.join(
+                self.plan, other.plan, how=how.lower(), on=normalized_on, condition=condition
+            )
         )
 
     def crossJoin(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
@@ -299,7 +385,10 @@ class AsyncDataFrame:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before semi_join")
         if self.database is not other.database:
             raise ValueError("Cannot semi_join DataFrames from different AsyncDatabase instances")
-        normalized_on = self._normalize_join_keys(on)
+        normalized_condition = self._normalize_join_condition(on)
+        if isinstance(normalized_condition, Column):
+            raise ValueError("semi_join does not support Column expressions, use tuple syntax")
+        normalized_on = normalized_condition
         plan = operators.semi_join(self.plan, other.plan, on=normalized_on)
         return AsyncDataFrame(plan=plan, database=self.database)
 
@@ -330,12 +419,37 @@ class AsyncDataFrame:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before anti_join")
         if self.database is not other.database:
             raise ValueError("Cannot anti_join DataFrames from different AsyncDatabase instances")
-        normalized_on = self._normalize_join_keys(on)
+        normalized_condition = self._normalize_join_condition(on)
+        if isinstance(normalized_condition, Column):
+            raise ValueError("anti_join does not support Column expressions, use tuple syntax")
+        normalized_on = normalized_condition
         plan = operators.anti_join(self.plan, other.plan, on=normalized_on)
         return AsyncDataFrame(plan=plan, database=self.database)
 
     def group_by(self, *columns: Union[Column, str]) -> "AsyncGroupedDataFrame":
-        """Group by the specified columns."""
+        """Group by the specified columns.
+
+        Example:
+            >>> import asyncio
+            >>> from moltres import async_connect, col
+            >>> from moltres.expressions import functions as F
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records = AsyncRecords(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}, {"category": "B", "amount": 150.0}], _database=db)
+            ...     await records.insert_into("sales")
+            ...     table_handle = await db.table("sales")
+            ...     df = table_handle.select()
+            ...     grouped = df.group_by("category")
+            ...     result = grouped.agg(F.sum(col("amount")).alias("total"))
+            ...     results = await result.collect()
+            ...     len(results)
+            ...     2
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
+        """
         from .async_groupby import AsyncGroupedDataFrame
 
         normalized = tuple(self._normalize_projection(col) for col in columns)
@@ -345,7 +459,37 @@ class AsyncDataFrame:
     groupBy = group_by
 
     def order_by(self, *columns: Union[Column, str]) -> "AsyncDataFrame":
-        """Sort by the specified columns."""
+        """Sort rows by one or more columns.
+
+        Args:
+            *columns: Column expressions or column names to sort by. Use .asc() or .desc() for sort order.
+                     Can be strings (column names) or Column objects.
+
+        Returns:
+            New AsyncDataFrame with sorted rows
+
+        Example:
+            >>> from moltres import col
+            >>> # Sort ascending with string column name
+            >>> df = await db.table("users").select().order_by("name")
+            >>> # SQL: SELECT * FROM users ORDER BY name
+
+            >>> # Sort ascending with Column object
+            >>> df = await db.table("users").select().order_by(col("name"))
+            >>> # SQL: SELECT * FROM users ORDER BY name
+
+            >>> # Sort descending
+            >>> df = await db.table("orders").select().order_by(col("amount").desc())
+            >>> # SQL: SELECT * FROM orders ORDER BY amount DESC
+
+            >>> # Multiple sort columns (mixed string and Column)
+            >>> df = (
+            ...     await db.table("sales")
+            ...     .select()
+            ...     .order_by("region", col("amount").desc())
+            ... )
+            >>> # SQL: SELECT * FROM sales ORDER BY region, amount DESC
+        """
         sort_orders = tuple(
             self._normalize_sort_expression(self._normalize_projection(col)) for col in columns
         )
@@ -437,7 +581,26 @@ class AsyncDataFrame:
         return self.group_by(*subset).agg()
 
     def withColumn(self, colName: str, col_expr: Union[Column, str]) -> "AsyncDataFrame":
-        """Add or replace a column in the DataFrame."""
+        """Add or replace a column in the DataFrame.
+
+        Args:
+            colName: Name of the column to add or replace
+            col_expr: Column expression or column name
+
+        Returns:
+            New AsyncDataFrame with the added/replaced column
+
+        Note:
+            This operation adds a Project on top of the current plan.
+            If a column with the same name exists, it will be replaced.
+            Window functions are supported and will ensure all columns are available.
+
+        Example:
+            >>> from moltres.expressions import functions as F
+            >>> from moltres.expressions.window import Window
+            >>> window = Window.partition_by("category").order_by("amount")
+            >>> await df.withColumn("row_num", F.row_number().over(window)).collect()
+        """
         from ..expressions.column import Column
         from ..logical.plan import Project
         from dataclasses import replace as dataclass_replace
@@ -448,12 +611,23 @@ class AsyncDataFrame:
         elif isinstance(new_col, Column):
             new_col = dataclass_replace(new_col, _alias=colName)
 
+        # Check if this is a window function
+        is_window_func = isinstance(new_col, Column) and self._is_window_function(new_col)
+
         if isinstance(self.plan, Project):
             # Add the new column to existing projections
             # Remove any column with the same name (replace behavior)
             existing_cols = []
+            has_star = False
             for col_expr in self.plan.projections:
                 if isinstance(col_expr, Column):
+                    # Check if this is a star column
+                    if col_expr.op == "star":
+                        has_star = True
+                        # For window functions, keep the star to ensure all columns are available
+                        if is_window_func:
+                            existing_cols.append(col_expr)
+                        continue
                     # Check if this column matches the colName (by alias or column name)
                     col_alias = col_expr._alias
                     col_name = (
@@ -463,8 +637,15 @@ class AsyncDataFrame:
                         # Skip this column - it will be replaced by new_col
                         continue
                 existing_cols.append(col_expr)
-            # Add the new column at the end
-            new_projections = existing_cols + [new_col]
+
+            # For window functions, ensure we have a star column if we don't already have one
+            # This ensures all columns are available for the window function
+            if is_window_func and not has_star:
+                star_col = Column(op="star", args=(), _alias=None)
+                new_projections = [star_col] + existing_cols + [new_col]
+            else:
+                # Add the new column at the end
+                new_projections = existing_cols + [new_col]
         else:
             # No existing projection, select all plus new column
             # Use a wildcard select and add the new column
@@ -498,11 +679,34 @@ class AsyncDataFrame:
             existing_col = col(existing).alias(new)
             return self._with_plan(operators.project(self.plan, (existing_col,)))
 
-    def drop(self, *cols: str) -> "AsyncDataFrame":
-        """Drop one or more columns from the DataFrame."""
+    def drop(self, *cols: Union[str, Column]) -> "AsyncDataFrame":
+        """Drop one or more columns from the DataFrame.
+
+        Args:
+            *cols: Column names or Column objects to drop
+
+        Returns:
+            New AsyncDataFrame with the specified columns removed
+
+        Example:
+            >>> # Drop by string column name
+            >>> await df.drop("col1", "col2").collect()
+            >>> # Drop by Column object
+            >>> await df.drop(col("col1"), col("col2")).collect()
+            >>> # Mixed usage
+            >>> await df.drop("col1", col("col2")).collect()
+        """
         from ..logical.plan import Project
 
-        cols_to_drop = set(cols)
+        # Extract column names from both strings and Column objects
+        cols_to_drop = set()
+        for col_expr in cols:
+            if isinstance(col_expr, str):
+                cols_to_drop.add(col_expr)
+            elif isinstance(col_expr, Column):
+                col_name = self._extract_column_name(col_expr)
+                if col_name:
+                    cols_to_drop.add(col_name)
 
         if isinstance(self.plan, Project):
             new_projections = []
@@ -694,6 +898,30 @@ class AsyncDataFrame:
 
         Raises:
             RuntimeError: If DataFrame is not bound to an AsyncDatabase
+
+        Example:
+            >>> import asyncio
+            >>> from moltres import async_connect
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            ...     await records.insert_into("users")
+            ...     table_handle = await db.table("users")
+            ...     df = table_handle.select()
+            ...     # Collect results (non-streaming)
+            ...     results = await df.collect()
+            ...     len(results)
+            ...     1
+            ...     results[0]["name"]
+            ...     'Alice'
+            ...     # Collect results (streaming)
+            ...     async for chunk in await df.collect(stream=True):
+            ...         pass  # Process chunks
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
         """
         if self.database is None:
             raise RuntimeError("Cannot collect a plan without an attached AsyncDatabase")
@@ -1138,6 +1366,46 @@ class AsyncDataFrame:
             return expr
         return col(expr)
 
+    def _is_window_function(self, col_expr: Column) -> bool:
+        """Check if a Column expression is a window function.
+
+        Args:
+            col_expr: Column expression to check
+
+        Returns:
+            True if the expression is a window function, False otherwise
+        """
+        if not isinstance(col_expr, Column):
+            return False
+
+        # Check if it's wrapped in a window (after .over())
+        if col_expr.op == "window":
+            return True
+
+        # Check if it's a window function operation
+        window_ops = {
+            "window_row_number",
+            "window_rank",
+            "window_dense_rank",
+            "window_percent_rank",
+            "window_cume_dist",
+            "window_nth_value",
+            "window_ntile",
+            "window_lag",
+            "window_lead",
+            "window_first_value",
+            "window_last_value",
+        }
+        if col_expr.op in window_ops:
+            return True
+
+        # Recursively check args for nested window functions
+        for arg in col_expr.args:
+            if isinstance(arg, Column) and self._is_window_function(arg):
+                return True
+
+        return False
+
     def _extract_column_name(self, col_expr: Column) -> Optional[str]:
         """Extract column name from a Column expression.
 
@@ -1464,17 +1732,53 @@ class AsyncDataFrame:
             return operators.sort_order(expr.args[0], descending=False)
         return operators.sort_order(expr, descending=False)
 
-    def _normalize_join_keys(
-        self, on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]]
-    ) -> Sequence[Tuple[str, str]]:
-        """Normalize join keys to a sequence of (left, right) column pairs."""
+    def _normalize_join_condition(
+        self,
+        on: Optional[
+            Union[str, Sequence[str], Sequence[Tuple[str, str]], Column, Sequence[Column]]
+        ],
+    ) -> Union[Sequence[Tuple[str, str]], Column]:
+        """Normalize join condition to either tuple pairs or a Column expression.
+
+        Returns:
+            - Sequence[Tuple[str, str]]: For tuple/string-based joins (backward compatible)
+            - Column: For PySpark-style Column expression joins
+        """
+        if on is None:
+            raise ValueError("join requires an `on` argument for equality joins")
+
+        # Handle Column expressions (PySpark-style)
+        if isinstance(on, Column):
+            return on
+        if isinstance(on, Sequence) and len(on) > 0 and isinstance(on[0], Column):
+            # Multiple Column expressions - combine with AND
+            conditions: List[Column] = []
+            for entry in on:
+                if not isinstance(entry, Column):
+                    raise ValueError(
+                        "All elements in join condition must be Column expressions when using PySpark-style syntax"
+                    )
+                conditions.append(entry)
+            # Combine all conditions with AND
+            result = conditions[0]
+            for cond in conditions[1:]:
+                result = result & cond
+            return result
+
+        # Handle tuple/string-based joins (backward compatible)
         if isinstance(on, str):
             return [(on, on)]
-        if isinstance(on, (list, tuple)) and on and isinstance(on[0], str):
-            return [(key, key) for key in on]
-        if isinstance(on, (list, tuple)) and on and isinstance(on[0], (list, tuple)):
-            return [tuple(pair) for pair in on]
-        raise ValueError(f"Invalid join keys: {on}")
+        normalized: List[Tuple[str, str]] = []
+        for entry in on:
+            if isinstance(entry, tuple):
+                if len(entry) != 2:
+                    raise ValueError("join tuples must specify (left, right) column names")
+                normalized.append((entry[0], entry[1]))
+            else:
+                # At this point, entry must be a string (not a Column, as we've already checked)
+                assert isinstance(entry, str), "entry must be a string at this point"
+                normalized.append((entry, entry))
+        return normalized
 
 
 class AsyncNullHandling:

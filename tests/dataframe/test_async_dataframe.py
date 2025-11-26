@@ -8,6 +8,7 @@ except ImportError:
     pytest.skip("aiosqlite not installed", allow_module_level=True)
 
 from moltres import async_connect, col
+from moltres.expressions import functions as F
 
 
 @pytest.mark.asyncio
@@ -162,6 +163,64 @@ async def test_async_dot_notation_order_by(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_async_order_by_string_parameter(tmp_path):
+    """Test async order_by() with string column names (PySpark compatibility)."""
+    db_path = tmp_path / "async_order_by_string.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    from moltres.table.schema import column
+
+    await db.create_table(
+        "users",
+        [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")],
+    ).collect()
+
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "name": "Charlie", "age": 35},
+                {"id": 2, "name": "Alice", "age": 30},
+                {"id": 3, "name": "Bob", "age": 25},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("users")
+
+    table_handle = await db.table("users")
+    df = table_handle.select()
+
+    # Test string column name (PySpark-style)
+    result = await df.order_by("name").collect()
+    assert len(result) == 3
+    assert result[0]["name"] == "Alice"
+    assert result[1]["name"] == "Bob"
+    assert result[2]["name"] == "Charlie"
+
+    # Test Column object (backward compatibility)
+    result2 = await df.order_by(col("name")).collect()
+    assert len(result2) == 3
+    assert result2[0]["name"] == "Alice"
+
+    # Test mixed string and Column
+    result3 = await df.order_by("age", col("name")).collect()
+    assert len(result3) == 3
+    assert result3[0]["age"] == 25  # Bob
+    assert result3[1]["age"] == 30  # Alice
+    assert result3[2]["age"] == 35  # Charlie
+
+    # Test PySpark-style aliases with strings
+    result4 = await df.orderBy("name").collect()
+    assert len(result4) == 3
+    assert result4[0]["name"] == "Alice"
+
+    result5 = await df.sort("name").collect()
+    assert len(result5) == 3
+    assert result5[0]["name"] == "Alice"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_dot_notation_group_by(tmp_path):
     """Test dot notation column selection in async group_by()."""
     db_path = tmp_path / "async_dot_notation_group_by.sqlite"
@@ -301,5 +360,60 @@ async def test_async_dataframe_limit(tmp_path):
     results = await limited.collect()
 
     assert len(results) == 5
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_withColumn_window_function(tmp_path):
+    """Test async withColumn() with window functions (PySpark compatibility)."""
+    db_path = tmp_path / "async_withcolumn_window.sqlite"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    from moltres.table.schema import column
+
+    await db.create_table(
+        "sales",
+        [
+            column("id", "INTEGER"),
+            column("category", "TEXT"),
+            column("amount", "REAL"),
+        ],
+    ).collect()
+
+    await (
+        await db.createDataFrame(
+            [
+                {"id": 1, "category": "A", "amount": 100.0},
+                {"id": 2, "category": "A", "amount": 200.0},
+                {"id": 3, "category": "B", "amount": 150.0},
+            ],
+            pk="id",
+        )
+    ).write.insertInto("sales")
+
+    table_handle = await db.table("sales")
+    df = table_handle.select()
+
+    # Test basic window function in withColumn
+    df_with_row_num = df.withColumn(
+        "row_num", F.row_number().over(partition_by=col("category"), order_by=col("amount"))
+    )
+    result = await df_with_row_num.collect()
+
+    assert len(result) == 3
+    assert "row_num" in result[0]
+    assert "id" in result[0]
+    assert "category" in result[0]
+    assert "amount" in result[0]
+    # Check row numbers are correct
+    row_nums_by_category = {}
+    for row in result:
+        cat = row["category"]
+        if cat not in row_nums_by_category:
+            row_nums_by_category[cat] = []
+        row_nums_by_category[cat].append(row["row_num"])
+    assert sorted(row_nums_by_category["A"]) == [1, 2]
+    assert sorted(row_nums_by_category["B"]) == [1]
 
     await db.close()

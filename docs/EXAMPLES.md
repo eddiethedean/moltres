@@ -90,7 +90,8 @@ orders = db.table("orders")
 # Step 1: Query and analyze using DataFrame operations (executes in SQL)
 customer_stats = (
     orders.select()
-    .join(customers.select(), on=[("customer_id", "id")])
+    .join(customers.select(), on=[col("customer_id") == col("id")])  # PySpark-style
+    # .join(customers.select(), on=[("customer_id", "id")])  # Tuple syntax also works
     .where(col("orders.date") >= "2024-01-01")
     .group_by("customers.id", "customers.name")
     .agg(
@@ -126,7 +127,7 @@ inactive_customers = (
         orders.select()
         .group_by("customer_id")
         .agg(F.max(col("date")).alias("last_order_date")),
-        on=[("id", "customer_id")],
+        on=[col("customers.id") == col("orders.customer_id")],
         how="left"
     )
     .where(
@@ -326,47 +327,77 @@ df = (
 orders_df = db.table("orders").select()
 customers_df = db.table("customers").select()
 
+# PySpark-style join syntax (recommended)
 df = orders_df.join(
     customers_df,
-    on=[("customer_id", "id")]
+    on=[col("customer_id") == col("id")]
 ).select(
     col("orders.id").alias("order_id"),
     col("customers.name").alias("customer_name"),
     col("orders.amount"),
 )
+
+# Tuple syntax also works (backward compatible)
+# df = orders_df.join(
+#     customers_df,
+#     on=[("customer_id", "id")]
+# )
 ```
 
 ### Left Join
 
 ```python
+# PySpark-style
 df = orders_df.join(
     customers_df,
-    on=[("customer_id", "id")],
+    on=[col("customer_id") == col("id")],
     how="left"
 )
+
+# Tuple syntax
+# df = orders_df.join(
+#     customers_df,
+#     on=[("customer_id", "id")],
+#     how="left"
+# )
 ```
 
 ### Multiple Join Conditions
 
 ```python
+# PySpark-style: combine multiple conditions with list
 df = orders_df.join(
     customers_df,
     on=[
-        ("customer_id", "id"),
-        ("region", "region"),  # Additional join condition
+        col("customer_id") == col("id"),
+        col("region") == col("region"),  # Additional join condition
     ]
 )
+
+# Tuple syntax also works
+# df = orders_df.join(
+#     customers_df,
+#     on=[
+#         ("customer_id", "id"),
+#         ("region", "region"),
+#     ]
+# )
 ```
 
-### Custom Join Condition
+### Same Column Name (Simplest)
 
 ```python
-from moltres import col
+# When both tables have the same column name, just use the string
+df = orders_df.join(customers_df, on="customer_id")
+```
 
+### Table-Qualified Column References
+
+```python
+# Use table-qualified names when needed for clarity
 df = orders_df.join(
     customers_df,
-    condition=(col("orders.customer_id") == col("customers.id")) &
-              (col("orders.status") == "active")
+    on=[col("orders.customer_id") == col("customers.id")]
 )
 ```
 
@@ -395,18 +426,31 @@ df = (
 )
 ```
 
-### Window Functions (when supported)
+### Window Functions
 
 ```python
 from moltres.expressions import functions as F
 
-# Running average
+# Running average using select()
 df = (
     db.table("sales")
     .select(
         col("date"),
         col("amount"),
-        F.avg(col("amount")).over().alias("running_avg")
+        F.avg(col("amount")).over(order_by=col("date")).alias("running_avg")
+    )
+)
+
+# Window functions in withColumn() (PySpark-compatible, v0.16.0+)
+df = (
+    db.table("sales")
+    .withColumn(
+        "row_num",
+        F.row_number().over(partition_by=col("category"), order_by=col("amount"))
+    )
+    .withColumn(
+        "rank",
+        F.rank().over(partition_by=col("category"), order_by=col("amount"))
     )
 )
 ```
@@ -860,7 +904,7 @@ users.insert(new_users)  # Single batch INSERT
 # Find users who need role updates
 users_needing_update = (
     users.select()
-    .join(db.table("permissions").select(), on=[("id", "user_id")])
+    .join(db.table("permissions").select(), on=[col("users.id") == col("permissions.user_id")])
     .where(col("permissions.level") == "admin")
     .where(col("users.role") != "admin")
 )
@@ -1029,7 +1073,7 @@ engagement_features = (
             count("*").alias("event_count"),
             max(col("event_date")).alias("last_active_date"),
         ),
-        on=[("id", "user_id")],
+        on=[col("users.id") == col("user_events.user_id")],
         how="left"
     )
     .select(
@@ -1070,7 +1114,7 @@ df = (
     .where(col("status") == "completed")  # Like df.filter()
     .join(
         db.table("customers").select(),
-        on=[("customer_id", "id")]  # Like df.join()
+        on=[col("orders.customer_id") == col("customers.id")]  # PySpark-style join
     )
     .group_by("customers.country")  # Like df.groupBy()
     .agg(

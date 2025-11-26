@@ -40,23 +40,32 @@ class GroupedDataFrame:
                 aggregation expressions are used
 
         Example:
-            >>> from moltres import col
+            >>> from moltres import connect, col
             >>> from moltres.expressions import functions as F
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL"), column("price", "REAL")]).collect()
+            >>> from moltres.io.records import Records
+            >>> Records(_data=[{"category": "A", "amount": 100.0, "price": 10.0}, {"category": "A", "amount": 200.0, "price": 20.0}, {"category": "B", "amount": 150.0, "price": 15.0}], _database=db).insert_into("sales")
             >>> # Using Column expressions
-            >>> df.group_by("category").agg(
-            ...     F.sum(col("amount")).alias("total"),
-            ...     F.avg(col("price")).alias("avg_price"),
-            ...     F.count("*").alias("count")
-            ... )
-
+            >>> df = db.table("sales").select()
+            >>> result = df.group_by("category").agg(F.sum(col("amount")).alias("total"), F.avg(col("price")).alias("avg_price"))
+            >>> results = result.collect()
+            >>> len(results)
+            2
+            >>> results[0]["total"]
+            300.0
             >>> # Using string column names (defaults to sum)
-            >>> df.group_by("category").agg("amount", "price")
-
+            >>> result2 = df.group_by("category").agg("amount")
+            >>> results2 = result2.collect()
+            >>> results2[0]["amount"]
+            300.0
             >>> # Using dictionary syntax
-            >>> df.group_by("category").agg({"amount": "sum", "price": "avg"})
-
-            >>> # Mixed usage
-            >>> df.group_by("category").agg("amount", F.sum(col("price")).alias("total_price"))
+            >>> result3 = df.group_by("category").agg({"amount": "sum", "price": "avg"})
+            >>> results3 = result3.collect()
+            >>> results3[0]["amount"]
+            300.0
+            >>> db.close()
         """
         if not aggregations:
             raise ValueError("agg requires at least one aggregation expression")

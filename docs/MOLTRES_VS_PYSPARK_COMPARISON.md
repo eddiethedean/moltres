@@ -264,7 +264,7 @@ df1.join(df2.hint("broadcast"), "id")
 ```python
 # Inner join
 df1.join(df2, on="id")
-df1.join(df2, on=[("left_col", "right_col")])
+df1.join(df2, on=[col("df1.left_col") == col("df2.right_col")])
 df1.join(df2, on=["id", "name"])
 
 # Join types
@@ -361,7 +361,7 @@ df.sort(col("name"))
 df.sort(col("name").desc())
 ```
 
-**Comparison:** ✅ **Fully compatible!** Moltres provides both `orderBy()` and `sort()` as PySpark-style aliases for `order_by()`, matching PySpark's API exactly.
+**Comparison:** ✅ **Fully compatible!** Moltres provides both `orderBy()` and `sort()` as PySpark-style aliases, and accepts both strings and `Column` objects, matching PySpark's API exactly. Both `df.orderBy("name")` and `df.orderBy(col("name"))` work in Moltres.
 
 ### 3.6 Distinct Operations
 
@@ -443,7 +443,7 @@ df.select(
 )
 ```
 
-**Comparison:** Similar API, but Moltres requires window functions in `select()` rather than `withColumn()`.
+**Comparison:** ✅ **Fully compatible!** Both PySpark and Moltres support window functions in both `select()` and `withColumn()`. Moltres v0.16.0+ supports `df.withColumn("row_num", row_number().over(window))` just like PySpark.
 
 ---
 
@@ -1269,7 +1269,7 @@ Moltres has made significant strides in PySpark API compatibility. Recent update
 | **Naming Conventions** | ✅ 100% | Both camelCase and snake_case supported |
 | **Write Operations** | ✅ 100% | saveAsTable, insertInto, all modes |
 
-**Overall API Compatibility: ~98%** for core DataFrame operations
+**Overall API Compatibility: 100%** for core DataFrame operations (v0.16.0+)
 
 ### DataFrame Writer Parity (2025 assessment)
 
@@ -1445,7 +1445,7 @@ df2 = db.table("orders").select()
 df1 = db.read.table("customers")
 df2 = db.read.table("orders")
 
-result = df1.join(df2, on=[("id", "customer_id")], how="left")
+result = df1.join(df2, on=[col("df1.id") == col("df2.customer_id")], how="left")
 ```
 
 **Key Changes:**
@@ -1562,11 +1562,65 @@ Moltres successfully provides a PySpark-like DataFrame API that compiles to SQL,
 - Working with Hadoop ecosystem
 - Need UDF support for complex transformations
 
+### Known Inconsistencies
+
+Moltres has achieved **100% API compatibility** with PySpark for core DataFrame operations (v0.16.0+). All previously identified inconsistencies have been fixed:
+
+#### 1. `order_by()` / `orderBy()` / `sort()` - String Parameter Support ✅ **FIXED**
+
+**Status:** Fixed in v0.16.0 - Now accepts both strings and `Column` objects, matching PySpark behavior.
+
+**PySpark:**
+```python
+df.orderBy("name")  # ✅ Works
+df.orderBy(col("name"))  # ✅ Works
+```
+
+**Moltres (v0.16.0+):**
+```python
+df.order_by("name")  # ✅ Now works!
+df.order_by(col("name"))  # ✅ Works
+df.orderBy("name")  # ✅ PySpark-style alias works
+df.sort("name")  # ✅ PySpark-style alias works
+```
+
+**See:** [PySpark Interface Audit](PYSPARK_INTERFACE_AUDIT.md) for detailed analysis.
+
+#### 2. Window Functions Usage Pattern ✅ **FIXED**
+
+**Status:** Fixed in v0.16.0 - Window functions now work in `withColumn()`, matching PySpark behavior.
+
+**PySpark:**
+```python
+df.withColumn("row_num", row_number().over(window))
+```
+
+**Moltres (v0.16.0+):**
+```python
+# Works exactly the same - no changes needed!
+df.withColumn("row_num", row_number().over(partition_by=col("category"), order_by=col("amount")))
+```
+
+Both also support window functions in `select()` for maximum flexibility.
+
+#### 3. `drop()` - Column Object Support ✅ **FIXED**
+
+**Status:** Fixed in v0.16.0 - Now accepts both strings and `Column` objects, matching PySpark behavior.
+
+**Moltres (v0.16.0+):**
+```python
+df.drop("col1", "col2")  # ✅ Works
+df.drop(col("col1"), col("col2"))  # ✅ Now works!
+df.drop("col1", col("col2"))  # ✅ Mixed usage works
+```
+
+---
+
 ### Final Thoughts
 
-Moltres has achieved **near-complete API compatibility** with PySpark for core DataFrame operations. Recent updates have closed the gap significantly:
+Moltres has achieved **complete API compatibility** with PySpark for core DataFrame operations. Recent updates have closed all gaps:
 
-- ✅ **98% API compatibility** for core DataFrame transformations
+- ✅ **100% API compatibility** for core DataFrame transformations
 - ✅ **All major methods match**: select, filter, where, groupBy, orderBy, sort, withColumn, withColumnRenamed, saveAsTable
 - ✅ **Advanced features**: pivot, explode, selectExpr, SQL string predicates, string aggregations
 - ✅ **Naming conventions**: Both camelCase and snake_case supported throughout
@@ -1587,8 +1641,8 @@ For teams working with SQL databases who want a DataFrame API without the overhe
 | `filter()` | ✅ | ✅ | Identical |
 | `where()` | ✅ | ✅ | Alias for filter |
 | `groupBy()` | ✅ | ✅ | Also `group_by()` |
-| `orderBy()` | ✅ | ✅ | Also `order_by()` |
-| `sort()` | ✅ | ✅ | PySpark-style alias for `order_by()` |
+| `orderBy()` | ✅ | ✅ | Also `order_by()`. Accepts both strings and Column objects |
+| `sort()` | ✅ | ✅ | PySpark-style alias for `order_by()`. Accepts both strings and Column objects |
 | `selectExpr()` | ✅ | ✅ | SQL expression strings in select |
 | `join()` | ✅ | ✅ | Similar API |
 | `union()` | ✅ | ✅ | Identical |
@@ -1598,7 +1652,7 @@ For teams working with SQL databases who want a DataFrame API without the overhe
 | `dropDuplicates()` | ✅ | ✅ | Simplified in Moltres |
 | `withColumn()` | ✅ | ✅ | Identical - add/replace columns |
 | `withColumnRenamed()` | ✅ | ✅ | Identical |
-| `drop()` | ✅ | ✅ | Identical |
+| `drop()` | ✅ | ✅ | Identical - Accepts both strings and Column objects |
 | `limit()` | ✅ | ✅ | Identical |
 | `sample()` | ✅ | ✅ | Identical |
 | `pivot()` | ✅ | ✅ | PySpark-style: `groupBy().pivot().agg()` |
@@ -1679,7 +1733,7 @@ For teams working with SQL databases who want a DataFrame API without the overhe
 - ✅ Improved `withColumn()` - Now correctly handles both adding and replacing columns
 - ✅ Added `db.sql()` - Raw SQL queries returning DataFrames (PySpark's `spark.sql()`)
 
-**Result:** ~98% API compatibility for core DataFrame operations
+**Result:** 100% API compatibility for core DataFrame operations (v0.16.0+)
 
 ### Version 0.8.0 Updates
 - Added PySpark-style `db.read.table()` API

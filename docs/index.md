@@ -42,7 +42,7 @@
   explicit schemas and `.option(key, value)` for format-specific settings.
 - For SQL operations on database tables, use `db.table("name").select(...)` to get a DataFrame.
 - Use `db.table("name").select(...)` to construct lazy DataFrames.
-- Compose joins via `df.join(other_df, on=[("left_col", "right_col")])` and aggregations via
+- Compose joins via `df.join(other_df, on=[col("left_col") == col("right_col")])` and aggregations via
   `df.group_by("country").agg(sum(col("amount")).alias("total"))`.
 - Call `collect()` to execute a plan; Moltres compiles SQL at that point. Use `collect(stream=True)` to
   get an iterator of row chunks for large datasets, or enable streaming mode with `.stream()` on readers/writers.

@@ -10,7 +10,7 @@ sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root))
 
 # Ensure tests can be imported as a package by creating namespace modules
-import types
+import types  # noqa: E402
 
 # Create tests package
 if "tests" not in sys.modules:
@@ -27,7 +27,7 @@ if "tests.examples" not in sys.modules:
     sys.modules["tests.examples"] = examples_module
 
 # Now import the modules using importlib
-import importlib.util
+import importlib.util  # noqa: E402
 
 examples_dir = project_root / "tests" / "examples"
 

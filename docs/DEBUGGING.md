@@ -165,7 +165,7 @@ results = df.limit(5).collect()
 print("Step 2 results:", results)
 
 # Step 3: Add join
-df = df.join(orders, on=[("id", "user_id")])
+df = df.join(orders, on=[col("df.id") == col("orders.user_id")])
 print("Step 3 SQL:", df.to_sql())
 results = df.limit(5).collect()
 print("Step 3 results:", results)
@@ -351,7 +351,7 @@ df = (
     .select()
     .join(
         db.table("orders").select(),
-        on=[("id", "customer_id")],
+        on=[col("customers.id") == col("orders.customer_id")],
         how="inner"
     )
 )

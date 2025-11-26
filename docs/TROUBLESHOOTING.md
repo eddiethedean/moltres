@@ -80,11 +80,14 @@ df.where("age > 18")  # Must use Column expressions
 
 3. **Check join syntax**:
 ```python
-# ✅ Correct
+# ✅ PySpark-style (recommended)
+df1.join(df2, on=[col("left_col") == col("right_col")])
+
+# ✅ Tuple syntax (backward compatible)
 df1.join(df2, on=[("left_col", "right_col")])
 
-# ❌ Incorrect
-df1.join(df2, on="column")  # Must be list of tuples for multi-column joins
+# ✅ Same column name (simplest)
+df1.join(df2, on="column")
 ```
 
 ### "Join requires either equality keys or an explicit condition"
@@ -94,10 +97,13 @@ df1.join(df2, on="column")  # Must be list of tuples for multi-column joins
 **Solution**: Provide either `on` parameter or `condition`:
 
 ```python
-# ✅ Option 1: Equality join
+# ✅ Option 1: PySpark-style equality join
+df1.join(df2, on=[col("id") == col("id")])
+
+# ✅ Option 2: Tuple syntax (backward compatible)
 df1.join(df2, on=[("id", "id")])
 
-# ✅ Option 2: Custom condition
+# ✅ Option 3: Custom condition (for complex joins)
 from moltres import col
 df1.join(df2, condition=col("df1.id") == col("df2.user_id"))
 ```

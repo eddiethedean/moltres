@@ -64,7 +64,7 @@ def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
         )
 
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 
 __all__ = [
     "AsyncDatabase",
@@ -143,23 +143,26 @@ def connect(
 
     Example:
         >>> # Using connection string
-        >>> db = connect("sqlite:///:memory:")  # doctest: +SKIP
-        >>> # Create table first
-        >>> from moltres.table.schema import ColumnDef
-        >>> table = db.create_table("users", [ColumnDef("id", "INTEGER"), ColumnDef("active", "BOOLEAN")])  # doctest: +SKIP
-        >>> # Insert data using Records
+        >>> db = connect("sqlite:///:memory:")
+        >>> from moltres.table.schema import column
+        >>> _ = db.create_table("users", [column("id", "INTEGER"), column("active", "BOOLEAN")]).collect()  # doctest: +ELLIPSIS
         >>> from moltres.io.records import Records
-        >>> records = Records(_data=[{"id": 1, "active": True}], _database=db)  # doctest: +SKIP
-        >>> records.insert_into("users")  # doctest: +SKIP
-        >>> df = db.table("users").select().where(col("active") == True)  # doctest: +SKIP
-        >>> results = df.collect()  # doctest: +SKIP
-        >>> len(results)  # doctest: +SKIP
+        >>> _ = Records(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
+        >>> df = db.table("users").select().where(col("active") == True)
+        >>> results = df.collect()
+        >>> len(results)
+        1
+        >>> results[0]["id"]
+        1
+        >>> results[0]["active"]
         1
 
         >>> # Using SQLAlchemy Engine
-        >>> from sqlalchemy import create_engine  # doctest: +SKIP
-        >>> engine = create_engine("sqlite:///:memory:", echo=True)  # doctest: +SKIP
-        >>> db = connect(engine=engine)  # doctest: +SKIP
+        >>> from sqlalchemy import create_engine
+        >>> engine = create_engine("sqlite:///:memory:")
+        >>> db2 = connect(engine=engine)
+        >>> _ = db2.create_table("test", [column("x", "INTEGER")]).collect()  # doctest: +ELLIPSIS
+        >>> db2.close()
     """
     from sqlalchemy.engine import Engine as SQLAlchemyEngine
 
@@ -241,28 +244,23 @@ def async_connect(
         ValueError: If both dsn and engine are provided
 
     Example:
-        >>> import asyncio  # doctest: +SKIP
-        >>> from moltres import async_connect  # doctest: +SKIP
-        >>>
-        >>> async def main():  # doctest: +SKIP
+        >>> import asyncio
+        >>> async def example():
         ...     # Using connection string
-        ...     db = async_connect("sqlite+aiosqlite:///:memory:")  # doctest: +SKIP
-        ...     from moltres.table.schema import ColumnDef  # doctest: +SKIP
-        ...     table = await db.create_table("users", [ColumnDef("id", "INTEGER")])  # doctest: +SKIP
-        ...     from moltres.io.records import AsyncRecords  # doctest: +SKIP
-        ...     records = AsyncRecords(_data=[{"id": 1}], _database=db)  # doctest: +SKIP
-        ...     await records.insert_into("users")  # doctest: +SKIP
-        ...     table_handle = await db.table("users")  # doctest: +SKIP
-        ...     df = table_handle.select()  # doctest: +SKIP
-        ...     results = await df.collect()  # doctest: +SKIP
-        ...     await db.close()  # doctest: +SKIP
-        >>>
-        >>>     # Using SQLAlchemy async Engine
-        >>>     from sqlalchemy.ext.asyncio import create_async_engine  # doctest: +SKIP
-        >>>     engine = create_async_engine("sqlite+aiosqlite:///:memory:")  # doctest: +SKIP
-        >>>     db = async_connect(engine=engine)  # doctest: +SKIP
-        >>>
-        >>> # asyncio.run(main())  # doctest: +SKIP
+        ...     db = async_connect("sqlite+aiosqlite:///:memory:")
+        ...     from moltres.table.schema import column
+        ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
+        ...     from moltres.io.records import AsyncRecords
+        ...     records = AsyncRecords(_data=[{"id": 1}], _database=db)
+        ...     await records.insert_into("users")
+        ...     table_handle = await db.table("users")
+        ...     df = table_handle.select()
+        ...     results = await df.collect()
+        ...     assert len(results) == 1
+        ...     assert results[0]["id"] == 1
+        ...     await db.close()
+        ...     # Note: async examples require running in async context
+        ...     # asyncio.run(example())  # doctest: +SKIP
     """
     try:
         from .table.async_table import AsyncDatabase

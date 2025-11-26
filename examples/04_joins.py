@@ -52,22 +52,28 @@ Records(_data=customers_data, _database=db).insert_into("customers")
 Records(_data=orders_data, _database=db).insert_into("orders")
 
 # Inner join
+from moltres import col
+
 customers = db.table("customers").select()
 orders = db.table("orders").select()
 
-joined = customers.join(orders, on=[("id", "customer_id")], how="inner")
+joined = customers.join(orders, on=[col("customers.id") == col("orders.customer_id")], how="inner")
 results = joined.collect()
 print(f"Inner join: {results}")
 # Output: Inner join: [{'id': 1, 'name': 'Alice', 'email': 'alice@example.com', 'customer_id': 1, 'amount': 100.0, 'order_date': '2024-01-01'}, {'id': 2, 'name': 'Alice', 'email': 'alice@example.com', 'customer_id': 1, 'amount': 200.0, 'order_date': '2024-01-15'}, {'id': 3, 'name': 'Bob', 'email': 'bob@example.com', 'customer_id': 2, 'amount': 150.0, 'order_date': '2024-02-01'}]
 
 # Left join
-left_joined = customers.join(orders, on=[("id", "customer_id")], how="left")
+left_joined = customers.join(
+    orders, on=[col("customers.id") == col("orders.customer_id")], how="left"
+)
 results = left_joined.collect()
 print(f"Left join: {results}")
 # Output: Left join: [{'id': 1, 'name': 'Alice', 'email': 'alice@example.com', 'customer_id': 1, 'amount': 100.0, 'order_date': '2024-01-01'}, {'id': 2, 'name': 'Alice', 'email': 'alice@example.com', 'customer_id': 1, 'amount': 200.0, 'order_date': '2024-01-15'}, {'id': 3, 'name': 'Bob', 'email': 'bob@example.com', 'customer_id': 2, 'amount': 150.0, 'order_date': '2024-02-01'}, {'id': None, 'name': 'Charlie', 'email': 'charlie@example.com', 'customer_id': None, 'amount': None, 'order_date': None}]
 
 # Join with on parameter (using column names)
-joined_with_on = customers.join(orders, on=[("id", "customer_id")], how="inner")
+joined_with_on = customers.join(
+    orders, on=[col("customers.id") == col("orders.customer_id")], how="inner"
+)
 results = joined_with_on.collect()
 print(f"Join with on parameter: {results}")
 # Output: Join with on parameter: [{'id': 1, 'name': 'Alice', 'email': 'alice@example.com', 'customer_id': 1, 'amount': 100.0, 'order_date': '2024-01-01'}, {'id': 2, 'name': 'Alice', 'email': 'alice@example.com', 'customer_id': 1, 'amount': 200.0, 'order_date': '2024-01-15'}, {'id': 3, 'name': 'Bob', 'email': 'bob@example.com', 'customer_id': 2, 'amount': 150.0, 'order_date': '2024-02-01'}]

@@ -142,6 +142,27 @@ class DataFrameWriter:
             name: Name of the target table
             primary_key: Optional sequence of column names to use as primary key.
                         If provided, overrides any primary key set via .primaryKey()
+
+        Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> from moltres.io.records import Records
+            >>> Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
+            >>> # Save DataFrame to new table
+            >>> df = db.table("source").select()
+            >>> df.write.save_as_table("target")
+            >>> # Verify table was created
+            >>> tables = db.get_table_names()
+            >>> "target" in tables
+            True
+            >>> # Verify data was copied
+            >>> df2 = db.table("target").select()
+            >>> results = df2.collect()
+            >>> results[0]["name"]
+            'Alice'
+            >>> db.close()
         """
         if self._df.database is None:
             raise RuntimeError("Cannot write DataFrame without an attached Database")
@@ -155,7 +176,26 @@ class DataFrameWriter:
     saveAsTable = save_as_table  # PySpark-style alias
 
     def insertInto(self, table_name: str) -> None:
-        """Insert DataFrame into an existing table (table must already exist)."""
+        """Insert DataFrame into an existing table (table must already exist).
+
+        Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("target", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> from moltres.io.records import Records
+            >>> Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
+            >>> # Insert DataFrame into existing table
+            >>> df = db.table("source").select()
+            >>> df.write.insertInto("target")
+            >>> # Verify data was inserted
+            >>> df2 = db.table("target").select()
+            >>> results = df2.collect()
+            >>> results[0]["name"]
+            'Alice'
+            >>> db.close()
+        """
         if self._df.database is None:
             raise RuntimeError("Cannot write DataFrame without an attached Database")
 
@@ -239,8 +279,23 @@ class DataFrameWriter:
             where: Column expression for the WHERE clause
 
         Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> from moltres.io.records import Records
+            >>> Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> # Delete rows matching condition
             >>> df = db.table("users").select()
             >>> df.write.delete("users", where=col("id") == 1)
+            >>> # Verify deletion
+            >>> df2 = db.table("users").select()
+            >>> results = df2.collect()
+            >>> len(results)
+            1
+            >>> results[0]["name"]
+            'Bob'
+            >>> db.close()
         """
         if self._df.database is None:
             raise RuntimeError("Cannot delete from table without an attached Database")

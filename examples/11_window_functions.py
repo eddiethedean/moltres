@@ -98,4 +98,29 @@ results = result.collect()
 print(f"Cumulative sum: {results}")
 # Output: Cumulative sum: [{'product': 'Gadget', 'amount': 200.0, 'cumulative_sum': 200.0}, {'product': 'Gadget', 'amount': 175.0, 'cumulative_sum': 375.0}, {'product': 'Widget', 'amount': 100.0, 'cumulative_sum': 100.0}, {'product': 'Widget', 'amount': 150.0, 'cumulative_sum': 250.0}, {'product': 'Widget', 'amount': 120.0, 'cumulative_sum': 370.0}]
 
+# Window functions in withColumn() (PySpark-compatible, v0.16.0+)
+# This is now fully supported, matching PySpark's API
+result = df.withColumn(
+    "row_num",
+    F.row_number().over(partition_by=col("region"), order_by=col("amount")),
+)
+results = result.collect()
+print(f"Window function in withColumn: {results}")
+# Output shows all original columns plus row_num
+
+# Multiple window functions with withColumn (using different column names)
+result = (
+    df.withColumn(
+        "row_num", F.row_number().over(partition_by=col("region"), order_by=col("amount"))
+    )
+    .withColumn("rank", F.rank().over(partition_by=col("region"), order_by=col("amount")))
+    .withColumn(
+        "dense_rank_val",
+        F.dense_rank().over(partition_by=col("region"), order_by=col("amount")),
+    )
+)
+results = result.collect()
+print(f"Multiple window functions in withColumn: {results}")
+# Output shows all original columns plus row_num, rank, and dense_rank
+
 db.close()

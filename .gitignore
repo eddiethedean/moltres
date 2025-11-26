@@ -73,6 +73,10 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+notebooks/*.csv
+notebooks/*.png
+notebooks/*.jpg
+notebooks/*.jpeg
 
 # IPython
 profile_default/

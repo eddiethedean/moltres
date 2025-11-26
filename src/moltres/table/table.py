@@ -226,15 +226,19 @@ class Database:
             ValueError: If model_class is not a valid SQLAlchemy model
 
         Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> _ = db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+            >>> # Get table handle by name
             >>> users = db.table("users")
             >>> df = users.select("id", "name")
-
-            >>> # Or with SQLAlchemy model
-            >>> from sqlalchemy.orm import DeclarativeBase
-            >>> class User(Base):
-            ...     __tablename__ = "users"
-            >>> users = db.table(User)
-            >>> df = users.select("id", "name")
+            >>> results = df.collect()
+            >>> results[0]["name"]
+            'Alice'
+            >>> db.close()
         """
         from ..utils.exceptions import ValidationError
         from ..sql.builders import quote_identifier
@@ -285,11 +289,22 @@ class Database:
             ValidationError: If table name is invalid or rows are empty
 
         Example:
-            >>> db.insert("users", [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
-            >>> # Or with a DataFrame
-            >>> import pandas as pd
-            >>> df = pd.DataFrame([{"id": 3, "name": "Charlie"}])
-            >>> db.insert("users", df)
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> # Insert rows
+            >>> count = db.insert("users", [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+            >>> count
+            2
+            >>> # Verify insertion
+            >>> df = db.table("users").select()
+            >>> results = df.collect()
+            >>> len(results)
+            2
+            >>> results[0]["name"]
+            'Alice'
+            >>> db.close()
         """
         from .mutations import insert_rows
 
@@ -319,8 +334,22 @@ class Database:
             ValidationError: If table name is invalid or set dictionary is empty
 
         Example:
-            >>> from moltres import col
-            >>> db.update("users", where=col("id") == 1, set={"name": "Alice Updated"})
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+            >>> # Update rows
+            >>> count = db.update("users", where=col("id") == 1, set={"name": "Alice Updated"})
+            >>> count
+            1
+            >>> # Verify update
+            >>> df = db.table("users").select()
+            >>> results = df.collect()
+            >>> results[0]["name"]
+            'Alice Updated'
+            >>> db.close()
         """
         from .mutations import update_rows
 
@@ -343,8 +372,24 @@ class Database:
             ValidationError: If table name is invalid
 
         Example:
-            >>> from moltres import col
-            >>> db.delete("users", where=col("id") == 1)
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> # Delete rows
+            >>> count = db.delete("users", where=col("id") == 1)
+            >>> count
+            1
+            >>> # Verify deletion
+            >>> df = db.table("users").select()
+            >>> results = df.collect()
+            >>> len(results)
+            1
+            >>> results[0]["name"]
+            'Bob'
+            >>> db.close()
         """
         from .mutations import delete_rows
 
@@ -435,18 +480,34 @@ class Database:
             Lazy DataFrame that can be chained with further operations
 
         Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db).insert_into("users")
             >>> # Basic SQL query
             >>> df = db.sql("SELECT * FROM users WHERE age > 18")
             >>> results = df.collect()
-
+            >>> len(results)
+            1
+            >>> results[0]["name"]
+            'Alice'
             >>> # Parameterized query
-            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status",
-            ...             id=1, status="active")
-            >>> results = df.collect()
-
+            >>> df2 = db.sql("SELECT * FROM users WHERE id = :id", id=1)
+            >>> results2 = df2.collect()
+            >>> results2[0]["name"]
+            'Alice'
             >>> # Chaining operations
-            >>> df = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(10)
-            >>> results = df.collect()
+            >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
+            >>> _ = Records(_data=[{"id": 1, "amount": 150.0}, {"id": 2, "amount": 50.0}], _database=db).insert_into("orders")
+            >>> df3 = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(1)
+            >>> results3 = df3.collect()
+            >>> len(results3)
+            1
+            >>> results3[0]["amount"]
+            150.0
+            >>> db.close()
         """
         from ..dataframe.dataframe import DataFrame
         from ..logical import operators
@@ -512,21 +573,21 @@ class Database:
             ValueError: If model_class is not a valid SQLAlchemy model
 
         Example:
-            >>> from moltres.table.schema import column, unique, check, foreign_key
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column, unique, check
+            >>> db = connect("sqlite:///:memory:")
+            >>> # Create table with constraints
             >>> op = db.create_table(
             ...     "users",
             ...     [column("id", "INTEGER", primary_key=True), column("email", "TEXT")],
             ...     constraints=[unique("email"), check("id > 0", name="ck_positive_id")]
             ... )
             >>> table = op.collect()  # Executes the CREATE TABLE
-
-            >>> # Or with SQLAlchemy model
-            >>> from sqlalchemy.orm import DeclarativeBase
-            >>> class User(Base):
-            ...     __tablename__ = "users"
-            ...     id = Column(Integer, primary_key=True)
-            >>> op = db.create_table(User)
-            >>> table = op.collect()
+            >>> # Verify table was created
+            >>> tables = db.get_table_names()
+            >>> "users" in tables
+            True
+            >>> db.close()
         """
         from ..utils.exceptions import ValidationError
         from .actions import CreateTableOperation
@@ -622,10 +683,17 @@ class Database:
             CreateIndexOperation that executes on collect()
 
         Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("email", "TEXT"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
+            >>> # Create single-column index
             >>> op = db.create_index("idx_email", "users", "email")
             >>> op.collect()  # Executes the CREATE INDEX
             >>> # Multi-column index
             >>> op2 = db.create_index("idx_name_age", "users", ["name", "age"], unique=True)
+            >>> op2.collect()
+            >>> db.close()
         """
         from .actions import CreateIndexOperation
         from .batch import get_active_batch
@@ -661,8 +729,15 @@ class Database:
             DropIndexOperation that executes on collect()
 
         Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("email", "TEXT")]).collect()
+            >>> db.create_index("idx_email", "users", "email").collect()
+            >>> # Drop index
             >>> op = db.drop_index("idx_email", "users")
             >>> op.collect()  # Executes the DROP INDEX
+            >>> db.close()
         """
         from .actions import DropIndexOperation
         from .batch import get_active_batch
@@ -694,8 +769,18 @@ class Database:
             RuntimeError: If inspection fails
 
         Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER")]).collect()
+            >>> db.create_table("orders", [column("id", "INTEGER")]).collect()
+            >>> # Get all table names
             >>> tables = db.get_table_names()
-            >>> # Returns: ['users', 'orders', 'products']
+            >>> "users" in tables
+            True
+            >>> "orders" in tables
+            True
+            >>> db.close()
         """
         from ..utils.inspector import get_table_names
 

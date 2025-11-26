@@ -122,7 +122,7 @@ class CompilationError(MoltresError):
                 suggestion = (
                     "Joins require either an 'on' parameter with column pairs "
                     "or a 'condition' parameter with a Column expression. "
-                    "Example: df.join(other, on=[('left_col', 'right_col')])"
+                    "Example: df.join(other, on=[col('left_col') == col('right_col')])"
                 )
             elif "subquery" in message.lower():
                 suggestion = (

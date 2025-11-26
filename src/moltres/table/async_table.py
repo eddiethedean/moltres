@@ -165,15 +165,23 @@ class AsyncDatabase:
             ValueError: If model_class is not a valid SQLAlchemy model
 
         Example:
-            >>> users = await db.table("users")
-            >>> df = users.select("id", "name")
-
-            >>> # Or with SQLAlchemy model
-            >>> from sqlalchemy.orm import DeclarativeBase
-            >>> class User(Base):
-            ...     __tablename__ = "users"
-            >>> users = await db.table(User)
-            >>> df = users.select("id", "name")
+            >>> import asyncio
+            >>> from moltres import async_connect
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            ...     await records.insert_into("users")
+            ...     # Get table handle
+            ...     users = await db.table("users")
+            ...     df = users.select("id", "name")
+            ...     results = await df.collect()
+            ...     results[0]["name"]
+            ...     'Alice'
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
         """
         from ..utils.exceptions import ValidationError
         from ..sql.builders import quote_identifier
@@ -235,18 +243,27 @@ class AsyncDatabase:
             Lazy AsyncDataFrame that can be chained with further operations
 
         Example:
-            >>> # Basic SQL query
-            >>> df = db.sql("SELECT * FROM users WHERE age > 18")
-            >>> results = await df.collect()
-
-            >>> # Parameterized query
-            >>> df = db.sql("SELECT * FROM users WHERE id = :id AND status = :status",
-            ...             id=1, status="active")
-            >>> results = await df.collect()
-
-            >>> # Chaining operations
-            >>> df = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(10)
-            >>> results = await df.collect()
+            >>> import asyncio
+            >>> from moltres import async_connect, col
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
+            ...     from moltres.io.records import AsyncRecords
+            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db)
+            ...     await records.insert_into("users")
+            ...     # Basic SQL query
+            ...     df = db.sql("SELECT * FROM users WHERE age > 18")
+            ...     results = await df.collect()
+            ...     len(results)
+            ...     1
+            ...     # Parameterized query
+            ...     df2 = db.sql("SELECT * FROM users WHERE id = :id AND name = :name", id=1, name="Alice")
+            ...     results2 = await df2.collect()
+            ...     results2[0]["name"]
+            ...     'Alice'
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
         """
         from ..dataframe.async_dataframe import AsyncDataFrame
         from ..logical import operators
@@ -306,6 +323,26 @@ class AsyncDatabase:
 
         Returns:
             AsyncCreateTableOperation that executes on collect()
+
+        Example:
+            >>> import asyncio
+            >>> from moltres import async_connect
+            >>> from moltres.table.schema import column, unique, check
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     # Create table with schema
+            ...     op = db.create_table(
+            ...         "users",
+            ...         [column("id", "INTEGER", primary_key=True), column("email", "TEXT")],
+            ...         constraints=[unique("email"), check("id > 0", name="ck_positive_id")]
+            ...     )
+            ...     table = await op.collect()  # Executes the CREATE TABLE
+            ...     # Verify table was created
+            ...     tables = await db.get_table_names()
+            ...     "users" in tables
+            ...     True
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
 
         Raises:
             ValidationError: If table name or columns are invalid
@@ -466,8 +503,21 @@ class AsyncDatabase:
             RuntimeError: If inspection fails
 
         Example:
-            >>> tables = await db.get_table_names()
-            >>> # Returns: ['users', 'orders', 'products']
+            >>> import asyncio
+            >>> from moltres import async_connect
+            >>> from moltres.table.schema import column
+            >>> async def example():
+            ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
+            ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
+            ...     await db.create_table("orders", [column("id", "INTEGER")]).collect()
+            ...     # Get all table names
+            ...     tables = await db.get_table_names()
+            ...     "users" in tables
+            ...     True
+            ...     "orders" in tables
+            ...     True
+            ...     await db.close()
+            ...     # asyncio.run(example())  # doctest: +SKIP
         """
         from sqlalchemy import inspect as sa_inspect
         from sqlalchemy.ext.asyncio import AsyncEngine
