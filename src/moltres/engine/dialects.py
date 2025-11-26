@@ -19,6 +19,7 @@ DIALECTS: dict[str, DialectSpec] = {
     "sqlite": DialectSpec(name="sqlite", quote_char='"', supports_filter_clause=False),
     "mysql": DialectSpec(name="mysql", quote_char="`", supports_filter_clause=True),
     "mysql+pymysql": DialectSpec(name="mysql", quote_char="`", supports_filter_clause=True),
+    "duckdb": DialectSpec(name="duckdb", quote_char='"', supports_filter_clause=True),
 }
 
 

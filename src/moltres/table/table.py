@@ -832,7 +832,7 @@ class Database:
             >>> print(plan)
         """
         dialect_name = self._dialect.name
-        if dialect_name == "postgresql":
+        if dialect_name == "postgresql" or dialect_name == "duckdb":
             explain_sql = f"EXPLAIN ANALYZE {sql}"
         elif dialect_name == "mysql":
             explain_sql = f"EXPLAIN {sql}"

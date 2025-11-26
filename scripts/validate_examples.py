@@ -9,8 +9,56 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root))
 
-from tests.examples.executors import ExampleExecutor  # noqa: E402
-from tests.examples.extractors import extract_code_blocks, find_all_markdown_files  # noqa: E402
+# Ensure tests can be imported as a package by creating namespace modules
+import types
+
+# Create tests package
+if "tests" not in sys.modules:
+    tests_module = types.ModuleType("tests")
+    tests_module.__path__ = [str(project_root / "tests")]
+    tests_module.__package__ = "tests"
+    sys.modules["tests"] = tests_module
+
+# Create tests.examples package
+if "tests.examples" not in sys.modules:
+    examples_module = types.ModuleType("tests.examples")
+    examples_module.__path__ = [str(project_root / "tests" / "examples")]
+    examples_module.__package__ = "tests.examples"
+    sys.modules["tests.examples"] = examples_module
+
+# Now import the modules using importlib
+import importlib.util
+
+examples_dir = project_root / "tests" / "examples"
+
+# Load executors
+executors_spec = importlib.util.spec_from_file_location(
+    "tests.examples.executors", examples_dir / "executors.py"
+)
+executors_module = importlib.util.module_from_spec(executors_spec)
+sys.modules["tests.examples.executors"] = executors_module
+executors_spec.loader.exec_module(executors_module)  # type: ignore
+
+# Load extractors
+extractors_spec = importlib.util.spec_from_file_location(
+    "tests.examples.extractors", examples_dir / "extractors.py"
+)
+extractors_module = importlib.util.module_from_spec(extractors_spec)
+sys.modules["tests.examples.extractors"] = extractors_module
+extractors_spec.loader.exec_module(extractors_module)  # type: ignore
+
+# Load output_capture (needed by executors)
+output_capture_spec = importlib.util.spec_from_file_location(
+    "tests.examples.output_capture", examples_dir / "output_capture.py"
+)
+output_capture_module = importlib.util.module_from_spec(output_capture_spec)
+sys.modules["tests.examples.output_capture"] = output_capture_module
+output_capture_spec.loader.exec_module(output_capture_module)  # type: ignore
+
+# Import what we need
+ExampleExecutor = executors_module.ExampleExecutor  # type: ignore
+extract_code_blocks = extractors_module.extract_code_blocks  # type: ignore
+find_all_markdown_files = extractors_module.find_all_markdown_files  # type: ignore
 
 
 def validate_examples(markdown_path: Path) -> tuple[int, int]:

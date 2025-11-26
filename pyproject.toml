@@ -81,6 +81,7 @@ dev = [
     "testing.mysqld>=1.4.0",
     "psycopg2-binary>=2.9.0",
     "pymysql>=1.0.0",
+    "duckdb-engine>=0.9.0",
 ]
 
 [tool.pytest.ini_options]

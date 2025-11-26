@@ -220,7 +220,7 @@ async def merge_rows_async(
     placeholder_sql = comma_separated(f":{col}" for col in columns)
 
     # Build conflict clause based on dialect (same logic as sync version)
-    if dialect_name == "postgresql" or dialect_name == "sqlite":
+    if dialect_name == "postgresql" or dialect_name == "sqlite" or dialect_name == "duckdb":
         on_columns_sql = comma_separated(quote_identifier(col, quote) for col in on)
         conflict_clause = f"ON CONFLICT ({on_columns_sql})"
 

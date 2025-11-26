@@ -204,7 +204,7 @@ def merge_rows(
     placeholder_sql = comma_separated(f":{col}" for col in columns)
 
     # Build conflict clause based on dialect
-    if dialect_name == "postgresql" or dialect_name == "sqlite":
+    if dialect_name == "postgresql" or dialect_name == "sqlite" or dialect_name == "duckdb":
         # PostgreSQL and SQLite use ON CONFLICT
         on_columns_sql = comma_separated(quote_identifier(col, quote) for col in on)
         conflict_clause = f"ON CONFLICT ({on_columns_sql})"

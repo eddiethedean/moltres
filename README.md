@@ -905,6 +905,7 @@ See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/e
 - ✅ **SQLite** - Full support
 - ✅ **PostgreSQL** - Full support with dialect-specific optimizations
 - ✅ **MySQL** - Full support with dialect-specific optimizations
+- ✅ **DuckDB** - Full support with PostgreSQL-compatible optimizations
 - ✅ **Other SQLAlchemy-supported databases** - ANSI SQL fallback
 
 ## 🧪 Development

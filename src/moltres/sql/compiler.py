@@ -746,11 +746,13 @@ class SQLCompiler:
                 )
                 return result
 
-            elif self.dialect.name == "postgresql":
-                # PostgreSQL: Use jsonb_array_elements() for JSON arrays
+            elif self.dialect.name == "postgresql" or self.dialect.name == "duckdb":
+                # PostgreSQL/DuckDB: Use jsonb_array_elements() for JSON arrays (PostgreSQL)
+                # or json_array_elements() for DuckDB (handled by SQLAlchemy)
                 from sqlalchemy import func as sa_func
 
                 # jsonb_array_elements returns a table with a single 'value' column
+                # DuckDB uses json_array_elements but SQLAlchemy will handle the difference
                 json_elements_func = sa_func.jsonb_array_elements(column_expr).table_valued("value")
                 json_elements_alias = json_elements_func.alias("json_elements_result")
 
@@ -768,7 +770,7 @@ class SQLCompiler:
                 # For other dialects, provide a helpful error message
                 raise CompilationError(
                     f"explode() is not yet implemented for {self.dialect.name} dialect. "
-                    "Currently supported dialects: sqlite, postgresql. "
+                    "Currently supported dialects: sqlite, postgresql, duckdb. "
                     "This feature requires table-valued function support which is dialect-specific."
                 )
 
@@ -2180,7 +2182,7 @@ class ExpressionCompiler:
             # SQLite: json_group_array(column) - JSON1 extension
             # MySQL: JSON_ARRAYAGG(column)
             col_expr = self._compile(expression.args[0])
-            if self.dialect.name == "postgresql":
+            if self.dialect.name == "postgresql" or self.dialect.name == "duckdb":
                 result = func.array_agg(col_expr)
             elif self.dialect.name == "sqlite":
                 result = func.json_group_array(col_expr)
@@ -2194,7 +2196,7 @@ class ExpressionCompiler:
                 else:
                     # Fallback to CASE WHEN for unsupported dialects
                     case_expr = sa_case((filter_condition, col_expr), else_=None)
-                    if self.dialect.name == "postgresql":
+                    if self.dialect.name == "postgresql" or self.dialect.name == "duckdb":
                         result = func.array_agg(case_expr)
                     elif self.dialect.name == "sqlite":
                         result = func.json_group_array(case_expr)

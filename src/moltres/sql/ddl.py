@@ -64,6 +64,8 @@ def compile_create_table(
             dsn = "postgresql://localhost/dummy"
         elif dialect.name == "mysql":
             dsn = "mysql://localhost/dummy"
+        elif dialect.name == "duckdb":
+            dsn = "duckdb:///:memory:"
         else:
             dsn = "sqlite:///:memory:"  # Default fallback
         engine = create_engine(dsn, future=True)
@@ -369,6 +371,8 @@ def compile_drop_table(
             dsn = "postgresql://localhost/dummy"
         elif dialect.name == "mysql":
             dsn = "mysql://localhost/dummy"
+        elif dialect.name == "duckdb":
+            dsn = "duckdb:///:memory:"
         else:
             dsn = "sqlite:///:memory:"
         engine = create_engine(dsn, future=True)
@@ -567,6 +571,8 @@ def compile_insert_select(
             dsn = "postgresql://localhost/dummy"
         elif dialect.name == "mysql":
             dsn = "mysql://localhost/dummy"
+        elif dialect.name == "duckdb":
+            dsn = "duckdb:///:memory:"
         else:
             dsn = "sqlite:///:memory:"
         engine = create_engine(dsn, future=True)
@@ -706,6 +712,11 @@ def _column_def_to_sqlalchemy(col_def: ColumnDef, sa_dialect: Any) -> Column:
         "nullable": col_def.nullable,
         "primary_key": col_def.primary_key,
     }
+
+    # DuckDB doesn't support SERIAL type - explicitly disable autoincrement
+    # to prevent SQLAlchemy from converting INTEGER primary keys to SERIAL
+    if sa_dialect.name == "duckdb" and col_def.primary_key and type_name == "INTEGER":
+        column_kwargs["autoincrement"] = False
 
     if col_def.default is not None:
         # Format default value as SQL literal
