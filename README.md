@@ -1034,6 +1034,7 @@ mypy src
 
 Additional documentation is available:
 
+- **[User Guides](https://github.com/eddiethedean/moltres/blob/main/guides/README.md)** - Step-by-step guides covering getting started, migrations, performance, best practices, and more
 - **[Examples Directory](https://github.com/eddiethedean/moltres/tree/main/examples)** - 14 comprehensive example files covering all features
 - **[Examples Guide](https://github.com/eddiethedean/moltres/blob/main/docs/EXAMPLES.md)** - Common patterns and use cases
 - **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
