@@ -75,7 +75,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Better type inference for schemas
 - [ ] Generic DataFrame types with schema
 - [ ] Type-safe column references
-- [x] Better mypy coverage (reduce Any types) - Fixed join condition type errors and redundant cast errors ✅ **IN PROGRESS**
+- [x] Better mypy coverage (reduce Any types) - Fixed all type errors in async implementations and examples ✅ **COMPLETED**
 
 ### Error Handling
 - [ ] Error recovery strategies
@@ -188,6 +188,49 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Better handling of edge cases in file readers
 
 ## ✅ Recently Completed
+
+### Polars-Style Interface ✅ **COMPLETED**
+- ✅ **Polars LazyFrame API** – Comprehensive Polars-style interface (`PolarsDataFrame`):
+  - ✅ **Lazy Evaluation** – All operations build logical plans that execute only on `collect()` or `fetch()`
+  - ✅ **Core Operations** – `select()`, `filter()`, `with_columns()`, `with_column()`, `drop()`, `rename()`, `sort()`, `limit()`, `head()`, `tail()`, `sample()`
+  - ✅ **GroupBy Operations** – `group_by()` returns `PolarsGroupBy` with aggregation methods (`agg()`, `mean()`, `sum()`, `min()`, `max()`, `count()`, `std()`, `var()`, `first()`, `last()`, `n_unique()`)
+  - ✅ **Join Operations** – Full join support (`inner`, `left`, `right`, `outer`, `anti`, `semi`) with `on` parameter
+  - ✅ **Column Access** – `df['col']` returns `PolarsColumn` with `.str` and `.dt` accessors
+  - ✅ **String Accessor** – `.str` accessor with methods: `upper()`, `lower()`, `strip()`, `contains()`, `startswith()`, `endswith()`, `replace()`, `split()`, `len()`
+  - ✅ **DateTime Accessor** – `.dt` accessor with methods: `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`, `day_of_week()`, `day_of_year()`, `quarter()`, `week()`
+  - ✅ **Window Functions** – `row_number()`, `rank()`, `dense_rank()`, `percent_rank()`, `ntile()`, `lead()`, `lag()`, `first_value()`, `last_value()` with `over()` clause
+  - ✅ **Conditional Expressions** – `when().then().otherwise()` for SQL CASE statements
+  - ✅ **Data Reshaping** – `explode()`, `unnest()`, `pivot()`, `slice()`
+  - ✅ **Set Operations** – `concat()`, `vstack()`, `hstack()`, `union()`, `intersect()`, `difference()`, `cross_join()`
+  - ✅ **SQL Expressions** – `select_expr()` for raw SQL expression selection
+  - ✅ **CTEs** – `cte()`, `with_recursive()` for Common Table Expressions
+  - ✅ **Utility Methods** – `gather_every()`, `quantile()`, `describe()`, `explain()`, `with_row_count()`, `with_context()`, `with_columns_renamed()`
+  - ✅ **File I/O** – Polars-style read/write operations: `db.scan_csv()`, `db.scan_json()`, `db.scan_jsonl()`, `db.scan_parquet()`, `db.scan_text()`, `df.write_csv()`, `df.write_json()`, `df.write_jsonl()`, `df.write_parquet()`
+  - ✅ **Schema Properties** – `columns`, `width`, `height`, `schema` properties with lazy evaluation
+  - ✅ Comprehensive test coverage (all tests passing)
+  - ✅ Example file (`examples/19_polars_interface.py`) and guide (`guides/10-polars-interface.md`)
+
+### Async Polars and Pandas DataFrames ✅ **COMPLETED**
+- ✅ **AsyncPolarsDataFrame** – Async version of Polars-style interface:
+  - ✅ Wraps `AsyncDataFrame` with Polars-style API
+  - ✅ All database-interactive methods are `async` (`collect()`, `fetch()`, `height`, `schema`, `describe()`, `explain()`, `write_*`)
+  - ✅ Integrated via `.polars()` method on `AsyncDataFrame` and `AsyncTableHandle`
+  - ✅ `scan_*` methods on `AsyncDatabase` return `AsyncPolarsDataFrame`
+  - ✅ Comprehensive test coverage
+- ✅ **AsyncPandasDataFrame** – Async version of Pandas-style interface:
+  - ✅ Wraps `AsyncDataFrame` with Pandas-style API
+  - ✅ All database-interactive methods are `async` (`collect()`, `shape`, `dtypes`, `empty`, `describe()`, `info()`, `nunique()`, `value_counts()`)
+  - ✅ Integrated via `.pandas()` method on `AsyncDataFrame` and `AsyncTableHandle`
+  - ✅ `_AsyncLocIndexer` and `_AsyncILocIndexer` for async pandas-style indexing
+  - ✅ Comprehensive test coverage
+
+### Type Safety & Code Quality Improvements ✅ **COMPLETED**
+- ✅ Fixed mypy type errors in async DataFrame implementations (`async_polars_dataframe.py`, `async_pandas_dataframe.py`, `async_table.py`)
+- ✅ Fixed redundant cast errors in `mutations.py`
+- ✅ Fixed mypy errors in example files (`18_pandas_interface.py`, `19_polars_interface.py`)
+- ✅ Removed unused type ignore comments that became unnecessary when checking `src` and `examples` together
+- ✅ All pre-commit CI checks now pass with Python 3.11 (ruff, mypy, tests, documentation validation)
+- ✅ Verified all mypy checks pass (101 source files, no errors)
 
 ### Pandas-Style Interface Enhancements ✅ **COMPLETED**
 - ✅ Enhanced pandas-style interface (`PandasDataFrame`) with comprehensive improvements:

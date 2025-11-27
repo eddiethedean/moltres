@@ -8,6 +8,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Polars-Style Interface** – Comprehensive Polars LazyFrame-style API (`PolarsDataFrame`):
+  - **Lazy Evaluation** – All operations build logical plans that execute only on `collect()` or `fetch()`, matching Polars' lazy evaluation model
+  - **Core Operations** – Full Polars-style API: `select()`, `filter()`, `with_columns()`, `with_column()`, `drop()`, `rename()`, `sort()`, `limit()`, `head()`, `tail()`, `sample()`
+  - **GroupBy Operations** – `group_by()` returns `PolarsGroupBy` with aggregation methods: `agg()`, `mean()`, `sum()`, `min()`, `max()`, `count()`, `std()`, `var()`, `first()`, `last()`, `n_unique()`
+  - **Join Operations** – Full join support with `join()` method: `inner`, `left`, `right`, `outer`, `anti`, `semi` joins with `on` parameter
+  - **Column Access** – `df['col']` returns `PolarsColumn` with `.str` and `.dt` accessors for pandas-like column operations
+  - **String Accessor** – `.str` accessor with methods: `upper()`, `lower()`, `strip()`, `lstrip()`, `rstrip()`, `contains()`, `startswith()`, `endswith()`, `replace()`, `split()`, `len()`
+  - **DateTime Accessor** – `.dt` accessor with methods: `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`, `day_of_week()`, `day_of_year()`, `quarter()`, `week()`
+  - **Window Functions** – Window function support with `over()` clause: `row_number()`, `rank()`, `dense_rank()`, `percent_rank()`, `ntile()`, `lead()`, `lag()`, `first_value()`, `last_value()`
+  - **Conditional Expressions** – `when().then().otherwise()` for SQL CASE statements, matching Polars' conditional expression API
+  - **Data Reshaping** – `explode()`, `unnest()`, `pivot()`, `slice()` for data transformation
+  - **Set Operations** – `concat()`, `vstack()`, `hstack()`, `union()`, `intersect()`, `difference()`, `cross_join()` for combining DataFrames
+  - **SQL Expressions** – `select_expr()` for raw SQL expression selection (e.g., `select_expr("id", "name", "age * 2 as double_age")`)
+  - **CTEs** – `cte()`, `with_recursive()` for Common Table Expressions and recursive queries
+  - **Utility Methods** – `gather_every()`, `quantile()`, `describe()`, `explain()`, `with_row_count()`, `with_context()`, `with_columns_renamed()`
+  - **File I/O** – Polars-style read/write operations:
+    - Read: `db.scan_csv()`, `db.scan_json()`, `db.scan_jsonl()`, `db.scan_parquet()`, `db.scan_text()`
+    - Write: `df.write_csv()`, `df.write_json()`, `df.write_jsonl()`, `df.write_parquet()`
+  - **Schema Properties** – `columns`, `width`, `height`, `schema` properties with lazy evaluation
+  - **Entry Points** – `db.table("name").polars()` and `df.polars()` for easy conversion
+  - Comprehensive test coverage (all tests passing)
+  - Example file (`examples/19_polars_interface.py`) and comprehensive guide (`guides/10-polars-interface.md`)
+- **Async Polars DataFrame** – Async version of Polars-style interface (`AsyncPolarsDataFrame`):
+  - Wraps `AsyncDataFrame` with Polars-style API
+  - All database-interactive methods are `async` (`collect()`, `fetch()`, `height`, `schema`, `describe()`, `explain()`, `write_*`)
+  - Integrated via `.polars()` method on `AsyncDataFrame` and `AsyncTableHandle`
+  - `scan_*` methods on `AsyncDatabase` return `AsyncPolarsDataFrame`
+  - Comprehensive test coverage
+- **Async Pandas DataFrame** – Async version of Pandas-style interface (`AsyncPandasDataFrame`):
+  - Wraps `AsyncDataFrame` with Pandas-style API
+  - All database-interactive methods are `async` (`collect()`, `shape`, `dtypes`, `empty`, `describe()`, `info()`, `nunique()`, `value_counts()`)
+  - Integrated via `.pandas()` method on `AsyncDataFrame` and `AsyncTableHandle`
+  - `_AsyncLocIndexer` and `_AsyncILocIndexer` for async pandas-style indexing
+  - Comprehensive test coverage
+- **Pandas Interface Enhancements** – Additional pandas-style methods:
+  - `explode()` – Expand array/JSON columns into multiple rows
+  - `pivot()`, `pivot_table()` – Data reshaping operations
+  - `melt()` – Unpivot operations (noted as `NotImplementedError` for future implementation)
+  - `sample()`, `limit()` – Sampling and limiting operations
+  - `append()`, `concat()` – Concatenation operations
+  - `isin()`, `between()` – Advanced filtering methods
+  - `select_expr()`, `cte()` – SQL expression selection and CTEs
+  - Updated guide (`guides/09-pandas-interface.md`) with new features
 - **Enhanced Pandas-Style Interface** – Comprehensive improvements to the pandas-style interface (`PandasDataFrame`):
   - **String Accessor** – Added `.str` accessor for pandas-style string operations:
     - Methods: `upper()`, `lower()`, `strip()`, `lstrip()`, `rstrip()`, `contains()`, `startswith()`, `endswith()`, `replace()`, `split()`, `len()`
@@ -98,11 +141,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pandas interface column validation** – Fixed `drop_duplicates()` to properly handle `subset` parameter using GROUP BY operations
 - **SQL parser improvements** – Fixed `AND`/`OR` keyword parsing in query parser by adjusting regex patterns to work correctly after whitespace skipping
 - **LIKE pattern compilation** – Fixed `like` and `ilike` operations to correctly handle string patterns in SQL compiler
+- **Type checking** – Fixed mypy type errors in async DataFrame implementations (`async_polars_dataframe.py`, `async_pandas_dataframe.py`, `async_table.py`)
+- **Type checking** – Fixed redundant cast errors in `mutations.py` by removing unnecessary type casts
+- **Type checking** – Fixed mypy errors in example files by removing unused type ignore comments and adding proper type annotations
+- **CI/CD** – All pre-commit CI checks now pass with Python 3.11 (ruff, mypy, tests, documentation validation)
 
 ### Changed
 - **Type-checking polish** – records/dataframe helpers and examples were tightened so `mypy` passes across `src/` and `examples/`, including forward-declared pandas/polars types and stricter Records typing.
 - **Documentation improvements** – All guide code blocks updated to be fully runnable with SQLite in-memory databases for easy setup and testing.
 - **Error handling** – Enhanced error messages in pandas-style interface with column validation and typo suggestions for better user experience.
+- **Type safety** – Improved type annotations throughout async DataFrame implementations, removing unused type ignore comments and fixing all mypy errors
+- **CI/CD** – Pre-commit CI checks script now uses Python 3.11 for consistent type checking across all environments
 
 ## [0.14.0] - 2025-01-27
 
