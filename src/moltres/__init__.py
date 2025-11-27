@@ -15,6 +15,24 @@ try:
 except ImportError:
     PandasDataFrame = None  # type: ignore
 
+# Optional polars interface - only import if available
+try:
+    from .dataframe.polars_dataframe import PolarsDataFrame
+except ImportError:
+    PolarsDataFrame = None  # type: ignore
+
+# Optional async polars interface - only import if available
+try:
+    from .dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+except ImportError:
+    AsyncPolarsDataFrame = None  # type: ignore
+
+# Optional async pandas interface - only import if available
+try:
+    from .dataframe.async_pandas_dataframe import AsyncPandasDataFrame
+except ImportError:
+    AsyncPandasDataFrame = None  # type: ignore
+
 
 def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
     """Validate connection string format and provide helpful error messages.
@@ -68,9 +86,12 @@ __version__ = "0.18.0"
 
 __all__ = [
     "AsyncDatabase",
+    "AsyncPandasDataFrame",
+    "AsyncPolarsDataFrame",
     "Database",
     "MoltresConfig",
     "PandasDataFrame",
+    "PolarsDataFrame",
     "__version__",
     "async_connect",
     "col",

@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     import polars as pl
     from sqlalchemy.orm import DeclarativeBase
     from ..dataframe.async_dataframe import AsyncDataFrame
+    from ..dataframe.async_pandas_dataframe import AsyncPandasDataFrame
+    from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
     from ..dataframe.async_reader import AsyncDataLoader, AsyncReadAccessor
     from ..io.records import AsyncLazyRecords, AsyncRecords
     from ..utils.inspector import ColumnInfo
@@ -80,6 +82,42 @@ class AsyncTableHandle:
         from ..dataframe.async_dataframe import AsyncDataFrame
 
         return AsyncDataFrame.from_table(self, columns=list(columns))
+
+    def polars(self) -> "AsyncPolarsDataFrame":
+        """Create an AsyncPolarsDataFrame from this table (Polars-style entry point).
+
+        Returns:
+            AsyncPolarsDataFrame querying from this table
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> table = await db.table("users")
+            >>> df = table.polars()
+            >>> results = await df.collect()
+        """
+        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+
+        df = AsyncDataFrame.from_table(self)
+        return AsyncPolarsDataFrame.from_dataframe(df)
+
+    def pandas(self) -> "AsyncPandasDataFrame":
+        """Create an AsyncPandasDataFrame from this table (Pandas-style entry point).
+
+        Returns:
+            AsyncPandasDataFrame querying from this table
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> table = await db.table("users")
+            >>> df = table.pandas()
+            >>> results = await df.collect()
+        """
+        from ..dataframe.async_pandas_dataframe import AsyncPandasDataFrame
+
+        df = AsyncDataFrame.from_table(self)
+        return AsyncPandasDataFrame.from_dataframe(df)
 
 
 class AsyncTransaction:
@@ -272,6 +310,166 @@ class AsyncDatabase:
         params_dict = params if params else None
         plan = operators.raw_sql(sql, params_dict)
         return AsyncDataFrame(plan=plan, database=self)
+
+    async def scan_csv(
+        self,
+        path: str,
+        schema: Optional[Sequence["ColumnDef"]] = None,
+        **options: object,
+    ) -> "AsyncPolarsDataFrame":
+        """Scan a CSV file as an AsyncPolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the CSV file
+            schema: Optional explicit schema
+            **options: Format-specific options (e.g., header=True, delimiter=",")
+
+        Returns:
+            AsyncPolarsDataFrame containing the CSV data (lazy)
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> df = await db.scan_csv("data.csv", header=True)
+            >>> results = await df.collect()
+        """
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        df = await loader.csv(path)
+        result = df.polars()  # type: ignore[operator]
+        return result  # type: ignore[no-any-return]
+
+    async def scan_json(
+        self,
+        path: str,
+        schema: Optional[Sequence["ColumnDef"]] = None,
+        **options: object,
+    ) -> "AsyncPolarsDataFrame":
+        """Scan a JSON file (array of objects) as an AsyncPolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the JSON file
+            schema: Optional explicit schema
+            **options: Format-specific options (e.g., multiline=True)
+
+        Returns:
+            AsyncPolarsDataFrame containing the JSON data (lazy)
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> df = await db.scan_json("data.json")
+            >>> results = await df.collect()
+        """
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        df = await loader.json(path)
+        result = df.polars()  # type: ignore[operator]
+        return result  # type: ignore[no-any-return]
+
+    async def scan_jsonl(
+        self,
+        path: str,
+        schema: Optional[Sequence["ColumnDef"]] = None,
+        **options: object,
+    ) -> "AsyncPolarsDataFrame":
+        """Scan a JSONL file (one JSON object per line) as an AsyncPolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the JSONL file
+            schema: Optional explicit schema
+            **options: Format-specific options
+
+        Returns:
+            AsyncPolarsDataFrame containing the JSONL data (lazy)
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> df = await db.scan_jsonl("data.jsonl")
+            >>> results = await df.collect()
+        """
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        df = await loader.jsonl(path)
+        result = df.polars()  # type: ignore[operator]
+        return result  # type: ignore[no-any-return]
+
+    async def scan_parquet(
+        self,
+        path: str,
+        schema: Optional[Sequence["ColumnDef"]] = None,
+        **options: object,
+    ) -> "AsyncPolarsDataFrame":
+        """Scan a Parquet file as an AsyncPolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the Parquet file
+            schema: Optional explicit schema
+            **options: Format-specific options
+
+        Returns:
+            AsyncPolarsDataFrame containing the Parquet data (lazy)
+
+        Raises:
+            RuntimeError: If pandas or pyarrow are not installed
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> df = await db.scan_parquet("data.parquet")
+            >>> results = await df.collect()
+        """
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        df = await loader.parquet(path)
+        result = df.polars()  # type: ignore[operator]
+        return result  # type: ignore[no-any-return]
+
+    async def scan_text(
+        self,
+        path: str,
+        column_name: str = "value",
+        schema: Optional[Sequence["ColumnDef"]] = None,
+        **options: object,
+    ) -> "AsyncPolarsDataFrame":
+        """Scan a text file as a single column AsyncPolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+            schema: Optional explicit schema
+            **options: Format-specific options
+
+        Returns:
+            AsyncPolarsDataFrame containing the text file lines (lazy)
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> df = await db.scan_text("data.txt", column_name="line")
+            >>> results = await df.collect()
+        """
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        df = await loader.text(path, column_name=column_name)
+        result = df.polars()  # type: ignore[operator]
+        return result  # type: ignore[no-any-return]
 
     # -------------------------------------------------------------- DDL operations
     @overload

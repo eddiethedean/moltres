@@ -52,11 +52,16 @@ def insert_rows(
 
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
     # Type narrowing: rows is now Records | Sequence[Mapping[str, object]], both compatible
-    rows_seq: Sequence[Mapping[str, object]] = rows
-    columns = list(rows_seq[0].keys())
+    # Use isinstance check to narrow type
+    from ..dataframe.dataframe import DataFrame
+
+    if isinstance(rows, DataFrame):
+        raise TypeError("DataFrame should have been converted to Records")
+    # At this point, rows is guaranteed to be Sequence[Mapping[str, object]]
+    columns = list(rows[0].keys())
     if not columns:
         raise ValidationError(f"insert requires column values for table '{handle.name}'")
-    _validate_row_shapes(rows_seq, columns, table_name=handle.name)
+    _validate_row_shapes(rows, columns, table_name=handle.name)
     table_sql = quote_identifier(handle.name, handle.database.dialect.quote_char)
     column_sql = comma_separated(
         quote_identifier(col, handle.database.dialect.quote_char) for col in columns
@@ -65,7 +70,7 @@ def insert_rows(
     sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
 
     # Use batch insert for better performance
-    params_list: list[Dict[str, object]] = [dict(row) for row in rows_seq]
+    params_list: list[Dict[str, object]] = [dict(row.items()) for row in rows]
     result = handle.database.executor.execute_many(sql, params_list, transaction=transaction)
     return result.rowcount or 0
 
@@ -183,11 +188,16 @@ def merge_rows(
 
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
     # Type narrowing: rows is now Records | Sequence[Mapping[str, object]], both compatible
-    rows_seq: Sequence[Mapping[str, object]] = rows
-    columns = list(rows_seq[0].keys())
+    # Use isinstance check to narrow type
+    from ..dataframe.dataframe import DataFrame
+
+    if isinstance(rows, DataFrame):
+        raise TypeError("DataFrame should have been converted to Records")
+    # At this point, rows is guaranteed to be Sequence[Mapping[str, object]]
+    columns = list(rows[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
-    _validate_row_shapes(rows_seq, columns, table_name=handle.name)
+    _validate_row_shapes(rows, columns, table_name=handle.name)
 
     # Validate that 'on' columns exist in rows
     on_set = set(on)
@@ -264,8 +274,8 @@ def merge_rows(
 
     # Prepare parameters for batch insert
     params_list: list[Dict[str, object]] = []
-    for row in rows_seq:
-        params = dict(row)
+    for row in rows:
+        params = dict(row.items())
         # Add update parameters if when_matched is provided
         if when_matched:
             for col_name, value in when_matched.items():

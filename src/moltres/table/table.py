@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import DeclarativeBase
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.pandas_dataframe import PandasDataFrame
+    from ..dataframe.polars_dataframe import PolarsDataFrame
     from ..dataframe.reader import DataLoader, ReadAccessor
     from ..expressions.column import Column
     from ..io.records import LazyRecords, Records
@@ -100,6 +101,25 @@ class TableHandle:
 
         df = DataFrame.from_table(self, columns=list(columns) if columns else None)
         return PandasDataFrame.from_dataframe(df)
+
+    def polars(self, *columns: str) -> "PolarsDataFrame":
+        """Create a PolarsDataFrame from this table.
+
+        Args:
+            *columns: Optional column names to select
+
+        Returns:
+            PolarsDataFrame for Polars-style operations
+
+        Example:
+            >>> df = db.table('users').polars()
+            >>> df = db.table('users').polars('id', 'name')
+        """
+        from ..dataframe.polars_dataframe import PolarsDataFrame
+        from ..dataframe.dataframe import DataFrame
+
+        df = DataFrame.from_table(self, columns=list(columns) if columns else None)
+        return PolarsDataFrame.from_dataframe(df)
 
 
 class Transaction:
@@ -516,6 +536,161 @@ class Database:
         params_dict = params if params else None
         plan = operators.raw_sql(sql, params_dict)
         return DataFrame(plan=plan, database=self)
+
+    def scan_csv(
+        self,
+        path: str,
+        schema: Optional[Sequence[ColumnDef]] = None,
+        **options: object,
+    ) -> "PolarsDataFrame":
+        """Scan a CSV file as a PolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the CSV file
+            schema: Optional explicit schema
+            **options: Format-specific options (e.g., header=True, delimiter=",")
+
+        Returns:
+            PolarsDataFrame containing the CSV data (lazy)
+
+        Example:
+            >>> from moltres import connect
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.scan_csv("data.csv", header=True)
+            >>> results = df.collect()
+        """
+
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        return loader.csv(path).polars()
+
+    def scan_json(
+        self,
+        path: str,
+        schema: Optional[Sequence[ColumnDef]] = None,
+        **options: object,
+    ) -> "PolarsDataFrame":
+        """Scan a JSON file (array of objects) as a PolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the JSON file
+            schema: Optional explicit schema
+            **options: Format-specific options (e.g., multiline=True)
+
+        Returns:
+            PolarsDataFrame containing the JSON data (lazy)
+
+        Example:
+            >>> from moltres import connect
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.scan_json("data.json")
+            >>> results = df.collect()
+        """
+
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        return loader.json(path).polars()
+
+    def scan_jsonl(
+        self,
+        path: str,
+        schema: Optional[Sequence[ColumnDef]] = None,
+        **options: object,
+    ) -> "PolarsDataFrame":
+        """Scan a JSONL file (one JSON object per line) as a PolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the JSONL file
+            schema: Optional explicit schema
+            **options: Format-specific options
+
+        Returns:
+            PolarsDataFrame containing the JSONL data (lazy)
+
+        Example:
+            >>> from moltres import connect
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.scan_jsonl("data.jsonl")
+            >>> results = df.collect()
+        """
+
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        return loader.jsonl(path).polars()
+
+    def scan_parquet(
+        self,
+        path: str,
+        schema: Optional[Sequence[ColumnDef]] = None,
+        **options: object,
+    ) -> "PolarsDataFrame":
+        """Scan a Parquet file as a PolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the Parquet file
+            schema: Optional explicit schema
+            **options: Format-specific options
+
+        Returns:
+            PolarsDataFrame containing the Parquet data (lazy)
+
+        Raises:
+            RuntimeError: If pandas or pyarrow are not installed
+
+        Example:
+            >>> from moltres import connect
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.scan_parquet("data.parquet")
+            >>> results = df.collect()
+        """
+
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        return loader.parquet(path).polars()
+
+    def scan_text(
+        self,
+        path: str,
+        column_name: str = "value",
+        schema: Optional[Sequence[ColumnDef]] = None,
+        **options: object,
+    ) -> "PolarsDataFrame":
+        """Scan a text file as a single column PolarsDataFrame (Polars-style).
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+            schema: Optional explicit schema
+            **options: Format-specific options
+
+        Returns:
+            PolarsDataFrame containing the text file lines (lazy)
+
+        Example:
+            >>> from moltres import connect
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.scan_text("data.txt", column_name="line")
+            >>> results = df.collect()
+        """
+
+        loader = self.read
+        if schema:
+            loader = loader.schema(schema)
+        if options:
+            loader = loader.options(**options)
+        return loader.text(path, column_name=column_name).polars()
 
     # -------------------------------------------------------------- DDL operations
     @overload

@@ -113,7 +113,8 @@ def main():
     markdown_files = [
         f
         for f in markdown_files
-        if ("docs" in str(f) or "guides" in str(f) or f.name == "README.md") and f.name not in skip_files
+        if ("docs" in str(f) or "guides" in str(f) or f.name == "README.md")
+        and f.name not in skip_files
     ]
 
     total_passed = 0

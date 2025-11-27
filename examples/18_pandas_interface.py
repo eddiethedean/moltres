@@ -357,4 +357,152 @@ except ImportError:
     results = df.collect()
     print(f"Collected as list: {len(results)} rows")
 
+# ============================================================================
+# Data Reshaping
+# ============================================================================
+
+print("\n" + "=" * 70)
+print("Data Reshaping")
+print("=" * 70)
+
+# Create a table suitable for pivoting
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+db.create_table(
+    "sales",
+    [
+        column("category", "TEXT"),
+        column("status", "TEXT"),
+        column("amount", "REAL"),
+    ],
+).collect()
+
+Records(
+    _data=[
+        {"category": "A", "status": "active", "amount": 100.0},
+        {"category": "A", "status": "inactive", "amount": 50.0},
+        {"category": "B", "status": "active", "amount": 200.0},
+    ],
+    _database=db,
+).insert_into("sales")
+
+df_sales = db.table("sales").pandas()
+
+# Pivot (note: requires pivot_values in underlying implementation)
+print("\nPivot example:")
+try:
+    pivoted = df_sales.pivot(index="category", columns="status", values="amount", aggfunc="sum")
+    results = pivoted.collect()
+    print(f"  Pivoted: {len(results)} rows")
+except Exception as e:
+    print(f"  Pivot requires pivot_values: {type(e).__name__}")
+
+# ============================================================================
+# Sampling and Limiting
+# ============================================================================
+
+print("\n" + "=" * 70)
+print("Sampling and Limiting")
+print("=" * 70)
+
+df = db.table("users").pandas()
+
+# Sample rows
+print("\nSample 2 rows:")
+sampled = df.sample(n=2, random_state=42)
+results = sampled.collect()
+print(f"  Sampled: {len(results)} rows")
+
+# Sample by fraction
+print("\nSample 50% of rows:")
+sampled_frac = df.sample(frac=0.5, random_state=42)
+results_frac = sampled_frac.collect()
+print(f"  Sampled: {len(results_frac)} rows")
+
+# Limit
+print("\nLimit to 2 rows:")
+limited = df.limit(2)
+results_limited = limited.collect()
+print(f"  Limited: {len(results_limited)} rows")
+
+# ============================================================================
+# Concatenation
+# ============================================================================
+
+print("\n" + "=" * 70)
+print("Concatenation")
+print("=" * 70)
+
+df1 = db.table("users").pandas()
+df2 = db.table("users").pandas()
+
+# Append
+print("\nAppend:")
+appended = df1.append(df2)
+results = appended.collect()
+print(f"  Appended: {len(results)} rows (should be 8)")
+
+# Concatenate vertically
+print("\nConcat vertical:")
+concatenated = df1.concat(df2, axis=0)
+results = concatenated.collect()
+print(f"  Concatenated: {len(results)} rows")
+
+# Concatenate horizontally
+print("\nConcat horizontal:")
+df_users = db.table("users").pandas().select("id", "name")
+df_orders = db.table("orders").pandas().select("id", "amount")
+concatenated_h = df_users.concat(df_orders, axis=1)
+results = concatenated_h.collect()
+print(f"  Concatenated: {len(results)} rows (cartesian product)")
+
+# ============================================================================
+# Advanced Filtering
+# ============================================================================
+
+print("\n" + "=" * 70)
+print("Advanced Filtering")
+print("=" * 70)
+
+df = db.table("users").pandas()
+
+# isin
+print("\nisin filter:")
+filtered = df.isin({"age": [30, 35]})
+results = filtered.collect()
+print(f"  Filtered: {len(results)} rows")
+print_results(results, "name", "age")
+
+# between
+print("\nbetween filter:")
+filtered = df.between(left=25, right=35, inclusive="both")
+results = filtered.collect()
+print(f"  Filtered: {len(results)} rows")
+print_results(results, "name", "age")
+
+# ============================================================================
+# SQL Expressions and CTEs
+# ============================================================================
+
+print("\n" + "=" * 70)
+print("SQL Expressions and CTEs")
+print("=" * 70)
+
+df = db.table("users").pandas()
+
+# Select with SQL expressions
+print("\nSelect with SQL expressions:")
+selected = df.select_expr("id", "name", "age", "age * 2 as double_age")
+results = selected.collect()
+print(f"  Selected: {len(results)} rows")
+if results:
+    print(f"  First row double_age: {results[0].get('double_age', 'N/A')}")
+
+# CTE
+print("\nCommon Table Expression:")
+cte_df = df.query("age > 25").cte("adults")
+results = cte_df.collect()
+print(f"  CTE 'adults': {len(results)} rows")
+
 db.close()

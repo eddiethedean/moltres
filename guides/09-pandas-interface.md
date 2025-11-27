@@ -669,6 +669,70 @@ print(df.nunique('country'))  # Unique values
 # Output: 2
 ```
 
+## Data Reshaping
+
+Moltres provides pandas-style data reshaping operations:
+
+```python
+# Explode array/JSON columns
+df.explode('tags')
+df.explode(['tags', 'categories'])
+
+# Pivot DataFrame
+df.pivot(index='category', columns='status', values='amount', aggfunc='sum')
+
+# Pivot table
+df.pivot_table(values='amount', index='category', columns='status', aggfunc='mean')
+
+# Melt (not yet implemented - requires UNPIVOT SQL support)
+# df.melt(id_vars=['id'], value_vars=['col1', 'col2'])
+```
+
+## Sampling and Limiting
+
+```python
+# Sample rows
+df.sample(n=10, random_state=42)  # Sample n rows
+df.sample(frac=0.1, random_state=42)  # Sample by fraction
+
+# Limit rows
+df.limit(10)  # Limit to first 10 rows
+```
+
+## Concatenation
+
+```python
+# Append rows (deprecated in pandas, provided for compatibility)
+df1.append(df2)
+
+# Concatenate DataFrames
+df1.concat(df2, axis=0)  # Vertical concatenation (union all)
+df1.concat(df2, axis=1)  # Horizontal concatenation (cross join)
+```
+
+## Advanced Filtering
+
+```python
+# Filter by values in sequence
+df.isin({'age': [25, 30, 35]})  # Multiple columns
+df.isin([1, 2, 3])  # Single sequence (checks first column)
+
+# Filter by range
+df.between(left=20, right=30, inclusive='both')  # All numeric columns
+df.between(left={'age': 20}, right={'age': 30}, inclusive='both')  # Specific column
+```
+
+## SQL Expressions and CTEs
+
+```python
+# Select with SQL expressions
+df.select_expr("id", "name", "age * 2 as double_age", "UPPER(name) as name_upper")
+
+# Common Table Expressions
+cte_df = df.query('age > 25').cte('adults')
+result = cte_df.collect()
+```
+
 ## Next Steps
 
 - **Migration**: See [Migrating from Pandas Guide](https://github.com/eddiethedean/moltres/blob/main/guides/02-migrating-from-pandas.md) for detailed migration patterns

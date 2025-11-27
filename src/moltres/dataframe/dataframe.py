@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from ..table.table import Database, TableHandle
     from ..utils.inspector import ColumnInfo
     from .groupby import GroupedDataFrame
+    from .polars_dataframe import PolarsDataFrame
     from .writer import DataFrameWriter
 
 
@@ -2041,6 +2042,23 @@ class DataFrame:
             predicate = ~predicate
 
         return self.where(predicate)
+
+    def polars(self) -> "PolarsDataFrame":
+        """Convert this DataFrame to a PolarsDataFrame for Polars-style operations.
+
+        Returns:
+            PolarsDataFrame wrapping this DataFrame
+
+        Example:
+            >>> from moltres import connect
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.read.csv("data.csv")
+            >>> polars_df = df.polars()
+            >>> results = polars_df.collect()
+        """
+        from .polars_dataframe import PolarsDataFrame
+
+        return PolarsDataFrame.from_dataframe(self)
 
     @property
     def na(self) -> "NullHandling":

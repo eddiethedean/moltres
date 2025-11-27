@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from ..table.async_table import AsyncDatabase, AsyncTableHandle
     from ..utils.inspector import ColumnInfo
     from .async_groupby import AsyncGroupedDataFrame
+    from .async_pandas_dataframe import AsyncPandasDataFrame
+    from .async_polars_dataframe import AsyncPolarsDataFrame
     from .async_writer import AsyncDataFrameWriter
 
 
@@ -1829,3 +1831,37 @@ class AsyncNullHandling:
             >>> await df.na.fill(0, subset=["col1", "col2"]).collect()  # Fill specific columns with 0
         """
         return self._df.fillna(value=value, subset=subset)
+
+    def polars(self) -> "AsyncPolarsDataFrame":
+        """Convert this AsyncDataFrame to an AsyncPolarsDataFrame for Polars-style operations.
+
+        Returns:
+            AsyncPolarsDataFrame wrapping this AsyncDataFrame
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> df = await db.load.csv("data.csv")
+            >>> polars_df = df.polars()
+            >>> results = await polars_df.collect()
+        """
+        from .async_polars_dataframe import AsyncPolarsDataFrame
+
+        return AsyncPolarsDataFrame.from_dataframe(self._df)
+
+    def pandas(self) -> "AsyncPandasDataFrame":
+        """Convert this AsyncDataFrame to an AsyncPandasDataFrame for Pandas-style operations.
+
+        Returns:
+            AsyncPandasDataFrame wrapping this AsyncDataFrame
+
+        Example:
+            >>> from moltres import async_connect
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> df = await db.load.csv("data.csv")
+            >>> pandas_df = df.pandas()
+            >>> results = await pandas_df.collect()
+        """
+        from .async_pandas_dataframe import AsyncPandasDataFrame
+
+        return AsyncPandasDataFrame.from_dataframe(self._df)
