@@ -119,6 +119,11 @@ print(f"Found {len(results)} users")
 # Supports both = and == for equality
 results = df.query("age == 30").collect()
 print(f"Found {len(results)} users age 30")
+
+# Output: Found 2 users over 25
+# Output: Found 2 users over 25 from USA
+# Output: Found 2 users
+# Output: Found 1 users age 30
 ```
 
 ### Query Syntax
@@ -659,6 +664,9 @@ print(df.dtypes)  # Column types
 print(df.shape)   # Dimensions
 print(df.nunique('country'))  # Unique values
 
+# Output: {'id': 'int64', 'name': 'object', 'age': 'int64', 'country': 'object'}
+# Output: (3, 4)
+# Output: 2
 ```
 
 ## Next Steps

@@ -61,6 +61,8 @@ db.create_table("users", [
 ]).collect()  # .collect() executes the operation
 
 print("Table 'users' created successfully!")
+
+# Output: Table 'users' created successfully!
 ```
 
 ## Inserting Data
@@ -88,6 +90,8 @@ result = Records.from_list([
 ], database=db).insert_into("users")
 
 print(f"Inserted {result} rows")
+
+# Output: Inserted 3 rows
 ```
 
 ## Your First Query
@@ -124,10 +128,14 @@ print(results)
 # Select specific columns
 df = db.table("users").select("id", "name", "email")
 results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'email': 'alice@example.com'}, {'id': 2, 'name': 'Bob', 'email': 'bob@example.com'}]
 
 # Filter rows
 df = db.table("users").select().where(col("age") > 25)
 results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'age': 30, ...}, {'id': 3, 'name': 'Charlie', 'age': 35, ...}]
 
 ```
 
@@ -165,6 +173,8 @@ df = (
 
 # SQL is compiled and executed here
 results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'age': 30, 'email': 'alice@example.com', 'active': 1}, {'id': 2, 'name': 'Bob', 'age': 25, 'email': 'bob@example.com', 'active': 1}]
 
 ```
 
@@ -190,21 +200,33 @@ db.create_table("users", [
 
 # Single condition
 df = db.table("users").select().where(col("age") > 25)
+results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'age': 30, 'email': 'alice@example.com'}]
 
 # Multiple conditions (AND)
 df = db.table("users").select().where(
     (col("age") > 25) & (col("active") == 1)
 )
+results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'age': 30, 'active': 1, 'email': 'alice@example.com'}]
 
 # OR conditions
 df = db.table("users").select().where(
     (col("age") < 18) | (col("age") > 65)
 )
+results = df.collect()
+print(results)
+# Output: []
 
 # String operations
 df = db.table("users").select().where(
     col("email").like("%@example.com")
 )
+results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'age': 30, 'active': 1, 'email': 'alice@example.com'}, {'id': 2, 'name': 'Bob', 'age': 25, 'active': 1, 'email': 'bob@example.com'}]
 
 ```
 
@@ -222,17 +244,33 @@ db.create_table("users", [
     column("id", "INTEGER", primary_key=True),
     column("name", "TEXT"),
 ]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30},
+    {"id": 2, "name": "Bob", "age": 25},
+], database=db).insert_into("users")
+
 # Ascending (default)
 df = db.table("users").select().order_by("age")
+results = df.collect()
+print(results)
+# Output: [{'id': 2, 'name': 'Bob', 'age': 25}, {'id': 1, 'name': 'Alice', 'age': 30}]
 
 # Descending
 df = db.table("users").select().order_by(col("age").desc())
+results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'age': 30}, {'id': 2, 'name': 'Bob', 'age': 25}]
 
 # Multiple columns
 df = db.table("users").select().order_by(
-    col("active").desc(),
-    col("age").asc()
+    col("age").desc(),
+    col("name").asc()
 )
+results = df.collect()
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'age': 30}, {'id': 2, 'name': 'Bob', 'age': 25}]
 
 ```
 
@@ -255,6 +293,12 @@ db.create_table("users", [
     column("name", "TEXT"),
 ]).collect()
 
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30, "active": 1},
+    {"id": 2, "name": "Bob", "age": 25, "active": 1},
+], database=db).insert_into("users")
+
 # Simple aggregation
 df = (
     db.table("users")
@@ -262,6 +306,9 @@ df = (
     .group_by("active")
     .agg(F.count("*").alias("count"))
 )
+results = df.collect()
+print(results)
+# Output: [{'active': 1, 'count': 2}]
 
 # Multiple aggregations
 df = (
@@ -274,6 +321,9 @@ df = (
         F.max(col("age")).alias("max_age")
     )
 )
+results = df.collect()
+print(results)
+# Output: [{'active': 1, 'count': 2, 'avg_age': 27.5, 'max_age': 30}]
 
 ```
 
@@ -330,8 +380,21 @@ from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+# Create sample table and data
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("email", "TEXT"),
+]).collect()
+Records.from_list([
+    {"id": 1, "name": "Alice", "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "email": "bob@example.com"},
+], database=db).insert_into("users")
+
+df = db.table("users").select()
 results = df.collect()
-# [{'id': 1, 'name': 'Alice', ...}, {'id': 2, 'name': 'Bob', ...}]
+print(results)
+# Output: [{'id': 1, 'name': 'Alice', 'email': 'alice@example.com'}, {'id': 2, 'name': 'Bob', 'email': 'bob@example.com'}]
 
 ```
 

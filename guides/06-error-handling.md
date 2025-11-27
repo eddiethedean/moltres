@@ -281,6 +281,11 @@ print(df.plan)
 columns = db.get_columns("users")
 print([c.name for c in columns])
 
+# Output: root
+# Output:  |-- id: INTEGER (nullable = true)
+# Output:  |-- name: TEXT (nullable = true)
+# Output: TableScan(table='users', alias=None)
+# Output: ['id', 'name']
 ```
 
 ### 5. Use Try-Except Blocks
@@ -362,6 +367,7 @@ Records.from_list([
 df = db.table("users").select()
 results = df.collect()  # Error: table "users" does not exist
 
+# Output: [{'id': 1, 'name': 'Alice'}, {'id': 2, 'name': 'Bob'}]
 ```
 
 **Solution:**
