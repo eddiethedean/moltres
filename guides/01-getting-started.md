@@ -26,17 +26,20 @@ Moltres works with any SQLAlchemy-compatible database. Here's how to connect:
 ```python
 from moltres import connect
 
-# SQLite (great for learning and testing)
-db = connect("sqlite:///example.db")
+# SQLite in-memory (great for learning and testing - no file needed)
+db = connect("sqlite:///:memory:")
 
-# PostgreSQL
-db = connect("postgresql://user:password@localhost:5432/mydb")
+# SQLite file-based (persistent database)
+# db = connect("sqlite:///example.db")
 
-# MySQL
-db = connect("mysql://user:password@localhost:3306/mydb")
+# PostgreSQL (requires PostgreSQL server)
+# db = connect("postgresql://user:password@localhost:5432/mydb")
 
-# DuckDB
-db = connect("duckdb:///path/to/database.db")
+# MySQL (requires MySQL server)
+# db = connect("mysql://user:password@localhost:3306/mydb")
+
+# DuckDB (file-based)
+# db = connect("duckdb:///path/to/database.db")
 ```
 
 ## Creating Your First Table
@@ -45,7 +48,8 @@ db = connect("duckdb:///path/to/database.db")
 from moltres import connect
 from moltres.table.schema import column
 
-db = connect("sqlite:///example.db")
+# Use in-memory SQLite - no file setup needed
+db = connect("sqlite:///:memory:")
 
 # Create a table with explicit schema
 db.create_table("users", [
@@ -55,19 +59,35 @@ db.create_table("users", [
     column("age", "INTEGER"),
     column("active", "INTEGER"),  # SQLite uses INTEGER for booleans
 ]).collect()  # .collect() executes the operation
+
+print("Table 'users' created successfully!")
 ```
 
 ## Inserting Data
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
 from moltres.io.records import Records
 
+# Setup database and table
+db = connect("sqlite:///:memory:")
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("email", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
+]).collect()
+
 # Insert from a list of dictionaries
-Records.from_list([
+result = Records.from_list([
     {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30, "active": 1},
     {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25, "active": 1},
     {"id": 3, "name": "Charlie", "email": "charlie@example.com", "age": 35, "active": 0},
 ], database=db).insert_into("users")
+
+print(f"Inserted {result} rows")
 ```
 
 ## Your First Query
@@ -75,7 +95,25 @@ Records.from_list([
 **See also:** [DataFrame basics examples](https://github.com/eddiethedean/moltres/blob/main/examples/02_dataframe_basics.py)
 
 ```python
+from moltres import connect
 from moltres import col
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 
 # Select all columns
 df = db.table("users").select()
@@ -90,6 +128,7 @@ results = df.collect()
 # Filter rows
 df = db.table("users").select().where(col("age") > 25)
 results = df.collect()
+
 ```
 
 ## Understanding Lazy Evaluation
@@ -97,6 +136,24 @@ results = df.collect()
 **Key Concept**: Moltres uses lazy evaluation. Operations build a query plan but don't execute until you call `.collect()`.
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # This doesn't execute any SQL yet!
 df = (
     db.table("users")
@@ -108,6 +165,7 @@ df = (
 
 # SQL is compiled and executed here
 results = df.collect()
+
 ```
 
 This means you can build complex queries step by step without performance penalty.
@@ -117,7 +175,18 @@ This means you can build complex queries step by step without performance penalt
 ### Filtering
 
 ```python
+from moltres import connect
 from moltres import col
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 
 # Single condition
 df = db.table("users").select().where(col("age") > 25)
@@ -136,11 +205,23 @@ df = db.table("users").select().where(
 df = db.table("users").select().where(
     col("email").like("%@example.com")
 )
+
 ```
 
 ### Sorting
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Ascending (default)
 df = db.table("users").select().order_by("age")
 
@@ -152,6 +233,7 @@ df = db.table("users").select().order_by(
     col("active").desc(),
     col("age").asc()
 )
+
 ```
 
 ### Aggregations
@@ -159,8 +241,19 @@ df = db.table("users").select().order_by(
 **See also:** [GroupBy and aggregation examples](https://github.com/eddiethedean/moltres/blob/main/examples/05_groupby.py)
 
 ```python
+from moltres import connect
 from moltres import col
 from moltres.expressions import functions as F
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 
 # Simple aggregation
 df = (
@@ -181,6 +274,7 @@ df = (
         F.max(col("age")).alias("max_age")
     )
 )
+
 ```
 
 ### Joins
@@ -188,7 +282,12 @@ df = (
 **See also:** [Join examples](https://github.com/eddiethedean/moltres/blob/main/examples/04_joins.py)
 
 ```python
+from moltres import connect
 from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 # Create a second table for demonstration
 db.create_table("orders", [
@@ -217,6 +316,7 @@ df = (
         how="left"
     )
 )
+
 ```
 
 ## Working with Results
@@ -224,13 +324,25 @@ df = (
 By default, `.collect()` returns a list of dictionaries:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 results = df.collect()
 # [{'id': 1, 'name': 'Alice', ...}, {'id': 2, 'name': 'Bob', ...}]
+
 ```
 
 You can also get results as pandas or polars DataFrames:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Pandas DataFrame (requires: pip install moltres[pandas])
 results = df.collect(format="pandas")
 # Returns: pandas.DataFrame
@@ -238,11 +350,17 @@ results = df.collect(format="pandas")
 # Polars DataFrame (requires: pip install moltres[polars])
 results = df.collect(format="polars")
 # Returns: polars.DataFrame
+
 ```
 
 ## Updating and Deleting Data
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Update rows
 result = db.update(
     "users",
@@ -257,6 +375,7 @@ result = db.delete(
     where=col("age") < 18
 )
 print(f"Deleted {result} rows")
+
 ```
 
 ## Next Steps

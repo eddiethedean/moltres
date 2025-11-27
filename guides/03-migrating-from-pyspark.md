@@ -86,6 +86,24 @@ df = spark.read.jdbc(url, table, properties)
 
 **Moltres:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # From table
 df = db.table("users").select()
 
@@ -102,13 +120,19 @@ df = db.table("users").select()
 
 # From SQL query
 df = db.sql("SELECT * FROM users WHERE age > 25")
+
 ```
 
 ### 3. Basic Operations
 
 **PySpark:**
 ```python
+from moltres import connect
 from pyspark.sql.functions import col, sum as spark_sum
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 df = spark.table("users")
 result = (
@@ -119,12 +143,24 @@ result = (
     .orderBy(col("total").desc())
     .limit(10)
 )
+
 ```
 
 **Moltres:**
 ```python
+from moltres import connect
 from moltres import col
 from moltres.expressions import functions as F
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 
 df = db.table("users").select()
 result = (
@@ -135,6 +171,7 @@ result = (
     .order_by(col("total").desc())
     .limit(10)
 )
+
 ```
 
 ### 4. Joins
@@ -167,38 +204,61 @@ result = df1.join(df2, on=[col("df1.id") == col("df2.user_id")], how="inner")
 
 **PySpark:**
 ```python
+from moltres import connect
 from pyspark.sql.window import Window
 from pyspark.sql.functions import row_number, rank
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 window = Window.partitionBy("country").orderBy(col("amount").desc())
 df = df.withColumn("rank", rank().over(window))
+
 ```
 
 **Moltres:**
 ```python
+from moltres import connect
 from moltres.expressions import functions as F
 from moltres.expressions.window import Window
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 window = Window.partition_by("country").order_by(col("amount").desc())
 df = df.withColumn("rank", F.rank().over(window))
+
 ```
 
 ### 6. UDFs (User-Defined Functions)
 
 **PySpark:**
 ```python
+from moltres import connect
 from pyspark.sql.functions import udf
 from pyspark.sql.types import StringType
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 @udf(returnType=StringType())
 def my_udf(value):
     return value.upper()
 
 df = df.withColumn("upper_name", my_udf(col("name")))
+
 ```
 
 **Moltres:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Moltres doesn't support Python UDFs directly
 # Instead, use SQL functions or create database functions
 
@@ -212,12 +272,18 @@ df = df.selectExpr("UPPER(name) as upper_name")
 # Option 3: Create database function (PostgreSQL example)
 # CREATE FUNCTION my_upper(text) RETURNS text AS $$ SELECT UPPER($1) $$ LANGUAGE SQL;
 # Then use in Moltres: F.func("my_upper", col("name"))
+
 ```
 
 ### 7. Writing Data
 
 **PySpark:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Write to table
 df.write.saveAsTable("results")
 
@@ -226,10 +292,16 @@ df.write.parquet("output.parquet", mode="overwrite")
 
 # Write to CSV
 df.write.csv("output.csv", mode="overwrite", header=True)
+
 ```
 
 **Moltres:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Write to table
 df.write.save_as_table("results")
 
@@ -238,6 +310,7 @@ df.write.parquet("output.parquet", mode="overwrite")
 
 # Write to CSV
 df.write.csv("output.csv", mode="overwrite", header=True)
+
 ```
 
 ### 8. CRUD Operations (Moltres Advantage)
@@ -250,6 +323,11 @@ df.write.csv("output.csv", mode="overwrite", header=True)
 
 **Moltres:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Update rows
 result = db.update(
     "users",
@@ -265,6 +343,7 @@ result = db.delete(
 
 # Insert from DataFrame
 df.write.insertInto("users")
+
 ```
 
 ## Performance Considerations
@@ -290,6 +369,24 @@ df.write.insertInto("users")
 Map your PySpark data sources to Moltres equivalents:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # PySpark
 df = spark.read.parquet("s3://bucket/data.parquet")
 
@@ -302,6 +399,7 @@ df = db.table("data_table").select()
 # Option 2: Use database external tables (if supported)
 # PostgreSQL: CREATE FOREIGN TABLE ...
 # Then: df = db.table("data_table").select()
+
 ```
 
 ### Step 2: Convert Transformations
@@ -309,6 +407,17 @@ df = db.table("data_table").select()
 Most PySpark transformations map directly:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # PySpark
 result = (
     spark.table("users")
@@ -326,6 +435,7 @@ result = (
     .group_by("country")
     .agg(F.sum(col("amount")))
 )
+
 ```
 
 ### Step 3: Handle UDFs
@@ -333,6 +443,11 @@ result = (
 Replace Python UDFs with SQL functions or database functions:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # PySpark UDF
 @udf(returnType=StringType())
 def process_name(name):
@@ -344,6 +459,7 @@ df = df.withColumn(
     "processed_name",
     F.upper(F.trim(col("name")))
 )
+
 ```
 
 ### Step 4: Test Incrementally
@@ -371,9 +487,16 @@ Start with simple queries and gradually migrate complex pipelines:
 **Moltres**: Use streaming or load into database first
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Moltres streaming approach
-async for chunk in await df.collect(stream=True):
-    process_chunk(chunk)
+async def process_streaming(df):
+    async for chunk in await df.collect(stream=True):
+        process_chunk(chunk)
+
 ```
 
 ### Challenge 3: Complex UDFs

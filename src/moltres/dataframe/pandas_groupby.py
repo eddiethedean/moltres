@@ -81,6 +81,8 @@ class PandasGroupBy:
             sum as sum_func,
         )
 
+        from ..expressions.functions import count_distinct
+
         func_map: Dict[str, Callable[[Column], Column]] = {
             "sum": sum_func,
             "mean": avg,
@@ -89,6 +91,7 @@ class PandasGroupBy:
             "min": min_func,
             "max": max_func,
             "count": count,
+            "nunique": count_distinct,
         }
 
         func_name_lower = func_name.lower()
@@ -111,20 +114,219 @@ class PandasGroupBy:
             return agg_expr.alias(f"{column_name}_{func_name_lower}")
 
     def sum(self) -> "PandasDataFrame":
-        """Sum all numeric columns in each group."""
-        # Get all numeric columns - this is a simplified version
-        # In practice, we'd need to know the schema
-        # For now, use a generic approach
-        # We'll need to enhance this with schema inspection
-        raise NotImplementedError(
-            "sum() requires schema information - use agg() with explicit columns"
-        )
+        """Sum all numeric columns in each group.
+
+        Returns:
+            PandasDataFrame with sum of all numeric columns for each group
+
+        Note:
+            This attempts to sum all columns. For better control, use agg() with
+            specific columns.
+        """
+        from .pandas_dataframe import PandasDataFrame
+        from ..expressions import functions as F
+        from ..expressions.column import col
+
+        # Get all columns from the grouped DataFrame
+        # We need to access the parent DataFrame's columns
+        parent_df = self._grouped.parent
+        try:
+            columns = parent_df._extract_column_names(parent_df.plan)
+        except Exception:
+            raise NotImplementedError(
+                "sum() requires accessible columns - use agg() with explicit columns"
+            )
+
+        # Build aggregations - sum all columns
+        agg_list = []
+        for col_name in columns:
+            try:
+                agg_list.append(F.sum(col(col_name)).alias(f"{col_name}_sum"))
+            except Exception:
+                # Skip columns that can't be summed (e.g., non-numeric)
+                pass
+
+        if not agg_list:
+            raise ValueError("No numeric columns found to sum")
+
+        result_df = self._grouped.agg(*agg_list)
+        return PandasDataFrame.from_dataframe(result_df)
 
     def mean(self) -> "PandasDataFrame":
-        """Mean of all numeric columns in each group."""
-        raise NotImplementedError(
-            "mean() requires schema information - use agg() with explicit columns"
-        )
+        """Mean of all numeric columns in each group.
+
+        Returns:
+            PandasDataFrame with mean of all numeric columns for each group
+
+        Note:
+            This attempts to average all columns. For better control, use agg() with
+            specific columns.
+        """
+        from .pandas_dataframe import PandasDataFrame
+        from ..expressions import functions as F
+        from ..expressions.column import col
+
+        # Get all columns from the grouped DataFrame
+        parent_df = self._grouped.parent
+        try:
+            columns = parent_df._extract_column_names(parent_df.plan)
+        except Exception:
+            raise NotImplementedError(
+                "mean() requires accessible columns - use agg() with explicit columns"
+            )
+
+        # Build aggregations - average all columns
+        agg_list = []
+        for col_name in columns:
+            try:
+                agg_list.append(F.avg(col(col_name)).alias(f"{col_name}_mean"))
+            except Exception:
+                # Skip columns that can't be averaged
+                pass
+
+        if not agg_list:
+            raise ValueError("No numeric columns found to average")
+
+        result_df = self._grouped.agg(*agg_list)
+        return PandasDataFrame.from_dataframe(result_df)
+
+    def min(self) -> "PandasDataFrame":
+        """Minimum value of all columns in each group."""
+        from .pandas_dataframe import PandasDataFrame
+        from ..expressions import functions as F
+        from ..expressions.column import col
+
+        parent_df = self._grouped.parent
+        try:
+            columns = parent_df._extract_column_names(parent_df.plan)
+        except Exception:
+            raise NotImplementedError(
+                "min() requires accessible columns - use agg() with explicit columns"
+            )
+
+        agg_list = []
+        for col_name in columns:
+            try:
+                agg_list.append(F.min(col(col_name)).alias(f"{col_name}_min"))
+            except Exception:
+                pass
+
+        if not agg_list:
+            raise ValueError("No columns found for min()")
+
+        result_df = self._grouped.agg(*agg_list)
+        return PandasDataFrame.from_dataframe(result_df)
+
+    def max(self) -> "PandasDataFrame":
+        """Maximum value of all columns in each group."""
+        from .pandas_dataframe import PandasDataFrame
+        from ..expressions import functions as F
+        from ..expressions.column import col
+
+        parent_df = self._grouped.parent
+        try:
+            columns = parent_df._extract_column_names(parent_df.plan)
+        except Exception:
+            raise NotImplementedError(
+                "max() requires accessible columns - use agg() with explicit columns"
+            )
+
+        agg_list = []
+        for col_name in columns:
+            try:
+                agg_list.append(F.max(col(col_name)).alias(f"{col_name}_max"))
+            except Exception:
+                pass
+
+        if not agg_list:
+            raise ValueError("No columns found for max()")
+
+        result_df = self._grouped.agg(*agg_list)
+        return PandasDataFrame.from_dataframe(result_df)
+
+    def nunique(self) -> "PandasDataFrame":
+        """Count distinct values for all columns in each group."""
+        from .pandas_dataframe import PandasDataFrame
+        from ..expressions import functions as F
+        from ..expressions.column import col
+
+        parent_df = self._grouped.parent
+        try:
+            columns = parent_df._extract_column_names(parent_df.plan)
+        except Exception:
+            raise NotImplementedError(
+                "nunique() requires accessible columns - use agg() with explicit columns"
+            )
+
+        agg_list = []
+        for col_name in columns:
+            try:
+                agg_list.append(F.count_distinct(col(col_name)).alias(f"{col_name}_nunique"))
+            except Exception:
+                pass
+
+        if not agg_list:
+            raise ValueError("No columns found for nunique()")
+
+        result_df = self._grouped.agg(*agg_list)
+        return PandasDataFrame.from_dataframe(result_df)
+
+    def first(self) -> "PandasDataFrame":
+        """Get first value of each column in each group."""
+        from .pandas_dataframe import PandasDataFrame
+        from ..expressions import functions as F
+        from ..expressions.column import col
+
+        parent_df = self._grouped.parent
+        try:
+            columns = parent_df._extract_column_names(parent_df.plan)
+        except Exception:
+            raise NotImplementedError(
+                "first() requires accessible columns - use agg() with explicit columns"
+            )
+
+        # Use MIN as proxy for first (works if data is ordered)
+        # For true first(), would need window functions or database-specific functions
+        agg_list = []
+        for col_name in columns:
+            try:
+                agg_list.append(F.min(col(col_name)).alias(f"{col_name}_first"))
+            except Exception:
+                pass
+
+        if not agg_list:
+            raise ValueError("No columns found for first()")
+
+        result_df = self._grouped.agg(*agg_list)
+        return PandasDataFrame.from_dataframe(result_df)
+
+    def last(self) -> "PandasDataFrame":
+        """Get last value of each column in each group."""
+        from .pandas_dataframe import PandasDataFrame
+        from ..expressions import functions as F
+        from ..expressions.column import col
+
+        parent_df = self._grouped.parent
+        try:
+            columns = parent_df._extract_column_names(parent_df.plan)
+        except Exception:
+            raise NotImplementedError(
+                "last() requires accessible columns - use agg() with explicit columns"
+            )
+
+        # Use MAX as proxy for last (works if data is ordered)
+        agg_list = []
+        for col_name in columns:
+            try:
+                agg_list.append(F.max(col(col_name)).alias(f"{col_name}_last"))
+            except Exception:
+                pass
+
+        if not agg_list:
+            raise ValueError("No columns found for last()")
+
+        result_df = self._grouped.agg(*agg_list)
+        return PandasDataFrame.from_dataframe(result_df)
 
     def count(self) -> "PandasDataFrame":
         """Count rows in each group."""

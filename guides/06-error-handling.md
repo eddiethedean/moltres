@@ -43,7 +43,25 @@ db = async_connect("postgresql://...")          # ❌ Wrong (missing +asyncpg)
 **Error**: `CompilationError` - SQL compilation failed
 
 ```python
+from moltres import connect
 from moltres.utils.exceptions import CompilationError
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 
 try:
     df = db.table("users").select().where(col("invalid_col") > 25)
@@ -52,6 +70,7 @@ except CompilationError as e:
     print(f"Compilation failed: {e}")
     # Check the generated SQL
     print(f"SQL: {df.explain()}")
+
 ```
 
 **Common causes:**
@@ -61,6 +80,17 @@ except CompilationError as e:
 
 **Solutions:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Check column names
 columns = db.get_columns("users")
 print([c.name for c in columns])
@@ -68,6 +98,7 @@ print([c.name for c in columns])
 # Use correct column references
 df = db.table("users").select().where(col("age") > 25)  # ✅ Correct
 df = db.table("users").select().where(col("Age") > 25)   # ❌ Case-sensitive
+
 ```
 
 ### 3. Execution Errors
@@ -75,7 +106,25 @@ df = db.table("users").select().where(col("Age") > 25)   # ❌ Case-sensitive
 **Error**: `ExecutionError` - SQL execution failed
 
 ```python
+from moltres import connect
 from moltres.utils.exceptions import ExecutionError
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 
 try:
     df = db.table("users").select()
@@ -84,6 +133,7 @@ except ExecutionError as e:
     print(f"Execution failed: {e}")
     # Check the SQL that failed
     print(f"SQL: {e.sql if hasattr(e, 'sql') else 'N/A'}")
+
 ```
 
 **Common causes:**
@@ -94,6 +144,11 @@ except ExecutionError as e:
 
 **Solutions:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Check if table exists
 tables = db.get_table_names()
 if "users" not in tables:
@@ -103,6 +158,7 @@ if "users" not in tables:
 schema = db.get_columns("users")
 for col_info in schema:
     print(f"{col_info.name}: {col_info.type_name}")
+
 ```
 
 ### 4. Validation Errors
@@ -110,12 +166,18 @@ for col_info in schema:
 **Error**: `ValidationError` - Input validation failed
 
 ```python
+from moltres import connect
 from moltres.utils.exceptions import ValidationError
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 try:
     db.update("users", where=col("id") == 1, set={"invalid_col": "value"})
 except ValidationError as e:
     print(f"Validation failed: {e}")
+
 ```
 
 **Common causes:**
@@ -146,6 +208,17 @@ results = df.collect()
 Understand how your query will be executed:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Get estimated execution plan
 df = db.table("users").select().where(col("age") > 25)
 plan = df.explain()
@@ -154,6 +227,7 @@ print(plan)
 # Get actual execution stats (PostgreSQL)
 plan = df.explain(analyze=True)
 print(plan)
+
 ```
 
 ### 3. Check Generated SQL
@@ -161,11 +235,23 @@ print(plan)
 See the exact SQL that will be executed:
 
 ```python
+from moltres import connect
 from moltres.sql.compiler import compile_plan
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 
 df = db.table("users").select().where(col("age") > 25)
 sql = compile_plan(df.plan, dialect=db._config.dialect)
 print(str(sql.compile(compile_kwargs={"literal_binds": True})))
+
 ```
 
 ### 4. Validate Before Execution
@@ -173,6 +259,17 @@ print(str(sql.compile(compile_kwargs={"literal_binds": True})))
 Check your DataFrame structure before collecting:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Print schema
 df = db.table("users").select()
 df.printSchema()
@@ -183,6 +280,7 @@ print(df.plan)
 # Get column names
 columns = db.get_columns("users")
 print([c.name for c in columns])
+
 ```
 
 ### 5. Use Try-Except Blocks
@@ -190,12 +288,30 @@ print([c.name for c in columns])
 Wrap operations in try-except for better error handling:
 
 ```python
+from moltres import connect
 from moltres.utils.exceptions import (
     DatabaseConnectionError,
     CompilationError,
     ExecutionError,
     ValidationError
 )
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 
 def safe_query(db, table_name, condition):
     try:
@@ -216,6 +332,7 @@ def safe_query(db, table_name, condition):
     except Exception as e:
         print(f"Unexpected error: {e}")
         return None
+
 ```
 
 ## Common Issues and Solutions
@@ -224,12 +341,37 @@ def safe_query(db, table_name, condition):
 
 **Problem:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 df = db.table("users").select()
 results = df.collect()  # Error: table "users" does not exist
+
 ```
 
 **Solution:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Check if table exists
 tables = db.get_table_names()
 if "users" not in tables:
@@ -238,75 +380,179 @@ if "users" not in tables:
         column("id", "INTEGER", primary_key=True),
         column("name", "TEXT"),
     ]).collect()
+
 ```
 
 ### Issue 2: "Column does not exist"
 
 **Problem:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 df = db.table("users").select().where(col("age") > 25)
 results = df.collect()  # Error: column "age" does not exist
+
 ```
 
 **Solution:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Check actual column names
 columns = db.get_columns("users")
 print([c.name for c in columns])
 
 # Use correct column name (case-sensitive in some databases)
 df = db.table("users").select().where(col("Age") > 25)  # If column is "Age"
+
 ```
 
 ### Issue 3: "Ambiguous column name"
 
 **Problem:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 df = (
     db.table("users").select()
     .join(db.table("orders").select(), on=[col("id") == col("user_id")])
     .select("id")  # Error: ambiguous column "id"
 )
+
 ```
 
 **Solution:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Use table-qualified column names
 df = (
     db.table("users").select()
     .join(db.table("orders").select(), on=[col("users.id") == col("orders.user_id")])
     .select("users.id")  # Or col("users.id")
 )
+
 ```
 
 ### Issue 4: "Type mismatch"
 
 **Problem:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 df = db.table("users").select().where(col("age") == "25")  # age is INTEGER
+
 ```
 
 **Solution:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Use correct type
 df = db.table("users").select().where(col("age") == 25)  # Integer, not string
+
 ```
 
 ### Issue 5: "Boolean value error" (SQLite)
 
 **Problem:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # SQLite uses INTEGER (0/1) instead of BOOLEAN
 df = db.table("users").select().where(col("active") == True)  # May not work
+
 ```
 
 **Solution:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Use 1/0 for SQLite
 df = db.table("users").select().where(col("active") == 1)  # ✅ Correct for SQLite
 
 # Or use boolean for PostgreSQL/MySQL
 df = db.table("users").select().where(col("active") == True)  # ✅ Correct for PostgreSQL
+
 ```
 
 ### Issue 6: "Connection pool exhausted"
@@ -352,17 +598,29 @@ register_performance_hook("query_end", log_slow_queries)
 ### Check Query Execution Time
 
 ```python
+from moltres import connect
 import time
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 start = time.perf_counter()
 results = df.collect()
 elapsed = time.perf_counter() - start
 print(f"Query took {elapsed:.2f} seconds")
+
 ```
 
 ### Analyze Query Plans
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Get execution plan
 plan = df.explain(analyze=True)
 print(plan)
@@ -371,6 +629,7 @@ print(plan)
 # - Sequential scans (should use indexes)
 # - High cost operations
 # - Missing indexes
+
 ```
 
 ## Best Practices for Error Handling
@@ -378,6 +637,24 @@ print(plan)
 ### 1. Validate Inputs Early
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 def query_users(db, min_age):
     # Validate inputs
     if not isinstance(min_age, int):
@@ -387,6 +664,7 @@ def query_users(db, min_age):
     
     # Then execute query
     return db.table("users").select().where(col("age") >= min_age).collect()
+
 ```
 
 ### 2. Use Context Managers
@@ -401,6 +679,12 @@ with connect("postgresql://...") as db:
 ### 3. Handle Database-Specific Errors
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 try:
     results = df.collect()
 except ExecutionError as e:
@@ -413,12 +697,19 @@ except ExecutionError as e:
     else:
         # Re-raise unknown errors
         raise
+
 ```
 
 ### 4. Log Errors Appropriately
 
 ```python
+from moltres import connect
 import logging
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +718,7 @@ try:
 except Exception as e:
     logger.error(f"Query failed: {e}", exc_info=True)
     raise
+
 ```
 
 ## Getting Help

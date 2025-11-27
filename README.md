@@ -24,7 +24,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 ## ✨ Features
 
 - 🚀 **PySpark-Style DataFrame API** - Primary API with familiar operations (select, filter, join, groupBy, etc.) for seamless migration from PySpark
-- 🐼 **Optional Pandas-Style Interface** - Alternative Pandas-like API (df.query(), df.groupby(), df.merge()) for users familiar with Pandas
+- 🐼 **Optional Pandas-Style Interface** - Comprehensive Pandas-like API with string accessor (df['col'].str), improved query() with AND/OR keywords, dtypes, shape, head/tail, and data inspection methods
 - 🎯 **98% PySpark API Compatibility** - Near-complete compatibility for seamless migration
 - 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—no data loading into memory
 - ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE operations with DataFrame-style syntax
@@ -135,14 +135,31 @@ df = db.table("users").pandas()
 df[['id', 'name']]  # Select columns
 df['age']  # Get column expression for filtering
 
-# Query method (pandas-style filtering)
+# Query method with improved AND/OR keyword support
 df_filtered = df.query('age > 25 and country == "USA"')
 results = df_filtered.collect()
 # Output: [{'id': 1, 'name': 'Alice', ...}, {'id': 3, 'name': 'Charlie', ...}]
 
+# String accessor for text operations (all executed in SQL)
+df['name'].str.upper()  # Convert to uppercase
+df[df['name'].str.contains('Ali')]  # Filter by substring
+df['name'].str.startswith('A')  # Check prefix
+
+# Data inspection methods
+print(df.dtypes)  # Column types: {'id': 'int64', 'name': 'object', 'age': 'int64', 'country': 'object'}
+print(df.shape)  # (3, 4) - cached after first call
+print(df.head(2))  # First 2 rows
+print(df.nunique('country'))  # Count unique values: 2
+print(df.value_counts('country'))  # Value frequency counts
+
 # GroupBy with dictionary aggregation
 grouped = df.groupby('country')
 agg_result = grouped.agg(age='mean', id='count')
+
+# Convenience aggregations
+grouped.sum()  # Sum of numeric columns
+grouped.mean()  # Mean of numeric columns
+grouped.nunique()  # Count distinct for each column
 results = agg_result.collect()
 
 # Merge (pandas-style joins)

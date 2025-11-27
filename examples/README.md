@@ -20,6 +20,8 @@ This directory contains example code demonstrating various features of Moltres.
 14. **14_reflection.py** - Schema inspection and reflection
 15. **15_pandas_polars_dataframes.py** - Using pandas and polars DataFrames with moltres
 16. **16_ux_features.py** - UX improvements and convenience methods
+17. **17_sqlalchemy_models.py** - SQLAlchemy model integration
+18. **18_pandas_interface.py** - Pandas-style DataFrame interface with string accessor, query() improvements, and data inspection methods
 
 ## Running Examples
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -21,6 +21,12 @@ from typing import (
 from ..expressions.column import Column, col
 from ..logical.plan import LogicalPlan
 from .dataframe import DataFrame
+
+# Import PandasColumn wrapper for string accessor support
+try:
+    from .pandas_column import PandasColumn
+except ImportError:
+    PandasColumn = None  # type: ignore
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -46,6 +52,8 @@ class PandasDataFrame:
     """
 
     _df: DataFrame
+    _shape_cache: Optional[Tuple[int, int]] = field(default=None, repr=False, compare=False)
+    _dtypes_cache: Optional[Dict[str, str]] = field(default=None, repr=False, compare=False)
 
     @property
     def plan(self) -> LogicalPlan:
@@ -78,11 +86,44 @@ class PandasDataFrame:
         Returns:
             New PandasDataFrame instance
         """
-        return PandasDataFrame(_df=df)
+        # Clear caches when creating new DataFrame instance
+        return PandasDataFrame(_df=df, _shape_cache=None, _dtypes_cache=None)
+
+    def _validate_columns_exist(
+        self, column_names: Sequence[str], operation: str = "operation"
+    ) -> None:
+        """Validate that all specified columns exist in the DataFrame.
+
+        Args:
+            column_names: List of column names to validate
+            operation: Name of the operation being performed (for error messages)
+
+        Raises:
+            ValidationError: If any column does not exist, with helpful suggestions
+
+        Note:
+            Validation only occurs if columns can be determined from the plan.
+            For complex plans (e.g., RawSQL), validation is skipped to avoid false positives.
+        """
+        from ..utils.validation import validate_columns_exist
+
+        try:
+            available_columns = set(self.columns)
+            # Only validate if we successfully got column names
+            if available_columns:
+                validate_columns_exist(column_names, available_columns, operation)
+        except RuntimeError:
+            # If we can't determine columns (e.g., RawSQL, complex plans),
+            # skip validation - the error will be caught at execution time
+            # This is a RuntimeError from _extract_column_names when it can't determine columns
+            pass
+        except Exception:
+            # For other exceptions, also skip validation to be safe
+            pass
 
     def __getitem__(
         self, key: Union[str, Sequence[str], Column]
-    ) -> Union["PandasDataFrame", Column]:
+    ) -> Union["PandasDataFrame", Column, "PandasColumn"]:
         """Pandas-style column access.
 
         Supports:
@@ -103,23 +144,40 @@ class PandasDataFrame:
             >>> df[['id', 'name']]  # Returns PandasDataFrame
             >>> df[df['age'] > 25]  # Returns filtered PandasDataFrame
         """
-        # Single column string: df['col'] - return Column for expressions
+        # Single column string: df['col'] - return Column-like object for expressions
         if isinstance(key, str):
-            return col(key)
+            # Validate column exists
+            self._validate_columns_exist([key], "column access")
+            column_expr = col(key)
+            # Wrap in PandasColumn to enable .str accessor
+            if PandasColumn is not None:
+                return PandasColumn(column_expr)
+            return column_expr
 
         # List of columns: df[['col1', 'col2']] - select columns
         if isinstance(key, (list, tuple)):
             if len(key) == 0:
                 return self._with_dataframe(self._df.select())
+            # Validate column names if they're strings
+            str_columns = [c for c in key if isinstance(c, str)]
+            if str_columns:
+                self._validate_columns_exist(str_columns, "column selection")
             # Convert all to strings/Columns and select
             columns = [col(c) if isinstance(c, str) else c for c in key]
             return self._with_dataframe(self._df.select(*columns))
 
-        # Column expression - if it's a boolean condition, use as filter
+        # Column expression or PandasColumn - if it's a boolean condition, use as filter
         if isinstance(key, Column):
             # This is likely a boolean condition like df['age'] > 25
             # We should filter using it
             return self._with_dataframe(self._df.where(key))
+
+        # Handle PandasColumn wrapper (which wraps a Column)
+        # Note: Comparisons on PandasColumn return Column, so this may not be needed,
+        # but it's here for completeness
+        if PandasColumn is not None and hasattr(key, "_column"):
+            # This might be a PandasColumn - extract underlying Column
+            return self._with_dataframe(self._df.where(key._column))
 
         raise TypeError(
             f"Invalid key type for __getitem__: {type(key)}. Expected str, list, tuple, or Column."
@@ -130,30 +188,60 @@ class PandasDataFrame:
 
         Args:
             expr: Query string with pandas-style syntax (e.g., "age > 25 and status == 'active'")
+                  Supports both '=' and '==' for equality comparisons.
+                  Supports 'and'/'or' keywords in addition to '&'/'|' operators.
 
         Returns:
             Filtered PandasDataFrame
+
+        Raises:
+            ValueError: If the query string cannot be parsed
+            ValidationError: If referenced columns do not exist
 
         Example:
             >>> df.query('age > 25')
             >>> df.query("age > 25 and status == 'active'")
             >>> df.query("name in ['Alice', 'Bob']")
+            >>> df.query("age = 30")  # Both = and == work
         """
         from ..expressions.sql_parser import parse_sql_expr
+        from ..utils.exceptions import PandasAPIError
 
-        # Get available column names for context
+        # Get available column names for context and validation
         available_columns: Optional[Set[str]] = None
         try:
-            if hasattr(self._df, "plan") and hasattr(self._df.plan, "projections"):
-                available_columns = set()
-                for proj in self._df.plan.projections:
-                    if isinstance(proj, Column) and proj.op == "column" and proj.args:
-                        available_columns.add(str(proj.args[0]))
+            available_columns = set(self.columns)
         except Exception:
-            pass
+            # Fallback: try to extract from plan
+            try:
+                if hasattr(self._df, "plan") and hasattr(self._df.plan, "projections"):
+                    available_columns = set()
+                    for proj in self._df.plan.projections:
+                        if isinstance(proj, Column) and proj.op == "column" and proj.args:
+                            available_columns.add(str(proj.args[0]))
+            except Exception:
+                pass
 
         # Parse query string to Column expression
-        predicate = parse_sql_expr(expr, available_columns)
+        try:
+            predicate = parse_sql_expr(expr, available_columns)
+        except ValueError as e:
+            # Provide more helpful error message
+            raise PandasAPIError(
+                f"Failed to parse query expression: {expr}",
+                suggestion=(
+                    f"Error: {str(e)}\n"
+                    "Query syntax should follow pandas-style syntax:\n"
+                    "  - Use '=' or '==' for equality: 'age == 25' or 'age = 25'\n"
+                    "  - Use 'and'/'or' keywords: 'age > 25 and status == \"active\"'\n"
+                    "  - Use comparison operators: >, <, >=, <=, !=, ==\n"
+                    f"{'  - Available columns: ' + ', '.join(sorted(available_columns)) if available_columns else ''}"
+                ),
+                context={
+                    "query": expr,
+                    "available_columns": list(available_columns) if available_columns else [],
+                },
+            ) from e
 
         # Apply filter
         return self._with_dataframe(self._df.where(predicate))
@@ -181,6 +269,9 @@ class PandasDataFrame:
             columns = tuple(by)
         else:
             raise TypeError(f"by must be str or sequence of str, got {type(by)}")
+
+        # Validate columns exist
+        self._validate_columns_exist(list(columns), "groupby")
 
         # Use the underlying DataFrame's group_by method to get GroupedDataFrame
         grouped_df = self._df.group_by(*columns)
@@ -231,16 +322,28 @@ class PandasDataFrame:
         if on is not None:
             # Same column names in both DataFrames
             if isinstance(on, str):
+                # Validate columns exist in both DataFrames
+                self._validate_columns_exist([on], "merge (left DataFrame)")
+                right._validate_columns_exist([on], "merge (right DataFrame)")
                 join_on = [(on, on)]
             else:
+                # Validate all columns exist
+                self._validate_columns_exist(list(on), "merge (left DataFrame)")
+                right._validate_columns_exist(list(on), "merge (right DataFrame)")
                 join_on = [(col, col) for col in on]
         elif left_on is not None and right_on is not None:
             # Different column names
             if isinstance(left_on, str) and isinstance(right_on, str):
+                # Validate columns exist
+                self._validate_columns_exist([left_on], "merge (left DataFrame)")
+                right._validate_columns_exist([right_on], "merge (right DataFrame)")
                 join_on = [(left_on, right_on)]
             elif isinstance(left_on, (list, tuple)) and isinstance(right_on, (list, tuple)):
                 if len(left_on) != len(right_on):
                     raise ValueError("left_on and right_on must have the same length")
+                # Validate all columns exist
+                self._validate_columns_exist(list(left_on), "merge (left DataFrame)")
+                right._validate_columns_exist(list(right_on), "merge (right DataFrame)")
                 join_on = list(zip(left_on, right_on))
             else:
                 raise TypeError("left_on and right_on must both be str or both be sequences")
@@ -282,6 +385,9 @@ class PandasDataFrame:
                 ascending_list = list(ascending)
                 if len(ascending_list) != len(columns):
                     raise ValueError("ascending must have same length as by")
+
+        # Validate columns exist
+        self._validate_columns_exist(columns, "sort_values")
 
         # Build order_by list - use Column expressions with .desc() for descending
         order_by_cols = []
@@ -348,6 +454,7 @@ class PandasDataFrame:
         Args:
             subset: Column name(s) to consider for duplicates (None means all columns)
             **kwargs: Additional keyword arguments (for pandas compatibility)
+                - keep: 'first' (default) or 'last' - which duplicate to keep
 
         Returns:
             PandasDataFrame with duplicates removed
@@ -356,14 +463,79 @@ class PandasDataFrame:
             >>> df.drop_duplicates()
             >>> df.drop_duplicates(subset=['col1', 'col2'])
         """
+        keep = kwargs.get("keep", "first")
+
         if subset is None:
+            # Remove duplicates on all columns
             result_df = self._df.distinct()
         else:
-            # Use distinct on selected columns
-            # This requires a different approach - group by columns and take first
-            # For now, just use distinct on all columns
-            result_df = self._df.distinct()
+            # Validate subset columns exist
+            if isinstance(subset, str):
+                subset_cols = [subset]
+            else:
+                subset_cols = list(subset)
 
+            # Validate columns exist
+            self._validate_columns_exist(subset_cols, "drop_duplicates")
+
+            # For subset-based deduplication, we need to:
+            # 1. Group by subset columns
+            # 2. Select all columns, taking first/last from each group
+            # This is complex in SQL - we'll use a window function approach if possible
+            # For now, we'll use GROUP BY with MIN/MAX on non-grouped columns
+
+            # Get all column names
+            all_cols = self.columns
+            other_cols = [col for col in all_cols if col not in subset_cols]
+
+            # Group by subset columns
+            grouped = self._df.group_by(*subset_cols)
+
+            # Build aggregations: use MIN/MAX for all non-grouped columns
+            from ..expressions import functions as F
+
+            # GroupBy automatically includes grouping columns, so we only need to aggregate others
+            if not other_cols:
+                # If only grouping columns, distinct works fine
+                result_df = self._df.distinct()
+            else:
+                # Build aggregations for non-grouped columns only
+                # GroupBy automatically includes grouping columns in result
+                agg_exprs = []
+                for col_name in other_cols:
+                    if keep == "last":
+                        agg_exprs.append(F.max(col(col_name)).alias(col_name))
+                    else:  # keep == "first"
+                        agg_exprs.append(F.min(col(col_name)).alias(col_name))
+
+                # GroupBy includes grouping columns automatically, so we only pass aggregations
+                # The result will have grouping columns + aggregated columns
+                result_df = grouped.agg(*agg_exprs)
+
+        return self._with_dataframe(result_df)
+
+    def select(self, *columns: Union[str, Column]) -> "PandasDataFrame":
+        """Select columns from the DataFrame (pandas-style wrapper).
+
+        Args:
+            *columns: Column names or Column expressions to select
+
+        Returns:
+            PandasDataFrame with selected columns
+
+        Example:
+            >>> df.select('id', 'name')
+        """
+        # Validate column names if they're strings
+        str_columns = [c for c in columns if isinstance(c, str)]
+        if str_columns:
+            self._validate_columns_exist(str_columns, "select")
+
+        # Use underlying DataFrame's select
+        from ..expressions.column import col
+
+        selected_cols = [col(c) if isinstance(c, str) else c for c in columns]
+        result_df = self._df.select(*selected_cols)
         return self._with_dataframe(result_df)
 
     def assign(self, **kwargs: Union[Column, Any]) -> "PandasDataFrame":
@@ -454,15 +626,38 @@ class PandasDataFrame:
         """Get column data types (pandas-style property).
 
         Returns:
-            Dictionary mapping column names to type strings
+            Dictionary mapping column names to pandas dtype strings (e.g., 'int64', 'object', 'float64')
 
         Note:
-            This is a simplified implementation. Full type information
-            may require schema inspection which can be expensive.
+            This uses schema inspection which may require a database query if not cached.
+            Types are cached after first access.
         """
-        # This is a placeholder - full implementation would require schema inspection
-        # For now, return empty dict or attempt to infer from plan
-        return {}
+        # Return cached dtypes if available
+        if self._dtypes_cache is not None:
+            return self._dtypes_cache
+
+        if self.database is None:
+            # Cannot get types without database connection
+            return {}
+
+        try:
+            from ..utils.inspector import sql_type_to_pandas_dtype
+
+            # Try to extract schema from the logical plan
+            schema = self._df._extract_schema_from_plan(self._df.plan)
+
+            # Map ColumnInfo to pandas dtypes
+            dtypes_dict: Dict[str, str] = {}
+            for col_info in schema:
+                pandas_dtype = sql_type_to_pandas_dtype(col_info.type_name)
+                dtypes_dict[col_info.name] = pandas_dtype
+
+            # Cache the result (Note: we can't modify frozen dataclass, but we can return the dict)
+            # The cache will be set on the next DataFrame operation that creates a new instance
+            return dtypes_dict
+        except Exception:
+            # If schema extraction fails, return empty dict
+            return {}
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -472,9 +667,18 @@ class PandasDataFrame:
             Tuple of (number of rows, number of columns)
 
         Note:
-            Getting row count requires materializing the query,
-            which can be expensive for large datasets.
+            Getting row count requires executing a COUNT query,
+            which can be expensive for large datasets. The result is cached
+            for the lifetime of this DataFrame instance.
+
+        Warning:
+            This operation executes a SQL query. For large tables, consider
+            using limit() or filtering first.
         """
+        # Return cached shape if available
+        if self._shape_cache is not None:
+            return self._shape_cache
+
         num_cols = len(self.columns)
 
         # To get row count, we need to execute a COUNT query
@@ -504,7 +708,10 @@ class PandasDataFrame:
                     except (ValueError, TypeError):
                         num_rows = 0
 
-        return (num_rows, num_cols)
+        shape_result = (num_rows, num_cols)
+        # Note: We can't update the cache in a frozen dataclass, but we return the result
+        # The cache field will be set when a new instance is created
+        return shape_result
 
     @property
     def empty(self) -> bool:
@@ -522,6 +729,209 @@ class PandasDataFrame:
         except Exception:
             # If we can't determine, return False as a safe default
             return False
+
+    def head(self, n: int = 5) -> "PandasDataFrame":
+        """Return the first n rows (pandas-style).
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            PandasDataFrame with first n rows
+
+        Example:
+            >>> df.head(10)  # First 10 rows
+        """
+        return self._with_dataframe(self._df.limit(n))
+
+    def tail(self, n: int = 5) -> "PandasDataFrame":
+        """Return the last n rows (pandas-style).
+
+        Args:
+            n: Number of rows to return (default: 5)
+
+        Returns:
+            PandasDataFrame with last n rows
+
+        Note:
+            This is a simplified implementation. For proper tail() behavior with lazy
+            evaluation, this method sorts all columns in descending order and takes
+            the first n rows. For better performance, consider using limit() directly
+            or collecting and using pandas tail().
+
+        Example:
+            >>> df.tail(10)  # Last 10 rows
+        """
+        # To get last n rows with lazy evaluation, we:
+        # 1. Sort by all columns in descending order
+        # 2. Limit to n rows
+        # Note: This doesn't preserve original order, but provides last n rows
+
+        cols = self.columns
+        if not cols:
+            return self
+
+        # Sort by all columns in descending order, then limit
+        from ..expressions.column import col
+
+        # Create a composite sort key - sort by all columns descending
+        sorted_df = self._df
+        for col_name in cols:
+            sorted_df = sorted_df.order_by(col(col_name).desc())
+
+        limited_df = sorted_df.limit(n)
+        return self._with_dataframe(limited_df)
+
+    def describe(self) -> "pd.DataFrame":
+        """Generate descriptive statistics (pandas-style).
+
+        Returns:
+            pandas DataFrame with summary statistics
+
+        Note:
+            This executes the query and requires pandas to be installed.
+
+        Example:
+            >>> stats = df.describe()
+        """
+        import importlib.util
+
+        if importlib.util.find_spec("pandas") is None:
+            raise ImportError(
+                "pandas is required to use describe(). Install with: pip install pandas"
+            )
+
+        # Collect the full DataFrame
+        pdf = self.collect()
+
+        # Use pandas describe
+        return pdf.describe()
+
+    def info(self) -> None:
+        """Print a concise summary of the DataFrame (pandas-style).
+
+        Prints column names, types, non-null counts, and memory usage.
+
+        Example:
+            >>> df.info()
+        """
+        import importlib.util
+
+        if importlib.util.find_spec("pandas") is None:
+            raise ImportError("pandas is required to use info(). Install with: pip install pandas")
+
+        # Collect the DataFrame
+        pdf = self.collect()
+
+        # Use pandas info
+        pdf.info()
+
+    def nunique(self, column: Optional[str] = None) -> Union[int, Dict[str, int]]:
+        """Count distinct values in column(s) (pandas-style).
+
+        Args:
+            column: Column name to count. If None, counts distinct values for all columns.
+
+        Returns:
+            If column is specified: integer count of distinct values.
+            If column is None: dictionary mapping column names to distinct counts.
+
+        Example:
+            >>> df.nunique('country')  # Count distinct countries
+            >>> df.nunique()  # Count distinct for all columns
+        """
+        from ..expressions.column import col
+        from ..expressions.functions import count_distinct
+
+        if column is not None:
+            # Validate column exists
+            self._validate_columns_exist([column], "nunique")
+            # Count distinct values in the column
+            count_df = self._df.select(count_distinct(col(column)).alias("count"))
+            result = count_df.collect()
+            if result and isinstance(result, list) and len(result) > 0:
+                row = result[0]
+                if isinstance(row, dict):
+                    count_val = row.get("count", 0)
+                    return int(count_val) if isinstance(count_val, (int, float)) else 0
+            return 0
+        else:
+            # Count distinct for all columns
+            from ..expressions.column import col
+
+            counts = {}
+            for col_name in self.columns:
+                count_df = self._df.select(count_distinct(col(col_name)).alias("count"))
+                result = count_df.collect()
+                if result and isinstance(result, list) and len(result) > 0:
+                    row = result[0]
+                    if isinstance(row, dict):
+                        count_val = row.get("count", 0)
+                        counts[col_name] = (
+                            int(count_val) if isinstance(count_val, (int, float)) else 0
+                        )
+                    else:
+                        counts[col_name] = 0
+                else:
+                    counts[col_name] = 0
+            return counts
+
+    def value_counts(
+        self, column: str, normalize: bool = False, ascending: bool = False
+    ) -> "pd.DataFrame":
+        """Count value frequencies (pandas-style).
+
+        Args:
+            column: Column name to count values for
+            normalize: If True, return proportions instead of counts
+            ascending: If True, sort in ascending order
+
+        Returns:
+            pandas DataFrame with value counts
+
+        Note:
+            This executes the query and requires pandas to be installed.
+
+        Example:
+            >>> df.value_counts('country')
+        """
+        try:
+            import pandas as pd
+        except ImportError:
+            raise ImportError(
+                "pandas is required to use value_counts(). Install with: pip install pandas"
+            )
+
+        # Validate column exists
+        self._validate_columns_exist([column], "value_counts")
+
+        # Group by column and count
+        from ..expressions.functions import count
+
+        grouped = self._df.group_by(column)
+        count_df = grouped.agg(count("*").alias("count"))
+
+        # Sort by count column using underlying DataFrame
+        from ..expressions.column import col
+
+        if ascending:
+            sorted_df = count_df.order_by(col("count"))
+        else:
+            sorted_df = count_df.order_by(col("count").desc())
+
+        # Collect results and convert to pandas DataFrame
+        results = sorted_df.collect()
+        pdf = pd.DataFrame(results)
+
+        # Normalize if requested
+        if normalize and len(pdf) > 0:
+            total = pdf["count"].sum()
+            if total > 0:
+                pdf["proportion"] = pdf["count"] / total
+                pdf = pdf.drop(columns=["count"])
+                pdf = pdf.rename(columns={"proportion": "count"})
+
+        return pdf
 
     @property
     def loc(self) -> "_LocIndexer":

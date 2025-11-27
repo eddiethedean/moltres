@@ -160,7 +160,7 @@ strict_equality = true
 strict_optional = true
 show_error_codes = true
 show_error_context = true
-mypy_path = "stubs"
+mypy_path = "tests/stubs"
 
 [[tool.mypy.overrides]]
 module = "tests.examples.*"
@@ -177,5 +177,5 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = false
 
-# Note: pyarrow type stubs are provided in stubs/pyarrow/
-# The stubs directory is automatically discovered by mypy
+# Note: pyarrow type stubs are provided in tests/stubs/pyarrow/
+# The stubs directory is automatically discovered by mypy via mypy_path

@@ -19,6 +19,7 @@ Welcome to the Moltres user guides! These guides provide practical, step-by-step
 - **[05 - Common Patterns](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md)** - Real-world patterns and use cases.
 - **[06 - Error Handling](https://github.com/eddiethedean/moltres/blob/main/guides/06-error-handling.md)** - Debug issues and handle errors effectively.
 - **[07 - Advanced Topics](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md)** - Advanced features for power users.
+- **[09 - Pandas Interface](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)** - Comprehensive guide to the pandas-style interface with string accessor and data inspection methods.
 
 ## Quick Navigation
 
@@ -29,8 +30,9 @@ Welcome to the Moltres user guides! These guides provide practical, step-by-step
 
 **Coming from Pandas?**
 1. Read [Migrating from Pandas](https://github.com/eddiethedean/moltres/blob/main/guides/02-migrating-from-pandas.md)
-2. Check [Common Patterns](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md) for equivalent operations
-3. Review [Performance Optimization](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md) for efficiency tips
+2. Learn the [Pandas Interface](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md) for pandas-style operations
+3. Check [Common Patterns](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md) for equivalent operations
+4. Review [Performance Optimization](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md) for efficiency tips
 
 **Coming from PySpark?**
 1. Read [Migrating from PySpark](https://github.com/eddiethedean/moltres/blob/main/guides/03-migrating-from-pyspark.md)

@@ -119,7 +119,7 @@ print("Selected columns:", df_selected.columns)  # type: ignore[union-attr]
 # Output: Selected columns: ['id', 'name', 'age']
 print()
 
-# Filter using query() method (pandas-style) - numeric comparisons work well
+# Filter using query() method (pandas-style) - supports AND/OR keywords
 df_filtered = df.query("age > 25")
 results = df_filtered.collect()
 print("Filtered results (age > 25):")
@@ -130,11 +130,21 @@ print_results(results, "name", "age", "country")
 #   David, 28, UK
 print()
 
-# For complex filtering with multiple conditions, use Column expressions or chain loc
-df_filtered_usa = df.loc[(df["age"] > 25) & (df["country"] == "USA")]  # type: ignore[operator]
+# Query with AND/OR keywords (improved syntax)
+df_filtered_usa = df.query("age > 25 and country == 'USA'")
 results_usa = df_filtered_usa.collect()
-print("Filtered results (age > 25 AND country == 'USA' using loc):")
+print("Filtered results (age > 25 AND country == 'USA' using query):")
 print_results(results_usa, "name", "age", "country")
+# Output:
+#   Alice, 30, USA
+#   Charlie, 35, USA
+print()
+
+# Alternative: use loc with Column expressions
+df_filtered_usa_loc = df.loc[(df["age"] > 25) & (df["country"] == "USA")]  # type: ignore[operator]
+results_usa_loc = df_filtered_usa_loc.collect()
+print("Filtered results (age > 25 AND country == 'USA' using loc):")
+print_results(results_usa_loc, "name", "age", "country")
 # Output:
 #   Alice, 30, USA
 #   Charlie, 35, USA
@@ -250,6 +260,74 @@ print_dict_results(results)
 #   {'id': 4, 'name': 'David', 'age': 28, 'country': 'UK'}
 #   {'id': 1, 'name': 'Alice', 'age': 30, 'country': 'USA'}
 #   {'id': 3, 'name': 'Charlie', 'age': 35, 'country': 'USA'}
+print()
+
+# ============================================================================
+# New Features: String Accessor, Data Inspection, and More
+# ============================================================================
+
+# String accessor for text operations (all executed in SQL)
+print("String accessor examples:")
+name_col = df["name"]
+# name_col is a PandasColumn when accessed as single column - type: ignore for examples
+# String methods
+print(f"  Upper case: {name_col.str.upper()}")  # type: ignore[union-attr]
+print(f"  Lower case: {name_col.str.lower()}")  # type: ignore[union-attr]
+print(f"  Contains 'Ali': {name_col.str.contains('Ali')}")  # type: ignore[union-attr]
+print(f"  Starts with 'A': {name_col.str.startswith('A')}")  # type: ignore[union-attr]
+print()
+
+# Use string accessor in filtering - df["name"] returns PandasColumn
+df_filtered_names = df[df["name"].str.contains("Ali")]  # type: ignore[union-attr]
+results_names = df_filtered_names.collect()  # type: ignore[union-attr]
+print("Users with 'Ali' in name:")
+print_results(results_names, "name", "age")
+# Output:
+#   Alice, 30
+print()
+
+# Data inspection methods
+print("Data inspection:")
+print(f"  dtypes: {df.dtypes}")
+# Output: {'id': 'int64', 'name': 'object', 'age': 'int64', 'country': 'object'}
+print(f"  shape: {df.shape}")
+# Output: (4, 4)
+print(f"  empty: {df.empty}")
+# Output: False
+print()
+
+# Convenience methods
+print("Head (first 2 rows):")
+head_df = df.head(2)
+head_results = head_df.collect()
+print_results(head_results, "name", "age")
+# Output:
+#   Alice, 30
+#   Bob, 25
+print()
+
+# Value counts
+print("Value counts for 'country':")
+vc_results = df.value_counts("country")
+print_dict_results(vc_results)
+# Output:
+#   {'country': 'USA', 'count': 2}
+#   {'country': 'UK', 'count': 2}
+print()
+
+# Unique value counts
+print("Unique values:")
+unique_countries = df.nunique("country")
+print(f"  Unique countries: {unique_countries}")
+# Output: Unique countries: 2
+print()
+
+# Drop duplicates with subset
+print("Drop duplicates on 'country':")
+df_unique = df.drop_duplicates(subset=["country"])
+results_unique = df_unique.collect()
+print(f"  Unique rows: {len(results_unique)}")
+print_results(results_unique, "name", "country")
 print()
 
 # Collect returns pandas DataFrame

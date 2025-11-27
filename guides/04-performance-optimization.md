@@ -45,6 +45,17 @@ db.create_index(
 Apply filters as early as possible in your query chain:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # ❌ Bad: Filters large dataset after join
 df = (
     db.table("orders")
@@ -60,6 +71,7 @@ df = (
     .where(col("amount") > 1000)  # Filter early
     .join(db.table("users").select(), on=[...])
 )
+
 ```
 
 ### 3. Select Only Needed Columns
@@ -67,6 +79,24 @@ df = (
 Avoid selecting all columns when you only need a few:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # ❌ Bad: Selects all columns
 df = db.table("users").select()  # Selects all columns
 results = df.collect()
@@ -74,6 +104,7 @@ results = df.collect()
 # ✅ Good: Select only needed columns
 df = db.table("users").select("id", "name", "email")
 results = df.collect()
+
 ```
 
 ### 4. Use LIMIT for Exploration
@@ -81,6 +112,24 @@ results = df.collect()
 When exploring data, use LIMIT to avoid loading large result sets:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # ✅ Good: Limit results during exploration
 df = (
     db.table("users")
@@ -89,6 +138,7 @@ df = (
     .limit(100)  # Only get first 100 rows
 )
 results = df.collect()
+
 ```
 
 ### 5. Optimize Joins
@@ -107,9 +157,16 @@ df = df1_filtered.join(df2, on=[...])
 **Ensure join keys are indexed:**
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Create indexes on join keys
 db.create_index("idx_orders_user_id", "orders", "user_id").collect()
 db.create_index("idx_users_id", "users", "id").collect()
+
 ```
 
 ### 6. Use Aggregations Efficiently
@@ -117,6 +174,24 @@ db.create_index("idx_users_id", "users", "id").collect()
 Push aggregations to the database level:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # ✅ Good: Aggregation happens in SQL
 df = (
     db.table("orders")
@@ -129,6 +204,7 @@ results = df.collect()  # Only 100 aggregated rows returned
 
 # ❌ Bad: Would load all data, then aggregate in Python
 # (Moltres doesn't do this, but be aware of the pattern)
+
 ```
 
 ### 7. Connection Pooling
@@ -168,6 +244,12 @@ async def process_large_dataset():
 For INSERT/UPDATE/DELETE, operations are automatically batched, but you can optimize:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # ✅ Good: Single batch insert
 records = Records.from_list(large_list, database=db)
 result = records.insert_into("users")  # Automatically batched
@@ -178,6 +260,7 @@ result = db.update(
     where=col("status") == "pending",
     set={"status": "active"}
 )  # Single SQL statement, updates all matching rows
+
 ```
 
 ### 10. Avoid N+1 Queries
@@ -185,6 +268,24 @@ result = db.update(
 Don't call `.collect()` in loops:
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # ❌ Bad: N+1 queries
 user_ids = [1, 2, 3, 4, 5]
 results = []
@@ -195,6 +296,7 @@ for user_id in user_ids:
 # ✅ Good: Single query with IN clause
 df = db.table("orders").select().where(col("user_id").isin(user_ids))
 results = df.collect()  # Single query
+
 ```
 
 ## Database-Specific Optimizations
@@ -202,6 +304,12 @@ results = df.collect()  # Single query
 ### PostgreSQL
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Use EXPLAIN ANALYZE to understand query plans
 plan = df.explain(analyze=True)
 print(plan)
@@ -210,11 +318,18 @@ print(plan)
 # - JSONB for JSON data
 # - Array types for arrays
 # - Full-text search indexes
+
 ```
 
 ### MySQL
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Use EXPLAIN to understand query plans
 plan = df.explain()
 print(plan)
@@ -223,6 +338,7 @@ print(plan)
 # - Use InnoDB for transactions
 # - Configure buffer pool size
 # - Use covering indexes
+
 ```
 
 ### SQLite
@@ -262,6 +378,11 @@ register_performance_hook("query_end", log_query)
 ### 3. Check Query Plans
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Get estimated plan
 plan = df.explain()
 print(plan)
@@ -269,6 +390,7 @@ print(plan)
 # Get actual execution stats (PostgreSQL)
 plan = df.explain(analyze=True)
 print(plan)
+
 ```
 
 ## Common Performance Pitfalls
@@ -276,6 +398,24 @@ print(plan)
 ### 1. Loading Entire Tables
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # ❌ Bad: Loads entire table
 df = db.table("huge_table").select()
 results = df.collect()  # May be millions of rows!
@@ -283,11 +423,30 @@ results = df.collect()  # May be millions of rows!
 # ✅ Good: Filter first
 df = db.table("huge_table").select().where(col("date") >= "2024-01-01")
 results = df.collect()
+
 ```
 
 ### 2. Multiple Collect Calls
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # ❌ Bad: Multiple queries
 df = db.table("users").select()
 count = len(df.collect())  # Query 1
@@ -298,11 +457,23 @@ df = db.table("users").select()
 count_df = df.select(F.count("*").alias("count"))
 count = count_df.collect()[0]["count"]
 filtered = df.where(col("age") > 25).collect()
+
 ```
 
 ### 3. Unnecessary Joins
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # ❌ Bad: Join when not needed
 df = (
     db.table("orders")
@@ -313,11 +484,30 @@ df = (
 
 # ✅ Good: No join needed
 df = db.table("orders").select("id", "amount")
+
 ```
 
 ### 4. Over-aggregation
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # ❌ Bad: Aggregating then filtering
 df = (
     db.table("orders")
@@ -336,6 +526,7 @@ df = (
     .having(col("total") > 1000)
 )
 results = df.collect()
+
 ```
 
 ## Performance Testing
@@ -343,7 +534,25 @@ results = df.collect()
 ### Benchmark Your Queries
 
 ```python
+from moltres import connect
 import time
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 
 def benchmark_query(df):
     start = time.perf_counter()
@@ -358,6 +567,7 @@ df2 = db.table("users").select("id", "name").where(col("age") > 25)
 
 results1 = benchmark_query(df1)
 results2 = benchmark_query(df2)
+
 ```
 
 ## Next Steps

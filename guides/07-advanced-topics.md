@@ -110,17 +110,47 @@ async def stream_data():
 ### Streaming Writes
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Stream DataFrame to file
 df = db.table("large_table").select()
 df.write.stream().csv("output.csv", mode="overwrite")
 
 # Stream with custom chunk size
 df.write.stream(chunk_size=5000).parquet("output.parquet")
+
 ```
 
 ### Chunked Processing
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 def process_in_chunks(db, table_name, chunk_size=1000):
     """Process table in chunks using row numbers."""
     from moltres import col
@@ -155,6 +185,7 @@ def process_in_chunks(db, table_name, chunk_size=1000):
         
         process_chunk(results)
         chunk_num += 1
+
 ```
 
 ## Custom SQL Functions
@@ -164,8 +195,19 @@ Use database-specific functions or create custom functions.
 ### Using Database Functions
 
 ```python
+from moltres import connect
 from moltres import col
 from moltres.expressions import functions as F
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 
 # PostgreSQL JSONB functions
 df = db.table("users").select(
@@ -176,6 +218,7 @@ df = db.table("users").select(
 df = db.table("orders").select(
     F.func("DATE_FORMAT", col("created_at"), "%Y-%m-%d").alias("date")
 )
+
 ```
 
 ### Creating Database Functions
@@ -213,6 +256,11 @@ Ensure data consistency with transactions.
 ### Basic Transactions
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Sync transaction
 with db.transaction() as txn:
     db.insert("users", [{"name": "Alice"}])
@@ -224,11 +272,17 @@ async def transaction_example():
     async with db.transaction() as txn:
         await db.insert("users", [{"name": "Alice"}])
         await db.insert("orders", [{"user_id": 1, "amount": 100}])
+
 ```
 
 ### Manual Transaction Control
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Begin transaction
 txn = db.begin_transaction()
 
@@ -239,11 +293,17 @@ try:
 except Exception as e:
     txn.rollback()
     raise
+
 ```
 
 ### Nested Transactions
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Outer transaction
 with db.transaction() as outer:
     db.insert("users", [{"name": "Alice"}])
@@ -252,6 +312,7 @@ with db.transaction() as outer:
     with db.transaction() as inner:
         db.insert("orders", [{"user_id": 1, "amount": 100}])
         # Can rollback inner without affecting outer
+
 ```
 
 ## Schema Management
@@ -263,6 +324,11 @@ Programmatically manage database schemas.
 ### Reflecting Existing Schemas
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Reflect single table
 schema = db.reflect_table("users")
 print(f"Table: {schema.name}")
@@ -273,11 +339,17 @@ for col_def in schema.columns:
 all_schemas = db.reflect()
 for table_name, schema in all_schemas.items():
     print(f"{table_name}: {len(schema.columns)} columns")
+
 ```
 
 ### Schema Comparison
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 def compare_schemas(db, table1, table2):
     schema1 = db.reflect_table(table1)
     schema2 = db.reflect_table(table2)
@@ -299,11 +371,17 @@ def compare_schemas(db, table1, table2):
         "only_in_2": only_in_2,
         "different_types": different_types
     }
+
 ```
 
 ### Schema Migration
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 def migrate_schema(db, table_name, new_columns):
     """Add new columns to existing table."""
     existing = db.get_columns(table_name)
@@ -313,6 +391,7 @@ def migrate_schema(db, table_name, new_columns):
         if col_def.name not in existing_names:
             # Add column
             db.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_def.name} {col_def.type_name}")
+
 ```
 
 ## SQLAlchemy Integration
@@ -327,6 +406,11 @@ Integrate with existing SQLAlchemy code.
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import DeclarativeBase
 from moltres import connect, col
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 class Base(DeclarativeBase):
     pass
@@ -344,6 +428,7 @@ db.create_table(User).collect()
 # Query using model
 df = db.table(User).select().where(col("name") == "Alice")
 results = df.collect()
+
 ```
 
 ### Using SQLAlchemy Engine
@@ -385,8 +470,19 @@ Advanced analytical queries with window functions.
 ### Ranking
 
 ```python
+from moltres import connect
 from moltres.expressions import functions as F
 from moltres.expressions.window import Window
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 
 # Rank products by revenue
 df = (
@@ -399,11 +495,23 @@ df = (
         F.rank().over(Window.order_by(col("revenue").desc()))
     )
 )
+
 ```
 
 ### Moving Averages
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # 7-day moving average
 df = (
     db.table("daily_sales")
@@ -415,11 +523,23 @@ df = (
         ).alias("ma_7day")
     )
 )
+
 ```
 
 ### Partitioned Windows
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Rank within each category
 df = (
     db.table("products")
@@ -431,11 +551,23 @@ df = (
         )
     )
 )
+
 ```
 
 ### Cumulative Sums
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 # Running total
 df = (
     db.table("transactions")
@@ -447,6 +579,7 @@ df = (
         ).alias("running_total")
     )
 )
+
 ```
 
 ## CTEs and Subqueries
@@ -458,6 +591,24 @@ Use Common Table Expressions for complex queries.
 ### Simple CTE
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # Using CTE
 df = (
     db.table("users")
@@ -472,11 +623,30 @@ result = (
     .select()
     .join(df, on=[col("orders.user_id") == col("adult_users.id")])
 )
+
 ```
 
 ### Recursive CTE
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # Recursive CTE for hierarchical data
 initial = (
     db.table("employees")
@@ -496,11 +666,30 @@ recursive = (
 # Create recursive CTE
 hierarchy = db.recursive_cte("employee_hierarchy", initial, recursive)
 results = hierarchy.collect()
+
 ```
 
 ### Subqueries
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # Subquery in WHERE clause
 subquery = (
     db.table("orders")
@@ -515,6 +704,7 @@ df = (
     .select()
     .where(col("id").isin(subquery.select("user_id")))
 )
+
 ```
 
 ## Performance Tuning
@@ -522,12 +712,19 @@ df = (
 ### Query Hints
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # PostgreSQL query hints (via raw SQL)
 df = db.sql("""
     SELECT /*+ INDEX(users idx_user_email) */ *
     FROM users
     WHERE email = :email
 """, email="alice@example.com")
+
 ```
 
 ### Connection Pooling

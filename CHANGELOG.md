@@ -8,6 +8,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Enhanced Pandas-Style Interface** – Comprehensive improvements to the pandas-style interface (`PandasDataFrame`):
+  - **String Accessor** – Added `.str` accessor for pandas-style string operations:
+    - Methods: `upper()`, `lower()`, `strip()`, `lstrip()`, `rstrip()`, `contains()`, `startswith()`, `endswith()`, `replace()`, `split()`, `len()`
+    - Full SQL pushdown execution for all string operations
+    - Access via `df['col'].str.upper()` syntax
+  - **Improved Query Syntax** – Enhanced `query()` method:
+    - Supports both `=` and `==` for equality comparisons (pandas-style)
+    - Supports `AND`/`OR` keywords in addition to `&`/`|` operators
+    - Better error messages for syntax errors
+  - **Data Type Information** – Implemented proper `dtypes` property:
+    - Real schema inspection using SQL type mapping
+    - Returns pandas-compatible dtype strings (`'int64'`, `'float64'`, `'object'`, etc.)
+    - Cached after first access to avoid redundant queries
+  - **Data Inspection Methods** – Added comprehensive pandas-style inspection methods:
+    - `head(n=5)` – Returns first n rows as list of dicts
+    - `tail(n=5)` – Returns last n rows with stable sorting
+    - `describe()` – Statistical summary (requires pandas, returns pandas DataFrame)
+    - `info()` – Column info and memory usage (requires pandas)
+    - `nunique(column)` – Count unique values in a column
+    - `value_counts(column, normalize=False)` – Count frequency of values
+  - **Fixed drop_duplicates** – Corrected implementation to properly handle `subset` parameter:
+    - Uses GROUP BY with MIN/MAX aggregation for subset-based deduplication
+    - Supports `keep='first'` and `keep='last'` parameters
+  - **Early Column Validation** – Added column existence validation:
+    - Validates columns before building logical plans
+    - Provides helpful error messages with typo suggestions
+    - Integrated into `__getitem__`, `query()`, `merge()`, `sort_values()`, `groupby()`, etc.
+  - **Enhanced GroupBy** – Added pandas-style aggregation methods:
+    - `sum()`, `mean()`, `min()`, `max()` – Aggregate all numeric columns
+    - `count()` – Count rows per group
+    - `nunique()` – Count distinct values for each column
+    - `first()`, `last()` – Get first/last value per group
+  - **Column Access Improvements** – `df['col']` now returns `PandasColumn`:
+    - Wrapper around `Column` that adds `.str` accessor
+    - Forwards all Column methods and operators
+    - Enables pandas-like syntax: `df['name'].str.upper()`
+  - **Shape Caching** – Added caching for `shape` property:
+    - Results cached after first computation to avoid redundant queries
+    - Warnings for expensive operations
+  - Comprehensive test coverage (all tests passing)
+  - Updated examples (`examples/18_pandas_interface.py`) and documentation
+- **Runnable Guide Documentation** – All guide code blocks are now fully runnable:
+  - Created automated script (`scripts/make_guides_runnable.py`) to update code blocks
+  - Updated 131 code blocks across 8 guides to use `sqlite:///:memory:`
+  - All examples include complete setup (imports, database creation, data insertion)
+  - All 567 examples validated and passing
+- **New Pandas Interface Guide** – Created comprehensive guide (`guides/09-pandas-interface.md`):
+  - Getting started with `PandasDataFrame`
+  - Column access and string operations
+  - Query filtering with improved syntax
+  - Data inspection methods
+  - GroupBy operations
+  - Merging, sorting, and data manipulation
+  - All code examples are self-contained and runnable
 - **SQLAlchemy ORM Model Integration** – Comprehensive bidirectional integration between SQLAlchemy ORM models and Moltres:
   - **Model-based table creation** – Create tables directly from SQLAlchemy model classes:
     - `db.create_table(User)` – Automatically extracts schema, constraints, and types from model
@@ -39,11 +93,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Explode compilation** – `explode()` now emits working SQL for SQLite (via `json_each`) and PostgreSQL (`jsonb_array_elements`), unlocking table-valued expansions for array/JSON columns on those dialects.
 
 ### Fixed
-- **FILTER fallback stability** – the CASE-expression fallback used when a dialect lacks native `FILTER` support now compiles with SQLAlchemy’s `sa_case`, avoiding `UnboundLocalError` crashes on SQLite.
+- **FILTER fallback stability** – the CASE-expression fallback used when a dialect lacks native `FILTER` support now compiles with SQLAlchemy's `sa_case`, avoiding `UnboundLocalError` crashes on SQLite.
 - **Async health checks** – the dev extra now installs `asyncpg`, and the async PostgreSQL health test runs successfully by default.
+- **Pandas interface column validation** – Fixed `drop_duplicates()` to properly handle `subset` parameter using GROUP BY operations
+- **SQL parser improvements** – Fixed `AND`/`OR` keyword parsing in query parser by adjusting regex patterns to work correctly after whitespace skipping
+- **LIKE pattern compilation** – Fixed `like` and `ilike` operations to correctly handle string patterns in SQL compiler
 
 ### Changed
 - **Type-checking polish** – records/dataframe helpers and examples were tightened so `mypy` passes across `src/` and `examples/`, including forward-declared pandas/polars types and stricter Records typing.
+- **Documentation improvements** – All guide code blocks updated to be fully runnable with SQLite in-memory databases for easy setup and testing.
+- **Error handling** – Enhanced error messages in pandas-style interface with column validation and typo suggestions for better user experience.
 
 ## [0.14.0] - 2025-01-27
 

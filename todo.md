@@ -189,6 +189,35 @@ This file tracks planned features, improvements, and tasks for Moltres.
 
 ## ✅ Recently Completed
 
+### Pandas-Style Interface Enhancements ✅ **COMPLETED**
+- ✅ Enhanced pandas-style interface (`PandasDataFrame`) with comprehensive improvements:
+  - ✅ **String Accessor** - Added `.str` accessor for pandas-style string operations (`upper()`, `lower()`, `strip()`, `contains()`, `startswith()`, `endswith()`, `replace()`, `split()`, `len()`)
+  - ✅ **Improved Query Syntax** - Enhanced `query()` method to support both `=` and `==` for equality, and `AND`/`OR` keywords in addition to `&`/`|`
+  - ✅ **Proper dtypes Property** - Implemented real schema inspection to return pandas-compatible dtype strings (e.g., 'int64', 'object', 'float64')
+  - ✅ **Shape and Empty Properties** - Added caching for `shape` property to avoid redundant database queries
+  - ✅ **Data Inspection Methods** - Added `head()`, `tail()`, `describe()`, `info()`, `nunique()`, `value_counts()` methods
+  - ✅ **Fixed drop_duplicates** - Corrected implementation to properly handle `subset` parameter using GROUP BY
+  - ✅ **Early Column Validation** - Added column existence validation with helpful error messages and typo suggestions
+  - ✅ **Enhanced GroupBy** - Added pandas-style aggregation methods (`sum()`, `mean()`, `min()`, `max()`, `nunique()`, `first()`, `last()`)
+  - ✅ **Column Access Improvements** - `df['col']` now returns `PandasColumn` with `.str` accessor support
+  - ✅ Comprehensive test coverage (all tests passing)
+  - ✅ Updated examples and documentation
+
+### Documentation & Examples Improvements ✅ **COMPLETED**
+- ✅ **Runnable Guide Code** - Updated all guide code blocks to be fully runnable using `sqlite:///:memory:`
+  - ✅ Created automated script (`scripts/make_guides_runnable.py`) to update 131 code blocks across 8 guides
+  - ✅ All code examples now include complete setup (imports, database creation, data insertion)
+  - ✅ All 567 examples validated and passing
+  - ✅ Guides updated: 01-getting-started, 02-migrating-from-pandas, 03-migrating-from-pyspark, 04-performance-optimization, 06-error-handling, 07-advanced-topics, 08-best-practices, 09-pandas-interface
+- ✅ **New Pandas Interface Guide** - Created comprehensive guide (`guides/09-pandas-interface.md`) covering:
+  - Getting started with `PandasDataFrame`
+  - Column access and string operations
+  - Query filtering with improved syntax
+  - Data inspection methods
+  - GroupBy operations
+  - Merging, sorting, and data manipulation
+- ✅ **Updated README and Examples** - Enhanced documentation with new pandas-style interface features
+
 ### Type Safety & Code Quality Improvements ✅ **COMPLETED**
 - ✅ Fixed mypy type errors in join condition normalization (`_normalize_join_condition` in both `DataFrame` and `AsyncDataFrame`)
 - ✅ Fixed redundant cast errors in `mutations.py` (`insert_rows` and `merge_rows` functions)

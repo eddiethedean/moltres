@@ -69,7 +69,13 @@ df_filtered = df[df['email'].str.contains('@example.com')]
 
 **Moltres:**
 ```python
+from moltres import connect
 from moltres import col
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 # Single condition
 df_filtered = df.where(col("age") > 25)
@@ -86,6 +92,7 @@ df_filtered = df.where(
 
 # Execute to get results
 results = df_filtered.collect()
+
 ```
 
 ### 3. Selecting Columns
@@ -101,7 +108,12 @@ df['age_plus_10'] = df['age'] + 10
 
 **Moltres:**
 ```python
+from moltres import connect
 from moltres import col
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 # Select specific columns
 df_selected = df.select("id", "name", "email")
@@ -111,12 +123,19 @@ df_new = df.select(
     "*",  # All existing columns
     (col("age") + 10).alias("age_plus_10")
 )
+
 ```
 
 ### 4. GroupBy and Aggregations
 
 **Pandas:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Simple aggregation
 result = df.groupby('country').agg({
     'amount': 'sum',
@@ -128,12 +147,18 @@ result = df.groupby('country').agg({
     'amount': ['sum', 'mean', 'max'],
     'id': 'count'
 })
+
 ```
 
 **Moltres:**
 ```python
+from moltres import connect
 from moltres import col
 from moltres.expressions import functions as F
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 # Simple aggregation
 result = (
@@ -154,6 +179,7 @@ result = (
         F.count("*").alias("count")
     )
 )
+
 ```
 
 ### 5. Joins
@@ -210,6 +236,11 @@ result = df1.join(
 
 **Pandas:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Ascending
 df_sorted = df.sort_values('age')
 
@@ -218,10 +249,16 @@ df_sorted = df.sort_values('age', ascending=False)
 
 # Multiple columns
 df_sorted = df.sort_values(['active', 'age'], ascending=[False, True])
+
 ```
 
 **Moltres:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Ascending
 df_sorted = df.order_by("age")
 
@@ -233,6 +270,7 @@ df_sorted = df.order_by(
     col("active").desc(),
     col("age").asc()
 )
+
 ```
 
 ### 7. Adding/Modifying Columns
@@ -251,7 +289,12 @@ df['category'] = df['age'].apply(lambda x: 'adult' if x >= 18 else 'minor')
 
 **Moltres:**
 ```python
+from moltres import connect
 from moltres.expressions import functions as F
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 # Add new column (use withColumn or select)
 df_new = df.withColumn(
@@ -270,20 +313,46 @@ df_new = df.withColumn(
     "category",
     F.when(col("age") >= 18, "adult").otherwise("minor")
 )
+
 ```
 
 ### 8. Working with Results
 
 **Pandas:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Results are already DataFrames
 df = pd.read_csv("data.csv")
 result = df.groupby('country').sum()
 # result is a DataFrame
+
 ```
 
 **Moltres:**
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # Results are lists of dicts by default
 df = db.table("users").select()
 results = df.collect()
@@ -297,15 +366,34 @@ results = df.collect(format="pandas")
 import pandas as pd
 results = df.collect()
 df_pandas = pd.DataFrame(results)
+
 ```
 
 ## Using Pandas-Style Interface
 
 Moltres also provides a pandas-style interface for easier migration:
 
-**See also:** [Pandas interface examples](https://github.com/eddiethedean/moltres/blob/main/examples/18_pandas_interface.py) and [Pandas/Polars integration examples](https://github.com/eddiethedean/moltres/blob/main/examples/15_pandas_polars_dataframes.py)
+**See also:** [Pandas interface examples](https://github.com/eddiethedean/moltres/blob/main/examples/18_pandas_interface.py), [Pandas/Polars integration examples](https://github.com/eddiethedean/moltres/blob/main/examples/15_pandas_polars_dataframes.py), and the [Pandas Interface Guide](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # Get pandas-style DataFrame
 df = db.table("users").pandas()
 
@@ -316,6 +404,7 @@ df_merged = df1.merge(df2, left_on='id', right_on='user_id', how='inner')
 
 # Still need to call collect()
 results = df_filtered.collect()
+
 ```
 
 ## Handling Large Datasets
@@ -354,6 +443,24 @@ async def stream_large_results():
 **Problem**: Forgetting to call `.collect()`
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
+
+# Create sample table
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 # Pandas (eager)
 df = pd.read_csv("data.csv")
 df_filtered = df[df['age'] > 25]  # Executes immediately
@@ -362,6 +469,7 @@ df_filtered = df[df['age'] > 25]  # Executes immediately
 df = db.table("users").select()
 df_filtered = df.where(col("age") > 25)  # Doesn't execute yet!
 results = df_filtered.collect()  # Must call collect()
+
 ```
 
 ### Challenge 2: Boolean Values
@@ -369,6 +477,11 @@ results = df_filtered.collect()  # Must call collect()
 **Problem**: SQLite uses INTEGER (0/1) instead of boolean
 
 ```python
+from moltres import connect
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 # Pandas
 df[df['active'] == True]
 
@@ -377,6 +490,7 @@ df.where(col("active") == 1)  # Use 1 instead of True
 
 # Moltres (PostgreSQL/MySQL)
 df.where(col("active") == True)  # Can use True
+
 ```
 
 ### Challenge 3: String Operations
@@ -389,10 +503,16 @@ df['name'].str.upper()
 
 **Moltres:**
 ```python
+from moltres import connect
 from moltres.expressions import functions as F
+from moltres.table.schema import column
+
+# Use in-memory SQLite for easy setup (no file needed)
+db = connect("sqlite:///:memory:")
 
 df.where(col("email").like("%@example.com"))
 df.select(F.upper(col("name")).alias("name_upper"))
+
 ```
 
 ## Migration Checklist

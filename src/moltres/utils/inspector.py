@@ -535,3 +535,79 @@ def reflect_database(
             logger.warning(f"Failed to reflect view '{view_name}': {e}")
 
     return result
+
+
+def sql_type_to_pandas_dtype(sql_type: str) -> str:
+    """Map SQL type names to pandas dtype strings.
+
+    Args:
+        sql_type: SQL type name (e.g., "INTEGER", "TEXT", "VARCHAR(255)", "REAL")
+
+    Returns:
+        pandas dtype string (e.g., "int64", "object", "float64")
+
+    Example:
+        >>> sql_type_to_pandas_dtype("INTEGER")
+        'int64'
+        >>> sql_type_to_pandas_dtype("TEXT")
+        'object'
+        >>> sql_type_to_pandas_dtype("REAL")
+        'float64'
+    """
+    # Normalize the type name - remove parameters and convert to uppercase
+    type_upper = sql_type.upper().strip()
+    # Remove parameters if present (e.g., "VARCHAR(255)" -> "VARCHAR")
+    if "(" in type_upper:
+        type_upper = type_upper.split("(")[0].strip()
+
+    # Remove parentheses suffix if present
+    type_upper = type_upper.replace("()", "")
+
+    # Map SQL types to pandas dtypes
+    type_mapping: Dict[str, str] = {
+        # Integer types
+        "INTEGER": "int64",
+        "INT": "int64",
+        "BIGINT": "int64",
+        "SMALLINT": "int64",
+        "TINYINT": "int64",
+        "SERIAL": "int64",
+        "BIGSERIAL": "int64",
+        # Floating point types
+        "REAL": "float64",
+        "FLOAT": "float64",
+        "DOUBLE": "float64",
+        "DOUBLE PRECISION": "float64",
+        "NUMERIC": "float64",
+        "DECIMAL": "float64",
+        "MONEY": "float64",
+        # Text types
+        "TEXT": "object",
+        "VARCHAR": "object",
+        "CHAR": "object",
+        "CHARACTER": "object",
+        "STRING": "object",
+        "CLOB": "object",
+        # Binary types
+        "BLOB": "object",
+        "BYTEA": "object",
+        "BINARY": "object",
+        "VARBINARY": "object",
+        # Boolean
+        "BOOLEAN": "bool",
+        "BOOL": "bool",
+        # Date/Time types
+        "DATE": "datetime64[ns]",
+        "TIME": "datetime64[ns]",
+        "TIMESTAMP": "datetime64[ns]",
+        "DATETIME": "datetime64[ns]",
+        "TIMESTAMPTZ": "datetime64[ns]",
+        # JSON types
+        "JSON": "object",
+        "JSONB": "object",
+        # UUID
+        "UUID": "object",
+    }
+
+    # Return mapped type or default to 'object' for unknown types
+    return type_mapping.get(type_upper, "object")

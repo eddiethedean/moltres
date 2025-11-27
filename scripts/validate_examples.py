@@ -108,12 +108,12 @@ def main():
     project_root = Path(__file__).parent.parent
 
     markdown_files = list(find_all_markdown_files(project_root))
-    # Filter to only docs and README, but skip internal planning docs that aren't runnable
+    # Filter to only docs, guides, and README, but skip internal planning docs that aren't runnable
     skip_files = {"IMPROVE_PYTEST_GREEN_LIGHT.md"}
     markdown_files = [
         f
         for f in markdown_files
-        if ("docs" in str(f) or f.name == "README.md") and f.name not in skip_files
+        if ("docs" in str(f) or "guides" in str(f) or f.name == "README.md") and f.name not in skip_files
     ]
 
     total_passed = 0

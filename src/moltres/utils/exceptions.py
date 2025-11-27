@@ -285,3 +285,38 @@ class UnsupportedOperationError(MoltresError):
                 "for supported operations and alternatives."
             )
         super().__init__(message, suggestion, context)
+
+
+class PandasAPIError(MoltresError):
+    """Raised when pandas-style API operations fail."""
+
+    def __init__(
+        self, message: str, suggestion: Optional[str] = None, context: Optional[dict] = None
+    ):
+        """Initialize pandas API error."""
+        if suggestion is None:
+            suggestion = (
+                "This pandas-style operation encountered an error. "
+                "Check that column names are correct and operations are valid."
+            )
+        super().__init__(message, suggestion, context)
+
+
+class ColumnNotFoundError(ValidationError):
+    """Raised when a column is not found in a DataFrame."""
+
+    def __init__(
+        self,
+        column_name: str,
+        available_columns: Sequence[str],
+        suggestion: Optional[str] = None,
+        context: Optional[dict] = None,
+    ):
+        """Initialize column not found error."""
+        message = f"Column '{column_name}' not found"
+        if suggestion is None:
+            suggestion = _suggest_column_name(column_name, available_columns)
+        context = context or {}
+        context["column_name"] = column_name
+        context["available_columns"] = available_columns
+        super().__init__(message, suggestion, context)

@@ -947,11 +947,19 @@ class ExpressionCompiler:
         # Convert SQLAlchemy column element to SQL string
         return str(compiled.compile(compile_kwargs={"literal_binds": True}))
 
-    def _compile(self, expression: Column) -> ColumnElement:
+    def _compile(self, expression: Union[Column, str, Any]) -> ColumnElement:
         """Compile a Column expression to a SQLAlchemy column expression."""
         # Import here to ensure it's available throughout the method
         from sqlalchemy import column as sa_column, literal_column
         from sqlalchemy.sql import ColumnElement
+
+        # Handle string literals directly
+        if isinstance(expression, str):
+            return literal(expression)
+
+        # Must be a Column expression at this point
+        if not isinstance(expression, Column):
+            raise CompilationError(f"Expected Column expression, got {type(expression)}")
 
         op = expression.op
 
@@ -1715,10 +1723,20 @@ class ExpressionCompiler:
             return result
         if op == "like":
             left, pattern = expression.args
-            return self._compile(left).like(self._compile(pattern))
+            # Pattern is stored as a string - SQLAlchemy's like() accepts string directly
+            compiled_left = self._compile(left)
+            result = compiled_left.like(pattern)  # pattern is a string
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "ilike":
             left, pattern = expression.args
-            return self._compile(left).ilike(self._compile(pattern))
+            # Pattern is stored as a string - SQLAlchemy's ilike() accepts string directly
+            compiled_left = self._compile(left)
+            result = compiled_left.ilike(pattern)  # pattern is a string
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         if op == "contains":
             column, substring = expression.args
             # substring might be a Column or a string
@@ -3075,7 +3093,7 @@ class ExpressionCompiler:
                 for col_expr in window_spec.order_by:  # type: ignore[assignment]
                     # col_expr is a Column from window_spec.order_by: tuple[Column, ...]
                     # _compile returns ColumnElement, but mypy may infer Column due to type complexity
-                    sa_order_col = self._compile(col_expr)  # type: ignore[arg-type]
+                    sa_order_col = self._compile(col_expr)
                     # Check if it has desc/asc already applied
                     if isinstance(col_expr, Column) and col_expr.op == "sort_desc":
                         sa_order_col = sa_order_col.desc()
