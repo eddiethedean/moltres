@@ -536,7 +536,7 @@ db.create_table("products", [
 - ✅ Full backward compatibility with existing API
 - ✅ Async support for SQLAlchemy models
 
-**See more examples:** `examples/17_sqlalchemy_models.py`
+**See more examples:** [examples/17_sqlalchemy_models.py](https://github.com/eddiethedean/moltres/blob/main/examples/17_sqlalchemy_models.py)
 
 ### Async Support
 
