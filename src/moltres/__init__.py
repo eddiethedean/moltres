@@ -64,7 +64,7 @@ def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
         )
 
 
-__version__ = "0.17.0"
+__version__ = "0.18.0"
 
 __all__ = [
     "AsyncDatabase",
