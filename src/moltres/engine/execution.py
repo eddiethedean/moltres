@@ -17,6 +17,7 @@ from ..utils.exceptions import ExecutionError
 from .connection import ConnectionManager
 
 if TYPE_CHECKING:
+    from sqlalchemy.engine import Connection
     from sqlalchemy.sql import Select
     import pandas as pd
     import polars as pl
@@ -54,13 +55,19 @@ class QueryExecutor:
         self._config = config
 
     def fetch(
-        self, stmt: Union[str, "Select"], params: Optional[Dict[str, Any]] = None
+        self,
+        stmt: Union[str, "Select"],
+        params: Optional[Dict[str, Any]] = None,
+        connection: Optional["Connection"] = None,
     ) -> QueryResult:
         """Execute a SELECT query and return results.
 
         Args:
             stmt: The SQLAlchemy Select statement or SQL string to execute
             params: Optional parameter dictionary for parameterized queries (only used with SQL strings)
+            connection: Optional SQLAlchemy Connection to use. If provided, uses this connection
+                       directly instead of creating a new one. Useful for executing within
+                       existing transactions. The connection's lifecycle is not managed by this method.
 
         Returns:
             QueryResult containing rows and rowcount
@@ -83,7 +90,10 @@ class QueryExecutor:
         _call_hooks("query_start", sql_str, 0.0, {"params": params})
 
         try:
-            with self._connections.connect() as conn:
+            # Use provided connection or create a new one
+            if connection is not None:
+                # Use the provided connection directly (don't manage its lifecycle)
+                conn = connection
                 # Apply query timeout if configured
                 execution_options = {}
                 if self._config.query_timeout is not None:
@@ -107,22 +117,58 @@ class QueryExecutor:
                         )
                     else:
                         result = conn.execute(text(stmt), params or {})
+            else:
+                # Create a new connection (manage its lifecycle)
+                with self._connections.connect() as conn:
+                    # Apply query timeout if configured
+                    execution_options = {}
+                    if self._config.query_timeout is not None:
+                        execution_options["timeout"] = self._config.query_timeout
+
+                    # Execute SQLAlchemy statement directly or use text() for SQL strings
+                    if isinstance(stmt, Select):
+                        # Suppress cartesian product warnings for cross joins (intentional)
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings(
+                                "ignore", category=SAWarning, message=".*cartesian product.*"
+                            )
+                            if execution_options:
+                                result = conn.execution_options(**execution_options).execute(stmt)
+                            else:
+                                result = conn.execute(stmt)
+                    else:
+                        if execution_options:
+                            result = conn.execution_options(**execution_options).execute(
+                                text(stmt), params or {}
+                            )
+                        else:
+                            result = conn.execute(text(stmt), params or {})
+
+                    # Fetch rows while still inside the connection context
+                    # (important for databases like DuckDB where result sets are tied to connections)
+                    rows = result.fetchall()
+                    columns = list(result.keys())
+                    payload = self._format_rows(rows, columns)
+                    rowcount = len(rows) if isinstance(rows, list) else result.rowcount or 0
+
+            # For provided connections, fetch after execution
+            if connection is not None:
                 rows = result.fetchall()
                 columns = list(result.keys())
                 payload = self._format_rows(rows, columns)
                 rowcount = len(rows) if isinstance(rows, list) else result.rowcount or 0
 
-                elapsed = time.perf_counter() - start_time
-                logger.debug("Query returned %d rows in %.3f seconds", rowcount, elapsed)
+            elapsed = time.perf_counter() - start_time
+            logger.debug("Query returned %d rows in %.3f seconds", rowcount, elapsed)
 
-                _call_hooks(
-                    "query_end",
-                    sql_str,
-                    elapsed,
-                    {"rowcount": rowcount, "params": params},
-                )
+            _call_hooks(
+                "query_end",
+                sql_str,
+                elapsed,
+                {"rowcount": rowcount, "params": params},
+            )
 
-                return QueryResult(rows=payload, rowcount=rowcount)
+            return QueryResult(rows=payload, rowcount=rowcount)
         except SQLAlchemyError as exc:
             elapsed = time.perf_counter() - start_time
             logger.error("SQL execution failed after %.3f seconds: %s", elapsed, exc, exc_info=True)

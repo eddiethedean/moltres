@@ -70,13 +70,19 @@ class AsyncQueryExecutor:
         self._config = config
 
     async def fetch(
-        self, stmt: Union[str, "Select"], params: Optional[Dict[str, Any]] = None
+        self,
+        stmt: Union[str, "Select"],
+        params: Optional[Dict[str, Any]] = None,
+        connection: Optional["AsyncConnection"] = None,
     ) -> AsyncQueryResult:
         """Execute a SELECT query and return results.
 
         Args:
             stmt: The SQLAlchemy Select statement or SQL string to execute
             params: Optional parameter dictionary (only used with SQL strings)
+            connection: Optional SQLAlchemy AsyncConnection to use. If provided, uses this connection
+                       directly instead of creating a new one. Useful for executing within
+                       existing async transactions. The connection's lifecycle is not managed by this method.
 
         Returns:
             AsyncQueryResult containing rows and rowcount
@@ -99,7 +105,10 @@ class AsyncQueryExecutor:
         _call_async_hooks("query_start", sql_str, 0.0, {"params": params})
 
         try:
-            async with self._connections.connect() as conn:
+            # Use provided connection or create a new one
+            if connection is not None:
+                # Use the provided connection directly (don't manage its lifecycle)
+                conn = connection
                 exec_conn = self._apply_timeout(conn)
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
                 # Suppress cartesian product warnings for cross joins (intentional)
@@ -111,22 +120,46 @@ class AsyncQueryExecutor:
                         result = await exec_conn.execute(stmt)
                     else:
                         result = await exec_conn.execute(text(stmt), params or {})
+            else:
+                # Create a new connection (manage its lifecycle)
+                async with self._connections.connect() as conn:
+                    exec_conn = self._apply_timeout(conn)
+                    # Execute SQLAlchemy statement directly or use text() for SQL strings
+                    # Suppress cartesian product warnings for cross joins (intentional)
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore", category=SAWarning, message=".*cartesian product.*"
+                        )
+                        if isinstance(stmt, Select):
+                            result = await exec_conn.execute(stmt)
+                        else:
+                            result = await exec_conn.execute(text(stmt), params or {})
+
+                    # Fetch rows while still inside the connection context
+                    # (important for databases like DuckDB where result sets are tied to connections)
+                    rows = result.fetchall()
+                    columns = list(result.keys())
+                    payload = await self._format_rows(rows, columns)
+                    rowcount = len(rows) if isinstance(rows, list) else result.rowcount or 0
+
+            # For provided connections, fetch after execution
+            if connection is not None:
                 rows = result.fetchall()
                 columns = list(result.keys())
                 payload = await self._format_rows(rows, columns)
                 rowcount = len(rows) if isinstance(rows, list) else result.rowcount or 0
 
-                elapsed = time.perf_counter() - start_time
-                logger.debug("Async query returned %d rows in %.3f seconds", rowcount, elapsed)
+            elapsed = time.perf_counter() - start_time
+            logger.debug("Async query returned %d rows in %.3f seconds", rowcount, elapsed)
 
-                _call_async_hooks(
-                    "query_end",
-                    sql_str,
-                    elapsed,
-                    {"rowcount": rowcount, "params": params},
-                )
+            _call_async_hooks(
+                "query_end",
+                sql_str,
+                elapsed,
+                {"rowcount": rowcount, "params": params},
+            )
 
-                return AsyncQueryResult(rows=payload, rowcount=result.rowcount)
+            return AsyncQueryResult(rows=payload, rowcount=result.rowcount)
         except SQLAlchemyError as exc:
             elapsed = time.perf_counter() - start_time
             logger.error(

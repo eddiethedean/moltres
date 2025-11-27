@@ -26,6 +26,7 @@ from ..config import MoltresConfig
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
     from sqlalchemy.orm import DeclarativeBase
     from ..dataframe.async_dataframe import AsyncDataFrame
     from ..dataframe.async_pandas_dataframe import AsyncPandasDataFrame
@@ -67,7 +68,7 @@ class AsyncTableHandle:
 
     name: str
     database: "AsyncDatabase"
-    model: Optional[Type["DeclarativeBase"]] = None
+    model: Optional[Type[Any]] = None  # Can be SQLModel, Pydantic, or SQLAlchemy model
 
     @property
     def model_class(self) -> Optional[Type["DeclarativeBase"]]:
@@ -177,6 +178,129 @@ class AsyncDatabase:
     def executor(self) -> AsyncQueryExecutor:
         return self._executor
 
+    @classmethod
+    def from_async_engine(cls, engine: "AsyncEngine", **options: object) -> "AsyncDatabase":
+        """Create an AsyncDatabase instance from an existing SQLAlchemy AsyncEngine.
+
+        This allows you to use Moltres with an existing SQLAlchemy AsyncEngine,
+        enabling integration with existing async SQLAlchemy projects.
+
+        Args:
+            engine: SQLAlchemy AsyncEngine instance
+            **options: Optional configuration parameters:
+                - echo: Enable SQLAlchemy echo mode
+                - fetch_format: Result format - "records", "pandas", or "polars"
+                - dialect: Override SQL dialect detection
+                - query_timeout: Query execution timeout in seconds
+                - Other options are stored in config.options
+
+        Returns:
+            AsyncDatabase instance configured to use the provided AsyncEngine
+
+        Example:
+            >>> from sqlalchemy.ext.asyncio import create_async_engine
+            >>> from moltres import AsyncDatabase
+            >>> engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+            >>> db = AsyncDatabase.from_async_engine(engine)
+            >>> # Now use Moltres with your existing async engine
+            >>> from moltres.table.schema import column
+            >>> await db.create_table("users", [column("id", "INTEGER")]).collect()
+        """
+        from ..config import create_config
+
+        # Type ignore needed because mypy doesn't understand **options unpacking
+        config = create_config(engine=engine, **options)  # type: ignore[arg-type]
+        return cls(config=config)
+
+    @classmethod
+    def from_async_connection(
+        cls, connection: "AsyncConnection", **options: object
+    ) -> "AsyncDatabase":
+        """Create an AsyncDatabase instance from an existing SQLAlchemy AsyncConnection.
+
+        This allows you to use Moltres with an existing SQLAlchemy AsyncConnection,
+        enabling integration within existing async transactions.
+
+        Note: The AsyncDatabase will use the AsyncConnection's engine, but will not manage
+        the AsyncConnection's lifecycle. The user is responsible for managing the connection.
+
+        Args:
+            connection: SQLAlchemy AsyncConnection instance
+            **options: Optional configuration parameters (same as from_async_engine)
+
+        Returns:
+            AsyncDatabase instance configured to use the AsyncConnection's engine
+
+        Example:
+            >>> from sqlalchemy.ext.asyncio import create_async_engine
+            >>> from moltres import AsyncDatabase
+            >>> engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+            >>> async with engine.connect() as conn:
+            ...     db = AsyncDatabase.from_async_connection(conn)
+            ...     # Use Moltres within the connection's transaction
+            ...     from moltres.table.schema import column
+            ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
+        """
+        # Extract engine from connection
+        engine = connection.engine
+        return cls.from_async_engine(engine, **options)
+
+    @classmethod
+    def from_async_session(cls, session: "AsyncSession", **options: object) -> "AsyncDatabase":
+        """Create an AsyncDatabase instance from a SQLAlchemy AsyncSession.
+
+        This allows you to use Moltres with an existing SQLAlchemy AsyncSession,
+        enabling integration with async ORM-based applications.
+
+        Note: The AsyncDatabase will use the AsyncSession's bind/engine, but will not manage
+        the AsyncSession's lifecycle. The user is responsible for managing the session.
+
+        Args:
+            session: SQLAlchemy AsyncSession instance
+            **options: Optional configuration parameters (same as from_async_engine)
+
+        Returns:
+            AsyncDatabase instance configured to use the AsyncSession's bind/engine
+
+        Example:
+            >>> from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+            >>> from moltres import AsyncDatabase
+            >>> engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+            >>> AsyncSession = async_sessionmaker(bind=engine)
+            >>> async with AsyncSession() as session:
+            ...     db = AsyncDatabase.from_async_session(session)
+            ...     # Use Moltres with your existing async session
+            ...     from moltres.table.schema import column
+            ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
+        """
+        # Extract engine/bind from session
+        from sqlalchemy.ext.asyncio import AsyncEngine
+
+        if hasattr(session, "bind") and session.bind is not None:
+            engine = session.bind
+            # Ensure we have an AsyncEngine
+            if not isinstance(engine, AsyncEngine):
+                raise ValueError(
+                    "Session bind is not a valid AsyncEngine instance. "
+                    "Ensure the session is bound to an async engine."
+                )
+        elif hasattr(session, "connection"):
+            # For async sessions, might have connection instead
+            # Note: connection() is async, but we can't await here
+            # We'll need to get the sync engine from the async engine
+            # This is a limitation - we need the engine, not the connection
+            raise ValueError(
+                "Cannot extract engine from AsyncSession with connection() method. "
+                "Use from_async_engine() or from_async_connection() instead, "
+                "or ensure the session has a bind attribute."
+            )
+        else:
+            raise ValueError(
+                "AsyncSession does not have a bind or connection. "
+                "Ensure the session is bound to an engine."
+            )
+        return cls.from_async_engine(engine, **options)
+
     @overload
     async def table(self, name: str) -> AsyncTableHandle:
         """Get a handle to a table in the database from table name."""
@@ -188,19 +312,19 @@ class AsyncDatabase:
         ...
 
     async def table(  # type: ignore[misc]
-        self, name_or_model: Union[str, Type["DeclarativeBase"]]
+        self, name_or_model: Union[str, Type["DeclarativeBase"], Type[Any]]
     ) -> AsyncTableHandle:
         """Get a handle to a table in the database.
 
         Args:
-            name_or_model: Name of the table, or SQLAlchemy model class
+            name_or_model: Name of the table, SQLAlchemy model class, or SQLModel model class
 
         Returns:
             AsyncTableHandle for the specified table
 
         Raises:
             ValidationError: If table name is invalid
-            ValueError: If model_class is not a valid SQLAlchemy model
+            ValueError: If model_class is not a valid SQLAlchemy or SQLModel model
 
         Example:
             >>> import asyncio
@@ -227,16 +351,27 @@ class AsyncDatabase:
             is_sqlalchemy_model,
             get_model_table_name,
         )
+        from ..utils.sqlmodel_integration import (
+            is_sqlmodel_model,
+            get_sqlmodel_table_name,
+        )
 
-        # Check if argument is a SQLAlchemy model
-        if is_sqlalchemy_model(name_or_model):
-            model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
-            table_name = get_model_table_name(model_class)
+        # Check if argument is a SQLModel model
+        if is_sqlmodel_model(name_or_model):
+            sqlmodel_class: Type[Any] = name_or_model  # type: ignore[assignment]
+            table_name = get_sqlmodel_table_name(sqlmodel_class)
             # Validate table name format
             quote_identifier(table_name, self._dialect.quote_char)
-            return AsyncTableHandle(name=table_name, database=self, model=model_class)
+            return AsyncTableHandle(name=table_name, database=self, model=sqlmodel_class)
+        # Check if argument is a SQLAlchemy model
+        elif is_sqlalchemy_model(name_or_model):
+            sa_model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
+            table_name = get_model_table_name(sa_model_class)
+            # Validate table name format
+            quote_identifier(table_name, self._dialect.quote_char)
+            return AsyncTableHandle(name=table_name, database=self, model=sa_model_class)
         else:
-            # Type narrowing: after is_sqlalchemy_model check, this must be str
+            # Type narrowing: after model checks, this must be str
             table_name = name_or_model  # type: ignore[assignment]
             if not table_name:
                 raise ValidationError("Table name cannot be empty")

@@ -997,51 +997,63 @@ async def seed_customers_orders_async(db):
     await orders_records.insert_into("orders")
 
 
-@pytest_asyncio.fixture(scope="function")
-async def postgresql_async_connection(postgresql_db, postgresql_schema):
-    """Create an async Moltres Database connection to ephemeral PostgreSQL."""
-    if pytest_asyncio is None:
+if pytest_asyncio is not None:
+
+    @pytest_asyncio.fixture(scope="function")
+    async def postgresql_async_connection(postgresql_db, postgresql_schema):
+        """Create an async Moltres Database connection to ephemeral PostgreSQL."""
+        try:
+            from moltres import async_connect
+        except ImportError:
+            pytest.skip("async_connect not available (async dependencies not installed)")
+
+        # Extract connection info from postgresql_db
+        dsn = _dsn_with_search_path(postgresql_db.url(), postgresql_schema)
+        # Convert postgresql:// to postgresql+asyncpg:// for async connections
+        if dsn.startswith("postgresql://") and "+asyncpg" not in dsn:
+            dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+        db = async_connect(dsn)
+        try:
+            yield db
+        finally:
+            # Close all connections and dispose engine before database stops
+            if hasattr(db, "close"):
+                await db.close()
+else:
+
+    @pytest.fixture
+    async def postgresql_async_connection(postgresql_db, postgresql_schema):
+        """Create an async Moltres Database connection to ephemeral PostgreSQL."""
         pytest.skip("pytest_asyncio not available")
-    try:
-        from moltres import async_connect
-    except ImportError:
-        pytest.skip("async_connect not available (async dependencies not installed)")
-
-    # Extract connection info from postgresql_db
-    dsn = _dsn_with_search_path(postgresql_db.url(), postgresql_schema)
-    # Convert postgresql:// to postgresql+asyncpg:// for async connections
-    if dsn.startswith("postgresql://") and "+asyncpg" not in dsn:
-        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-    db = async_connect(dsn)
-    try:
-        yield db
-    finally:
-        # Close all connections and dispose engine before database stops
-        if hasattr(db, "close"):
-            await db.close()
 
 
-@pytest_asyncio.fixture(scope="function")
-async def mysql_async_connection(mysql_db, mysql_database):
-    """Create an async Moltres Database connection to reusable MySQL."""
-    if pytest_asyncio is None:
+if pytest_asyncio is not None:
+
+    @pytest_asyncio.fixture(scope="function")
+    async def mysql_async_connection(mysql_db, mysql_database):
+        """Create an async Moltres Database connection to reusable MySQL."""
+        try:
+            from moltres import async_connect
+        except ImportError:
+            pytest.skip("async_connect not available (async dependencies not installed)")
+
+        # Extract connection info from mysql_db
+        dsn = _dsn_with_database(mysql_db.url(), mysql_database)
+        # Convert to async driver format (mysql+pymysql:// -> mysql+aiomysql://)
+        if dsn.startswith("mysql+pymysql://"):
+            dsn = dsn.replace("mysql+pymysql://", "mysql+aiomysql://", 1)
+        elif dsn.startswith("mysql://"):
+            dsn = dsn.replace("mysql://", "mysql+aiomysql://", 1)
+        db = async_connect(dsn)
+        try:
+            yield db
+        finally:
+            # Close all connections and dispose engine before database stops
+            if hasattr(db, "close"):
+                await db.close()
+else:
+
+    @pytest.fixture
+    async def mysql_async_connection(mysql_db, mysql_database):
+        """Create an async Moltres Database connection to reusable MySQL."""
         pytest.skip("pytest_asyncio not available")
-    try:
-        from moltres import async_connect
-    except ImportError:
-        pytest.skip("async_connect not available (async dependencies not installed)")
-
-    # Extract connection info from mysql_db
-    dsn = _dsn_with_database(mysql_db.url(), mysql_database)
-    # Convert to async driver format (mysql+pymysql:// -> mysql+aiomysql://)
-    if dsn.startswith("mysql+pymysql://"):
-        dsn = dsn.replace("mysql+pymysql://", "mysql+aiomysql://", 1)
-    elif dsn.startswith("mysql://"):
-        dsn = dsn.replace("mysql://", "mysql+aiomysql://", 1)
-    db = async_connect(dsn)
-    try:
-        yield db
-    finally:
-        # Close all connections and dispose engine before database stops
-        if hasattr(db, "close"):
-            await db.close()

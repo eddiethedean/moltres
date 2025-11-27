@@ -34,6 +34,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 - 🌊 **Streaming Support** - Handle datasets larger than memory with chunked processing
 - ⚡ **Async Support** - Full async/await support for all operations
 - 🔒 **Security First** - Built-in SQL injection prevention and validation
+- 🎯 **SQLModel & Pydantic Integration** - Attach models to DataFrames for type safety and validation
 
 ## 📦 Installation
 
@@ -47,6 +48,9 @@ pip install moltres[async-sqlite]     # SQLite
 
 # Optional: For pandas/polars result formats
 pip install moltres[pandas,polars]
+
+# Optional: For SQLModel/Pydantic integration
+pip install moltres[sqlmodel]  # Includes both SQLModel and Pydantic
 ```
 
 ## 🚀 Quick Start
@@ -86,7 +90,7 @@ df['name'].str.upper()  # String accessor
 df.groupby('country').agg(age='mean')  # GroupBy
 ```
 
-📚 **[See the Pandas Interface Guide →](guides/09-pandas-interface.md)**
+📚 **[See the Pandas Interface Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)**
 
 ### Polars-Style Interface
 
@@ -99,7 +103,39 @@ df.filter((col("age") > 25) & (col("country") == "USA"))
 df.group_by("country").agg(F.sum(col("age")))
 ```
 
-📚 **[See the Polars Interface Guide →](guides/10-polars-interface.md)**
+📚 **[See the Polars Interface Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/10-polars-interface.md)**
+
+### SQLModel & Pydantic Integration
+
+Attach SQLModel or Pydantic models to DataFrames for type safety and validation:
+
+```python
+from sqlmodel import SQLModel, Field
+from pydantic import BaseModel
+
+# SQLModel: Database-backed models
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+    id: int = Field(primary_key=True)
+    name: str
+    email: str
+
+# Pydantic: Validation-only models
+class UserData(BaseModel):
+    id: int
+    name: str
+    email: str
+
+# Use with SQLModel
+df = db.table(User).select()
+results = df.collect()  # Returns list of User instances
+
+# Use with Pydantic
+df = db.table("users").select().with_model(UserData)
+results = df.collect()  # Returns list of UserData instances with validation
+```
+
+📚 **[See the SQLModel & Pydantic Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)**
 
 ### CRUD Operations
 
@@ -119,65 +155,68 @@ db.update("users", where=col("active") == 0, set={"active": 1})
 db.delete("users", where=col("email").is_null())
 ```
 
-📚 **[See CRUD Operations Guide →](guides/05-common-patterns.md#data-mutations)**
+📚 **[See CRUD Operations Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md#data-mutations)**
 
 ## 📖 Documentation
 
 ### Getting Started
-- **[Getting Started Guide](guides/01-getting-started.md)** - Step-by-step introduction
-- **[Examples Directory](examples/)** - 19 comprehensive example files
-- **[Examples Guide](docs/EXAMPLES.md)** - Common patterns and use cases
+- **[Getting Started Guide](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md)** - Step-by-step introduction
+- **[Examples Directory](https://github.com/eddiethedean/moltres/tree/main/examples)** - 19 comprehensive example files
+- **[Examples Guide](https://github.com/eddiethedean/moltres/blob/main/docs/EXAMPLES.md)** - Common patterns and use cases
 
 ### Interface Guides
-- **[Pandas Interface](guides/09-pandas-interface.md)** - Complete pandas-style API reference
-- **[Polars Interface](guides/10-polars-interface.md)** - Complete Polars-style API reference
-- **[PySpark Migration](guides/03-migrating-from-pyspark.md)** - Migrating from PySpark
+- **[Pandas Interface](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)** - Complete pandas-style API reference
+- **[Polars Interface](https://github.com/eddiethedean/moltres/blob/main/guides/10-polars-interface.md)** - Complete Polars-style API reference
+- **[PySpark Migration](https://github.com/eddiethedean/moltres/blob/main/guides/03-migrating-from-pyspark.md)** - Migrating from PySpark
 
 ### Core Topics
-- **[Reading Data](guides/01-getting-started.md#reading-data)** - Tables, SQL, files
-- **[Writing Data](guides/01-getting-started.md#writing-data)** - Tables, files, formats
-- **[Table Management](guides/01-getting-started.md#table-management)** - Create, drop, constraints
-- **[Schema Inspection](guides/01-getting-started.md#schema-inspection)** - Reflection and inspection
-- **[Streaming](guides/04-performance-optimization.md#streaming)** - Large dataset handling
-- **[Async Operations](guides/07-advanced-topics.md#async-support)** - Async/await support
+- **[Reading Data](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#reading-data)** - Tables, SQL, files
+- **[Writing Data](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#writing-data)** - Tables, files, formats
+- **[Table Management](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#table-management)** - Create, drop, constraints
+- **[Schema Inspection](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#schema-inspection)** - Reflection and inspection
+- **[Streaming](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md#streaming)** - Large dataset handling
+- **[Async Operations](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md#async-support)** - Async/await support
 
 ### Advanced Topics
-- **[Performance Optimization](guides/04-performance-optimization.md)** - Query optimization and best practices
-- **[Error Handling](guides/06-error-handling.md)** - Exception handling and debugging
-- **[Best Practices](guides/08-best-practices.md)** - Production-ready patterns
-- **[Advanced Topics](guides/07-advanced-topics.md)** - Window functions, CTEs, transactions
+- **[Performance Optimization](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)** - Query optimization and best practices
+- **[Error Handling](https://github.com/eddiethedean/moltres/blob/main/guides/06-error-handling.md)** - Exception handling and debugging
+- **[Best Practices](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)** - Production-ready patterns
+- **[Advanced Topics](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md)** - Window functions, CTEs, transactions
+- **[SQLModel & Pydantic Integration](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models with SQLModel and Pydantic
 
 ### Reference
-- **[Why Moltres?](docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
-- **[Security Guide](docs/SECURITY.md)** - Security best practices
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[API Reference](docs/api/)** - Complete API documentation
+- **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
+- **[Security Guide](https://github.com/eddiethedean/moltres/blob/main/docs/SECURITY.md)** - Security best practices
+- **[Troubleshooting](https://github.com/eddiethedean/moltres/blob/main/docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[API Reference](https://github.com/eddiethedean/moltres/tree/main/docs/api)** - Complete API documentation
 
 ## 📚 Examples
 
 Comprehensive examples demonstrating all Moltres features:
 
-- **[01_connecting.py](examples/01_connecting.py)** - Database connections (sync and async)
-- **[02_dataframe_basics.py](examples/02_dataframe_basics.py)** - Basic DataFrame operations
-- **[03_async_dataframe.py](examples/03_async_dataframe.py)** - Asynchronous operations
-- **[04_joins.py](examples/04_joins.py)** - Join operations
-- **[05_groupby.py](examples/05_groupby.py)** - GroupBy and aggregation
-- **[06_expressions.py](examples/06_expressions.py)** - Column expressions and functions
-- **[07_file_reading.py](examples/07_file_reading.py)** - Reading files (CSV, JSON, Parquet)
-- **[08_file_writing.py](examples/08_file_writing.py)** - Writing DataFrames to files
-- **[09_table_operations.py](examples/09_table_operations.py)** - Table operations and mutations
-- **[10_create_dataframe.py](examples/10_create_dataframe.py)** - Creating DataFrames from Python data
-- **[11_window_functions.py](examples/11_window_functions.py)** - Window functions
-- **[12_sql_operations.py](examples/12_sql_operations.py)** - Raw SQL and SQL operations
-- **[13_transactions.py](examples/13_transactions.py)** - Transaction management
-- **[14_reflection.py](examples/14_reflection.py)** - Schema inspection and reflection
-- **[15_pandas_polars_dataframes.py](examples/15_pandas_polars_dataframes.py)** - Pandas/Polars integration
-- **[16_ux_features.py](examples/16_ux_features.py)** - UX improvements
-- **[17_sqlalchemy_models.py](examples/17_sqlalchemy_models.py)** - SQLAlchemy ORM integration
-- **[18_pandas_interface.py](examples/18_pandas_interface.py)** - Pandas-style interface examples
-- **[19_polars_interface.py](examples/19_polars_interface.py)** - Polars-style interface examples
+- **[01_connecting.py](https://github.com/eddiethedean/moltres/blob/main/examples/01_connecting.py)** - Database connections (sync and async)
+- **[02_dataframe_basics.py](https://github.com/eddiethedean/moltres/blob/main/examples/02_dataframe_basics.py)** - Basic DataFrame operations
+- **[03_async_dataframe.py](https://github.com/eddiethedean/moltres/blob/main/examples/03_async_dataframe.py)** - Asynchronous operations
+- **[04_joins.py](https://github.com/eddiethedean/moltres/blob/main/examples/04_joins.py)** - Join operations
+- **[05_groupby.py](https://github.com/eddiethedean/moltres/blob/main/examples/05_groupby.py)** - GroupBy and aggregation
+- **[06_expressions.py](https://github.com/eddiethedean/moltres/blob/main/examples/06_expressions.py)** - Column expressions and functions
+- **[07_file_reading.py](https://github.com/eddiethedean/moltres/blob/main/examples/07_file_reading.py)** - Reading files (CSV, JSON, Parquet)
+- **[08_file_writing.py](https://github.com/eddiethedean/moltres/blob/main/examples/08_file_writing.py)** - Writing DataFrames to files
+- **[09_table_operations.py](https://github.com/eddiethedean/moltres/blob/main/examples/09_table_operations.py)** - Table operations and mutations
+- **[10_create_dataframe.py](https://github.com/eddiethedean/moltres/blob/main/examples/10_create_dataframe.py)** - Creating DataFrames from Python data
+- **[11_window_functions.py](https://github.com/eddiethedean/moltres/blob/main/examples/11_window_functions.py)** - Window functions
+- **[12_sql_operations.py](https://github.com/eddiethedean/moltres/blob/main/examples/12_sql_operations.py)** - Raw SQL and SQL operations
+- **[13_transactions.py](https://github.com/eddiethedean/moltres/blob/main/examples/13_transactions.py)** - Transaction management
+- **[14_reflection.py](https://github.com/eddiethedean/moltres/blob/main/examples/14_reflection.py)** - Schema inspection and reflection
+- **[15_pandas_polars_dataframes.py](https://github.com/eddiethedean/moltres/blob/main/examples/15_pandas_polars_dataframes.py)** - Pandas/Polars integration
+- **[16_ux_features.py](https://github.com/eddiethedean/moltres/blob/main/examples/16_ux_features.py)** - UX improvements
+- **[17_sqlalchemy_models.py](https://github.com/eddiethedean/moltres/blob/main/examples/17_sqlalchemy_models.py)** - SQLAlchemy ORM integration
+- **[18_pandas_interface.py](https://github.com/eddiethedean/moltres/blob/main/examples/18_pandas_interface.py)** - Pandas-style interface examples
+- **[19_polars_interface.py](https://github.com/eddiethedean/moltres/blob/main/examples/19_polars_interface.py)** - Polars-style interface examples
+- **[20_sqlalchemy_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/20_sqlalchemy_integration.py)** - SQLAlchemy integration patterns
+- **[21_sqlmodel_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/21_sqlmodel_integration.py)** - SQLModel and Pydantic integration
 
-See the [examples directory](examples/) for all example files.
+See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
 
 ## 🛠️ Supported Operations
 
@@ -201,7 +240,7 @@ See the [examples directory](examples/) for all example files.
 - **Functions**: 130+ functions including mathematical, string, date/time, aggregate, window, array, JSON, and utility functions
 - **Window Functions**: `over()`, `partition_by()`, `order_by()` - Full PySpark compatibility
 
-📚 **[See Expressions Guide →](examples/06_expressions.py)**
+📚 **[See Expressions Guide →](https://github.com/eddiethedean/moltres/blob/main/examples/06_expressions.py)**
 
 ### Supported SQL Dialects
 - ✅ **SQLite** - Full support
@@ -264,7 +303,7 @@ make ci-check-lint
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please see [`CONTRIBUTING.md`](https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md) for guidelines.
 
 **Quick Start:**
 1. Fork the repository
@@ -293,7 +332,7 @@ Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for g
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](https://github.com/eddiethedean/moltres/blob/main/LICENSE) file for details.
 
 ---
 

@@ -30,6 +30,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     import pandas as pd
+    from sqlalchemy.sql import Select
     from ..table.table import Database
     from .pandas_groupby import PandasGroupBy
 
@@ -604,6 +605,32 @@ class PandasDataFrame:
             # Single result
             results = self._df.collect(stream=False)
             return pd.DataFrame(results)
+
+    def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
+        """Convert PandasDataFrame's logical plan to a SQLAlchemy Select statement.
+
+        This method delegates to the underlying DataFrame's to_sqlalchemy() method,
+        allowing you to use PandasDataFrame with existing SQLAlchemy infrastructure.
+
+        Args:
+            dialect: Optional SQL dialect name. If not provided, uses the dialect
+                    from the attached Database, or defaults to "ansi"
+
+        Returns:
+            SQLAlchemy Select statement that can be executed with any SQLAlchemy connection
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from sqlalchemy import create_engine
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.table("users").pandas()
+            >>> stmt = df.to_sqlalchemy()
+            >>> # Execute with existing SQLAlchemy connection
+            >>> engine = create_engine("sqlite:///:memory:")
+            >>> with engine.connect() as conn:
+            ...     result = conn.execute(stmt)
+        """
+        return self._df.to_sqlalchemy(dialect=dialect)
 
     @property
     def columns(self) -> List[str]:

@@ -23,6 +23,7 @@ from .dataframe import DataFrame
 
 if TYPE_CHECKING:
     import polars as pl
+    from sqlalchemy.sql import Select
 
     from ..table.table import Database
     from .polars_column import PolarsColumn
@@ -939,6 +940,32 @@ class PolarsDataFrame:
                 return results
 
             return pl.DataFrame(results)
+
+    def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
+        """Convert PolarsDataFrame's logical plan to a SQLAlchemy Select statement.
+
+        This method delegates to the underlying DataFrame's to_sqlalchemy() method,
+        allowing you to use PolarsDataFrame with existing SQLAlchemy infrastructure.
+
+        Args:
+            dialect: Optional SQL dialect name. If not provided, uses the dialect
+                    from the attached Database, or defaults to "ansi"
+
+        Returns:
+            SQLAlchemy Select statement that can be executed with any SQLAlchemy connection
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from sqlalchemy import create_engine
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.table("users").polars()
+            >>> stmt = df.to_sqlalchemy()
+            >>> # Execute with existing SQLAlchemy connection
+            >>> engine = create_engine("sqlite:///:memory:")
+            >>> with engine.connect() as conn:
+            ...     result = conn.execute(stmt)
+        """
+        return self._df.to_sqlalchemy(dialect=dialect)
 
     def fetch(self, n: int) -> "pl.DataFrame":
         """Fetch first n rows without full collection.

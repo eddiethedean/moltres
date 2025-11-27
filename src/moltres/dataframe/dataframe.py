@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import (
     TYPE_CHECKING,
+    Any,
     Dict,
     Iterator,
     List,
@@ -13,6 +14,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Type,
     Union,
     overload,
 )
@@ -23,6 +25,7 @@ from ..logical.plan import FileScan, LogicalPlan, RawSQL, SortOrder
 from ..sql.compiler import compile_plan
 
 if TYPE_CHECKING:
+    from sqlalchemy.sql import Select
     from ..io.records import Records
     from ..table.table import Database, TableHandle
     from ..utils.inspector import ColumnInfo
@@ -35,6 +38,7 @@ if TYPE_CHECKING:
 class DataFrame:
     plan: LogicalPlan
     database: Optional["Database"] = None
+    model: Optional[Type[Any]] = None  # SQLModel class, if attached
 
     # ------------------------------------------------------------------ builders
     @classmethod
@@ -42,10 +46,61 @@ class DataFrame:
         cls, table_handle: "TableHandle", columns: Optional[Sequence[str]] = None
     ) -> "DataFrame":
         plan = operators.scan(table_handle.name)
-        df = cls(plan=plan, database=table_handle.database)
+        # Check if table_handle has a model attached (SQLModel, Pydantic, or SQLAlchemy)
+        model = None
+        if hasattr(table_handle, "model") and table_handle.model is not None:
+            # Check if it's a SQLModel or Pydantic model
+            from ..utils.sqlmodel_integration import is_model_class
+
+            if is_model_class(table_handle.model):
+                model = table_handle.model
+        df = cls(plan=plan, database=table_handle.database, model=model)
         if columns:
             df = df.select(*columns)
         return df
+
+    @classmethod
+    def from_sqlalchemy(
+        cls, select_stmt: "Select", database: Optional["Database"] = None
+    ) -> "DataFrame":
+        """Create a DataFrame from a SQLAlchemy Select statement.
+
+        This allows you to integrate existing SQLAlchemy queries with Moltres
+        DataFrame operations. The SQLAlchemy statement is wrapped as a RawSQL
+        logical plan, which can then be further chained with Moltres operations.
+
+        Args:
+            select_stmt: SQLAlchemy Select statement to convert
+            database: Optional Database instance to attach to the DataFrame.
+                     If provided, allows the DataFrame to be executed with collect().
+
+        Returns:
+            DataFrame that can be further chained with Moltres operations
+
+        Example:
+            >>> from sqlalchemy import create_engine, select, table, column
+            >>> from moltres import DataFrame
+            >>> engine = create_engine("sqlite:///:memory:")
+            >>> # Create a SQLAlchemy select statement
+            >>> users = table("users", column("id"), column("name"))
+            >>> sa_stmt = select(users.c.id, users.c.name).where(users.c.id > 1)
+            >>> # Convert to Moltres DataFrame
+            >>> df = DataFrame.from_sqlalchemy(sa_stmt)
+            >>> # Can now chain Moltres operations
+            >>> df2 = df.select("id")
+        """
+        from sqlalchemy.sql import Select
+
+        if not isinstance(select_stmt, Select):
+            raise TypeError(f"Expected SQLAlchemy Select statement, got {type(select_stmt)}")
+
+        # Compile to SQL string
+        sql_str = str(select_stmt.compile(compile_kwargs={"literal_binds": True}))
+
+        # Create RawSQL logical plan
+        plan = RawSQL(sql=sql_str, params=None)
+
+        return cls(plan=plan, database=database)
 
     def select(self, *columns: Union[Column, str]) -> "DataFrame":
         """Select specific columns from the DataFrame.
@@ -1286,6 +1341,46 @@ class DataFrame:
             return str(stmt.compile(compile_kwargs={"literal_binds": True}))
         return str(stmt)
 
+    def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
+        """Convert DataFrame's logical plan to a SQLAlchemy Select statement.
+
+        This method allows you to use Moltres DataFrames with existing SQLAlchemy
+        connections, sessions, or other SQLAlchemy infrastructure.
+
+        Args:
+            dialect: Optional SQL dialect name (e.g., "postgresql", "mysql", "sqlite").
+                    If not provided, uses the dialect from the attached Database,
+                    or defaults to "ansi" if no Database is attached.
+
+        Returns:
+            SQLAlchemy Select statement that can be executed with any SQLAlchemy connection
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> from sqlalchemy import create_engine
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> # Convert to SQLAlchemy statement
+            >>> stmt = df.to_sqlalchemy()
+            >>> # Execute with existing SQLAlchemy connection
+            >>> engine = create_engine("sqlite:///:memory:")
+            >>> with engine.connect() as conn:
+            ...     result = conn.execute(stmt)
+            ...     rows = result.fetchall()
+            >>> db.close()
+        """
+        # Determine dialect to use
+        if dialect is None:
+            if self.database is not None:
+                dialect = self.database._dialect_name
+            else:
+                dialect = "ansi"
+
+        # Compile logical plan to SQLAlchemy Select statement
+        return compile_plan(self.plan, dialect=dialect)
+
     def explain(self, analyze: bool = False) -> str:
         """Get the query execution plan using SQL EXPLAIN.
 
@@ -1366,7 +1461,9 @@ class DataFrame:
 
     def collect(
         self, stream: bool = False
-    ) -> Union[List[Dict[str, object]], Iterator[List[Dict[str, object]]]]:
+    ) -> Union[
+        List[Dict[str, object]], Iterator[List[Dict[str, object]]], List[Any], Iterator[List[Any]]
+    ]:
         """Collect DataFrame results.
 
         Args:
@@ -1374,11 +1471,14 @@ class DataFrame:
                    materialize all rows into a list.
 
         Returns:
-            If stream=False: List of dictionaries representing rows.
-            If stream=True: Iterator of row chunks (each chunk is a list of dicts).
+            If stream=False and no model attached: List of dictionaries representing rows.
+            If stream=False and model attached: List of SQLModel or Pydantic instances.
+            If stream=True and no model attached: Iterator of row chunks (each chunk is a list of dicts).
+            If stream=True and model attached: Iterator of row chunks (each chunk is a list of model instances).
 
         Raises:
             RuntimeError: If DataFrame is not bound to a Database
+            ImportError: If model is attached but Pydantic or SQLModel is not installed
 
         Example:
             >>> from moltres import connect, col
@@ -1404,13 +1504,44 @@ class DataFrame:
         if self.database is None:
             raise RuntimeError("Cannot collect a plan without an attached Database")
 
+        # Helper function to convert rows to model instances if model is attached
+        def _convert_rows(
+            rows: List[Dict[str, object]],
+        ) -> Union[List[Dict[str, object]], List[Any]]:
+            if self.model is not None:
+                try:
+                    from ..utils.sqlmodel_integration import rows_to_models
+
+                    return rows_to_models(rows, self.model)
+                except ImportError:
+                    # Check if it's a Pydantic or SQLModel import error
+                    try:
+                        import pydantic  # noqa: F401
+                        import sqlmodel  # noqa: F401
+                    except ImportError:
+                        raise ImportError(
+                            "Pydantic or SQLModel is required when a model is attached to DataFrame. "
+                            "Install with: pip install pydantic or pip install sqlmodel"
+                        ) from None
+                    raise
+            return rows
+
         # Handle RawSQL at root level - execute directly for efficiency
         if isinstance(self.plan, RawSQL):
             if stream:
                 # For streaming, we need to use execute_plan_stream which expects a compiled plan
                 # So we'll compile the RawSQL plan
                 plan = self._materialize_filescan(self.plan)
-                return self.database.execute_plan_stream(plan)
+                stream_iter = self.database.execute_plan_stream(plan)
+                # Convert each chunk to SQLModel instances if model is attached
+                if self.model is not None:
+
+                    def _convert_stream() -> Iterator[List[Any]]:
+                        for chunk in stream_iter:
+                            yield _convert_rows(chunk)
+
+                    return _convert_stream()
+                return stream_iter
             else:
                 # Execute RawSQL directly
                 result = self.database.execute_sql(self.plan.sql, params=self.plan.params)
@@ -1420,19 +1551,30 @@ class DataFrame:
                 if hasattr(result.rows, "to_dict"):
                     records = result.rows.to_dict("records")  # type: ignore[call-overload]
                     # Convert Hashable keys to str keys
-                    return [{str(k): v for k, v in row.items()} for row in records]
+                    rows = [{str(k): v for k, v in row.items()} for row in records]
+                    return _convert_rows(rows)
                 if hasattr(result.rows, "to_dicts"):
                     records = list(result.rows.to_dicts())
                     # Convert Hashable keys to str keys
-                    return [{str(k): v for k, v in row.items()} for row in records]
-                return result.rows
+                    rows = [{str(k): v for k, v in row.items()} for row in records]
+                    return _convert_rows(rows)
+                return _convert_rows(result.rows)
 
         # Handle FileScan by materializing file data into a temporary table
         plan = self._materialize_filescan(self.plan)
 
         if stream:
             # For SQL queries, use streaming execution
-            return self.database.execute_plan_stream(plan)
+            stream_iter = self.database.execute_plan_stream(plan)
+            # Convert each chunk to SQLModel instances if model is attached
+            if self.model is not None:
+
+                def _convert_stream() -> Iterator[List[Any]]:
+                    for chunk in stream_iter:
+                        yield _convert_rows(chunk)
+
+                return _convert_stream()
+            return stream_iter
 
         result = self.database.execute_plan(plan)
         if result.rows is None:
@@ -1441,12 +1583,14 @@ class DataFrame:
         if hasattr(result.rows, "to_dict"):
             records = result.rows.to_dict("records")  # type: ignore[call-overload]
             # Convert Hashable keys to str keys
-            return [{str(k): v for k, v in row.items()} for row in records]
+            rows = [{str(k): v for k, v in row.items()} for row in records]
+            return _convert_rows(rows)
         if hasattr(result.rows, "to_dicts"):
             records = list(result.rows.to_dicts())
             # Convert Hashable keys to str keys
-            return [{str(k): v for k, v in row.items()} for row in records]
-        return result.rows
+            rows = [{str(k): v for k, v in row.items()} for row in records]
+            return _convert_rows(rows)
+        return _convert_rows(result.rows)
 
     def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
         """Materialize FileScan nodes by reading files and creating temporary tables.
@@ -2248,7 +2392,62 @@ class DataFrame:
         return DataFrame(
             plan=plan,
             database=self.database,
+            model=self.model,
         )
+
+    def _with_model(self, model: Optional[Type[Any]]) -> "DataFrame":
+        """Create a new DataFrame with a SQLModel attached.
+
+        Args:
+            model: SQLModel model class to attach, or None to remove model
+
+        Returns:
+            New DataFrame with the model attached
+        """
+        return DataFrame(
+            plan=self.plan,
+            database=self.database,
+            model=model,
+        )
+
+    def with_model(self, model: Type[Any]) -> "DataFrame":
+        """Attach a SQLModel or Pydantic model to this DataFrame.
+
+        When a model is attached, `collect()` will return model instances
+        instead of dictionaries. This provides type safety and validation.
+
+        Args:
+            model: SQLModel or Pydantic model class to attach
+
+        Returns:
+            New DataFrame with the model attached
+
+        Raises:
+            TypeError: If model is not a SQLModel or Pydantic class
+            ImportError: If required dependencies are not installed
+
+        Example:
+            >>> from sqlmodel import SQLModel, Field
+            >>> class User(SQLModel, table=True):
+            ...     id: int = Field(primary_key=True)
+            ...     name: str
+            >>> df = db.table("users").select()
+            >>> df_with_model = df.with_model(User)
+            >>> results = df_with_model.collect()  # Returns list of User instances
+
+            >>> from pydantic import BaseModel
+            >>> class UserData(BaseModel):
+            ...     id: int
+            ...     name: str
+            >>> df_with_pydantic = df.with_model(UserData)
+            >>> results = df_with_pydantic.collect()  # Returns list of UserData instances
+        """
+        from ..utils.sqlmodel_integration import is_model_class
+
+        if not is_model_class(model):
+            raise TypeError(f"Expected SQLModel or Pydantic class, got {type(model)}")
+
+        return self._with_model(model)
 
     def _normalize_projection(self, expr: Union[Column, str]) -> Column:
         if isinstance(expr, Column):

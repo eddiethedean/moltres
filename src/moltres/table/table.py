@@ -27,7 +27,8 @@ from ..config import MoltresConfig
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
-    from sqlalchemy.orm import DeclarativeBase
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.orm import DeclarativeBase, Session
     from ..dataframe.dataframe import DataFrame
     from ..dataframe.pandas_dataframe import PandasDataFrame
     from ..dataframe.polars_dataframe import PolarsDataFrame
@@ -67,7 +68,7 @@ class TableHandle:
 
     name: str
     database: "Database"
-    model: Optional[Type["DeclarativeBase"]] = None
+    model: Optional[Type[Any]] = None  # Can be SQLModel, Pydantic, or SQLAlchemy model
 
     @property
     def model_class(self) -> Optional[Type["DeclarativeBase"]]:
@@ -179,6 +180,137 @@ class Database:
     def executor(self) -> QueryExecutor:
         return self._executor
 
+    @classmethod
+    def from_engine(cls, engine: Engine, **options: object) -> "Database":
+        """Create a Database instance from an existing SQLAlchemy Engine.
+
+        This allows you to use Moltres with an existing SQLAlchemy Engine,
+        enabling integration with existing SQLAlchemy projects.
+
+        Args:
+            engine: SQLAlchemy Engine instance
+            **options: Optional configuration parameters:
+                - echo: Enable SQLAlchemy echo mode
+                - fetch_format: Result format - "records", "pandas", or "polars"
+                - dialect: Override SQL dialect detection
+                - query_timeout: Query execution timeout in seconds
+                - Other options are stored in config.options
+
+        Returns:
+            Database instance configured to use the provided Engine
+
+        Example:
+            >>> from sqlalchemy import create_engine
+            >>> from moltres import Database
+            >>> engine = create_engine("sqlite:///:memory:")
+            >>> db = Database.from_engine(engine)
+            >>> # Now use Moltres with your existing engine
+            >>> from moltres.table.schema import column
+            >>> _ = db.create_table("users", [column("id", "INTEGER")]).collect()
+        """
+        from ..config import create_config
+
+        # Type ignore needed because mypy doesn't understand **options unpacking
+        config = create_config(engine=engine, **options)  # type: ignore[arg-type]
+        return cls(config=config)
+
+    @classmethod
+    def from_connection(cls, connection: Connection, **options: object) -> "Database":
+        """Create a Database instance from an existing SQLAlchemy Connection.
+
+        This allows you to use Moltres with an existing SQLAlchemy Connection,
+        enabling integration within existing transactions.
+
+        Note: The Database will use the Connection's engine, but will not manage
+        the Connection's lifecycle. The user is responsible for managing the connection.
+
+        Args:
+            connection: SQLAlchemy Connection instance
+            **options: Optional configuration parameters (same as from_engine)
+
+        Returns:
+            Database instance configured to use the Connection's engine
+
+        Example:
+            >>> from sqlalchemy import create_engine
+            >>> from moltres import Database
+            >>> engine = create_engine("sqlite:///:memory:")
+            >>> with engine.connect() as conn:
+            ...     db = Database.from_connection(conn)
+            ...     # Use Moltres within the connection's transaction
+            ...     from moltres.table.schema import column
+            ...     _ = db.create_table("users", [column("id", "INTEGER")]).collect()
+        """
+        # Extract engine from connection
+        engine = connection.engine
+        return cls.from_engine(engine, **options)
+
+    @classmethod
+    def from_session(cls, session: "Session", **options: object) -> "Database":
+        """Create a Database instance from a SQLAlchemy ORM Session.
+
+        This allows you to use Moltres with an existing SQLAlchemy ORM Session,
+        enabling integration with ORM-based applications.
+
+        Note: The Database will use the Session's bind/engine, but will not manage
+        the Session's lifecycle. The user is responsible for managing the session.
+
+        Args:
+            session: SQLAlchemy ORM Session instance
+            **options: Optional configuration parameters (same as from_engine)
+
+        Returns:
+            Database instance configured to use the Session's bind/engine
+
+        Example:
+            >>> from sqlalchemy import create_engine
+            >>> from sqlalchemy.orm import sessionmaker
+            >>> from moltres import Database
+            >>> engine = create_engine("sqlite:///:memory:")
+            >>> Session = sessionmaker(bind=engine)
+            >>> with Session() as session:
+            ...     db = Database.from_session(session)
+            ...     # Use Moltres with your existing session
+            ...     from moltres.table.schema import column
+            ...     _ = db.create_table("users", [column("id", "INTEGER")]).collect()
+        """
+        # Extract engine/bind from session
+        if hasattr(session, "bind") and session.bind is not None:
+            bind = session.bind
+            # Ensure we have an Engine, not a Connection
+            if isinstance(bind, Engine):
+                engine = bind
+            else:
+                # If bind is a Connection, get its engine
+                if hasattr(bind, "engine"):
+                    engine = bind.engine
+                    if not isinstance(engine, Engine):
+                        raise ValueError(
+                            "Session bind's engine is not a valid Engine instance. "
+                            "Ensure the session is bound to an engine."
+                        )
+                else:
+                    raise ValueError(
+                        "Session bind is not an Engine or Connection. "
+                        "Ensure the session is bound to an engine."
+                    )
+        elif hasattr(session, "connection"):
+            # For async sessions, might have connection instead
+            conn = session.connection()
+            engine = conn.engine
+            # Ensure we have an Engine, not a Connection
+            if not isinstance(engine, Engine):
+                raise ValueError(
+                    "Session connection's engine is not a valid Engine instance. "
+                    "Ensure the session is bound to an engine."
+                )
+        else:
+            raise ValueError(
+                "Session does not have a bind or connection. "
+                "Ensure the session is bound to an engine."
+            )
+        return cls.from_engine(engine, **options)
+
     def close(self) -> None:
         """Close all database connections and dispose of the engine.
 
@@ -231,19 +363,19 @@ class Database:
         ...
 
     def table(  # type: ignore[misc]
-        self, name_or_model: Union[str, Type["DeclarativeBase"]]
+        self, name_or_model: Union[str, Type["DeclarativeBase"], Type[Any]]
     ) -> TableHandle:
         """Get a handle to a table in the database.
 
         Args:
-            name_or_model: Name of the table, or SQLAlchemy model class
+            name_or_model: Name of the table, SQLAlchemy model class, or SQLModel model class
 
         Returns:
             TableHandle for the specified table
 
         Raises:
             ValidationError: If table name is invalid
-            ValueError: If model_class is not a valid SQLAlchemy model
+            ValueError: If model_class is not a valid SQLAlchemy or SQLModel model
 
         Example:
             >>> from moltres import connect
@@ -266,16 +398,27 @@ class Database:
             is_sqlalchemy_model,
             get_model_table_name,
         )
+        from ..utils.sqlmodel_integration import (
+            is_sqlmodel_model,
+            get_sqlmodel_table_name,
+        )
 
-        # Check if argument is a SQLAlchemy model
-        if is_sqlalchemy_model(name_or_model):
-            model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
-            table_name = get_model_table_name(model_class)
+        # Check if argument is a SQLModel model
+        if is_sqlmodel_model(name_or_model):
+            sqlmodel_class: Type[Any] = name_or_model  # type: ignore[assignment]
+            table_name = get_sqlmodel_table_name(sqlmodel_class)
             # Validate table name format
             quote_identifier(table_name, self._dialect.quote_char)
-            return TableHandle(name=table_name, database=self, model=model_class)
+            return TableHandle(name=table_name, database=self, model=sqlmodel_class)
+        # Check if argument is a SQLAlchemy model
+        elif is_sqlalchemy_model(name_or_model):
+            sa_model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
+            table_name = get_model_table_name(sa_model_class)
+            # Validate table name format
+            quote_identifier(table_name, self._dialect.quote_char)
+            return TableHandle(name=table_name, database=self, model=sa_model_class)
         else:
-            # Type narrowing: after is_sqlalchemy_model check, this must be str
+            # Type narrowing: after model checks, this must be str
             table_name = name_or_model  # type: ignore[assignment]
             if not table_name:
                 raise ValidationError("Table name cannot be empty")
