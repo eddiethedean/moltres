@@ -171,6 +171,7 @@ def check_mypy() -> bool:
     error_codes = [
         "[unused-ignore]",
         "[redundant-cast]",
+        "[untyped-decorator]",
     ]
     for code in error_codes:
         if code in output:
@@ -184,6 +185,7 @@ def check_mypy() -> bool:
         'unused "type: ignore"',
         "unused 'type: ignore'",
         "redundant cast",
+        "untyped decorator",
     ]
     for pattern in error_patterns:
         if pattern.lower() in output.lower():

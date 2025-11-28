@@ -8,6 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Airflow/Prefect Workflow Orchestration Integration** – Comprehensive integrations with Apache Airflow and Prefect for workflow orchestration:
+  - **Airflow Operators** – Custom operators for executing Moltres operations in Airflow DAGs:
+    - `MoltresQueryOperator` – Execute DataFrame queries and push results to XCom
+    - `MoltresToTableOperator` – Write data from XCom to database tables
+    - `MoltresDataQualityOperator` – Execute data quality checks on query results
+    - Support for sync and async queries with proper error handling
+    - Full integration with Airflow's XCom system for task communication
+    - Comprehensive error handling with Airflow task failure conversion
+  - **Prefect Tasks** – Custom Prefect tasks for workflow integration:
+    - `moltres_query` – Execute DataFrame queries as Prefect tasks
+    - `moltres_to_table` – Write data to tables from task results
+    - `moltres_data_quality` – Execute data quality checks with quality reports
+    - Async task support with Prefect result storage integration
+    - Automatic retry configuration and task logging
+  - **Data Quality Framework** – Reusable data quality checking framework:
+    - `DataQualityCheck` class with factory methods for common checks (not_null, range, unique, column_type, row_count, completeness, custom)
+    - `QualityChecker` class for executing multiple checks on DataFrames
+    - `QualityReport` class for comprehensive quality check reporting
+    - Support for fail-fast and configurable error handling
+  - **ETL Pipeline Helpers** – Generic `ETLPipeline` class for common ETL patterns:
+    - Extract, Transform, Load pattern with validation hooks
+    - Error handling and logging support
+    - Available for both Airflow and Prefect workflows
+  - **Graceful Degradation** – Optional dependency handling with clear error messages when frameworks are not installed
+  - Comprehensive test coverage (32 integration tests) with mock and real framework tests
+  - Example files (`examples/27_airflow_integration.py`, `examples/28_prefect_integration.py`)
+  - Comprehensive guide (`guides/16-workflow-integration.md`) with detailed usage examples
+  - Added `apache-airflow>=2.5.0` and `prefect>=2.0.0` to optional dependencies
 - **Streamlit Integration** – Comprehensive integration with Streamlit for building data applications:
   - **DataFrame Display Component** (`moltres_dataframe`) – Display Moltres DataFrames in Streamlit with automatic conversion and query information display
   - **Query Builder Widget** (`query_builder`) – Interactive UI for building queries using Streamlit widgets (table selector, column selector, filter builder)
@@ -25,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive test coverage using Streamlit's AppTest framework
   - Example file (`examples/25_streamlit_integration.py`) and comprehensive guide (`guides/14-streamlit-integration.md`)
   - Added `streamlit>=1.28.0` to optional dependencies
+
+### Fixed
+- **MySQL Test Port Conflicts** – Fixed port conflicts in parallel test execution by implementing worker-specific port assignment with retry logic and port verification
+- **Cleanup Regression Test** – Fixed parallel execution issues in cleanup regression test by using unique database paths and working directories per test execution
+- **Documentation Example Validation** – Fixed syntax errors in documentation examples by properly formatting async/await code blocks and shell command examples
+- **CI Configuration** – Configured mypy to only check `src` directory (excluding examples) to prevent CI failures while maintaining strict type checking for source code
 
 ## [0.19.0] - 2025-11-27
 

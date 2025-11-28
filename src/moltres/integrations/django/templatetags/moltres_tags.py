@@ -46,7 +46,7 @@ else:
 
 if DJANGO_AVAILABLE:
 
-    @register.simple_tag(takes_context=True)  # type: ignore[misc]
+    @register.simple_tag(takes_context=True)
     def moltres_query(
         context: dict,
         table_name: Optional[str] = None,
@@ -151,7 +151,7 @@ else:
 
 if DJANGO_AVAILABLE:
 
-    @register.filter  # type: ignore[misc]
+    @register.filter
     def moltres_format(value: Any, format_type: str = "json") -> str:
         """Format Moltres query results for display.
 
