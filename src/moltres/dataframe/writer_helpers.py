@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence
 
 from ..table.schema import ColumnDef
-from ..utils.exceptions import CompilationError, ExecutionError, ValidationError
 
 if TYPE_CHECKING:
     from sqlalchemy.sql import Select
@@ -278,4 +277,3 @@ def infer_or_get_schema(
 
     # Apply primary key flags if specified
     return apply_primary_key_to_schema(schema, primary_key)
-

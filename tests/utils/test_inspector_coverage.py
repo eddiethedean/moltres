@@ -45,10 +45,12 @@ def test_get_table_columns_type_parsing_with_parentheses(tmp_path):
 
     # Ensure no event loop is running to avoid conflicts
     try:
-        loop = asyncio.get_event_loop()
+        # Try to get running loop first (modern approach)
+        loop = asyncio.get_running_loop()
         if loop.is_running():
             pytest.skip("Cannot test in running event loop")
     except RuntimeError:
+        # No running loop - that's fine, we can proceed
         pass
 
     db_path = tmp_path / "test.db"

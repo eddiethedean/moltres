@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:
-    from ..expressions.column import Column
+    pass
 
 
 def sql_type_to_polars_dtype(sql_type: str) -> str:
@@ -194,4 +194,3 @@ def prepare_polars_join_keys(
             raise TypeError("left_on and right_on must both be str or both be sequences")
     else:
         raise ValueError("Must specify either 'on' or both 'left_on' and 'right_on'")
-

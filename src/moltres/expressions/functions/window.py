@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from ..column import Column, ColumnLike, ensure_column
+
 
 def row_number() -> Column:
     """Generate a row number for each row in a window.
@@ -27,6 +30,7 @@ def row_number() -> Column:
         >>> db.close()
     """
     return Column(op="window_row_number", args=())
+
 
 def rank() -> Column:
     """Compute the rank of rows within a window.
@@ -56,6 +60,7 @@ def rank() -> Column:
     """
     return Column(op="window_rank", args=())
 
+
 def dense_rank() -> Column:
     """Compute the dense rank of rows within a window.
 
@@ -83,6 +88,7 @@ def dense_rank() -> Column:
     """
     return Column(op="window_dense_rank", args=())
 
+
 def percent_rank() -> Column:
     """Compute the percent rank of rows within a window.
 
@@ -106,6 +112,7 @@ def percent_rank() -> Column:
     """
     return Column(op="window_percent_rank", args=())
 
+
 def cume_dist() -> Column:
     """Compute the cumulative distribution of rows within a window.
 
@@ -128,6 +135,7 @@ def cume_dist() -> Column:
         >>> db.close()
     """
     return Column(op="window_cume_dist", args=())
+
 
 def nth_value(column: ColumnLike, n: int) -> Column:
     """Get the nth value in a window.
@@ -156,6 +164,7 @@ def nth_value(column: ColumnLike, n: int) -> Column:
     """
     return Column(op="window_nth_value", args=(ensure_column(column), n))
 
+
 def ntile(n: int) -> Column:
     """Divide rows into n roughly equal groups.
 
@@ -181,6 +190,7 @@ def ntile(n: int) -> Column:
         >>> db.close()
     """
     return Column(op="window_ntile", args=(n,))
+
 
 def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = None) -> Column:
     """Get the value of a column from a previous row in the window.
@@ -215,6 +225,7 @@ def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = Non
         args.append(ensure_column(default))
     return Column(op="window_lag", args=tuple(args))
 
+
 def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = None) -> Column:
     """Get the value of a column from a following row in the window.
 
@@ -248,6 +259,7 @@ def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = No
         args.append(ensure_column(default))
     return Column(op="window_lead", args=tuple(args))
 
+
 def first_value(column: ColumnLike) -> Column:
     """Get the first value in a window (window function).
 
@@ -275,6 +287,7 @@ def first_value(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="window_first_value", args=(ensure_column(column),))
+
 
 def last_value(column: ColumnLike) -> Column:
     """Get the last value in a window (window function).

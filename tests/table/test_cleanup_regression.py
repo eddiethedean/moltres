@@ -142,10 +142,15 @@ def test_cleanup_on_interpreter_shutdown(tmp_path):
     # This test runs a subprocess that creates a database and exits
     # The atexit handler should clean up ephemeral tables
     db_path_str = str(tmp_path / "shutdown_test.db")
+    # Get the project root (parent of tests directory)
+    # __file__ is tests/table/test_cleanup_regression.py
+    # parent is tests/table, parent.parent is tests, parent.parent.parent is project root
+    project_root = Path(__file__).resolve().parent.parent.parent
+    src_path = project_root / "src"
     script = f"""
 import sys
 from pathlib import Path
-sys.path.insert(0, {repr(str(Path.cwd()))})
+sys.path.insert(0, {repr(str(src_path))})
 
 from moltres import connect
 

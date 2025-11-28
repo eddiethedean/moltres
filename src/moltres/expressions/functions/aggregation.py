@@ -420,4 +420,3 @@ def collect_set(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return _aggregate("agg_collect_set", column)
-

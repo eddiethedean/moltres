@@ -1,7 +1,7 @@
 """Tests for filter() and where() with SQL string predicates."""
 
 import pytest
-from moltres import connect, col, async_connect
+from moltres import connect, async_connect
 
 
 def test_filter_string_basic(tmp_path):

@@ -1112,7 +1112,9 @@ class AsyncDatabase:
         """Compile a logical plan to SQL."""
         return compile_plan(plan, dialect=self._dialect)
 
-    async def execute_plan(self, plan: LogicalPlan, model: Optional[Type[Any]] = None) -> AsyncQueryResult:
+    async def execute_plan(
+        self, plan: LogicalPlan, model: Optional[Type[Any]] = None
+    ) -> AsyncQueryResult:
         """Execute a logical plan and return results."""
         stmt = self.compile_plan(plan)
         return await self._executor.fetch(stmt, model=model)
@@ -1383,7 +1385,7 @@ class AsyncDatabase:
                     # Normalize driver variants (e.g., "mysql+aiomysql" -> "mysql")
                     if "+" in dialect_name:
                         dialect_name = dialect_name.split("+", 1)[0]
-                    return dialect_name
+                    return str(dialect_name)
         # Extract base dialect from DSN (e.g., "sqlite+aiosqlite" -> "sqlite")
         dsn = self.config.engine.dsn
         if dsn is None:
@@ -1493,16 +1495,28 @@ def _force_async_database_cleanup_for_tests() -> None:
                 raise result
     except RuntimeError:
         # No running loop, try to get or create one
+        # Modern approach: avoid deprecated get_event_loop(), just create new loop
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
+            # Try to get existing event loop (may be None or closed)
+            # Use get_event_loop() only as fallback, but prefer new_event_loop()
+            try:
+                # Check if there's an event loop set (even if not running)
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    # Loop exists but is closed - create a new one
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+            except RuntimeError:
+                # No event loop exists, create a new one
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+
             loop.run_until_complete(_cleanup())
         except RuntimeError:
             # No event loop at all, create one
             loop = asyncio.new_event_loop()
             try:
+                asyncio.set_event_loop(loop)
                 loop.run_until_complete(_cleanup())
             finally:
                 loop.close()

@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, literal
+from sqlalchemy import types as sa_types
 
 if TYPE_CHECKING:
     from sqlalchemy.sql import ColumnElement
@@ -27,6 +28,7 @@ def compile_datetime_operation(
     Returns:
         Compiled SQLAlchemy column element, or None if not handled
     """
+    result: "ColumnElement[Any]"
     if op == "year":
         result = func.extract("year", compiler._compile(expression.args[0]))
         if expression._alias:
@@ -117,7 +119,7 @@ def compile_datetime_operation(
         # Parse interval string (format: "N UNIT" where N is number and UNIT is DAY, MONTH, YEAR, HOUR, etc.)
         parts = interval_str.split()
         if len(parts) != 2:
-            from ..utils.exceptions import CompilationError
+            from ...utils.exceptions import CompilationError
 
             raise CompilationError(
                 f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
@@ -148,7 +150,7 @@ def compile_datetime_operation(
         # Parse interval string
         parts = interval_str.split()
         if len(parts) != 2:
-            from ..utils.exceptions import CompilationError
+            from ...utils.exceptions import CompilationError
 
             raise CompilationError(
                 f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
@@ -158,7 +160,7 @@ def compile_datetime_operation(
 
         # For PostgreSQL/DuckDB, use INTERVAL literal
         if compiler.dialect.name in ("postgresql", "duckdb"):
-            interval_expr: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
+            interval_expr: "ColumnElement[Any]" = literal_column(f"INTERVAL '{interval_str}'")
             result = col_expr - interval_expr
         elif compiler.dialect.name == "mysql":
             # MySQL uses DATE_SUB with INTERVAL
@@ -176,7 +178,7 @@ def compile_datetime_operation(
         num_months = expression.args[1]
         # Use SQLAlchemy's interval handling
         try:
-            interval_months: ColumnElement[Any] = func.make_interval(months=abs(num_months))
+            interval_months: "ColumnElement[Any]" = func.make_interval(months=abs(num_months))
             if num_months >= 0:
                 result = col_expr + interval_months
             else:
@@ -186,17 +188,13 @@ def compile_datetime_operation(
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.debug(
-                "make_interval not available for dialect, using date_add fallback: %s", e
-            )
+            logger.debug("make_interval not available for dialect, using date_add fallback: %s", e)
             result = func.date_add(col_expr, literal(num_months))
         except Exception as e:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning(
-                "Unexpected error using make_interval, falling back to date_add: %s", e
-            )
+            logger.warning("Unexpected error using make_interval, falling back to date_add: %s", e)
             result = func.date_add(col_expr, literal(num_months))
         if expression._alias:
             result = result.label(expression._alias)
@@ -264,7 +262,7 @@ def compile_datetime_operation(
             format_str = expression.args[1]
             if compiler.dialect.name == "postgresql":
                 # Parse with to_timestamp then extract epoch
-                parsed = func.to_timestamp(col_expr, format_str)
+                parsed: "ColumnElement[Any]" = func.to_timestamp(col_expr, format_str)
                 result = func.extract("epoch", parsed)
             elif compiler.dialect.name == "mysql":
                 result = func.unix_timestamp(col_expr, format_str)
@@ -294,7 +292,7 @@ def compile_datetime_operation(
             format_str = expression.args[1]
             if compiler.dialect.name == "postgresql":
                 # Use to_char with to_timestamp
-                timestamp = func.to_timestamp(col_expr)
+                timestamp: "ColumnElement[Any]" = func.to_timestamp(col_expr)
                 result = func.to_char(timestamp, format_str)
             elif compiler.dialect.name == "mysql":
                 result = func.from_unixtime(col_expr, format_str)
@@ -347,7 +345,7 @@ def compile_datetime_operation(
             result = func.extract("quarter", col_expr)
         else:
             # SQLite: use strftime
-            result = func.cast(func.strftime("%m", col_expr), "INTEGER")
+            result = func.cast(func.strftime("%m", col_expr), sa_types.Integer)
             # Calculate quarter: (month - 1) // 3 + 1
             result = (result - 1) // 3 + 1
         if expression._alias:
@@ -364,7 +362,7 @@ def compile_datetime_operation(
             result = func.extract("week", col_expr)
         else:
             # SQLite: use strftime
-            result = func.cast(func.strftime("%W", col_expr), "INTEGER")
+            result = func.cast(func.strftime("%W", col_expr), sa_types.Integer)
         if expression._alias:
             result = result.label(expression._alias)
         return result
@@ -379,7 +377,7 @@ def compile_datetime_operation(
             result = func.extract("doy", col_expr)
         else:
             # SQLite: use strftime
-            result = func.cast(func.strftime("%j", col_expr), "INTEGER")
+            result = func.cast(func.strftime("%j", col_expr), sa_types.Integer)
         if expression._alias:
             result = result.label(expression._alias)
         return result
@@ -426,4 +424,3 @@ def compile_datetime_operation(
         return result
 
     return None  # Not handled by this module
-

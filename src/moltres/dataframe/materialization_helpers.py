@@ -62,7 +62,7 @@ def convert_result_rows(result_rows: Any) -> List[Dict[str, object]]:
 
     # Convert to list if it's a DataFrame
     if hasattr(result_rows, "to_dict"):
-        records = result_rows.to_dict("records")  # type: ignore[call-overload]
+        records = result_rows.to_dict("records")
         # Convert Hashable keys to str keys
         return [{str(k): v for k, v in row.items()} for row in records]
     if hasattr(result_rows, "to_dicts"):
@@ -160,7 +160,9 @@ def get_plan_children(plan: "LogicalPlan") -> tuple[Optional["LogicalPlan"], ...
         Union,
     )
 
-    if isinstance(plan, (Project, Filter, Limit, Sample, Sort, Distinct, Aggregate, Explode, Pivot)):
+    if isinstance(
+        plan, (Project, Filter, Limit, Sample, Sort, Distinct, Aggregate, Explode, Pivot)
+    ):
         return (plan.child,)
     elif isinstance(plan, (Join, Union, Intersect, Except, SemiJoin, AntiJoin)):
         return (plan.left, plan.right)
@@ -170,4 +172,3 @@ def get_plan_children(plan: "LogicalPlan") -> tuple[Optional["LogicalPlan"], ...
         return (plan.initial, plan.recursive)
 
     return ()
-

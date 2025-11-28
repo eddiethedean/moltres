@@ -83,10 +83,10 @@ class GroupedDataFrame:
             # Select only grouping columns and apply distinct
             grouping_cols = list(self.keys)
             plan = operators.project(self.plan, tuple(grouping_cols))
-            plan = operators.distinct(plan)
+            plan = operators.distinct(plan)  # type: ignore[assignment]
         else:
             normalized = tuple(validate_aggregation(expr) for expr in normalized_aggs)
-            plan = operators.aggregate(self.plan, self.keys, normalized)
+            plan = operators.aggregate(self.plan, self.keys, normalized)  # type: ignore[assignment]
         return DataFrame(plan=plan, database=self.parent.database)
 
     @staticmethod

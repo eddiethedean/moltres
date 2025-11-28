@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..column import Column, ColumnLike, ensure_column
 
+
 def array(*columns: ColumnLike) -> Column:
     """Create an array from multiple column values.
 
@@ -30,6 +31,7 @@ def array(*columns: ColumnLike) -> Column:
         raise ValueError("array() requires at least one column")
     return Column(op="array", args=tuple(ensure_column(c) for c in columns))
 
+
 def array_length(column: ColumnLike) -> Column:
     """Get the length of an array column.
 
@@ -55,6 +57,7 @@ def array_length(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="array_length", args=(ensure_column(column),))
+
 
 def array_contains(column: ColumnLike, value: ColumnLike) -> Column:
     """Check if an array column contains a specific value.
@@ -83,6 +86,7 @@ def array_contains(column: ColumnLike, value: ColumnLike) -> Column:
     """
     return Column(op="array_contains", args=(ensure_column(column), ensure_column(value)))
 
+
 def array_position(column: ColumnLike, value: ColumnLike) -> Column:
     """Get the position (1-based index) of a value in an array column.
 
@@ -109,6 +113,7 @@ def array_position(column: ColumnLike, value: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="array_position", args=(ensure_column(column), ensure_column(value)))
+
 
 def array_append(column: ColumnLike, element: ColumnLike) -> Column:
     """Append an element to an array column.
@@ -137,6 +142,7 @@ def array_append(column: ColumnLike, element: ColumnLike) -> Column:
     """
     return Column(op="array_append", args=(ensure_column(column), ensure_column(element)))
 
+
 def array_prepend(column: ColumnLike, element: ColumnLike) -> Column:
     """Prepend an element to an array column.
 
@@ -163,6 +169,7 @@ def array_prepend(column: ColumnLike, element: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="array_prepend", args=(ensure_column(column), ensure_column(element)))
+
 
 def array_remove(column: ColumnLike, element: ColumnLike) -> Column:
     """Remove all occurrences of an element from an array column.
@@ -191,6 +198,7 @@ def array_remove(column: ColumnLike, element: ColumnLike) -> Column:
     """
     return Column(op="array_remove", args=(ensure_column(column), ensure_column(element)))
 
+
 def array_distinct(column: ColumnLike) -> Column:
     """Remove duplicate elements from an array column.
 
@@ -216,6 +224,7 @@ def array_distinct(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="array_distinct", args=(ensure_column(column),))
+
 
 def array_sort(column: ColumnLike) -> Column:
     """Sort an array column.
@@ -243,6 +252,7 @@ def array_sort(column: ColumnLike) -> Column:
     """
     return Column(op="array_sort", args=(ensure_column(column),))
 
+
 def array_max(column: ColumnLike) -> Column:
     """Get the maximum element in an array column.
 
@@ -269,6 +279,7 @@ def array_max(column: ColumnLike) -> Column:
     """
     return Column(op="array_max", args=(ensure_column(column),))
 
+
 def array_min(column: ColumnLike) -> Column:
     """Get the minimum element in an array column.
 
@@ -294,6 +305,7 @@ def array_min(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="array_min", args=(ensure_column(column),))
+
 
 def array_sum(column: ColumnLike) -> Column:
     """Get the sum of elements in an array column.

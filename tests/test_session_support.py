@@ -15,10 +15,11 @@ from moltres.table.schema import column
 # Test SQLAlchemy Sync Session
 # =============================
 
+
 def test_connect_with_sqlalchemy_session(tmp_path):
     """Test connect() with SQLAlchemy Session."""
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     db_path = tmp_path / "test_session.db"
     engine = create_engine(f"sqlite:///{db_path}")
@@ -62,7 +63,7 @@ def test_connect_with_sqlalchemy_session(tmp_path):
 def test_connect_with_sqlalchemy_session_operations(tmp_path):
     """Test various operations with SQLAlchemy Session."""
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     db_path = tmp_path / "test_session_ops.db"
     engine = create_engine(f"sqlite:///{db_path}")
@@ -107,18 +108,19 @@ def test_connect_with_sqlalchemy_session_operations(tmp_path):
 # Test SQLModel Sync Session
 # ===========================
 
+
 @pytest.mark.skipif(
     not pytest.importorskip("sqlmodel", reason="SQLModel not installed"),
     reason="SQLModel not installed",
 )
 def test_connect_with_sqlmodel_session(tmp_path):
     """Test connect() with SQLModel Session."""
-    from sqlmodel import SQLModel, Field, Session, create_engine
+    from sqlmodel import SQLModel, Field, create_engine
     from sqlalchemy.orm import sessionmaker
 
-    # Define SQLModel
-    class User(SQLModel, table=True):
-        __tablename__ = "users"
+    # Define SQLModel with unique class name to avoid conflicts when running all tests
+    class SessionUser(SQLModel, table=True):
+        __tablename__ = "session_users"
         id: int | None = Field(default=None, primary_key=True)
         name: str
         age: int
@@ -137,19 +139,19 @@ def test_connect_with_sqlmodel_session(tmp_path):
         assert db.dialect.name == "sqlite"
 
         # Insert data using SQLModel session
-        user1 = User(name="Alice", age=30)
-        user2 = User(name="Bob", age=25)
+        user1 = SessionUser(name="Alice", age=30)
+        user2 = SessionUser(name="Bob", age=25)
         session.add(user1)
         session.add(user2)
         session.commit()
 
         # Query using Moltres with SQLModel
-        df = db.table(User).select()
+        df = db.table(SessionUser).select()
         results = df.collect()
 
-        # Results should be User instances (SQLModel)
+        # Results should be SessionUser instances (SQLModel)
         assert len(results) == 2
-        assert isinstance(results[0], User)
+        assert isinstance(results[0], SessionUser)
         assert results[0].name in ("Alice", "Bob")
         assert results[0].age in (30, 25)
 
@@ -160,7 +162,7 @@ def test_connect_with_sqlmodel_session(tmp_path):
 )
 def test_connect_with_sqlmodel_session_filtering(tmp_path):
     """Test filtering with SQLModel Session."""
-    from sqlmodel import SQLModel, Field, Session, create_engine
+    from sqlmodel import SQLModel, Field, create_engine
     from sqlalchemy.orm import sessionmaker
 
     class Product(SQLModel, table=True):
@@ -194,6 +196,7 @@ def test_connect_with_sqlmodel_session_filtering(tmp_path):
 
 # Test SQLAlchemy Async Session
 # ==============================
+
 
 @pytest.mark.asyncio
 async def test_async_connect_with_sqlalchemy_async_session(tmp_path):
@@ -296,6 +299,7 @@ async def test_async_connect_with_sqlalchemy_async_session_operations(tmp_path):
 # Test SQLModel Async Session
 # ============================
 
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     not pytest.importorskip("sqlmodel", reason="SQLModel not installed"),
@@ -395,6 +399,7 @@ async def test_async_connect_with_sqlmodel_async_session_filtering(tmp_path):
 # Test Error Cases
 # ================
 
+
 def test_connect_with_invalid_session():
     """Test that connect() raises error for invalid session type."""
     with pytest.raises(TypeError, match="session must be a SQLAlchemy Session"):
@@ -413,7 +418,7 @@ def test_connect_with_multiple_params():
 def test_connect_with_session_and_engine():
     """Test that connect() raises error when both session and engine provided."""
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     engine = create_engine("sqlite:///:memory:")
     SessionLocal = sessionmaker(bind=engine)
@@ -435,7 +440,7 @@ async def test_async_connect_with_invalid_session():
 def test_async_connect_with_sync_session():
     """Test that async_connect() raises error for sync session."""
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     engine = create_engine("sqlite:///:memory:")
     SessionLocal = sessionmaker(bind=engine)
@@ -452,10 +457,11 @@ def test_async_connect_with_sync_session():
 # Test Dialect Detection
 # ======================
 
+
 def test_session_dialect_detection_sqlite(tmp_path):
     """Test dialect detection from session for SQLite."""
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     db_path = tmp_path / "test_dialect.db"
     engine = create_engine(f"sqlite:///{db_path}")
@@ -468,7 +474,7 @@ def test_session_dialect_detection_sqlite(tmp_path):
 
 def test_session_dialect_detection_postgresql(postgresql_connection):
     """Test dialect detection from session for PostgreSQL."""
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     engine = postgresql_connection.connection_manager.engine
     SessionLocal = sessionmaker(bind=engine)
@@ -497,10 +503,11 @@ async def test_async_session_dialect_detection_sqlite(tmp_path):
 # Test Complex Operations with Sessions
 # ======================================
 
+
 def test_session_with_joins(tmp_path):
     """Test joins using session."""
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     db_path = tmp_path / "test_session_joins.db"
     engine = create_engine(f"sqlite:///{db_path}")
@@ -548,11 +555,8 @@ def test_session_with_joins(tmp_path):
         orders_df = db.table("orders").select()
 
         # After join, reference columns without table prefix
-        result_df = users_df.join(
-            orders_df, on=[col("users.id") == col("orders.user_id")]
-        ).select(
-            col("name"),
-            col("amount")
+        result_df = users_df.join(orders_df, on=[col("users.id") == col("orders.user_id")]).select(
+            col("name"), col("amount")
         )
 
         results = result_df.collect()
@@ -613,9 +617,9 @@ async def test_async_session_with_joins(tmp_path):
         users_df = (await db.table("users")).select()
         orders_df = (await db.table("orders")).select()
 
-        result_df = users_df.join(
-            orders_df, on=[col("users.id") == col("orders.user_id")]
-        ).select(col("name"), col("amount"))
+        result_df = users_df.join(orders_df, on=[col("users.id") == col("orders.user_id")]).select(
+            col("name"), col("amount")
+        )
 
         results = await result_df.collect()
         assert len(results) == 2
@@ -627,6 +631,7 @@ async def test_async_session_with_joins(tmp_path):
 # Test with_model() with Sessions
 # ===============================
 
+
 @pytest.mark.skipif(
     not pytest.importorskip("sqlmodel", reason="SQLModel not installed"),
     reason="SQLModel not installed",
@@ -634,7 +639,7 @@ async def test_async_session_with_joins(tmp_path):
 def test_session_with_model_attachment(tmp_path):
     """Test with_model() with session."""
     from sqlmodel import SQLModel, Field, create_engine
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     class User(SQLModel, table=True):
         __tablename__ = "model_users"
@@ -707,4 +712,3 @@ async def test_async_session_with_model_attachment(tmp_path):
         assert results[0].name in ("Alice", "Bob")
 
         await db.close()
-

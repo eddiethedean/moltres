@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from ..column import Column, ColumnLike, ensure_column
+
 
 def upper(column: ColumnLike) -> Column:
     """Convert a string column to uppercase.
@@ -29,6 +32,7 @@ def upper(column: ColumnLike) -> Column:
     """
     return Column(op="upper", args=(ensure_column(column),))
 
+
 def lower(column: ColumnLike) -> Column:
     """Convert a string column to lowercase.
 
@@ -53,6 +57,7 @@ def lower(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="lower", args=(ensure_column(column),))
+
 
 def substring(column: ColumnLike, pos: int, len: Optional[int] = None) -> Column:  # noqa: A001
     """Extract a substring from a column.
@@ -83,6 +88,7 @@ def substring(column: ColumnLike, pos: int, len: Optional[int] = None) -> Column
         return Column(op="substring", args=(ensure_column(column), pos, len))
     return Column(op="substring", args=(ensure_column(column), pos))
 
+
 def trim(column: ColumnLike) -> Column:
     """Remove leading and trailing whitespace from a column.
 
@@ -107,6 +113,7 @@ def trim(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="trim", args=(ensure_column(column),))
+
 
 def ltrim(column: ColumnLike) -> Column:
     """Remove leading whitespace from a column.
@@ -133,6 +140,7 @@ def ltrim(column: ColumnLike) -> Column:
     """
     return Column(op="ltrim", args=(ensure_column(column),))
 
+
 def rtrim(column: ColumnLike) -> Column:
     """Remove trailing whitespace from a column.
 
@@ -158,6 +166,7 @@ def rtrim(column: ColumnLike) -> Column:
     """
     return Column(op="rtrim", args=(ensure_column(column),))
 
+
 def regexp_extract(column: ColumnLike, pattern: str, group_idx: int = 0) -> Column:
     """Extract a regex pattern from a column.
 
@@ -170,6 +179,7 @@ def regexp_extract(column: ColumnLike, pattern: str, group_idx: int = 0) -> Colu
         Column expression for regexp_extract
     """
     return Column(op="regexp_extract", args=(ensure_column(column), pattern, group_idx))
+
 
 def regexp_replace(column: ColumnLike, pattern: str, replacement: str) -> Column:
     """Replace regex pattern matches in a column.
@@ -184,6 +194,7 @@ def regexp_replace(column: ColumnLike, pattern: str, replacement: str) -> Column
     """
     return Column(op="regexp_replace", args=(ensure_column(column), pattern, replacement))
 
+
 def split(column: ColumnLike, delimiter: str) -> Column:
     """Split a column by delimiter.
 
@@ -195,6 +206,7 @@ def split(column: ColumnLike, delimiter: str) -> Column:
         Column expression for split (returns array)
     """
     return Column(op="split", args=(ensure_column(column), delimiter))
+
 
 def replace(column: ColumnLike, search: str, replacement: str) -> Column:
     """Replace occurrences of a string in a column.
@@ -223,6 +235,7 @@ def replace(column: ColumnLike, search: str, replacement: str) -> Column:
     """
     return Column(op="replace", args=(ensure_column(column), search, replacement))
 
+
 def length(column: ColumnLike) -> Column:
     """Get the length of a string column.
 
@@ -247,6 +260,7 @@ def length(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="length", args=(ensure_column(column),))
+
 
 def lpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A001
     """Left pad a string column to a specified length.
@@ -273,6 +287,7 @@ def lpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
     """
     return Column(op="lpad", args=(ensure_column(column), length, pad))
 
+
 def rpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A001
     """Right pad a string column to a specified length.
 
@@ -297,6 +312,7 @@ def rpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
         >>> db.close()
     """
     return Column(op="rpad", args=(ensure_column(column), length, pad))
+
 
 def concat(*columns: ColumnLike) -> Column:
     """Concatenate multiple columns or strings.
@@ -326,6 +342,7 @@ def concat(*columns: ColumnLike) -> Column:
         raise ValueError("concat requires at least one column")
     return Column(op="concat", args=tuple(ensure_column(c) for c in columns))
 
+
 def initcap(column: ColumnLike) -> Column:
     """Capitalize the first letter of each word in a string column.
 
@@ -352,6 +369,7 @@ def initcap(column: ColumnLike) -> Column:
         >>> db.close()  # doctest: +SKIP
     """
     return Column(op="initcap", args=(ensure_column(column),))
+
 
 def instr(column: ColumnLike, substring: ColumnLike) -> Column:
     """Find the position (1-based) of a substring in a string column.
@@ -381,6 +399,7 @@ def instr(column: ColumnLike, substring: ColumnLike) -> Column:
     """
     return Column(op="instr", args=(ensure_column(column), ensure_column(substring)))
 
+
 def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
     """Find the position (1-based) of a substring in a string column (PySpark-style).
 
@@ -409,6 +428,7 @@ def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
         >>> db.close()
     """
     return Column(op="locate", args=(ensure_column(substring), ensure_column(column), pos))
+
 
 def translate(column: ColumnLike, from_chars: str, to_chars: str) -> Column:
     """Translate characters in a string column (replace chars in from_chars with corresponding chars in to_chars).

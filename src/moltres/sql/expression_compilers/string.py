@@ -27,6 +27,7 @@ def compile_string_operation(
     Returns:
         Compiled SQLAlchemy column element, or None if not handled
     """
+    result: "ColumnElement[Any]"
     if op == "coalesce":
         args = [compiler._compile(arg) for arg in expression.args]
         result = func.coalesce(*args)
@@ -97,7 +98,7 @@ def compile_string_operation(
         if compiler.dialect.name == "postgresql":
             result = func.initcap(col_expr)
         elif compiler.dialect.name == "duckdb":
-            from ..utils.exceptions import CompilationError
+            from ...utils.exceptions import CompilationError
 
             raise CompilationError(
                 f"initcap() is not supported for {compiler.dialect.name} dialect. "
@@ -139,9 +140,7 @@ def compile_string_operation(
             if pos > 1:
                 from sqlalchemy import literal_column
 
-                result = func.strpos(func.substring(col_expr, pos), substr_expr) + literal(
-                    pos - 1
-                )
+                result = func.strpos(func.substring(col_expr, pos), substr_expr) + literal(pos - 1)
             else:
                 result = func.strpos(col_expr, substr_expr)
         elif compiler.dialect.name == "mysql":
@@ -151,9 +150,7 @@ def compile_string_operation(
             if pos > 1:
                 from sqlalchemy import literal_column
 
-                result = func.instr(func.substring(col_expr, pos), substr_expr) + literal(
-                    pos - 1
-                )
+                result = func.instr(func.substring(col_expr, pos), substr_expr) + literal(pos - 1)
             else:
                 result = func.instr(col_expr, substr_expr)
         if expression._alias:
@@ -168,7 +165,7 @@ def compile_string_operation(
         if compiler.dialect.name == "postgresql":
             result = func.translate(col_expr, from_chars, to_chars)
         elif compiler.dialect.name == "duckdb":
-            from ..utils.exceptions import CompilationError
+            from ...utils.exceptions import CompilationError
 
             raise CompilationError(
                 f"translate() is not supported for {compiler.dialect.name} dialect. "
@@ -176,7 +173,7 @@ def compile_string_operation(
             )
         else:
             # MySQL/SQLite: requires workaround (not directly supported)
-            from ..utils.exceptions import CompilationError
+            from ...utils.exceptions import CompilationError
 
             raise CompilationError(
                 f"translate() is not supported for {compiler.dialect.name} dialect. "
@@ -263,4 +260,3 @@ def compile_string_operation(
         return result
 
     return None  # Not handled by this module
-

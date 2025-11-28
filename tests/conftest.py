@@ -10,9 +10,26 @@ import uuid
 from typing import Generator
 
 import pytest
+
+# Import duckdb_engine to register the dialect with SQLAlchemy
+try:
+    import duckdb_engine  # noqa: F401
+except ImportError:
+    pass
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SAWarning
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+# Configure pytest-asyncio - register the plugin
+pytest_plugins = []
+
+try:
+    import pytest_asyncio
+
+    pytest_plugins.append("pytest_asyncio")
+except ImportError:
+    pass
 
 # Module-level singleton for PostgreSQL instance (shared across all workers)
 _postgresql_singleton = None
@@ -102,24 +119,36 @@ def ensure_greenlet_context(request):
     _ = os.environ.get("PYTEST_XDIST_WORKER")  # Check for worker, but don't need the value
 
     # Try to get or create an event loop
+    # Modern approach: avoid deprecated get_event_loop() when no loop exists
     try:
-        loop = asyncio.get_event_loop()
+        # First try to get the running loop (Python 3.7+)
+        loop = asyncio.get_running_loop()
+        # If we have a running loop, we're good to go
     except RuntimeError:
-        # No event loop exists - create one for this thread
+        # No running loop - check if we need to create one
         # Only set up event loop in the main thread of the worker
         if threading.current_thread() is threading.main_thread():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # Check if there's an event loop set (even if not running)
+            # Use get_event_loop() with warning suppression to check for existing loop
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_closed():
+                        # Loop exists but is closed - create a new one
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                except RuntimeError:
+                    # No event loop exists - create one for this thread
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
         else:
-            # For non-main threads, try to get the loop from the main thread
-            # or just skip the greenlet context setup
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                # If we still can't get a loop, just yield without setting up greenlet context
-                # This is acceptable for sync tests that don't need async context
-                yield
-                return
+            # For non-main threads, just yield without setting up greenlet context
+            # This is acceptable for sync tests that don't need async context
+            yield
+            return
 
     # If we have a loop, proceed with normal greenlet context setup
     # (The original fixture would do this, but we're handling the error case)

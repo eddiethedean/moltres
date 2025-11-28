@@ -21,7 +21,7 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical import operators
-from ..logical.plan import FileScan, LogicalPlan, RawSQL, SortOrder
+from ..logical.plan import FileScan, LogicalPlan, RawSQL
 from ..sql.compiler import compile_plan
 from .dataframe_helpers import DataFrameHelpersMixin
 
@@ -350,7 +350,6 @@ class DataFrame(DataFrameHelpersMixin):
         return self._with_plan(operators.filter(self.plan, predicate))
 
     filter = where
-
 
     def limit(self, count: int) -> "DataFrame":
         """Limit the number of rows returned by the query.
@@ -1536,6 +1535,7 @@ class DataFrame(DataFrameHelpersMixin):
             # Check if first item is a SQLModel instance
             try:
                 from sqlmodel import SQLModel
+
                 if isinstance(result.rows[0], SQLModel):
                     # Already SQLModel instances from .exec(), return as-is
                     return result.rows
@@ -1685,7 +1685,7 @@ class DataFrame(DataFrameHelpersMixin):
             async_mode=False,
         )
 
-        return records.rows()
+        return records.rows()  # type: ignore[no-any-return]
 
     def _read_file_streaming(self, filescan: FileScan) -> Records:
         """Read a file in streaming mode (chunked, safe for large files).
@@ -1705,7 +1705,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         from .file_io_helpers import route_file_read_streaming
 
-        return route_file_read_streaming(
+        return route_file_read_streaming(  # type: ignore[no-any-return]
             format_name=filescan.format,
             path=filescan.path,
             database=self.database,
@@ -1947,7 +1947,9 @@ class DataFrame(DataFrameHelpersMixin):
                     row = result[0]
                     if isinstance(row, dict):
                         count_val = row.get("count", 0)
-                        counts[col_name] = int(count_val) if isinstance(count_val, (int, float)) else 0
+                        counts[col_name] = (
+                            int(count_val) if isinstance(count_val, (int, float)) else 0
+                        )
                     else:
                         counts[col_name] = 0
                 else:

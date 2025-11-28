@@ -105,7 +105,7 @@ python manage.py moltres_query "db.table('users').select().where(col('age') > 25
 - [ ] Add tests for template tags
 
 **Phase 1.5: Documentation and Examples**
-- [ ] Create example file `examples/24_django_integration.py`
+- [ ] Create example file `examples/23_django_integration.py`
 - [ ] Update README with Django integration section
 - [ ] Create guide `guides/13-django-integration.md`
 

@@ -127,9 +127,7 @@ def anti_join_dataframes(
     return DataFrame(plan=plan, database=left.database)
 
 
-def union_dataframes(
-    left: DataFrame, right: DataFrame, distinct: bool = True
-) -> DataFrame:
+def union_dataframes(left: DataFrame, right: DataFrame, distinct: bool = True) -> DataFrame:
     """Union two DataFrames.
 
     Args:
@@ -148,9 +146,7 @@ def union_dataframes(
     return DataFrame(plan=plan, database=left.database)
 
 
-def intersect_dataframes(
-    left: DataFrame, right: DataFrame, distinct: bool = True
-) -> DataFrame:
+def intersect_dataframes(left: DataFrame, right: DataFrame, distinct: bool = True) -> DataFrame:
     """Intersect two DataFrames.
 
     Args:
@@ -169,9 +165,7 @@ def intersect_dataframes(
     return DataFrame(plan=plan, database=left.database)
 
 
-def except_dataframes(
-    left: DataFrame, right: DataFrame, distinct: bool = True
-) -> DataFrame:
+def except_dataframes(left: DataFrame, right: DataFrame, distinct: bool = True) -> DataFrame:
     """Return rows from left DataFrame that are not in right DataFrame.
 
     Args:
@@ -215,9 +209,7 @@ def pivot_dataframe(
     return DataFrame(plan=plan, database=df.database)
 
 
-def explode_dataframe(
-    df: DataFrame, column: Union[Column, str], alias: str = "value"
-) -> DataFrame:
+def explode_dataframe(df: DataFrame, column: Union[Column, str], alias: str = "value") -> DataFrame:
     """Explode an array/JSON column into multiple rows.
 
     Args:
@@ -272,4 +264,3 @@ def recursive_cte_dataframe(
         raise ValueError("Cannot create recursive CTE from DataFrames in different Databases")
     plan = operators.recursive_cte(name, initial.plan, recursive.plan, union_all=union_all)
     return DataFrame(plan=plan, database=initial.database)
-

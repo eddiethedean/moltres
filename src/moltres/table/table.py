@@ -1589,7 +1589,7 @@ class Database:
                     # Normalize driver variants (e.g., "mysql+aiomysql" -> "mysql")
                     if "+" in dialect_name:
                         dialect_name = dialect_name.split("+", 1)[0]
-                    return dialect_name
+                    return str(dialect_name)
         # Extract dialect from DSN, normalizing driver variants (e.g., "mysql+pymysql" -> "mysql")
         dsn = self.config.engine.dsn
         if not dsn:

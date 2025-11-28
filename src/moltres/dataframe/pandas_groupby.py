@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from ..expressions.column import Column, col
 from .groupby import GroupedDataFrame
@@ -99,7 +99,6 @@ class PandasGroupBy:
         """
         from .pandas_dataframe import PandasDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Get all columns from the grouped DataFrame
         # We need to access the parent DataFrame's columns
@@ -138,7 +137,6 @@ class PandasGroupBy:
         """
         from .pandas_dataframe import PandasDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Get all columns from the grouped DataFrame
         parent_df = self._grouped.parent
@@ -168,7 +166,6 @@ class PandasGroupBy:
         """Minimum value of all columns in each group."""
         from .pandas_dataframe import PandasDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         parent_df = self._grouped.parent
         try:
@@ -195,7 +192,6 @@ class PandasGroupBy:
         """Maximum value of all columns in each group."""
         from .pandas_dataframe import PandasDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         parent_df = self._grouped.parent
         try:
@@ -222,7 +218,6 @@ class PandasGroupBy:
         """Count distinct values for all columns in each group."""
         from .pandas_dataframe import PandasDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         parent_df = self._grouped.parent
         try:
@@ -249,7 +244,6 @@ class PandasGroupBy:
         """Get first value of each column in each group."""
         from .pandas_dataframe import PandasDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         parent_df = self._grouped.parent
         try:
@@ -278,7 +272,6 @@ class PandasGroupBy:
         """Get last value of each column in each group."""
         from .pandas_dataframe import PandasDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         parent_df = self._grouped.parent
         try:

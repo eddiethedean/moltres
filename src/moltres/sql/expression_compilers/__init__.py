@@ -8,4 +8,3 @@ from __future__ import annotations
 
 # Re-export for backward compatibility
 __all__: list[str] = []
-

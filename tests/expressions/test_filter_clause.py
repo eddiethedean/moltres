@@ -236,7 +236,7 @@ class TestFilterClause:
         db = postgresql_connection
         # PostgreSQL requires BOOLEAN type for FILTER clause
         from moltres.table.schema import ColumnDef
-        
+
         # Create table with explicit BOOLEAN column
         db.create_table(
             "test_data",
@@ -247,9 +247,10 @@ class TestFilterClause:
                 ColumnDef(name="active", type_name="BOOLEAN"),
             ],
         ).collect()
-        
+
         # Insert data with boolean values
         from moltres.io.records import Records
+
         Records(
             _data=[
                 {"id": 1, "category": "A", "amount": 100, "active": True},
@@ -257,7 +258,7 @@ class TestFilterClause:
             ],
             _database=db,
         ).insert_into("test_data")
-        
+
         df = db.table("test_data").select()
         result = (
             df.group_by("category")

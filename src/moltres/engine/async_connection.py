@@ -8,6 +8,12 @@ import shlex
 from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+# Import duckdb_engine to register the dialect with SQLAlchemy
+try:
+    import duckdb_engine  # noqa: F401
+except ImportError:
+    pass
+
 try:
     from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
     from sqlalchemy.ext.asyncio.engine import AsyncConnection
@@ -130,7 +136,9 @@ class AsyncConnectionManager:
 
         # Otherwise, create a new engine from DSN
         if self.config.dsn is None:
-            raise ValueError("Either 'dsn', 'engine', or 'session' must be provided in EngineConfig")
+            raise ValueError(
+                "Either 'dsn', 'engine', or 'session' must be provided in EngineConfig"
+            )
 
         dsn = self.config.dsn
 

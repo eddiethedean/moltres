@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+# Import duckdb_engine early to register the dialect with SQLAlchemy
+try:
+    import duckdb_engine  # noqa: F401
+except ImportError:
+    pass
+
 from .config import MoltresConfig, create_config
 from .expressions import col, lit
 from .table.schema import column
@@ -106,7 +112,7 @@ try:
 
     __all__.append("fastapi_integration")
 except ImportError:
-    fastapi_integration = None  # type: ignore[assignment, misc]
+    fastapi_integration = None  # type: ignore[assignment]
 
 # Async imports - only available if async dependencies are installed
 if TYPE_CHECKING:
@@ -217,7 +223,11 @@ def connect(
     session_obj: object | None = None
     if session is not None:
         # Validate it's a Session-like object
-        if not (hasattr(session, "get_bind") or hasattr(session, "bind") or hasattr(session, "connection")):
+        if not (
+            hasattr(session, "get_bind")
+            or hasattr(session, "bind")
+            or hasattr(session, "connection")
+        ):
             raise TypeError(
                 "session must be a SQLAlchemy Session or SQLModel Session instance. "
                 f"Got: {type(session).__name__}"
@@ -225,7 +235,11 @@ def connect(
         session_obj = session
     elif "session" in options:
         session_from_options = options.pop("session")
-        if not (hasattr(session_from_options, "get_bind") or hasattr(session_from_options, "bind") or hasattr(session_from_options, "connection")):
+        if not (
+            hasattr(session_from_options, "get_bind")
+            or hasattr(session_from_options, "bind")
+            or hasattr(session_from_options, "connection")
+        ):
             raise TypeError(
                 "session must be a SQLAlchemy Session or SQLModel Session instance. "
                 f"Got: {type(session_from_options).__name__}"
@@ -244,12 +258,17 @@ def connect(
             raise TypeError("engine must be a SQLAlchemy Engine instance")
         engine_obj = engine_from_options
 
-    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, session=session_obj, **options)
+    config: MoltresConfig = create_config(
+        dsn=dsn, engine=engine_obj, session=session_obj, **options
+    )
     return Database(config=config)
 
 
 def async_connect(
-    dsn: str | None = None, engine: object | None = None, session: object | None = None, **options: object
+    dsn: str | None = None,
+    engine: object | None = None,
+    session: object | None = None,
+    **options: object,
 ) -> AsyncDatabase:
     """Connect to a SQL database asynchronously and return an ``AsyncDatabase`` handle.
 
@@ -347,7 +366,11 @@ def async_connect(
     session_obj: object | None = None
     if session is not None:
         # Validate it's an AsyncSession-like object
-        if not (hasattr(session, "get_bind") or hasattr(session, "bind") or hasattr(session, "connection")):
+        if not (
+            hasattr(session, "get_bind")
+            or hasattr(session, "bind")
+            or hasattr(session, "connection")
+        ):
             raise TypeError(
                 "session must be a SQLAlchemy AsyncSession or SQLModel AsyncSession instance. "
                 f"Got: {type(session).__name__}"
@@ -355,7 +378,11 @@ def async_connect(
         session_obj = session
     elif "session" in options:
         session_from_options = options.pop("session")
-        if not (hasattr(session_from_options, "get_bind") or hasattr(session_from_options, "bind") or hasattr(session_from_options, "connection")):
+        if not (
+            hasattr(session_from_options, "get_bind")
+            or hasattr(session_from_options, "bind")
+            or hasattr(session_from_options, "connection")
+        ):
             raise TypeError(
                 "session must be a SQLAlchemy AsyncSession or SQLModel AsyncSession instance. "
                 f"Got: {type(session_from_options).__name__}"
@@ -374,5 +401,7 @@ def async_connect(
             raise TypeError("engine must be a SQLAlchemy AsyncEngine instance")
         engine_obj = engine_from_options
 
-    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, session=session_obj, **options)
+    config: MoltresConfig = create_config(
+        dsn=dsn, engine=engine_obj, session=session_obj, **options
+    )
     return AsyncDatabase(config=config)

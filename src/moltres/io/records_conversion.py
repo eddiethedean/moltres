@@ -276,4 +276,3 @@ def extract_schema_from_dataframe(df: Any) -> Optional[List["ColumnDef"]]:
     elif is_polars_lazyframe(df):
         return extract_schema_from_polars_lazyframe(df)
     return None
-

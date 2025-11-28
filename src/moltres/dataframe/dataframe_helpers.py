@@ -6,16 +6,23 @@ the sync and async DataFrame implementations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Protocol, Sequence, Tuple, Union
 
 from ..expressions.column import Column, col
 from ..logical import operators
 from ..logical.plan import LogicalPlan, SortOrder
 
 if TYPE_CHECKING:
-    from ..table.table import Database
-    from ..table.async_table import AsyncDatabase
     from ..utils.inspector import ColumnInfo
+    from ..table.async_table import AsyncDatabase
+    from ..table.table import Database
+
+
+class DataFrameHelpersProtocol(Protocol):
+    """Protocol defining the interface that classes using DataFrameHelpersMixin must implement."""
+
+    database: Optional[Union["Database", "AsyncDatabase"]]
+    plan: LogicalPlan
 
 
 class DataFrameHelpersMixin:
@@ -28,6 +35,7 @@ class DataFrameHelpersMixin:
     # Subclasses must provide these attributes:
     # - database: Optional[Union[Database, AsyncDatabase]]
     # - plan: LogicalPlan
+    database: Optional[Union["Database", "AsyncDatabase"]]
 
     def _normalize_projection(self, expr: Union[Column, str]) -> Column:
         """Normalize a projection expression to a Column.
@@ -195,7 +203,7 @@ class DataFrameHelpersMixin:
             column_names: List[str] = []
             has_star = False
             explicit_columns = []
-            
+
             # First pass: collect explicit columns and check for star
             for proj in base_plan.projections:
                 if proj.op == "star":
@@ -204,12 +212,12 @@ class DataFrameHelpersMixin:
                     col_name = self._extract_column_name(proj)
                     if col_name:
                         explicit_columns.append(col_name)
-            
+
             # If we have a star, get all columns from child
             if has_star:
                 child_names = self._extract_column_names(base_plan.child)
                 column_names.extend(child_names)
-            
+
             # Add explicit columns, avoiding duplicates
             for col_name in explicit_columns:
                 if col_name not in column_names:
@@ -219,11 +227,11 @@ class DataFrameHelpersMixin:
                     # Keep the explicit one (it will replace the one from star)
                     # Actually, we want to keep both in order, so we should track positions
                     pass
-            
+
             # If no star and no explicit columns, return empty (shouldn't happen)
             if not has_star and not explicit_columns:
                 return []
-            
+
             return column_names
 
         # Handle Aggregate - extract from aggregates
@@ -487,4 +495,3 @@ class DataFrameHelpersMixin:
                 assert isinstance(entry, str), "entry must be a string at this point"
                 normalized.append((entry, entry))
         return normalized
-

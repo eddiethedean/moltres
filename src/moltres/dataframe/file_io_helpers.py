@@ -6,7 +6,7 @@ appropriate reader functions.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
 
 if TYPE_CHECKING:
     from ..table.schema import ColumnDef
@@ -101,9 +101,7 @@ async def _route_async_file_read(
         try:
             from .readers.async_parquet_reader import read_parquet
         except ImportError:
-            raise ImportError(
-                "Parquet support requires pyarrow. Install with: pip install pyarrow"
-            )
+            raise ImportError("Parquet support requires pyarrow. Install with: pip install pyarrow")
         return await read_parquet(path, database, schema, options)
     elif format_name == "text":
         return await read_text(path, database, schema, options, column_name or "value")
@@ -140,9 +138,13 @@ def route_file_read_streaming(
         ImportError: If required dependencies are missing (e.g., pyarrow for parquet)
     """
     if async_mode:
-        return _route_async_file_read_streaming(format_name, path, database, schema, options, column_name)
+        return _route_async_file_read_streaming(
+            format_name, path, database, schema, options, column_name
+        )
     else:
-        return _route_sync_file_read_streaming(format_name, path, database, schema, options, column_name)
+        return _route_sync_file_read_streaming(
+            format_name, path, database, schema, options, column_name
+        )
 
 
 def _route_sync_file_read_streaming(
@@ -200,12 +202,9 @@ async def _route_async_file_read_streaming(
         try:
             from .readers.async_parquet_reader import read_parquet_stream
         except ImportError:
-            raise ImportError(
-                "Parquet support requires pyarrow. Install with: pip install pyarrow"
-            )
+            raise ImportError("Parquet support requires pyarrow. Install with: pip install pyarrow")
         return await read_parquet_stream(path, database, schema, options)
     elif format_name == "text":
         return await read_text_stream(path, database, schema, options, column_name or "value")
     else:
         raise ValueError(f"Unsupported file format: {format_name}")
-

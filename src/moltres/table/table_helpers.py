@@ -26,7 +26,9 @@ def build_table_names_query(dialect: "DialectSpec", schema: Optional[str] = None
         return "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     elif dialect.name == "postgresql":
         if schema:
-            return f"SELECT tablename FROM pg_tables WHERE schemaname = '{schema}' ORDER BY tablename"
+            return (
+                f"SELECT tablename FROM pg_tables WHERE schemaname = '{schema}' ORDER BY tablename"
+            )
         return "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
     elif dialect.name == "mysql":
         if schema:
@@ -66,7 +68,9 @@ def build_view_names_query(dialect: "DialectSpec", schema: Optional[str] = None)
         return "SELECT table_name FROM information_schema.views WHERE table_schema = 'PUBLIC' ORDER BY table_name"
 
 
-def build_columns_query(dialect: "DialectSpec", table_name: str, schema: Optional[str] = None) -> str:
+def build_columns_query(
+    dialect: "DialectSpec", table_name: str, schema: Optional[str] = None
+) -> str:
     """Build SQL query to get column information for a given dialect.
 
     Args:
@@ -166,4 +170,3 @@ def extract_view_names_from_result(rows: List[dict], dialect: "DialectSpec") -> 
         return [row["table_name"] for row in rows]
     else:
         return [row["table_name"] for row in rows]
-

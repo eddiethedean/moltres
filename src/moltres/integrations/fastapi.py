@@ -12,13 +12,16 @@ Key features:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
-    from fastapi import FastAPI, Request, Response
+    from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.orm import Session
+
+    from ..table.async_table import AsyncDatabase
+    from ..table.table import Database
 
 try:
     from fastapi import HTTPException, Request, status, Depends
@@ -28,11 +31,11 @@ try:
 except ImportError:
     FASTAPI_AVAILABLE = False
     # Create stubs for type checking
-    HTTPException = None  # type: ignore[assignment, misc]
-    Request = None  # type: ignore[assignment, misc]
-    JSONResponse = None  # type: ignore[assignment, misc]
-    status = None  # type: ignore[assignment, misc]
-    Depends = None  # type: ignore[assignment, misc]
+    HTTPException = None
+    Request = None
+    JSONResponse = None
+    status = None
+    Depends = None
 
 
 def register_exception_handlers(app: "FastAPI") -> None:
@@ -138,7 +141,9 @@ def register_exception_handlers(app: "FastAPI") -> None:
         )
 
     @app.exception_handler(CompilationError)
-    async def compilation_error_handler(request: "Request", exc: CompilationError) -> "JSONResponse":
+    async def compilation_error_handler(
+        request: "Request", exc: CompilationError
+    ) -> "JSONResponse":
         """Handle SQL compilation errors."""
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -180,7 +185,9 @@ def register_exception_handlers(app: "FastAPI") -> None:
         )
 
     @app.exception_handler(TransactionError)
-    async def transaction_error_handler(request: "Request", exc: TransactionError) -> "JSONResponse":
+    async def transaction_error_handler(
+        request: "Request", exc: TransactionError
+    ) -> "JSONResponse":
         """Handle transaction errors."""
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -222,7 +229,7 @@ def get_db(session: "Session") -> "Database":
         >>> from fastapi import Depends
         >>> from sqlalchemy.orm import Session
         >>> from moltres.integrations.fastapi import get_db
-        >>> 
+        >>>
         >>> @app.get("/users")
         >>> def get_users(db: Database = Depends(lambda: get_db(Depends(get_session)))):
         ...     # Use db for Moltres operations
@@ -250,7 +257,7 @@ async def get_async_db(session: "AsyncSession") -> "AsyncDatabase":
         >>> from fastapi import Depends
         >>> from sqlalchemy.ext.asyncio import AsyncSession
         >>> from moltres.integrations.fastapi import get_async_db
-        >>> 
+        >>>
         >>> @app.get("/users")
         >>> async def get_users(db: AsyncDatabase = Depends(lambda: get_async_db(Depends(get_async_session)))):
         ...     # Use db for async Moltres operations
@@ -262,9 +269,7 @@ async def get_async_db(session: "AsyncSession") -> "AsyncDatabase":
     return async_connect(session=session)
 
 
-def create_db_dependency(
-    get_session: Callable[[], "Session"]
-) -> Callable[[], "Database"]:
+def create_db_dependency(get_session: Callable[[], "Session"]) -> Callable[[], "Database"]:
     """Create a FastAPI dependency for sync database connections.
 
     This creates a dependency function that can be used directly in FastAPI
@@ -280,30 +285,30 @@ def create_db_dependency(
         >>> from fastapi import Depends
         >>> from sqlalchemy.orm import Session
         >>> from moltres.integrations.fastapi import create_db_dependency
-        >>> 
+        >>>
         >>> def get_session():
         ...     # Your session creation logic
         ...     pass
-        >>> 
+        >>>
         >>> get_db = create_db_dependency(get_session)
-        >>> 
+        >>>
         >>> @app.get("/users")
         >>> def get_users(db: Database = Depends(get_db)):
         ...     df = db.table("users").select()
         ...     return df.collect()
     """
     from .. import connect
-    from ..table.table import Database
     import inspect
 
     # Create a dependency that FastAPI can properly inject
     # We need to use Depends inside the function signature for FastAPI to recognize it
     if FASTAPI_AVAILABLE:
+
         def dependency(session: "Session" = Depends(get_session)) -> Database:
             # FastAPI will inject the session here
             # Check if we got a Depends object (when called directly, not by FastAPI)
             # Depends objects have a 'dependency' attribute
-            if hasattr(session, 'dependency'):
+            if hasattr(session, "dependency"):
                 # Called directly, not by FastAPI - call get_session ourselves
                 session_result = get_session()
                 if inspect.isgenerator(session_result):
@@ -318,6 +323,7 @@ def create_db_dependency(
                     session_obj = session
             return connect(session=session_obj)
     else:
+
         def dependency() -> Database:
             # Fallback for when FastAPI is not available (testing)
             session_result = get_session()
@@ -331,7 +337,7 @@ def create_db_dependency(
 
 
 def create_async_db_dependency(
-    get_session: Callable[[], "AsyncSession"]
+    get_session: Callable[[], "AsyncSession"],
 ) -> Callable[..., "AsyncDatabase"]:
     """Create a FastAPI dependency for async database connections.
 
@@ -350,20 +356,19 @@ def create_async_db_dependency(
         >>> from fastapi import Depends
         >>> from sqlalchemy.ext.asyncio import AsyncSession
         >>> from moltres.integrations.fastapi import create_async_db_dependency
-        >>> 
+        >>>
         >>> async def get_async_session():
         ...     # Your async session creation logic
         ...     pass
-        >>> 
+        >>>
         >>> get_db = create_async_db_dependency(get_async_session)
-        >>> 
+        >>>
         >>> @app.get("/users")
         >>> async def get_users(db: AsyncDatabase = Depends(get_db)):
         ...     df = (await db.table("users")).select()
         ...     return await df.collect()
     """
     from .. import async_connect
-    from ..table.async_table import AsyncDatabase
     import inspect
 
     async def dependency() -> AsyncDatabase:
@@ -401,7 +406,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
     Example:
         >>> from fastapi import HTTPException
         >>> from moltres.integrations.fastapi import handle_moltres_errors
-        >>> 
+        >>>
         >>> @app.get("/users")
         >>> @handle_moltres_errors
         >>> def get_users(db: Database):
@@ -486,4 +491,3 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
             ) from e
 
     return async_wrapper
-

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..table.schema import ColumnDef
+    pass
 
 
 def get_format_from_path(path: str) -> str:
@@ -68,4 +68,3 @@ def validate_format(format_name: str) -> str:
         )
 
     return format_name_lower
-

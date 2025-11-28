@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from ..expressions.column import Column, col
 from .async_groupby import AsyncGroupedDataFrame
@@ -100,7 +100,6 @@ class AsyncPandasGroupBy:
         from .async_pandas_dataframe import AsyncPandasDataFrame
         from .async_dataframe import AsyncDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Extract columns from the plan's child (before aggregation)
         from ..logical.plan import Aggregate
@@ -147,7 +146,6 @@ class AsyncPandasGroupBy:
         from .async_pandas_dataframe import AsyncPandasDataFrame
         from .async_dataframe import AsyncDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Extract columns from the plan's child (before aggregation)
         from ..logical.plan import Aggregate
@@ -186,7 +184,6 @@ class AsyncPandasGroupBy:
         from .async_pandas_dataframe import AsyncPandasDataFrame
         from .async_dataframe import AsyncDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Extract columns from the plan's child (before aggregation)
         from ..logical.plan import Aggregate
@@ -223,7 +220,6 @@ class AsyncPandasGroupBy:
         from .async_pandas_dataframe import AsyncPandasDataFrame
         from .async_dataframe import AsyncDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Extract columns from the plan's child (before aggregation)
         from ..logical.plan import Aggregate
@@ -260,7 +256,6 @@ class AsyncPandasGroupBy:
         from .async_pandas_dataframe import AsyncPandasDataFrame
         from .async_dataframe import AsyncDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Extract columns from the plan's child (before aggregation)
         from ..logical.plan import Aggregate
@@ -297,7 +292,6 @@ class AsyncPandasGroupBy:
         from .async_pandas_dataframe import AsyncPandasDataFrame
         from .async_dataframe import AsyncDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Extract columns from the plan's child (before aggregation)
         from ..logical.plan import Aggregate
@@ -336,7 +330,6 @@ class AsyncPandasGroupBy:
         from .async_pandas_dataframe import AsyncPandasDataFrame
         from .async_dataframe import AsyncDataFrame
         from ..expressions import functions as F
-        from ..expressions.column import col
 
         # Extract columns from the plan's child (before aggregation)
         from ..logical.plan import Aggregate

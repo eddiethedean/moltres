@@ -36,6 +36,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 - 🔒 **Security First** - Built-in SQL injection prevention and validation
 - 🎯 **SQLModel & Pydantic Integration** - Attach models to DataFrames for type safety and validation
 - 🚀 **FastAPI Integration** - Built-in utilities for error handling, dependency injection, and seamless FastAPI integration
+- 🎨 **Django Integration** - Middleware, database helpers, management commands, and template tags for Django applications
 
 ## 📦 Installation
 
@@ -52,6 +53,9 @@ pip install moltres[pandas,polars]
 
 # Optional: For SQLModel/Pydantic integration
 pip install moltres[sqlmodel]  # Includes both SQLModel and Pydantic
+
+# Optional: For Django integration
+pip install moltres[django]  # Middleware, helpers, commands, and template tags
 ```
 
 ## 🚀 Quick Start
@@ -186,6 +190,56 @@ async def get_users(db=Depends(get_db)):
 
 📚 **[See the FastAPI Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)**
 
+### Django Integration
+
+Seamless integration with Django using middleware, database helpers, management commands, and template tags:
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ... other apps
+    'moltres.integrations.django',
+]
+
+MIDDLEWARE = [
+    # ... other middleware
+    'moltres.integrations.django.MoltresExceptionMiddleware',
+]
+
+# views.py
+from django.http import JsonResponse
+from django.views import View
+from moltres.integrations.django import get_moltres_db
+from moltres import col
+
+class UserListView(View):
+    def get(self, request):
+        db = get_moltres_db(using='default')
+        df = db.table("users").select().where(col("active") == True)
+        results = df.collect()
+        return JsonResponse({'users': results}, safe=False)
+```
+
+**Template Usage:**
+```django
+{% load moltres_tags %}
+
+{% moltres_query "users" cache_timeout=3600 as users %}
+{% for user in users %}
+    <div>{{ user.name }} - {{ user.email }}</div>
+{% endfor %}
+```
+
+**Key Features:**
+- **Automatic Error Handling**: Middleware converts Moltres errors to appropriate HTTP responses
+- **Database Routing**: Support for Django's multi-database setup
+- **Management Commands**: Execute queries from the command line with `python manage.py moltres_query`
+- **Template Tags**: Query data directly in templates with caching support
+- **Transaction Management**: Integration with Django's transaction system
+
+📚 **[See the Django Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/13-django-integration.md)**  
+📚 **[See the Django Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)**
+
 ### Async Operations
 
 Full async/await support for all operations:
@@ -279,6 +333,7 @@ db.delete("users", where=col("email").is_null())
 - **[Advanced Topics](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md)** - Window functions, CTEs, transactions
 - **[SQLModel & Pydantic Integration](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models with SQLModel and Pydantic
 - **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - Built-in utilities for FastAPI (error handling, dependency injection)
+- **[Django Integration](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Middleware, database helpers, management commands, and template tags for Django
 
 ### Reference
 - **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
@@ -312,6 +367,7 @@ Comprehensive examples demonstrating all Moltres features:
 - **[20_sqlalchemy_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/20_sqlalchemy_integration.py)** - SQLAlchemy integration patterns
 - **[21_sqlmodel_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/21_sqlmodel_integration.py)** - SQLModel and Pydantic integration
 - **[22_fastapi_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - FastAPI integration with built-in utilities (error handling, dependency injection, sync and async endpoints)
+- **[23_django_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Django integration with middleware, database helpers, management commands, and template tags
 
 See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
 

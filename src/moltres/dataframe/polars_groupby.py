@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Union
 
 from ..expressions.column import Column, col
 from .groupby import GroupedDataFrame
@@ -21,9 +21,7 @@ class PolarsGroupBy:
 
     _grouped: GroupedDataFrame
 
-    def agg(
-        self, *exprs: Union[Column, Dict[str, str]]
-    ) -> "PolarsDataFrame":
+    def agg(self, *exprs: Union[Column, Dict[str, str]]) -> "PolarsDataFrame":
         """Apply aggregations using Polars-style expressions.
 
         Args:

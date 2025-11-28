@@ -6,14 +6,13 @@ AsyncPandasDataFrame to reduce duplication and improve maintainability.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Set, Tuple, Union
 
 from ..expressions.column import Column
 from ..utils.exceptions import PandasAPIError
 
 if TYPE_CHECKING:
-    from .dataframe import DataFrame
-    from .async_dataframe import AsyncDataFrame
+    pass
 
 
 def parse_query_expression(
@@ -189,7 +188,5 @@ def validate_columns_exist(
     if missing:
         available_str = ", ".join(sorted(available_columns))
         raise ValueError(
-            f"Column(s) {missing} not found in {operation}. "
-            f"Available columns: {available_str}"
+            f"Column(s) {missing} not found in {operation}. Available columns: {available_str}"
         )
-

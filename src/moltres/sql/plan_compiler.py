@@ -10,21 +10,15 @@ from sqlalchemy import (
     table,
     func,
     case as sa_case,
-    null,
     and_,
-    or_,
-    not_,
-    literal,
-    cast as sqlalchemy_cast,
     text,
 )
-from sqlalchemy.sql import Select
+from sqlalchemy.sql import Select, ColumnElement
 
 if TYPE_CHECKING:
     from sqlalchemy.sql.selectable import FromClause
 
 from ..engine.dialects import DialectSpec
-from ..expressions.column import Column
 from ..logical.plan import (
     Aggregate,
     AntiJoin,
@@ -46,10 +40,8 @@ from ..logical.plan import (
     Sample,
     SemiJoin,
     Sort,
-    SortOrder,
     TableScan,
     Union as LogicalUnion,
-    WindowSpec,
 )
 from ..utils.exceptions import CompilationError
 from .expression_compiler import ExpressionCompiler
@@ -887,5 +879,3 @@ class SQLCompiler:
             return subq, None
 
         return compiled_stmt, None
-
-

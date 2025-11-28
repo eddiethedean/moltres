@@ -22,7 +22,9 @@ def test_env_dsn():
 def test_env_dsn_missing():
     """Test that missing DSN raises ValueError."""
     with patch.dict(os.environ, {}, clear=True):
-        with pytest.raises(ValueError, match="Either 'dsn' or 'engine' must be provided as argument"):
+        with pytest.raises(
+            ValueError, match="Either 'dsn' or 'engine' must be provided as argument"
+        ):
             create_config()
 
 

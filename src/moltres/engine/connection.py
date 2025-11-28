@@ -6,6 +6,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Optional
 
+# Import duckdb_engine to register the dialect with SQLAlchemy
+try:
+    import duckdb_engine  # noqa: F401
+except ImportError:
+    pass
+
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection, Engine
 
@@ -53,7 +59,9 @@ class ConnectionManager:
 
         # Otherwise, create a new engine from DSN
         if self.config.dsn is None:
-            raise ValueError("Either 'dsn', 'engine', or 'session' must be provided in EngineConfig")
+            raise ValueError(
+                "Either 'dsn', 'engine', or 'session' must be provided in EngineConfig"
+            )
 
         kwargs: dict[str, object] = {"echo": self.config.echo, "future": self.config.future}
         if self.config.pool_size is not None:

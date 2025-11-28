@@ -27,24 +27,27 @@ def compile_aggregation(
     Returns:
         Compiled SQLAlchemy column element
     """
+
     # Helper to apply filter clause with fallback
-    def apply_filter(result: "ColumnElement[Any]", col_expr: "ColumnElement[Any]") -> "ColumnElement[Any]":
+    def apply_filter(
+        result: "ColumnElement[Any]", col_expr: "ColumnElement[Any]"
+    ) -> "ColumnElement[Any]":
         if expression._filter is not None:
             filter_condition = compiler._compile(expression._filter)
             if compiler.dialect.supports_filter_clause:
                 result = result.filter(filter_condition)
             else:
                 # Fallback to CASE WHEN for unsupported dialects
-                case_expr = sa_case((filter_condition, col_expr), else_=None)
                 # Recompile the aggregation with the case expression
                 # This requires re-evaluating the operation, so we return a modified result
                 # For now, we'll handle this in each specific aggregation
+                _ = sa_case((filter_condition, col_expr), else_=None)
                 pass
         return result
 
     if op == "agg_sum":
         col_expr = compiler._compile(expression.args[0])
-        result = func.sum(col_expr)
+        result: "ColumnElement[Any]" = func.sum(col_expr)
         if expression._filter is not None:
             filter_condition = compiler._compile(expression._filter)
             if compiler.dialect.supports_filter_clause:
@@ -264,7 +267,7 @@ def compile_aggregation(
                     f"percentile_cont({fraction}) WITHIN GROUP (ORDER BY {col_expr})"
                 )
             else:
-                from ..utils.exceptions import CompilationError
+                from ...utils.exceptions import CompilationError
 
                 raise CompilationError(
                     f"percentile_cont() is not supported for {compiler.dialect.name} dialect. "
@@ -287,7 +290,7 @@ def compile_aggregation(
                     f"percentile_disc({fraction}) WITHIN GROUP (ORDER BY {col_expr})"
                 )
             else:
-                from ..utils.exceptions import CompilationError
+                from ...utils.exceptions import CompilationError
 
                 raise CompilationError(
                     f"percentile_disc() is not supported for {compiler.dialect.name} dialect. "
@@ -297,5 +300,4 @@ def compile_aggregation(
             result = result.label(expression._alias)
         return result
 
-    return None  # Not handled by this module
-
+    return None  # type: ignore[return-value]  # Not handled by this module

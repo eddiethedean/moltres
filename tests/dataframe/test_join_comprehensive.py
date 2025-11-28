@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+# Import duckdb_engine to register the dialect with SQLAlchemy
+try:
+    import duckdb_engine  # noqa: F401
+except ImportError:
+    pass
+
 from moltres import col, connect, lit
 from moltres.expressions import functions as F
 from moltres.table.schema import column

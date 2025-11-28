@@ -7,6 +7,7 @@ import time
 import warnings
 from dataclasses import dataclass
 from typing import (
+    Type,
     TYPE_CHECKING,
     Any,
     AsyncIterator,
@@ -111,7 +112,10 @@ class AsyncQueryExecutor:
             sqlmodel_session = None
             if model is not None:
                 # Check if we have a SQLModel async session available
-                if hasattr(self._connections, "_session") and self._connections._session is not None:
+                if (
+                    hasattr(self._connections, "_session")
+                    and self._connections._session is not None
+                ):
                     session = self._connections._session
                     # Check if it's a SQLModel async session (has .exec() method)
                     if hasattr(session, "exec"):
@@ -123,7 +127,7 @@ class AsyncQueryExecutor:
                 # Use the provided connection directly (don't manage its lifecycle)
                 conn = connection
                 exec_conn = self._apply_timeout(conn)
-                
+
                 # Use SQLModel .exec() if available and model is provided
                 if use_sqlmodel_exec and isinstance(stmt, Select) and model is not None:
                     # SQLModel async .exec() returns SQLModel instances directly
@@ -136,7 +140,9 @@ class AsyncQueryExecutor:
                             exec_result = await sqlmodel_session.exec(stmt)
                             # .exec() returns an iterable of SQLModel instances
                             sqlmodel_instances = list(exec_result)
-                            return AsyncQueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                            return AsyncQueryResult(
+                                rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
+                            )
                     except Exception:
                         # Fall back to regular execute if exec() fails
                         pass
@@ -165,7 +171,9 @@ class AsyncQueryExecutor:
                             exec_result = await sqlmodel_session.exec(stmt)
                             # .exec() returns an iterable of SQLModel instances
                             sqlmodel_instances = list(exec_result)
-                            return AsyncQueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                            return AsyncQueryResult(
+                                rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
+                            )
                     except Exception:
                         # Fall back to regular execute if exec() fails
                         pass

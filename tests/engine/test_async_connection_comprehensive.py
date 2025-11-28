@@ -257,7 +257,9 @@ class TestAsyncConnectionManager:
     async def test_create_engine_no_dsn_no_engine_error(self):
         """Test _create_engine with no DSN and no engine raises error."""
         # Error is raised during EngineConfig creation, not in _create_engine
-        with pytest.raises(ValueError, match="Either 'dsn', 'engine', or 'session' must be provided"):
+        with pytest.raises(
+            ValueError, match="Either 'dsn', 'engine', or 'session' must be provided"
+        ):
             EngineConfig(dsn=None, engine=None)
 
     async def test_create_engine_auto_detect_async_driver(self, tmp_path):

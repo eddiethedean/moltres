@@ -202,4 +202,3 @@ def normalize_aggregations(
             )
 
     return normalized_aggs
-

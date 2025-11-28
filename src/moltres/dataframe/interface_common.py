@@ -6,11 +6,50 @@ across PandasDataFrame, PolarsDataFrame, AsyncPandasDataFrame, and AsyncPolarsDa
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol
 
 if TYPE_CHECKING:
-    from .dataframe import DataFrame
-    from .async_dataframe import AsyncDataFrame
+    pass
+
+
+class DataFrameProtocol(Protocol):
+    """Protocol defining the interface that _df must implement."""
+
+    def show(self, n: int = 20, truncate: bool = True) -> None:
+        """Print the first n rows of the DataFrame."""
+        ...
+
+    def take(self, num: int) -> List[Dict[str, object]]:
+        """Take the first num rows as a list."""
+        ...
+
+    def first(self) -> Optional[Dict[str, object]]:
+        """Return the first row as a dictionary, or None if empty."""
+        ...
+
+    def printSchema(self) -> None:
+        """Print the schema of this DataFrame in a tree format."""
+        ...
+
+
+class AsyncDataFrameProtocol(Protocol):
+    """Protocol defining the interface that async _df must implement."""
+
+    async def show(self, n: int = 20, truncate: bool = True) -> None:
+        """Print the first n rows of the DataFrame (async)."""
+        ...
+
+    async def take(self, num: int) -> List[Dict[str, object]]:
+        """Take the first num rows as a list (async)."""
+        ...
+
+    async def first(self) -> Optional[Dict[str, object]]:
+        """Return the first row as a dictionary, or None if empty (async)."""
+        ...
+
+    def printSchema(self) -> None:
+        """Print the schema of this DataFrame in a tree format."""
+        ...
 
 
 class InterfaceCommonMixin:
@@ -21,7 +60,8 @@ class InterfaceCommonMixin:
     """
 
     # Subclasses must provide:
-    # - _df: Union[DataFrame, AsyncDataFrame] - the underlying DataFrame
+    # - _df: DataFrameProtocol - the underlying DataFrame
+    _df: DataFrameProtocol
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
         """Print the first n rows of the DataFrame.
@@ -76,7 +116,8 @@ class AsyncInterfaceCommonMixin:
     """
 
     # Subclasses must provide:
-    # - _df: AsyncDataFrame - the underlying AsyncDataFrame
+    # - _df: AsyncDataFrameProtocol - the underlying AsyncDataFrame
+    _df: AsyncDataFrameProtocol
 
     async def show(self, n: int = 20, truncate: bool = True) -> None:
         """Print the first n rows of the DataFrame (async).
@@ -122,4 +163,3 @@ class AsyncInterfaceCommonMixin:
             >>> df.printSchema()
         """
         self._df.printSchema()
-

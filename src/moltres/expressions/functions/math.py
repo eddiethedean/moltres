@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..column import Column, ColumnLike, ensure_column
 
+
 def round(column: ColumnLike, scale: int = 0) -> Column:
     """Round a numeric column to the specified number of decimal places.
 
@@ -30,6 +31,7 @@ def round(column: ColumnLike, scale: int = 0) -> Column:
     """
     return Column(op="round", args=(ensure_column(column), scale))
 
+
 def floor(column: ColumnLike) -> Column:
     """Get the floor of a numeric column.
 
@@ -54,6 +56,7 @@ def floor(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="floor", args=(ensure_column(column),))
+
 
 def ceil(column: ColumnLike) -> Column:
     """Get the ceiling of a numeric column.
@@ -80,6 +83,7 @@ def ceil(column: ColumnLike) -> Column:
     """
     return Column(op="ceil", args=(ensure_column(column),))
 
+
 def abs(column: ColumnLike) -> Column:  # noqa: A001
     """Get the absolute value of a numeric column.
 
@@ -105,6 +109,7 @@ def abs(column: ColumnLike) -> Column:  # noqa: A001
     """
     return Column(op="abs", args=(ensure_column(column),))
 
+
 def sqrt(column: ColumnLike) -> Column:
     """Get the square root of a numeric column.
 
@@ -129,6 +134,7 @@ def sqrt(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="sqrt", args=(ensure_column(column),))
+
 
 def exp(column: ColumnLike) -> Column:
     """Get the exponential of a numeric column.
@@ -156,6 +162,7 @@ def exp(column: ColumnLike) -> Column:
     """
     return Column(op="exp", args=(ensure_column(column),))
 
+
 def log(column: ColumnLike) -> Column:
     """Get the natural logarithm of a numeric column.
 
@@ -182,6 +189,7 @@ def log(column: ColumnLike) -> Column:
     """
     return Column(op="log", args=(ensure_column(column),))
 
+
 def log10(column: ColumnLike) -> Column:
     """Get the base-10 logarithm of a numeric column.
 
@@ -206,6 +214,7 @@ def log10(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="log10", args=(ensure_column(column),))
+
 
 def sin(column: ColumnLike) -> Column:
     """Get the sine of a numeric column (in radians).
@@ -234,6 +243,7 @@ def sin(column: ColumnLike) -> Column:
     """
     return Column(op="sin", args=(ensure_column(column),))
 
+
 def cos(column: ColumnLike) -> Column:
     """Get the cosine of a numeric column (in radians).
 
@@ -259,6 +269,7 @@ def cos(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="cos", args=(ensure_column(column),))
+
 
 def tan(column: ColumnLike) -> Column:
     """Get the tangent of a numeric column (in radians).
@@ -286,6 +297,7 @@ def tan(column: ColumnLike) -> Column:
     """
     return Column(op="tan", args=(ensure_column(column),))
 
+
 def asin(column: ColumnLike) -> Column:
     """Get the arcsine (inverse sine) of a numeric column.
 
@@ -311,6 +323,7 @@ def asin(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="asin", args=(ensure_column(column),))
+
 
 def acos(column: ColumnLike) -> Column:
     """Get the arccosine (inverse cosine) of a numeric column.
@@ -339,6 +352,7 @@ def acos(column: ColumnLike) -> Column:
     """
     return Column(op="acos", args=(ensure_column(column),))
 
+
 def atan(column: ColumnLike) -> Column:
     """Get the arctangent (inverse tangent) of a numeric column.
 
@@ -364,6 +378,7 @@ def atan(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="atan", args=(ensure_column(column),))
+
 
 def atan2(y: ColumnLike, x: ColumnLike) -> Column:
     """Get the arctangent of y/x (inverse tangent with quadrant awareness).
@@ -392,6 +407,7 @@ def atan2(y: ColumnLike, x: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="atan2", args=(ensure_column(y), ensure_column(x)))
+
 
 def signum(column: ColumnLike) -> Column:
     """Get the sign of a numeric column (-1, 0, or 1).
@@ -423,6 +439,7 @@ def signum(column: ColumnLike) -> Column:
     """
     return Column(op="signum", args=(ensure_column(column),))
 
+
 def sign(column: ColumnLike) -> Column:
     """Get the sign of a numeric column (alias for signum).
 
@@ -453,6 +470,7 @@ def sign(column: ColumnLike) -> Column:
     """
     return signum(column)
 
+
 def log2(column: ColumnLike) -> Column:
     """Get the base-2 logarithm of a numeric column.
 
@@ -480,6 +498,7 @@ def log2(column: ColumnLike) -> Column:
     """
     return Column(op="log2", args=(ensure_column(column),))
 
+
 def hypot(x: ColumnLike, y: ColumnLike) -> Column:
     """Compute the hypotenuse (sqrt(x² + y²)).
 
@@ -506,6 +525,7 @@ def hypot(x: ColumnLike, y: ColumnLike) -> Column:
     """
     return Column(op="hypot", args=(ensure_column(x), ensure_column(y)))
 
+
 def pow(base: ColumnLike, exp: ColumnLike) -> Column:
     """Raise base to the power of exponent.
 
@@ -531,6 +551,7 @@ def pow(base: ColumnLike, exp: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="pow", args=(ensure_column(base), ensure_column(exp)))
+
 
 def power(base: ColumnLike, exp: ColumnLike) -> Column:
     """Raise base to the power of exponent (alias for pow).

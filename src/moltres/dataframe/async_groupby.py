@@ -70,11 +70,11 @@ class AsyncGroupedDataFrame:
             # Select only grouping columns and apply distinct
             grouping_cols = list(grouping)
             new_plan = operators.project(self.plan.child, tuple(grouping_cols))
-            new_plan = operators.distinct(new_plan)
+            new_plan = operators.distinct(new_plan)  # type: ignore[assignment]
         else:
             new_plan = operators.aggregate(
                 self.plan.child, keys=grouping, aggregates=tuple(normalized_aggs)
-            )
+            )  # type: ignore[assignment]
         return AsyncDataFrame(
             plan=new_plan,
             database=self.database,

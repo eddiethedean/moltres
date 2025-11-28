@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from ..column import Column, ColumnLike, ensure_column
+
 
 def json_extract(column: ColumnLike, path: str) -> Column:
     """Extract a value from a JSON column using a JSON path.
@@ -31,6 +34,7 @@ def json_extract(column: ColumnLike, path: str) -> Column:
         >>> db.close()
     """
     return Column(op="json_extract", args=(ensure_column(column), path))
+
 
 def json_tuple(column: ColumnLike, *paths: str) -> Column:
     """Extract multiple JSON paths from a JSON column at once.
@@ -62,6 +66,7 @@ def json_tuple(column: ColumnLike, *paths: str) -> Column:
         raise ValueError("json_tuple requires at least one path")
     return Column(op="json_tuple", args=(ensure_column(column),) + paths)
 
+
 def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
     """Parse a JSON string column into a JSON object.
 
@@ -92,6 +97,7 @@ def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
         return Column(op="from_json", args=(ensure_column(column), schema))
     return Column(op="from_json", args=(ensure_column(column),))
 
+
 def to_json(column: ColumnLike) -> Column:
     """Convert a column to a JSON string.
 
@@ -119,6 +125,7 @@ def to_json(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="to_json", args=(ensure_column(column),))
+
 
 def json_array_length(column: ColumnLike) -> Column:
     """Get the length of a JSON array.

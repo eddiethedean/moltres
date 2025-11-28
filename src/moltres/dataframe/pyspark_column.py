@@ -41,4 +41,3 @@ class PySparkColumn(BaseColumnWrapper):
             self.dt = _PolarsDateTimeAccessor(column)
         except ImportError:
             self.dt = None  # type: ignore
-

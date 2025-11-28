@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Optional, Union
 from typing import cast as typing_cast
 
@@ -18,16 +19,18 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import Select, ColumnElement
 
-if TYPE_CHECKING:
-    from sqlalchemy import types as sa_types
-    from sqlalchemy.sql import Subquery, TableClause
-    from sqlalchemy.sql.selectable import FromClause
-    from .plan_compiler import SQLCompiler
-
 from ..engine.dialects import DialectSpec
 from ..expressions.column import Column
 from ..utils.exceptions import CompilationError, ValidationError
 from .builders import quote_identifier
+
+if TYPE_CHECKING:
+    from sqlalchemy import types as sa_types
+    from sqlalchemy.sql import Subquery, TableClause
+    from .plan_compiler import SQLCompiler
+    from ..logical.plan import WindowSpec
+
+logger = logging.getLogger(__name__)
 
 
 class ExpressionCompiler:
@@ -1040,7 +1043,7 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.string import compile_string_operation
 
-            result = compile_string_operation(self, op, expression)
+            result = compile_string_operation(self, op, expression)  # type: ignore[assignment]
             if result is not None:
                 return result
 
@@ -1073,7 +1076,7 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.datetime import compile_datetime_operation
 
-            result = compile_datetime_operation(self, op, expression)
+            result = compile_datetime_operation(self, op, expression)  # type: ignore[assignment]
             if result is not None:
                 return result
 
@@ -1319,7 +1322,7 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.string import compile_string_operation
 
-            result = compile_string_operation(self, op, expression)
+            result = compile_string_operation(self, op, expression)  # type: ignore[assignment]
             if result is not None:
                 return result
 
@@ -1352,7 +1355,7 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.datetime import compile_datetime_operation
 
-            result = compile_datetime_operation(self, op, expression)
+            result = compile_datetime_operation(self, op, expression)  # type: ignore[assignment]
             if result is not None:
                 return result
 
@@ -2092,4 +2095,3 @@ class ExpressionCompiler:
             self._table_cache[table_name] = sa_table(table_name)
         result = self._table_cache[table_name]
         return result  # type: ignore[no-any-return]
-

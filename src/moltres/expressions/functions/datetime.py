@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from ..column import Column, ColumnLike, ensure_column
+
 
 def year(column: ColumnLike) -> Column:
     """Extract the year from a date/timestamp column.
@@ -29,6 +32,7 @@ def year(column: ColumnLike) -> Column:
     """
     return Column(op="year", args=(ensure_column(column),))
 
+
 def month(column: ColumnLike) -> Column:
     """Extract the month from a date/timestamp column.
 
@@ -54,6 +58,7 @@ def month(column: ColumnLike) -> Column:
     """
     return Column(op="month", args=(ensure_column(column),))
 
+
 def day(column: ColumnLike) -> Column:
     """Extract the day of month from a date/timestamp column.
 
@@ -78,6 +83,7 @@ def day(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="day", args=(ensure_column(column),))
+
 
 def dayofweek(column: ColumnLike) -> Column:
     """Extract the day of week from a date/timestamp column (1=Sunday, 7=Saturday).
@@ -105,6 +111,7 @@ def dayofweek(column: ColumnLike) -> Column:
     """
     return Column(op="dayofweek", args=(ensure_column(column),))
 
+
 def hour(column: ColumnLike) -> Column:
     """Extract the hour from a timestamp column.
 
@@ -129,6 +136,7 @@ def hour(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="hour", args=(ensure_column(column),))
+
 
 def minute(column: ColumnLike) -> Column:
     """Extract the minute from a timestamp column.
@@ -155,6 +163,7 @@ def minute(column: ColumnLike) -> Column:
     """
     return Column(op="minute", args=(ensure_column(column),))
 
+
 def second(column: ColumnLike) -> Column:
     """Extract the second from a timestamp column.
 
@@ -180,6 +189,7 @@ def second(column: ColumnLike) -> Column:
     """
     return Column(op="second", args=(ensure_column(column),))
 
+
 def date_format(column: ColumnLike, format: str) -> Column:  # noqa: A001
     """Format a date/timestamp column as a string.
 
@@ -199,6 +209,7 @@ def date_format(column: ColumnLike, format: str) -> Column:  # noqa: A001
         >>> db.close()
     """
     return Column(op="date_format", args=(ensure_column(column), format))
+
 
 def to_date(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa: A001
     """Convert a string column to a date.
@@ -222,6 +233,7 @@ def to_date(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa
         return Column(op="to_date", args=(ensure_column(column), format))
     return Column(op="to_date", args=(ensure_column(column),))
 
+
 def current_date() -> Column:
     """Get the current date.
 
@@ -241,6 +253,7 @@ def current_date() -> Column:
         >>> db.close()
     """
     return Column(op="current_date", args=())
+
 
 def current_timestamp() -> Column:
     """Get the current timestamp.
@@ -262,6 +275,7 @@ def current_timestamp() -> Column:
     """
     return Column(op="current_timestamp", args=())
 
+
 def datediff(end: ColumnLike, start: ColumnLike) -> Column:
     """Calculate the difference in days between two dates.
 
@@ -281,6 +295,7 @@ def datediff(end: ColumnLike, start: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="datediff", args=(ensure_column(end), ensure_column(start)))
+
 
 def add_months(column: ColumnLike, num_months: int) -> Column:
     """Add months to a date column.
@@ -325,6 +340,7 @@ class When:
         """
         return Column(op="case_when", args=(tuple(self._conditions), ensure_column(value)))
 
+
 def date_add(column: ColumnLike, interval: str) -> Column:
     """Add an interval to a date/timestamp column.
 
@@ -344,6 +360,7 @@ def date_add(column: ColumnLike, interval: str) -> Column:
         >>> db.close()
     """
     return Column(op="date_add", args=(ensure_column(column), interval))
+
 
 def date_sub(column: ColumnLike, interval: str) -> Column:
     """Subtract an interval from a date/timestamp column.
@@ -373,6 +390,7 @@ def date_sub(column: ColumnLike, interval: str) -> Column:
         >>> db.close()
     """
     return Column(op="date_sub", args=(ensure_column(column), interval))
+
 
 def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa: A001
     """Convert a string column to a timestamp.
@@ -404,6 +422,7 @@ def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  #
     if format is not None:
         return Column(op="to_timestamp", args=(ensure_column(column), format))
     return Column(op="to_timestamp", args=(ensure_column(column),))
+
 
 def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = None) -> Column:  # noqa: A001
     """Convert a timestamp or date string to Unix timestamp (seconds since epoch).
@@ -437,6 +456,7 @@ def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = 
         return Column(op="unix_timestamp", args=(ensure_column(column), format))
     return Column(op="unix_timestamp", args=(ensure_column(column),))
 
+
 def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa: A001
     """Convert a Unix timestamp (seconds since epoch) to a timestamp string.
 
@@ -467,6 +487,7 @@ def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  
         return Column(op="from_unixtime", args=(ensure_column(column), format))
     return Column(op="from_unixtime", args=(ensure_column(column),))
 
+
 def date_trunc(unit: str, column: ColumnLike) -> Column:
     """Truncate a date/timestamp to the specified unit.
 
@@ -495,6 +516,7 @@ def date_trunc(unit: str, column: ColumnLike) -> Column:
     """
     return Column(op="date_trunc", args=(unit, ensure_column(column)))
 
+
 def quarter(column: ColumnLike) -> Column:
     """Extract the quarter (1-4) from a date/timestamp column.
 
@@ -521,6 +543,7 @@ def quarter(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="quarter", args=(ensure_column(column),))
+
 
 def weekofyear(column: ColumnLike) -> Column:
     """Extract the week number (1-53) from a date/timestamp column.
@@ -549,6 +572,7 @@ def weekofyear(column: ColumnLike) -> Column:
     """
     return Column(op="weekofyear", args=(ensure_column(column),))
 
+
 def week(column: ColumnLike) -> Column:
     """Extract the week number (alias for weekofyear).
 
@@ -575,6 +599,7 @@ def week(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return weekofyear(column)
+
 
 def dayofyear(column: ColumnLike) -> Column:
     """Extract the day of year (1-366) from a date/timestamp column.
@@ -603,6 +628,7 @@ def dayofyear(column: ColumnLike) -> Column:
     """
     return Column(op="dayofyear", args=(ensure_column(column),))
 
+
 def last_day(column: ColumnLike) -> Column:
     """Get the last day of the month for a date/timestamp column.
 
@@ -630,6 +656,7 @@ def last_day(column: ColumnLike) -> Column:
         >>> db.close()
     """
     return Column(op="last_day", args=(ensure_column(column),))
+
 
 def months_between(date1: ColumnLike, date2: ColumnLike) -> Column:
     """Calculate the number of months between two dates.

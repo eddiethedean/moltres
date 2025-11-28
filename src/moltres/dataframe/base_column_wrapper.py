@@ -151,4 +151,3 @@ class BaseColumnWrapper:
     def between(self, lower: Any, upper: Any) -> Column:
         """Check if column value is between two values."""
         return self._column.between(lower, upper)
-

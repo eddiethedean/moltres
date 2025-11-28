@@ -6,7 +6,18 @@ import logging
 import time
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Type,
+    Union,
+)
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -96,7 +107,10 @@ class QueryExecutor:
             sqlmodel_session = None
             if model is not None:
                 # Check if we have a SQLModel session available
-                if hasattr(self._connections, "_session") and self._connections._session is not None:
+                if (
+                    hasattr(self._connections, "_session")
+                    and self._connections._session is not None
+                ):
                     session = self._connections._session
                     # Check if it's a SQLModel session (has .exec() method)
                     if hasattr(session, "exec"):
@@ -124,7 +138,9 @@ class QueryExecutor:
                             exec_result = sqlmodel_session.exec(stmt)
                             # .exec() returns an iterable of SQLModel instances
                             sqlmodel_instances = list(exec_result)
-                            return QueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                            return QueryResult(
+                                rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
+                            )
                     except Exception:
                         # Fall back to regular execute if exec() fails
                         pass
@@ -161,7 +177,9 @@ class QueryExecutor:
                             exec_result = sqlmodel_session.exec(stmt)
                             # .exec() returns an iterable of SQLModel instances
                             sqlmodel_instances = list(exec_result)
-                            return QueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                            return QueryResult(
+                                rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
+                            )
                     except Exception:
                         # Fall back to regular execute if exec() fails
                         pass

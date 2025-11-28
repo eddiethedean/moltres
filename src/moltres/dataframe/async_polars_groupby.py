@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Union
 
 from ..expressions.column import Column, col
 from .async_groupby import AsyncGroupedDataFrame
@@ -21,9 +21,7 @@ class AsyncPolarsGroupBy:
 
     _grouped: AsyncGroupedDataFrame
 
-    def agg(
-        self, *exprs: Union[Column, Dict[str, str]]
-    ) -> "AsyncPolarsDataFrame":
+    def agg(self, *exprs: Union[Column, Dict[str, str]]) -> "AsyncPolarsDataFrame":
         """Apply aggregations using Polars-style expressions.
 
         Args:

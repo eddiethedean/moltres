@@ -26,7 +26,7 @@ conversion needed! The .exec() method is used automatically when:
 
 try:
     from fastapi import FastAPI, HTTPException, Depends, Query
-    from sqlmodel import SQLModel, Field, select
+    from sqlmodel import SQLModel, Field
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
     from typing import List, Optional
@@ -44,21 +44,25 @@ try:
     # --------------------
     class UserBase(SQLModel):
         """Base model for User (shared fields)."""
+
         name: str
         email: str
         age: int
 
     class User(UserBase, table=True):
         """SQLModel for users table."""
+
         __tablename__ = "users"
         id: Optional[int] = Field(default=None, primary_key=True)
 
     class UserCreate(UserBase):
         """Request model for creating a user."""
+
         pass
 
     class UserRead(UserBase):
         """Response model for reading a user."""
+
         id: int
 
     # Database Setup (Standard FastAPI + SQLModel Pattern with Async)
@@ -66,9 +70,7 @@ try:
     sqlite_url = "sqlite+aiosqlite:///./example.db"
     engine = create_async_engine(sqlite_url, echo=True)
 
-    async_session_maker = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async def create_db_and_tables():
         """Create database tables from SQLModel definitions."""
@@ -126,7 +128,7 @@ try:
         search: Optional[str] = Query(None, description="Search in name or email"),
     ):
         """Get users using async Moltres DataFrame with SQLModel integration.
-        
+
         This endpoint demonstrates:
         - Automatic SQLModel .exec() usage (returns User instances directly)
         - FastAPI dependency injection with create_async_db_dependency()
@@ -143,9 +145,7 @@ try:
         if max_age is not None:
             df = df.where(col("age") <= max_age)
         if search:
-            df = df.where(
-                (col("name").like(f"%{search}%")) | (col("email").like(f"%{search}%"))
-            )
+            df = df.where((col("name").like(f"%{search}%")) | (col("email").like(f"%{search}%")))
 
         # Collect returns SQLModel instances directly!
         # Moltres automatically uses SQLModel's .exec() when a SQLModel session
@@ -157,10 +157,10 @@ try:
     @handle_moltres_errors  # Automatic error handling
     async def get_user_stats(db: AsyncDatabase = Depends(get_db)):
         """Get user statistics using async Moltres aggregations.
-        
+
         Note: Aggregations return dicts (not SQLModel instances) since
         they don't map to a single model row.
-        
+
         Any Moltres errors (e.g., table not found, column not found) will be
         automatically converted to appropriate HTTP responses by the exception handlers.
         """
@@ -226,7 +226,7 @@ try:
         order_by: str = Query("age", description="Column to sort by"),
     ):
         """Advanced filtering and sorting with async Moltres, returning SQLModel instances.
-        
+
         Demonstrates:
         - Dynamic column ordering
         - Automatic error handling (invalid column names will return 400 with suggestions)
@@ -247,7 +247,7 @@ try:
     @handle_moltres_errors
     async def get_users_by_age_group(db: AsyncDatabase = Depends(get_db)):
         """Group users by age ranges using async Moltres.
-        
+
         Demonstrates complex aggregations with CASE expressions.
         """
         table_handle = await db.table(User)
@@ -284,7 +284,7 @@ except ImportError as e:
 try:
     from fastapi import FastAPI as AsyncFastAPI
     from fastapi import HTTPException, Depends, Query
-    from sqlmodel import SQLModel as AsyncSQLModel, Field as AsyncField, select
+    from sqlmodel import SQLModel as AsyncSQLModel, Field as AsyncField
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
     from typing import List, Optional
@@ -309,9 +309,7 @@ try:
     async_sqlite_url = "sqlite+aiosqlite:///./example_async.db"
     async_engine = create_async_engine(async_sqlite_url, echo=True)
 
-    async_session_maker = sessionmaker(
-        async_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session_maker = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
     async def get_async_session():
         """Dependency to get async SQLModel session."""
@@ -324,9 +322,7 @@ try:
             await conn.run_sync(AsyncSQLModel.metadata.create_all)
 
     # Initialize async FastAPI app
-    async_app = AsyncFastAPI(
-        title="Moltres + SQLModel Async FastAPI Example", version="1.0.0"
-    )
+    async_app = AsyncFastAPI(title="Moltres + SQLModel Async FastAPI Example", version="1.0.0")
 
     @async_app.on_event("startup")
     async def async_on_startup():
@@ -373,6 +369,142 @@ except ImportError as e:
     print("Install with: pip install fastapi uvicorn sqlmodel aiosqlite")
 
 
+# Example 3: Sync FastAPI + SQLModel with Moltres Integration Utilities
+# ======================================================================
+
+try:
+    from fastapi import FastAPI, HTTPException, Depends, Query
+    from sqlmodel import SQLModel, Field, create_engine
+    from sqlalchemy.orm import sessionmaker
+    from typing import List, Optional
+
+    from moltres import connect, col
+    from moltres.expressions import functions as F
+    from moltres.integrations.fastapi import (
+        register_exception_handlers,
+        create_db_dependency,
+        handle_moltres_errors,
+    )
+
+    # SQLModel Definitions
+    class SyncUserBase(SQLModel):
+        """Base model for User (shared fields)."""
+
+        name: str
+        email: str
+        age: int
+
+    class SyncUser(SyncUserBase, table=True):
+        """SQLModel for users table."""
+
+        __tablename__ = "sync_users"
+        id: Optional[int] = Field(default=None, primary_key=True)
+
+    class SyncUserRead(SyncUserBase):
+        """Response model for reading a user."""
+
+        id: int
+
+    # Database Setup (Sync)
+    sqlite_url = "sqlite:///./example_sync.db"
+    engine = create_engine(sqlite_url, echo=True)
+
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+    def get_sync_session():
+        """Dependency to get SQLModel session."""
+        with SessionLocal() as session:
+            yield session
+
+    # Create Moltres database dependency using the sync helper
+    get_sync_db = create_db_dependency(get_sync_session)
+
+    # Initialize FastAPI app
+    sync_app = FastAPI(
+        title="Moltres FastAPI Integration Utilities Example (Sync)", version="1.0.0"
+    )
+
+    # Register exception handlers - automatically converts Moltres errors to HTTP responses
+    register_exception_handlers(sync_app)
+
+    def create_sync_db_and_tables():
+        """Create database tables from SQLModel definitions."""
+        SQLModel.metadata.create_all(engine)
+
+    @sync_app.on_event("startup")
+    def sync_on_startup():
+        """Create tables on startup."""
+        create_sync_db_and_tables()
+
+    # Example: Using dependency injection helper (sync)
+    @sync_app.get("/users", response_model=List[SyncUserRead])
+    def get_sync_users(
+        db=Depends(get_sync_db),  # Use the dependency helper
+        min_age: Optional[int] = Query(None, description="Minimum age filter"),
+    ):
+        """Get users using Moltres with dependency injection helper.
+
+        The get_sync_db dependency automatically creates a Moltres Database instance
+        from the FastAPI session dependency.
+        """
+        df = db.table(SyncUser).select()
+
+        if min_age is not None:
+            df = df.where(col("age") >= min_age)
+
+        # Results are automatically SyncUser instances (SQLModel) when using .exec()
+        return df.collect()
+
+    # Example: Using error handling decorator
+    @sync_app.get("/users/{user_id}", response_model=SyncUserRead)
+    @handle_moltres_errors  # Automatically converts Moltres errors to HTTPException
+    def get_sync_user(user_id: int, db=Depends(get_sync_db)):
+        """Get a user by ID with automatic error handling.
+
+        The @handle_moltres_errors decorator catches Moltres exceptions and
+        converts them to appropriate HTTPException responses.
+        """
+        df = db.table(SyncUser).select().where(col("id") == user_id)
+        results = df.collect()
+
+        if not results:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return results[0]
+
+    # Example: Exception handlers handle errors automatically
+    @sync_app.get("/users/stats/summary")
+    def get_sync_user_stats(db=Depends(get_sync_db)):
+        """Get user statistics.
+
+        If any Moltres error occurs (e.g., table not found, column not found),
+        the registered exception handlers will automatically convert it to an
+        appropriate HTTP response with helpful error messages and suggestions.
+        """
+        df = db.table(SyncUser).select()
+
+        stats_df = df.select(
+            F.count(col("id")).alias("total_users"),
+            F.avg(col("age")).alias("avg_age"),
+            F.min(col("age")).alias("min_age"),
+            F.max(col("age")).alias("max_age"),
+        )
+
+        result = stats_df.collect()[0]
+        return {
+            "total_users": result["total_users"],
+            "average_age": round(result["avg_age"], 2),
+            "min_age": result["min_age"],
+            "max_age": result["max_age"],
+        }
+
+    # Run with: uvicorn examples.22_fastapi_integration:sync_app --reload
+
+except ImportError as e:
+    print(f"Required dependencies not installed: {e}")
+    print("Install with: pip install fastapi uvicorn sqlmodel")
+
+
 # Example 3: Using with_model() for Dynamic Model Attachment
 # ===========================================================
 
@@ -409,9 +541,7 @@ try:
         with Session(model_engine) as session:
             yield session
 
-    model_app = ModelFastAPI(
-        title="Moltres with_model() Example", version="1.0.0"
-    )
+    model_app = ModelFastAPI(title="Moltres with_model() Example", version="1.0.0")
 
     @model_app.on_event("startup")
     def model_on_startup():
@@ -473,8 +603,8 @@ except ImportError as e:
 try:
     from fastapi import FastAPI as JoinFastAPI
     from fastapi import Depends
-    from sqlmodel import SQLModel as JoinSQLModel, Field as JoinField, Session, Relationship
-    from sqlalchemy import create_engine, Column, Integer, ForeignKey
+    from sqlmodel import SQLModel as JoinSQLModel, Field as JoinField, Session
+    from sqlalchemy import create_engine
     from typing import List, Optional
 
     from moltres import connect, col
@@ -511,18 +641,14 @@ try:
         with Session(join_engine) as session:
             yield session
 
-    join_app = JoinFastAPI(
-        title="Moltres Joins with SQLModel Example", version="1.0.0"
-    )
+    join_app = JoinFastAPI(title="Moltres Joins with SQLModel Example", version="1.0.0")
 
     @join_app.on_event("startup")
     def join_on_startup():
         create_join_db_and_tables()
 
     @join_app.get("/users/{user_id}/orders")
-    def get_user_orders(
-        user_id: int, session: Session = Depends(get_join_session)
-    ):
+    def get_user_orders(user_id: int, session: Session = Depends(get_join_session)):
         """Get user orders using Moltres join with SQLModel."""
         db = connect(session=session)
 
@@ -545,9 +671,7 @@ try:
         return result_df.collect()
 
     @join_app.get("/users/{user_id}/summary")
-    def get_user_summary(
-        user_id: int, session: Session = Depends(get_join_session)
-    ):
+    def get_user_summary(user_id: int, session: Session = Depends(get_join_session)):
         """Get user summary with order totals using Moltres aggregations."""
         db = connect(session=session)
 

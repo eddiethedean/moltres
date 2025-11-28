@@ -13,14 +13,12 @@ import pytest
 
 # Check if FastAPI is available
 try:
-    from fastapi import FastAPI, HTTPException, Depends, Request
-    from fastapi.responses import JSONResponse
+    from fastapi import FastAPI, HTTPException, Depends
     from fastapi.testclient import TestClient
     from fastapi import status
     from sqlalchemy import create_engine
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-    from sqlalchemy.orm import Session, sessionmaker
-    from sqlmodel import SQLModel, Field
+    from sqlalchemy.orm import sessionmaker
 
     FASTAPI_AVAILABLE = True
 except ImportError:
@@ -31,7 +29,7 @@ except ImportError:
     TestClient = None  # type: ignore[assignment, misc]
     status = None  # type: ignore[assignment, misc]
 
-from moltres import connect, async_connect, col
+from moltres import col, connect
 from moltres.table.schema import column
 from moltres.utils.exceptions import (
     ColumnNotFoundError,
@@ -459,9 +457,7 @@ class TestDependencyHelpers:
         assert db.dialect.name == "sqlite"
 
     @pytest.mark.asyncio
-    async def test_create_async_db_dependency_with_fastapi(
-        self, async_session_factory, db_path
-    ):
+    async def test_create_async_db_dependency_with_fastapi(self, async_session_factory, db_path):
         """Test create_async_db_dependency in a FastAPI route."""
         from moltres.integrations.fastapi import create_async_db_dependency
 
@@ -472,7 +468,7 @@ class TestDependencyHelpers:
         get_db = create_async_db_dependency(get_async_session)
 
         # Test directly since TestClient has limitations with async dependencies
-        async with async_session_factory() as async_session:
+        async with async_session_factory():
             db = await get_db()
             await db.create_table(
                 "test_table",
@@ -633,11 +629,18 @@ class TestIntegrationWithSQLModel:
 
         # Should return 404 or 500 because table doesn't exist
         # (The exact status depends on how the error is caught)
-        assert response.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code in [
+            status.HTTP_404_NOT_FOUND,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ]
         data = response.json()
         assert "error" in data
         # The error message should mention the table issue
-        assert "nonexistent_table" in str(data).lower() or "does not exist" in str(data).lower() or "not found" in str(data).lower()
+        assert (
+            "nonexistent_table" in str(data).lower()
+            or "does not exist" in str(data).lower()
+            or "not found" in str(data).lower()
+        )
 
     def test_column_not_found_with_real_query(self, session_factory, db_path):
         """Test ColumnNotFoundError with real query."""
@@ -829,4 +832,3 @@ class TestRealWorldScenarios:
         # Should be handled by exception handler
         # 422 can occur if FastAPI validates the route before execution
         assert response.status_code in [400, 422, 500]  # Depending on when error is caught
-
