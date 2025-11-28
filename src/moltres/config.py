@@ -22,6 +22,7 @@ class EngineConfig:
 
     dsn: str | None = None
     engine: Engine | "AsyncEngine" | None = None
+    session: object | None = None  # SQLAlchemy Session or AsyncSession
     echo: bool = False
     fetch_format: FetchFormat = "records"
     dialect: str | None = None
@@ -34,12 +35,14 @@ class EngineConfig:
     future: bool = True
 
     def __post_init__(self) -> None:
-        """Validate that either dsn or engine is provided, but not both."""
-        if self.dsn is None and self.engine is None:
-            raise ValueError("Either 'dsn' or 'engine' must be provided")
-        if self.dsn is not None and self.engine is not None:
+        """Validate that dsn, engine, or session is provided, but not multiple."""
+        provided = [self.dsn, self.engine, self.session]
+        if all(x is None for x in provided):
+            raise ValueError("Either 'dsn', 'engine', or 'session' must be provided")
+        if sum(1 for x in provided if x is not None) > 1:
             raise ValueError(
-                "Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance."
+                "Cannot provide multiple of 'dsn', 'engine', and 'session'. "
+                "Provide only one: a connection string, an Engine instance, or a Session instance."
             )
 
 
@@ -100,6 +103,7 @@ def _load_env_config() -> dict[str, object]:
 def create_config(
     dsn: str | None = None,
     engine: Engine | "AsyncEngine | None" = None,
+    session: object | None = None,
     **kwargs: object,
 ) -> MoltresConfig:
     """Convenience helper used by ``moltres.connect``.
@@ -119,9 +123,13 @@ def create_config(
     Args:
         dsn: Database connection string (e.g., "sqlite:///example.db").
              If None, will try MOLTRES_DSN environment variable.
-             Cannot be provided if engine is provided.
+             Cannot be provided if engine or session is provided.
         engine: SQLAlchemy Engine instance to use. If provided, dsn is ignored.
                 This gives users more flexibility to configure the engine themselves.
+                Cannot be provided if session is provided.
+        session: SQLAlchemy Session or AsyncSession instance to use. If provided,
+                dsn and engine are ignored. The session's bind (engine) will be used.
+                Cannot be provided if dsn or engine is provided.
         **kwargs: Additional configuration options. Valid keys include:
             - echo: Enable SQLAlchemy echo mode
             - fetch_format: "records", "pandas", or "polars"
@@ -139,9 +147,13 @@ def create_config(
         MoltresConfig instance with parsed configuration
 
     Raises:
-        ValueError: If neither dsn nor engine is provided and MOLTRES_DSN is not set
-        ValueError: If both dsn and engine are provided
+        ValueError: If neither dsn, engine, nor session is provided and MOLTRES_DSN is not set
+        ValueError: If multiple of dsn, engine, and session are provided
     """
+    # Check if session is provided in kwargs (for backward compatibility)
+    if session is None and "session" in kwargs:
+        session = kwargs.pop("session")
+
     # Check if engine is provided in kwargs (for backward compatibility)
     if engine is None and "engine" in kwargs:
         engine_obj = kwargs.pop("engine")
@@ -149,8 +161,8 @@ def create_config(
             raise TypeError("engine must be a SQLAlchemy Engine instance")
         engine = engine_obj
 
-    # Get DSN from argument or environment variable (only if engine is not provided)
-    if engine is None:
+    # Get DSN from argument or environment variable (only if engine and session are not provided)
+    if engine is None and session is None:
         if dsn is None:
             dsn = os.environ.get("MOLTRES_DSN")
             if dsn is None:
@@ -163,10 +175,11 @@ def create_config(
             # Replace backslashes with forward slashes in the path part
             dsn = dsn.replace("\\", "/")
     else:
-        # If engine is provided, ignore dsn
+        # If engine or session is provided, ignore dsn
         if dsn is not None:
             raise ValueError(
-                "Cannot provide both 'dsn' and 'engine'. Provide either a connection string or an Engine instance."
+                "Cannot provide 'dsn' with 'engine' or 'session'. "
+                "Provide either a connection string, an Engine instance, or a Session instance."
             )
         dsn = None
 
@@ -176,13 +189,26 @@ def create_config(
     # Merge: kwargs override env vars, env vars override defaults
     merged_kwargs = {**env_config, **kwargs}
 
-    # If an engine object is provided, infer dialect name unless explicitly overridden
+    # If an engine or session object is provided, infer dialect name unless explicitly overridden
     inferred_engine_dialect: str | None = None
     if engine is not None:
         inferred_engine_dialect = getattr(getattr(engine, "dialect", None), "name", None)
         if inferred_engine_dialect and "+" in inferred_engine_dialect:
             # Normalize driver variants similar to DSN parsing (e.g., "mysql+aiomysql")
             inferred_engine_dialect = inferred_engine_dialect.split("+", 1)[0]
+    elif session is not None:
+        # Extract engine from session to infer dialect
+        if hasattr(session, "get_bind"):
+            bind = session.get_bind()
+        elif hasattr(session, "bind"):
+            bind = session.bind
+        else:
+            bind = None
+        if bind is not None:
+            inferred_engine_dialect = getattr(getattr(bind, "dialect", None), "name", None)
+            if inferred_engine_dialect and "+" in inferred_engine_dialect:
+                # Normalize driver variants similar to DSN parsing (e.g., "mysql+aiomysql")
+                inferred_engine_dialect = inferred_engine_dialect.split("+", 1)[0]
 
     if "dialect" not in merged_kwargs and inferred_engine_dialect:
         merged_kwargs["dialect"] = inferred_engine_dialect
@@ -195,7 +221,7 @@ def create_config(
     # Construct EngineConfig with validated kwargs
     # Using **kwargs with type checking would be ideal, but dataclass doesn't support it directly
     # This approach extracts known fields and passes them safely
-    engine_config = EngineConfig(dsn=dsn, engine=engine, **engine_kwargs)  # type: ignore[arg-type]
+    engine_config = EngineConfig(dsn=dsn, engine=engine, session=session, **engine_kwargs)  # type: ignore[arg-type]
     return MoltresConfig(engine=engine_config, options=merged_kwargs)
 
 

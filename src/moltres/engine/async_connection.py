@@ -72,6 +72,7 @@ class AsyncConnectionManager:
     def __init__(self, config: EngineConfig):
         self.config = config
         self._engine: AsyncEngine | None = None
+        self._session: object | None = None  # SQLAlchemy AsyncSession
         self._active_transaction: Optional[AsyncConnection] = None
 
     def _create_engine(self) -> AsyncEngine:
@@ -86,6 +87,41 @@ class AsyncConnectionManager:
         Raises:
             ValueError: If DSN doesn't support async (missing +asyncpg, +aiomysql, etc.)
         """
+        # If a session is provided, extract engine from it
+        if self.config.session is not None:
+            session = self.config.session
+            # Check if it's a SQLAlchemy AsyncSession or SQLModel AsyncSession
+            bind = None
+            # For AsyncSession, prefer .bind over .get_bind() because get_bind() returns sync Engine
+            if hasattr(session, "bind"):
+                bind = session.bind
+            elif hasattr(session, "get_bind"):
+                # SQLAlchemy 2.0 style - but get_bind() might return sync Engine for async sessions
+                try:
+                    bind = session.get_bind()
+                    # If get_bind() returned a sync Engine, it's not what we want
+                    if not isinstance(bind, AsyncEngine):
+                        bind = None
+                except (TypeError, AttributeError):
+                    # get_bind() might require arguments
+                    pass
+            if bind is None:
+                # Try to get from sessionmaker or other attributes
+                if hasattr(session, "maker") and hasattr(session.maker, "bind"):
+                    bind = session.maker.bind
+            if bind is None:
+                raise TypeError(
+                    "session must be a SQLAlchemy AsyncSession or SQLModel AsyncSession instance "
+                    f"with a bind (engine) attached. Got: {type(session).__name__}"
+                )
+            if not isinstance(bind, AsyncEngine):
+                raise TypeError(
+                    "Session's bind must be an AsyncEngine, not a synchronous Engine. "
+                    f"Got: {type(bind).__name__}. Use connect() for sync sessions."
+                )
+            self._session = session
+            return bind
+
         # If an engine is provided in config, use it directly
         if self.config.engine is not None:
             if not isinstance(self.config.engine, AsyncEngine):
@@ -94,7 +130,7 @@ class AsyncConnectionManager:
 
         # Otherwise, create a new engine from DSN
         if self.config.dsn is None:
-            raise ValueError("Either 'dsn' or 'engine' must be provided in EngineConfig")
+            raise ValueError("Either 'dsn', 'engine', or 'session' must be provided in EngineConfig")
 
         dsn = self.config.dsn
 
@@ -194,6 +230,17 @@ class AsyncConnectionManager:
         if transaction is not None:
             # Use the provided transaction connection
             yield transaction
+        elif self._session is not None:
+            # Use the session's connection
+            # SQLAlchemy async sessions have a connection() method that returns a coroutine
+            if hasattr(self._session, "connection"):
+                # Get connection from session (async)
+                connection = await self._session.connection()
+                yield connection
+            else:
+                # Fallback: use session's bind to create a connection
+                async with self.engine.begin() as connection:
+                    yield connection
         else:
             # Create a new connection with auto-commit (default behavior)
             async with self.engine.begin() as connection:

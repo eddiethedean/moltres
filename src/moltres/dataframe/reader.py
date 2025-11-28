@@ -298,7 +298,9 @@ class DataLoader:
         Returns:
             FormatReader for the specified format
         """
-        return FormatReader(self, source)
+        from .reader_helpers import validate_format
+
+        return FormatReader(self, validate_format(source))
 
 
 class FormatReader:
@@ -306,7 +308,7 @@ class FormatReader:
 
     def __init__(self, reader: DataLoader, source: str):
         self._reader = reader
-        self._source = source.lower()
+        self._source = source
 
     def load(self, path: str) -> DataFrame:
         """Load data from the specified path using the configured format.
@@ -320,18 +322,21 @@ class FormatReader:
         Raises:
             ValueError: If format is unsupported
         """
-        if self._source == "csv":
+        from .reader_helpers import validate_format
+
+        format_name = validate_format(self._source)
+        if format_name == "csv":
             return self._reader.csv(path)
-        elif self._source == "json":
+        elif format_name == "json":
             return self._reader.json(path)
-        elif self._source == "jsonl":
+        elif format_name == "jsonl":
             return self._reader.jsonl(path)
-        elif self._source == "parquet":
+        elif format_name == "parquet":
             return self._reader.parquet(path)
-        elif self._source == "text":
+        elif format_name == "text":
             return self._reader.text(path)
         else:
-            raise ValueError(f"Unsupported format: {self._source}")
+            raise ValueError(f"Unsupported format: {format_name}")
 
 
 class RecordsLoader:

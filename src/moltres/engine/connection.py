@@ -18,9 +18,33 @@ class ConnectionManager:
     def __init__(self, config: EngineConfig):
         self.config = config
         self._engine: Engine | None = None
+        self._session: object | None = None  # SQLAlchemy Session
         self._active_transaction: Optional[Connection] = None
 
     def _create_engine(self) -> Engine:
+        # If a session is provided, extract engine from it
+        if self.config.session is not None:
+            session = self.config.session
+            # Check if it's a SQLAlchemy Session or SQLModel Session
+            if hasattr(session, "get_bind"):
+                # SQLAlchemy 2.0 style
+                bind = session.get_bind()
+            elif hasattr(session, "bind"):
+                # SQLAlchemy 1.x style
+                bind = session.bind
+            else:
+                raise TypeError(
+                    "session must be a SQLAlchemy Session or SQLModel Session instance. "
+                    f"Got: {type(session).__name__}"
+                )
+            if not isinstance(bind, Engine):
+                raise TypeError(
+                    "Session's bind must be a synchronous Engine, not AsyncEngine. "
+                    "Use async_connect() for async sessions."
+                )
+            self._session = session
+            return bind
+
         # If an engine is provided in config, use it directly
         if self.config.engine is not None:
             if not isinstance(self.config.engine, Engine):
@@ -29,7 +53,7 @@ class ConnectionManager:
 
         # Otherwise, create a new engine from DSN
         if self.config.dsn is None:
-            raise ValueError("Either 'dsn' or 'engine' must be provided in EngineConfig")
+            raise ValueError("Either 'dsn', 'engine', or 'session' must be provided in EngineConfig")
 
         kwargs: dict[str, object] = {"echo": self.config.echo, "future": self.config.future}
         if self.config.pool_size is not None:
@@ -64,6 +88,17 @@ class ConnectionManager:
         if transaction is not None:
             # Use the provided transaction connection
             yield transaction
+        elif self._session is not None:
+            # Use the session's connection
+            # SQLAlchemy sessions have a connection() method
+            if hasattr(self._session, "connection"):
+                # Get connection from session
+                connection = self._session.connection()
+                yield connection
+            else:
+                # Fallback: use session's bind to create a connection
+                with self.engine.begin() as connection:
+                    yield connection
         else:
             # Create a new connection with auto-commit (default behavior)
             with self.engine.begin() as connection:

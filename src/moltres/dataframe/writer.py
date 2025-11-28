@@ -489,46 +489,14 @@ class DataFrameWriter:
                 column_names = list(sample_row.keys())
 
                 # Infer types from sample data
-                column_defs = []
-                for col_name in column_names:
-                    value = sample_row.get(col_name)
-                    col_type = self._infer_type_from_value(value)
-                    # Check if column is nullable (if value is None, it's nullable)
-                    nullable = value is None
-                    column_defs.append(
-                        ColumnDef(name=col_name, type_name=col_type, nullable=nullable)
-                    )
-                return column_defs
+                from .writer_helpers import infer_schema_from_sample_row
+
+                return infer_schema_from_sample_row(sample_row, column_names)
             else:
                 # No rows returned, but we can still infer schema from the SELECT statement
-                # Extract column names from the SELECT statement
-                column_names = []
-                for col_expr in select_stmt.selected_columns:
-                    # Try to get column name from the expression
-                    if hasattr(col_expr, "name") and col_expr.name:
-                        column_names.append(col_expr.name)
-                    elif hasattr(col_expr, "key") and col_expr.key:
-                        column_names.append(col_expr.key)
-                    elif hasattr(col_expr, "_label") and col_expr._label:
-                        column_names.append(col_expr._label)
-                    else:
-                        # Fallback: use string representation and try to extract name
-                        col_str = str(col_expr)
-                        # Remove quotes and extract name
-                        col_str = col_str.strip("\"'")
-                        if "." in col_str:
-                            column_names.append(col_str.split(".")[-1])
-                        else:
-                            column_names.append(col_str)
+                from .writer_helpers import infer_schema_from_select_stmt
 
-                if not column_names:
-                    return None
-
-                # Use TEXT as default type for empty result sets
-                return [
-                    ColumnDef(name=col_name, type_name="TEXT", nullable=True)
-                    for col_name in column_names
-                ]
+                return infer_schema_from_select_stmt(select_stmt)
 
         except (CompilationError, ExecutionError, ValidationError) as e:
             # If inference fails, return None to fall back to materialization
@@ -556,29 +524,9 @@ class DataFrameWriter:
             raise ValueError("Table name must be specified via save_as_table()")
 
         # Apply primary key flags to schema if specified
-        final_schema = list(schema)
-        if self._primary_key:
-            # Validate that all primary key columns exist
-            schema_column_names = {col.name for col in final_schema}
-            missing_cols = [col for col in self._primary_key if col not in schema_column_names]
-            if missing_cols:
-                raise ValueError(
-                    f"Primary key columns {missing_cols} do not exist in schema. "
-                    f"Available columns: {sorted(schema_column_names)}"
-                )
+        from .writer_helpers import apply_primary_key_to_schema
 
-            # Apply primary key flags
-            primary_key_set = set(self._primary_key)
-            final_schema = [
-                ColumnDef(
-                    name=col.name,
-                    type_name=col.type_name,
-                    nullable=col.nullable,
-                    default=col.default,
-                    primary_key=col.name in primary_key_set,
-                )
-                for col in final_schema
-            ]
+        final_schema = apply_primary_key_to_schema(schema, self._primary_key)
 
         # Check if table exists
         table_exists = self._table_exists(db, table_name)
@@ -642,34 +590,27 @@ class DataFrameWriter:
         Returns:
             True if optimization is possible, False otherwise
         """
-        # DataFrame must have a database connection
-        if self._df.database is None:
-            return False
+        from .writer_helpers import can_use_insert_select
 
-        # Not in streaming mode (streaming requires materialization for chunking)
-        if self._stream_override:
-            return False
+        # Check if plan is compilable
+        plan_compilable = False
+        if self._df.database is not None:
+            try:
+                from ..sql.compiler import compile_plan
 
-        # Mode must not be "error_if_exists" (need to check table existence first,
-        # which requires materialization path)
-        if self._mode == "error_if_exists":
-            return False
+                compile_plan(self._df.plan, dialect=self._df.database.dialect)
+                plan_compilable = True
+            except (CompilationError, ValidationError) as e:
+                logger.debug("Plan compilation failed, cannot use optimization: %s", e)
+            except Exception as e:
+                logger.debug("Unexpected error during plan compilation check: %s", e)
 
-        # Plan must be compilable to SQL (all operations are SQL-compatible)
-        # We can check this by trying to compile the plan
-        try:
-            from ..sql.compiler import compile_plan
-
-            compile_plan(self._df.plan, dialect=self._df.database.dialect)
-            return True
-        except (CompilationError, ValidationError) as e:
-            # If compilation fails, can't use optimization
-            logger.debug("Plan compilation failed, cannot use optimization: %s", e)
-            return False
-        except Exception as e:
-            # Catch any other unexpected errors
-            logger.debug("Unexpected error during plan compilation check: %s", e)
-            return False
+        return can_use_insert_select(
+            has_database=self._df.database is not None,
+            stream_override=self._stream_override,
+            mode=self._mode,
+            plan_compilable=plan_compilable,
+        )
 
     def _table_exists(self, db: "Database", table_name: str) -> bool:
         """Check if a table exists in the database."""
@@ -700,52 +641,14 @@ class DataFrameWriter:
         self, rows: List[dict[str, object]], *, force_nullable: bool = False
     ) -> Sequence[ColumnDef]:
         """Infer schema from DataFrame plan or use provided schema."""
-        if self._schema is not None:
-            schema = list(self._schema)
-        else:
-            # Infer schema from collected data (most reliable)
-            if not rows:
-                raise ValueError(
-                    "Cannot infer schema from empty DataFrame. Provide explicit schema via .schema()"
-                )
+        from .writer_helpers import infer_or_get_schema
 
-            # Use first row to infer types, but check all rows for None values
-            sample = rows[0]
-            columns: List[ColumnDef] = []
-
-            for key, value in sample.items():
-                # Check if any row has None for this column (or force nullable when streaming)
-                has_nulls = True if force_nullable else any(row.get(key) is None for row in rows)
-                col_type = self._infer_type_from_value(value)
-                columns.append(ColumnDef(name=key, type_name=col_type, nullable=has_nulls))
-
-            schema = columns
-
-        # Apply primary key flags if specified
-        if self._primary_key:
-            # Validate that all primary key columns exist
-            schema_column_names = {col.name for col in schema}
-            missing_cols = [col for col in self._primary_key if col not in schema_column_names]
-            if missing_cols:
-                raise ValueError(
-                    f"Primary key columns {missing_cols} do not exist in schema. "
-                    f"Available columns: {sorted(schema_column_names)}"
-                )
-
-            # Apply primary key flags
-            primary_key_set = set(self._primary_key)
-            schema = [
-                ColumnDef(
-                    name=col.name,
-                    type_name=col.type_name,
-                    nullable=col.nullable,
-                    default=col.default,
-                    primary_key=col.name in primary_key_set,
-                )
-                for col in schema
-            ]
-
-        return schema
+        return infer_or_get_schema(
+            rows=rows,
+            explicit_schema=self._schema,
+            primary_key=self._primary_key,
+            force_nullable=force_nullable,
+        )
 
     def _should_stream_materialization(self) -> bool:
         """Default to streaming inserts unless user explicitly disabled it."""
@@ -775,39 +678,21 @@ class DataFrameWriter:
 
     def _ensure_file_layout_supported(self) -> None:
         """Raise if unsupported bucketing/sorting metadata is set for file sinks."""
-        if self._bucket_by or self._sort_by:
-            raise NotImplementedError(
-                "bucketBy/sortBy metadata is not yet supported when writing to files. "
-                "Alternative: Sort data using orderBy() before writing, or use partitioned writes with partitionBy(). "
-                "See https://github.com/eddiethedean/moltres/issues for feature requests."
-            )
+        from .writer_helpers import ensure_file_layout_supported
+
+        ensure_file_layout_supported(self._bucket_by, self._sort_by)
 
     def _prepare_file_target(self, path_obj: Path) -> bool:
         """Apply mode semantics (overwrite/ignore/error) for file outputs."""
-        if self._mode == "ignore" and path_obj.exists():
-            return False
-        if self._mode == "error_if_exists" and path_obj.exists():
-            raise ValueError(f"Target '{path_obj}' already exists (mode=error_if_exists)")
-        if self._mode == "overwrite" and path_obj.exists():
-            if path_obj.is_dir():
-                shutil.rmtree(path_obj)
-            else:
-                path_obj.unlink()
-        return True
+        from .writer_helpers import prepare_file_target
+
+        return prepare_file_target(path_obj, self._mode)
 
     def _infer_type_from_value(self, value: object) -> str:
         """Infer SQL type from a Python value."""
-        if value is None:
-            return "TEXT"  # Can't infer from None
-        if isinstance(value, bool):
-            return "INTEGER"
-        if isinstance(value, int):
-            return "INTEGER"
-        if isinstance(value, float):
-            return "REAL"
-        if isinstance(value, str):
-            return "TEXT"
-        return "TEXT"  # Default fallback
+        from .writer_helpers import infer_type_from_value
+
+        return infer_type_from_value(value)
 
     def _save_csv(self, path: str) -> None:
         """Save DataFrame as CSV file."""

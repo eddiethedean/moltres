@@ -35,6 +35,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 - ⚡ **Async Support** - Full async/await support for all operations
 - 🔒 **Security First** - Built-in SQL injection prevention and validation
 - 🎯 **SQLModel & Pydantic Integration** - Attach models to DataFrames for type safety and validation
+- 🚀 **FastAPI Integration** - Built-in utilities for error handling, dependency injection, and seamless FastAPI integration
 
 ## 📦 Installation
 
@@ -137,6 +138,100 @@ results = df.collect()  # Returns list of UserData instances with validation
 
 📚 **[See the SQLModel & Pydantic Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)**
 
+### FastAPI Integration
+
+Seamless integration with FastAPI using built-in utilities for error handling and dependency injection:
+
+```python
+from fastapi import FastAPI, Depends
+from moltres.integrations.fastapi import (
+    register_exception_handlers,
+    create_async_db_dependency,
+    handle_moltres_errors,
+)
+from sqlmodel import SQLModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+class User(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    name: str
+    email: str
+
+async def get_session():
+    # Your session creation logic
+    async with async_session_maker() as session:
+        yield session
+
+app = FastAPI()
+
+# Register exception handlers - automatically converts Moltres errors to HTTP responses
+register_exception_handlers(app)
+
+# Create database dependency
+get_db = create_async_db_dependency(get_session)
+
+@app.get("/users")
+@handle_moltres_errors  # Automatic error handling
+async def get_users(db=Depends(get_db)):
+    table_handle = await db.table(User)
+    df = table_handle.select()
+    return await df.collect()  # Returns User instances directly!
+```
+
+**Key Features:**
+- **Automatic Error Handling**: Moltres errors are automatically converted to appropriate HTTP responses (400, 404, 500, 503, 504)
+- **Dependency Injection**: Easy integration with FastAPI's dependency injection system
+- **Type Safety**: Full type hints and SQLModel instance returns
+- **Helpful Error Messages**: Error responses include suggestions and context
+
+📚 **[See the FastAPI Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)**
+
+### Async Operations
+
+Full async/await support for all operations:
+
+```python
+from moltres import async_connect, col
+
+async def main() -> None:
+    db = async_connect("sqlite+aiosqlite:///example.db")
+    
+    # Create a table
+    from moltres.table.schema import column
+    
+    await db.create_table(
+        "products",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("name", "TEXT"),
+            column("price", "REAL"),
+        ],
+    ).collect()
+    
+    # Insert data
+    from moltres.io.records import AsyncRecords
+    
+    records = AsyncRecords(
+        _data=[
+            {"id": 1, "name": "Laptop", "price": 999.99},
+            {"id": 2, "name": "Mouse", "price": 29.99},
+        ],
+        _database=db,
+    )
+    await records.insert_into("products")
+    
+    # Async DataFrame operations
+    df = (await db.table("products")).select()
+    expensive = df.where(col("price") > 100)
+    results = await expensive.collect()
+    
+    await db.close()
+
+# Run with: asyncio.run(main())
+```
+
+📚 **[See the Async Operations Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md#async-support)**
+
 ### CRUD Operations
 
 ```python
@@ -183,6 +278,7 @@ db.delete("users", where=col("email").is_null())
 - **[Best Practices](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)** - Production-ready patterns
 - **[Advanced Topics](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md)** - Window functions, CTEs, transactions
 - **[SQLModel & Pydantic Integration](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models with SQLModel and Pydantic
+- **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - Built-in utilities for FastAPI (error handling, dependency injection)
 
 ### Reference
 - **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
@@ -215,6 +311,7 @@ Comprehensive examples demonstrating all Moltres features:
 - **[19_polars_interface.py](https://github.com/eddiethedean/moltres/blob/main/examples/19_polars_interface.py)** - Polars-style interface examples
 - **[20_sqlalchemy_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/20_sqlalchemy_integration.py)** - SQLAlchemy integration patterns
 - **[21_sqlmodel_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/21_sqlmodel_integration.py)** - SQLModel and Pydantic integration
+- **[22_fastapi_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - FastAPI integration with built-in utilities (error handling, dependency injection, sync and async endpoints)
 
 See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
 

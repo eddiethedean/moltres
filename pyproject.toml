@@ -84,6 +84,8 @@ dev = [
     "pymysql>=1.0.0",
     "duckdb-engine>=0.9.0",
     "sqlmodel>=0.0.14",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
 ]
 
 [tool.pytest.ini_options]

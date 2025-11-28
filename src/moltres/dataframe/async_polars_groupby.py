@@ -21,21 +21,36 @@ class AsyncPolarsGroupBy:
 
     _grouped: AsyncGroupedDataFrame
 
-    def agg(self, *exprs: Column) -> "AsyncPolarsDataFrame":
+    def agg(
+        self, *exprs: Union[Column, Dict[str, str]]
+    ) -> "AsyncPolarsDataFrame":
         """Apply aggregations using Polars-style expressions.
 
         Args:
-            *exprs: Column expressions for aggregations
+            *exprs: Column expressions for aggregations, or dictionary mapping column names to function names
 
         Returns:
             AsyncPolarsDataFrame with aggregated results
 
         Example:
             >>> await df.group_by('country').agg(col('amount').sum(), col('price').mean())
+            >>> await df.group_by('country').agg({"amount": "sum", "price": "avg"})  # Dictionary syntax
         """
         from .async_polars_dataframe import AsyncPolarsDataFrame
 
-        result_df = self._grouped.agg(*exprs)
+        # Handle dictionary syntax
+        normalized_exprs = []
+        for expr in exprs:
+            if isinstance(expr, dict):
+                # Dictionary syntax: {"column": "function"}
+                for col_name, func_name in expr.items():
+                    agg_col = self._grouped._create_aggregation_from_string(col_name, func_name)
+                    normalized_exprs.append(agg_col)
+            else:
+                # Column expression
+                normalized_exprs.append(expr)
+
+        result_df = self._grouped.agg(*normalized_exprs)
         return AsyncPolarsDataFrame.from_dataframe(result_df)
 
     def mean(self) -> "AsyncPolarsDataFrame":

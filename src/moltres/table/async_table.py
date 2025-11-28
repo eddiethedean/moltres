@@ -97,6 +97,7 @@ class AsyncTableHandle:
             >>> df = table.polars()
             >>> results = await df.collect()
         """
+        from ..dataframe.async_dataframe import AsyncDataFrame
         from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
 
         df = AsyncDataFrame.from_table(self)
@@ -115,6 +116,7 @@ class AsyncTableHandle:
             >>> df = table.pandas()
             >>> results = await df.collect()
         """
+        from ..dataframe.async_dataframe import AsyncDataFrame
         from ..dataframe.async_pandas_dataframe import AsyncPandasDataFrame
 
         df = AsyncDataFrame.from_table(self)
@@ -1110,10 +1112,10 @@ class AsyncDatabase:
         """Compile a logical plan to SQL."""
         return compile_plan(plan, dialect=self._dialect)
 
-    async def execute_plan(self, plan: LogicalPlan) -> AsyncQueryResult:
+    async def execute_plan(self, plan: LogicalPlan, model: Optional[Type[Any]] = None) -> AsyncQueryResult:
         """Execute a logical plan and return results."""
-        sql = self.compile_plan(plan)
-        return await self._executor.fetch(sql)
+        stmt = self.compile_plan(plan)
+        return await self._executor.fetch(stmt, model=model)
 
     async def execute_plan_stream(
         self, plan: LogicalPlan
@@ -1366,6 +1368,22 @@ class AsyncDatabase:
     def _dialect_name(self) -> str:
         if self.config.engine.dialect:
             return self.config.engine.dialect
+        # If session is provided, extract dialect from session's bind (engine)
+        if self.config.engine.session is not None:
+            session = self.config.engine.session
+            if hasattr(session, "get_bind"):
+                bind = session.get_bind()
+            elif hasattr(session, "bind"):
+                bind = session.bind
+            else:
+                bind = None
+            if bind is not None:
+                dialect_name = getattr(getattr(bind, "dialect", None), "name", None)
+                if dialect_name:
+                    # Normalize driver variants (e.g., "mysql+aiomysql" -> "mysql")
+                    if "+" in dialect_name:
+                        dialect_name = dialect_name.split("+", 1)[0]
+                    return dialect_name
         # Extract base dialect from DSN (e.g., "sqlite+aiosqlite" -> "sqlite")
         dsn = self.config.engine.dsn
         if dsn is None:

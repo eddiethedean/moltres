@@ -20,6 +20,7 @@ from typing import (
 from ..expressions.column import Column, col
 from ..logical.plan import LogicalPlan
 from .dataframe import DataFrame
+from .interface_common import InterfaceCommonMixin
 
 if TYPE_CHECKING:
     import polars as pl
@@ -30,84 +31,12 @@ if TYPE_CHECKING:
     from .polars_groupby import PolarsGroupBy
 
 
-def sql_type_to_polars_dtype(sql_type: str) -> str:
-    """Map SQL type names to Polars dtype strings.
-
-    Args:
-        sql_type: SQL type name (e.g., "INTEGER", "TEXT", "VARCHAR(255)", "REAL")
-
-    Returns:
-        Polars dtype string (e.g., "Int64", "Utf8", "Float64")
-
-    Example:
-        >>> sql_type_to_polars_dtype("INTEGER")
-        'Int64'
-        >>> sql_type_to_polars_dtype("TEXT")
-        'Utf8'
-        >>> sql_type_to_polars_dtype("REAL")
-        'Float64'
-    """
-    # Normalize the type name - remove parameters and convert to uppercase
-    type_upper = sql_type.upper().strip()
-    # Remove parameters if present (e.g., "VARCHAR(255)" -> "VARCHAR")
-    if "(" in type_upper:
-        type_upper = type_upper.split("(")[0].strip()
-
-    # Remove parentheses suffix if present
-    type_upper = type_upper.replace("()", "")
-
-    # Map SQL types to Polars dtypes
-    type_mapping: Dict[str, str] = {
-        # Integer types
-        "INTEGER": "Int64",
-        "INT": "Int64",
-        "BIGINT": "Int64",
-        "SMALLINT": "Int32",
-        "TINYINT": "Int8",
-        "SERIAL": "Int64",
-        "BIGSERIAL": "Int64",
-        # Floating point types
-        "REAL": "Float64",
-        "FLOAT": "Float64",
-        "DOUBLE": "Float64",
-        "DOUBLE PRECISION": "Float64",
-        "NUMERIC": "Float64",
-        "DECIMAL": "Float64",
-        "MONEY": "Float64",
-        # Text types
-        "TEXT": "Utf8",
-        "VARCHAR": "Utf8",
-        "CHAR": "Utf8",
-        "CHARACTER": "Utf8",
-        "STRING": "Utf8",
-        "CLOB": "Utf8",
-        # Binary types
-        "BLOB": "Binary",
-        "BYTEA": "Binary",
-        "BINARY": "Binary",
-        "VARBINARY": "Binary",
-        # Boolean
-        "BOOLEAN": "Boolean",
-        "BOOL": "Boolean",
-        # Date/Time types
-        "DATE": "Date",
-        "TIME": "Time",
-        "TIMESTAMP": "Datetime",
-        "DATETIME": "Datetime",
-        "TIMESTAMPTZ": "Datetime",
-        # JSON types
-        "JSON": "Object",
-        "JSONB": "Object",
-        # UUID
-        "UUID": "Utf8",
-    }
-
-    # Return mapped type or default to 'Utf8' for unknown types
-    return type_mapping.get(type_upper, "Utf8")
+# Import from polars_operations for backward compatibility
+from .polars_operations import sql_type_to_polars_dtype
 
 
 @dataclass(frozen=True)
-class PolarsDataFrame:
+class PolarsDataFrame(InterfaceCommonMixin):
     """Polars-style interface wrapper around Moltres DataFrame.
 
     Provides familiar Polars LazyFrame API methods while maintaining lazy evaluation
@@ -657,54 +586,21 @@ class PolarsDataFrame:
             >>> df1.join(df2, on='id')
             >>> df1.join(df2, left_on='customer_id', right_on='id', how='left')
         """
+        from .polars_operations import normalize_join_how, prepare_polars_join_keys
+
         # Normalize how parameter
-        how_map = {
-            "inner": "inner",
-            "left": "left",
-            "right": "right",
-            "outer": "outer",
-            "full": "outer",
-            "full_outer": "outer",
-            "anti": "anti",  # Polars-specific
-            "semi": "semi",  # Polars-specific
-        }
-        join_how = how_map.get(how.lower(), "inner")
+        join_how = normalize_join_how(how)
 
         # Determine join keys
-        join_on: List[Tuple[str, str]]
-        if on is not None:
-            # Same column names in both DataFrames
-            if isinstance(on, str):
-                self._validate_columns_exist([on], "join (left DataFrame)")
-                other._validate_columns_exist([on], "join (right DataFrame)")
-                join_on = [(on, on)]
-            else:
-                on_list = list(on)
-                str_cols = [c for c in on_list if isinstance(c, str)]
-                if str_cols:
-                    self._validate_columns_exist(str_cols, "join (left DataFrame)")
-                    other._validate_columns_exist(str_cols, "join (right DataFrame)")
-                # Handle list of tuples or list of strings
-                if on_list and isinstance(on_list[0], tuple):
-                    join_on = [t for t in on_list if isinstance(t, tuple) and len(t) == 2]
-                else:
-                    join_on = [(str(col), str(col)) for col in on_list if isinstance(col, str)]
-        elif left_on is not None and right_on is not None:
-            # Different column names
-            if isinstance(left_on, str) and isinstance(right_on, str):
-                self._validate_columns_exist([left_on], "join (left DataFrame)")
-                other._validate_columns_exist([right_on], "join (right DataFrame)")
-                join_on = [(left_on, right_on)]
-            elif isinstance(left_on, (list, tuple)) and isinstance(right_on, (list, tuple)):
-                if len(left_on) != len(right_on):
-                    raise ValueError("left_on and right_on must have the same length")
-                self._validate_columns_exist(list(left_on), "join (left DataFrame)")
-                other._validate_columns_exist(list(right_on), "join (right DataFrame)")
-                join_on = list(zip(left_on, right_on))
-            else:
-                raise TypeError("left_on and right_on must both be str or both be sequences")
-        else:
-            raise ValueError("Must specify either 'on' or both 'left_on' and 'right_on'")
+        join_on = prepare_polars_join_keys(
+            on=on,
+            left_on=left_on,
+            right_on=right_on,
+            left_columns=self.columns,
+            right_columns=other.columns,
+            left_validate_fn=self._validate_columns_exist,
+            right_validate_fn=other._validate_columns_exist,
+        )
 
         # Handle anti and semi joins (Polars-specific)
         # These methods require tuple syntax, not Column expressions
@@ -729,6 +625,56 @@ class PolarsDataFrame:
         # Perform standard join
         result_df = self._df.join(other._df, on=join_on, how=join_how)
         return self._with_dataframe(result_df)
+
+    def semi_join(
+        self,
+        other: "PolarsDataFrame",
+        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+        left_on: Optional[Union[str, Sequence[str]]] = None,
+        right_on: Optional[Union[str, Sequence[str]]] = None,
+    ) -> "PolarsDataFrame":
+        """Semi-join: filter rows in left DataFrame that have matches in right DataFrame.
+
+        Args:
+            other: Right DataFrame to join with
+            on: Column name(s) to join on (must exist in both DataFrames)
+            left_on: Column name(s) in left DataFrame
+            right_on: Column name(s) in right DataFrame
+
+        Returns:
+            PolarsDataFrame with rows from left that have matches in right
+
+        Example:
+            >>> df1.semi_join(df2, on='id')
+            >>> df1.semi_join(df2, left_on='customer_id', right_on='id')
+        """
+        # Use the join method with how='semi'
+        return self.join(other, on=on, left_on=left_on, right_on=right_on, how="semi")
+
+    def anti_join(
+        self,
+        other: "PolarsDataFrame",
+        on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
+        left_on: Optional[Union[str, Sequence[str]]] = None,
+        right_on: Optional[Union[str, Sequence[str]]] = None,
+    ) -> "PolarsDataFrame":
+        """Anti-join: filter rows in left DataFrame that don't have matches in right DataFrame.
+
+        Args:
+            other: Right DataFrame to join with
+            on: Column name(s) to join on (must exist in both DataFrames)
+            left_on: Column name(s) in left DataFrame
+            right_on: Column name(s) in right DataFrame
+
+        Returns:
+            PolarsDataFrame with rows from left that don't have matches in right
+
+        Example:
+            >>> df1.anti_join(df2, on='id')
+            >>> df1.anti_join(df2, left_on='customer_id', right_on='id')
+        """
+        # Use the join method with how='anti'
+        return self.join(other, on=on, left_on=left_on, right_on=right_on, how="anti")
 
     def unique(
         self, subset: Optional[Union[str, Sequence[str]]] = None, keep: str = "first"
@@ -1627,6 +1573,23 @@ class PolarsDataFrame:
         # For now, this is a no-op as Moltres doesn't have the same context system
         # Users should use CTEs instead
         return self
+
+    def summary(self, *statistics: str) -> "PolarsDataFrame":
+        """Compute summary statistics for numeric columns (Polars-style).
+
+        Args:
+            *statistics: Statistics to compute (e.g., "count", "mean", "stddev", "min", "max").
+                        If not provided, computes common statistics.
+
+        Returns:
+            PolarsDataFrame with summary statistics
+
+        Example:
+            >>> df.summary()
+            >>> df.summary("count", "mean", "max")
+        """
+        result_df = self._df.summary(*statistics)
+        return self._with_dataframe(result_df)
 
     # ========================================================================
     # Common Table Expressions (CTEs) - Moltres-specific but Polars-style API

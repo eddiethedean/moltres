@@ -73,45 +73,19 @@ class AsyncPandasGroupBy:
         Returns:
             Column expression for the aggregation
         """
-        from ..expressions.functions import (
-            avg,
-            count,
-            max as max_func,
-            min as min_func,
-            sum as sum_func,
-        )
+        from .groupby_helpers import create_aggregation_from_string
 
-        from ..expressions.functions import count_distinct
-
-        func_map: Dict[str, Callable[[Column], Column]] = {
-            "sum": sum_func,
-            "mean": avg,
-            "avg": avg,
-            "average": avg,
-            "min": min_func,
-            "max": max_func,
-            "count": count,
-            "nunique": count_distinct,
-        }
-
-        func_name_lower = func_name.lower()
-        if func_name_lower not in func_map:
-            raise ValueError(
-                f"Unknown aggregation function: {func_name}. "
-                f"Supported: {', '.join(func_map.keys())}"
-            )
-
-        agg_func = func_map[func_name_lower]
-        agg_expr: Column = agg_func(col(column_name))
+        # Use shared helper, but apply pandas-specific alias logic
+        agg_expr = create_aggregation_from_string(column_name, func_name, alias=None)
 
         if alias:
             return agg_expr.alias(alias)
-        elif func_name_lower == "mean" or func_name_lower == "avg":
+        elif func_name.lower() in ("mean", "avg"):
             return agg_expr.alias(f"{column_name}_mean")
-        elif func_name_lower == "count":
+        elif func_name.lower() == "count":
             return agg_expr.alias(f"{column_name}_count")
         else:
-            return agg_expr.alias(f"{column_name}_{func_name_lower}")
+            return agg_expr.alias(f"{column_name}_{func_name.lower()}")
 
     def sum(self) -> "AsyncPandasDataFrame":
         """Sum all numeric columns in each group.

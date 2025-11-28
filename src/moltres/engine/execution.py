@@ -59,6 +59,7 @@ class QueryExecutor:
         stmt: Union[str, "Select"],
         params: Optional[Dict[str, Any]] = None,
         connection: Optional["Connection"] = None,
+        model: Optional[Type[Any]] = None,
     ) -> QueryResult:
         """Execute a SELECT query and return results.
 
@@ -90,6 +91,18 @@ class QueryExecutor:
         _call_hooks("query_start", sql_str, 0.0, {"params": params})
 
         try:
+            # Check if we're using a SQLModel session and have a model
+            use_sqlmodel_exec = False
+            sqlmodel_session = None
+            if model is not None:
+                # Check if we have a SQLModel session available
+                if hasattr(self._connections, "_session") and self._connections._session is not None:
+                    session = self._connections._session
+                    # Check if it's a SQLModel session (has .exec() method)
+                    if hasattr(session, "exec"):
+                        use_sqlmodel_exec = True
+                        sqlmodel_session = session
+
             # Use provided connection or create a new one
             if connection is not None:
                 # Use the provided connection directly (don't manage its lifecycle)
@@ -98,6 +111,23 @@ class QueryExecutor:
                 execution_options = {}
                 if self._config.query_timeout is not None:
                     execution_options["timeout"] = self._config.query_timeout
+
+                # Use SQLModel .exec() if available and model is provided
+                if use_sqlmodel_exec and isinstance(stmt, Select) and model is not None:
+                    # SQLModel .exec() returns SQLModel instances directly
+                    try:
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings(
+                                "ignore", category=SAWarning, message=".*cartesian product.*"
+                            )
+                            # SQLModel's exec() works with Select statements
+                            exec_result = sqlmodel_session.exec(stmt)
+                            # .exec() returns an iterable of SQLModel instances
+                            sqlmodel_instances = list(exec_result)
+                            return QueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                    except Exception:
+                        # Fall back to regular execute if exec() fails
+                        pass
 
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
                 if isinstance(stmt, Select):
@@ -119,6 +149,23 @@ class QueryExecutor:
                         result = conn.execute(text(stmt), params or {})
             else:
                 # Create a new connection (manage its lifecycle)
+                # Use SQLModel .exec() if available and model is provided
+                if use_sqlmodel_exec and isinstance(stmt, Select) and model is not None:
+                    # SQLModel .exec() returns SQLModel instances directly
+                    try:
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings(
+                                "ignore", category=SAWarning, message=".*cartesian product.*"
+                            )
+                            # SQLModel's exec() works with Select statements
+                            exec_result = sqlmodel_session.exec(stmt)
+                            # .exec() returns an iterable of SQLModel instances
+                            sqlmodel_instances = list(exec_result)
+                            return QueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                    except Exception:
+                        # Fall back to regular execute if exec() fails
+                        pass
+
                 with self._connections.connect() as conn:
                     # Apply query timeout if configured
                     execution_options = {}

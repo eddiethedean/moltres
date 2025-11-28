@@ -23,6 +23,7 @@ from ..expressions.column import Column, col
 from ..logical import operators
 from ..logical.plan import FileScan, LogicalPlan, RawSQL, SortOrder
 from ..sql.compiler import compile_plan
+from .dataframe_helpers import DataFrameHelpersMixin
 
 if TYPE_CHECKING:
     from sqlalchemy.sql import Select
@@ -33,10 +34,11 @@ if TYPE_CHECKING:
     from .async_pandas_dataframe import AsyncPandasDataFrame
     from .async_polars_dataframe import AsyncPolarsDataFrame
     from .async_writer import AsyncDataFrameWriter
+    from .pyspark_column import PySparkColumn
 
 
 @dataclass(frozen=True)
-class AsyncDataFrame:
+class AsyncDataFrame(DataFrameHelpersMixin):
     """Async lazy DataFrame representation."""
 
     plan: LogicalPlan
@@ -713,6 +715,41 @@ class AsyncDataFrame:
 
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
+    def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> "AsyncDataFrame":
+        """Add or replace multiple columns in the DataFrame.
+
+        Args:
+            cols_map: Dictionary mapping column names to Column expressions or column names
+
+        Returns:
+            New AsyncDataFrame with the added/replaced columns
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = await connect("sqlite:///:memory:")
+            >>> await db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
+            >>> df = await db.table("orders").select()
+            >>> # Add multiple columns at once
+            >>> df2 = await df.withColumns({
+            ...     "amount_with_tax": col("amount") * 1.1,
+            ...     "amount_doubled": col("amount") * 2
+            ... })
+            >>> results = await df2.collect()
+            >>> results[0]["amount_with_tax"]
+            110.0
+            >>> results[0]["amount_doubled"]
+            200.0
+            >>> await db.close()
+        """
+        # Apply each column addition/replacement sequentially
+        result_df = self
+        for col_name, col_expr in cols_map.items():
+            result_df = result_df.withColumn(col_name, col_expr)
+        return result_df
+
     def withColumnRenamed(self, existing: str, new: str) -> "AsyncDataFrame":
         """Rename a column in the DataFrame."""
         from ..logical.plan import Project
@@ -835,6 +872,63 @@ class AsyncDataFrame:
         if not isinstance(rows, list):
             raise TypeError("head() requires collect() to return a list, not an iterator")
         return rows
+
+    async def nunique(self, column: Optional[str] = None) -> Union[int, Dict[str, int]]:
+        """Count distinct values in column(s).
+
+        Args:
+            column: Column name to count. If None, counts distinct values for all columns.
+
+        Returns:
+            If column is specified: integer count of distinct values.
+            If column is None: dictionary mapping column names to distinct counts.
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.expressions import functions as F
+            >>> from moltres.table.schema import column
+            >>> db = await connect("sqlite:///:memory:")
+            >>> await db.create_table("users", [column("id", "INTEGER"), column("country", "TEXT"), column("age", "INTEGER")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "country": "USA", "age": 25}, {"id": 2, "country": "USA", "age": 30}, {"id": 3, "country": "UK", "age": 25}], _database=db).insert_into("users")
+            >>> df = await db.table("users").select()
+            >>> # Count distinct values in a column
+            >>> await df.nunique("country")
+            2
+            >>> # Count distinct for all columns
+            >>> counts = await df.nunique()
+            >>> counts["country"]
+            2
+            >>> await db.close()
+        """
+        from ..expressions.functions import count_distinct
+
+        if column is not None:
+            # Count distinct values in the column
+            count_df = self.select(count_distinct(col(column)).alias("count"))
+            result = await count_df.collect()
+            if result and isinstance(result, list) and len(result) > 0:
+                row = result[0]
+                if isinstance(row, dict):
+                    count_val = row.get("count", 0)
+                    return int(count_val) if isinstance(count_val, (int, float)) else 0
+            return 0
+        else:
+            # Count distinct for all columns
+            counts: Dict[str, int] = {}
+            for col_name in self.columns:
+                count_df = self.select(count_distinct(col(col_name)).alias("count"))
+                result = await count_df.collect()
+                if result and isinstance(result, list) and len(result) > 0:
+                    row = result[0]
+                    if isinstance(row, dict):
+                        count_val = row.get("count", 0)
+                        counts[col_name] = int(count_val) if isinstance(count_val, (int, float)) else 0
+                    else:
+                        counts[col_name] = 0
+                else:
+                    counts[col_name] = 0
+            return counts
 
     async def count(self) -> int:
         """Return the number of rows in the DataFrame."""
@@ -1037,23 +1131,9 @@ class AsyncDataFrame:
         def _convert_rows(
             rows: List[Dict[str, object]],
         ) -> Union[List[Dict[str, object]], List[Any]]:
-            if self.model is not None:
-                try:
-                    from ..utils.sqlmodel_integration import rows_to_models
+            from .materialization_helpers import convert_rows_to_models
 
-                    return rows_to_models(rows, self.model)
-                except ImportError:
-                    # Check if it's a Pydantic or SQLModel import error
-                    try:
-                        import pydantic  # noqa: F401
-                        import sqlmodel  # noqa: F401
-                    except ImportError:
-                        raise ImportError(
-                            "Pydantic or SQLModel is required when a model is attached to DataFrame. "
-                            "Install with: pip install pydantic or pip install sqlmodel"
-                        ) from None
-                    raise
-            return rows
+            return convert_rows_to_models(rows, self.model)
 
         # Handle RawSQL at root level - execute directly for efficiency
         if isinstance(self.plan, RawSQL):
@@ -1069,21 +1149,11 @@ class AsyncDataFrame:
                 return stream_gen()
             else:
                 # Execute RawSQL directly
+                from .materialization_helpers import convert_result_rows
+
                 result = await self.database.execute_sql(self.plan.sql, params=self.plan.params)
-                if result.rows is None:
-                    return []
-                # Convert to list if it's a DataFrame
-                if hasattr(result.rows, "to_dict"):
-                    records = result.rows.to_dict("records")  # type: ignore[call-overload]
-                    # Convert Hashable keys to str keys
-                    rows = [{str(k): v for k, v in row.items()} for row in records]
-                    return _convert_rows(rows)
-                if hasattr(result.rows, "to_dicts"):
-                    records = list(result.rows.to_dicts())
-                    # Convert Hashable keys to str keys
-                    rows = [{str(k): v for k, v in row.items()} for row in records]
-                    return _convert_rows(rows)
-                return _convert_rows(result.rows)
+                rows = convert_result_rows(result.rows)
+                return _convert_rows(rows)
 
         # Handle FileScan by materializing file data into a temporary table
         plan = await self._materialize_filescan(self.plan)
@@ -1099,9 +1169,19 @@ class AsyncDataFrame:
 
             return stream_gen()
 
-        result = await self.database.execute_plan(plan)
+        result = await self.database.execute_plan(plan, model=self.model)
         if result.rows is None:
             return []
+        # If result.rows is already a list of SQLModel instances (from .exec()), return directly
+        if isinstance(result.rows, list) and len(result.rows) > 0:
+            # Check if first item is a SQLModel instance
+            try:
+                from sqlmodel import SQLModel
+                if isinstance(result.rows[0], SQLModel):
+                    # Already SQLModel instances from .exec(), return as-is
+                    return result.rows
+            except ImportError:
+                pass
         # Convert to list if it's a DataFrame
         if hasattr(result.rows, "to_dict"):
             records = result.rows.to_dict("records")  # type: ignore[call-overload]
@@ -1236,43 +1316,17 @@ class AsyncDataFrame:
         if self.database is None:
             raise RuntimeError("Cannot read file without an attached AsyncDatabase")
 
-        from ..dataframe.readers.async_csv_reader import read_csv
-        from ..dataframe.readers.async_json_reader import read_json, read_jsonl
-        from ..dataframe.readers.async_text_reader import read_text
+        from .file_io_helpers import route_file_read
 
-        if filescan.format == "csv":
-            records = await read_csv(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "json":
-            records = await read_json(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "jsonl":
-            records = await read_jsonl(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "parquet":
-            # Lazy import for parquet
-            try:
-                from ..dataframe.readers.async_parquet_reader import read_parquet
-            except ImportError:
-                raise ImportError(
-                    "Parquet support requires pyarrow. Install with: pip install pyarrow"
-                )
-            records = await read_parquet(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "text":
-            records = await read_text(
-                filescan.path,
-                self.database,
-                filescan.schema,
-                filescan.options,
-                filescan.column_name or "value",
-            )
-        else:
-            raise ValueError(f"Unsupported file format: {filescan.format}")
+        records = await route_file_read(
+            format_name=filescan.format,
+            path=filescan.path,
+            database=self.database,
+            schema=filescan.schema,
+            options=filescan.options,
+            column_name=filescan.column_name,
+            async_mode=True,
+        )
 
         # AsyncRecords.rows() returns a coroutine, so we need to await it
         return await records.rows()
@@ -1293,45 +1347,17 @@ class AsyncDataFrame:
         if self.database is None:
             raise RuntimeError("Cannot read file without an attached AsyncDatabase")
 
-        from ..dataframe.readers.async_csv_reader import read_csv_stream
-        from ..dataframe.readers.async_json_reader import read_json_stream, read_jsonl_stream
-        from ..dataframe.readers.async_text_reader import read_text_stream
+        from .file_io_helpers import route_file_read_streaming
 
-        if filescan.format == "csv":
-            records = await read_csv_stream(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "json":
-            records = await read_json_stream(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "jsonl":
-            records = await read_jsonl_stream(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "parquet":
-            # Lazy import for parquet
-            try:
-                from ..dataframe.readers.async_parquet_reader import read_parquet_stream
-            except ImportError:
-                raise ImportError(
-                    "Parquet support requires pyarrow. Install with: pip install pyarrow"
-                )
-            records = await read_parquet_stream(
-                filescan.path, self.database, filescan.schema, filescan.options
-            )
-        elif filescan.format == "text":
-            records = await read_text_stream(
-                filescan.path,
-                self.database,
-                filescan.schema,
-                filescan.options,
-                filescan.column_name or "value",
-            )
-        else:
-            raise ValueError(f"Unsupported file format: {filescan.format}")
-
-        return records
+        return await route_file_read_streaming(
+            format_name=filescan.format,
+            path=filescan.path,
+            database=self.database,
+            schema=filescan.schema,
+            options=filescan.options,
+            column_name=filescan.column_name,
+            async_mode=True,
+        )
 
     @property
     def na(self) -> "AsyncNullHandling":
@@ -1443,6 +1469,67 @@ class AsyncDataFrame:
             # Format similar to PySpark: |-- column_name: type_name (nullable = true)
             print(f" |-- {col_info.name}: {col_info.type_name} (nullable = true)")
 
+    def __getitem__(
+        self, key: Union[str, Sequence[str], Column]
+    ) -> Union["AsyncDataFrame", Column, "PySparkColumn"]:
+        """Enable bracket notation column access (e.g., df["col"], df[["col1", "col2"]]).
+
+        Supports:
+        - df['col'] - Returns Column expression with string/date accessors
+        - df[['col1', 'col2']] - Returns new AsyncDataFrame with selected columns
+        - df[df['age'] > 25] - Boolean indexing (filtering via Column condition)
+
+        Args:
+            key: Column name(s) or boolean Column condition
+
+        Returns:
+            - For single column string: PySparkColumn (with .str and .dt accessors)
+            - For list of columns: AsyncDataFrame with selected columns
+            - For boolean Column condition: AsyncDataFrame with filtered rows
+
+        Example:
+            >>> df = await db.table("users").select()
+            >>> df['age']  # Returns PySparkColumn with .str and .dt accessors
+            >>> df[['id', 'name']]  # Returns AsyncDataFrame with selected columns
+            >>> df[df['age'] > 25]  # Returns filtered AsyncDataFrame
+        """
+        # Import here to avoid circular imports
+        try:
+            from .pyspark_column import PySparkColumn
+        except ImportError:
+            PySparkColumn = None  # type: ignore
+
+        # Single column string: df['col'] - return Column-like object with accessors
+        if isinstance(key, str):
+            column_expr = col(key)
+            # Wrap in PySparkColumn to enable .str and .dt accessors
+            if PySparkColumn is not None:
+                return PySparkColumn(column_expr)
+            return column_expr
+
+        # List of columns: df[['col1', 'col2']] - select columns
+        if isinstance(key, (list, tuple)):
+            if len(key) == 0:
+                return self.select()
+            # Convert all to strings/Columns and select
+            columns = [col(c) if isinstance(c, str) else c for c in key]
+            return self.select(*columns)
+
+        # Column expression - if it's a boolean condition, use as filter
+        if isinstance(key, Column):
+            # This is likely a boolean condition like df['age'] > 25
+            # We should filter using it
+            return self.where(key)
+
+        # Handle PySparkColumn wrapper (which wraps a Column)
+        if PySparkColumn is not None and hasattr(key, "_column"):
+            # This might be a PySparkColumn - extract underlying Column
+            return self.where(key._column)
+
+        raise TypeError(
+            f"Invalid key type for __getitem__: {type(key)}. Expected str, list, tuple, or Column."
+        )
+
     def __getattr__(self, name: str) -> Column:
         """Enable dot notation column access (e.g., df.id, df.name).
 
@@ -1548,426 +1635,6 @@ class AsyncDataFrame:
             raise TypeError(f"Expected SQLModel or Pydantic class, got {type(model)}")
 
         return self._with_model(model)
-
-    def _normalize_projection(self, expr: Union[Column, str]) -> Column:
-        """Normalize a projection expression to a Column."""
-        if isinstance(expr, Column):
-            return expr
-        return col(expr)
-
-    def _is_window_function(self, col_expr: Column) -> bool:
-        """Check if a Column expression is a window function.
-
-        Args:
-            col_expr: Column expression to check
-
-        Returns:
-            True if the expression is a window function, False otherwise
-        """
-        if not isinstance(col_expr, Column):
-            return False
-
-        # Check if it's wrapped in a window (after .over())
-        if col_expr.op == "window":
-            return True
-
-        # Check if it's a window function operation
-        window_ops = {
-            "window_row_number",
-            "window_rank",
-            "window_dense_rank",
-            "window_percent_rank",
-            "window_cume_dist",
-            "window_nth_value",
-            "window_ntile",
-            "window_lag",
-            "window_lead",
-            "window_first_value",
-            "window_last_value",
-        }
-        if col_expr.op in window_ops:
-            return True
-
-        # Recursively check args for nested window functions
-        for arg in col_expr.args:
-            if isinstance(arg, Column) and self._is_window_function(arg):
-                return True
-
-        return False
-
-    def _extract_column_name(self, col_expr: Column) -> Optional[str]:
-        """Extract column name from a Column expression.
-
-        Args:
-            col_expr: Column expression to extract name from
-
-        Returns:
-            Column name string, or None if cannot be determined
-        """
-        # If column has an alias, use that
-        if col_expr._alias:
-            return col_expr._alias
-
-        # For simple column references
-        if col_expr.op == "column" and col_expr.args:
-            return str(col_expr.args[0])
-
-        # For star columns, return None (will need to query schema)
-        if col_expr.op == "star":
-            return None
-
-        # For other expressions, try to infer name from expression
-        # This is a best-effort approach
-        if col_expr.source:
-            return col_expr.source
-
-        # If we can't determine, return None
-        return None
-
-    def _find_base_plan(self, plan: LogicalPlan) -> LogicalPlan:
-        """Find the base plan (TableScan, FileScan, or Project) by traversing down.
-
-        Args:
-            plan: Logical plan to traverse
-
-        Returns:
-            Base plan (TableScan, FileScan, or Project with no Project child)
-        """
-        from ..logical.plan import (
-            Aggregate,
-            Distinct,
-            Explode,
-            Filter,
-            Join,
-            Limit,
-            Sample,
-            Sort,
-            TableScan,
-            FileScan,
-            Project,
-        )
-
-        # If this is a base plan type, return it
-        if isinstance(plan, (TableScan, FileScan)):
-            return plan
-
-        # If this is a Project, check if child is also a Project
-        if isinstance(plan, Project):
-            child_base = self._find_base_plan(plan.child)
-            # If child is also a Project, return the child (more specific)
-            if isinstance(child_base, Project):
-                return child_base
-            # Otherwise, return this Project (it's the final projection)
-            return plan
-
-        # For operations that have a single child, traverse down
-        if isinstance(plan, (Filter, Limit, Sample, Sort, Distinct, Explode)):
-            return self._find_base_plan(plan.child)
-
-        # For Aggregate, the schema comes from aggregates, not child
-        if isinstance(plan, Aggregate):
-            return plan
-
-        # For Join, we need to handle both sides - return the plan itself
-        # as we'll need to combine schemas
-        if isinstance(plan, Join):
-            return plan
-
-        # For other plan types, return as-is
-        return plan
-
-    def _extract_column_names(self, plan: LogicalPlan) -> List[str]:
-        """Extract column names from a logical plan.
-
-        Args:
-            plan: Logical plan to extract column names from
-
-        Returns:
-            List of column name strings
-
-        Raises:
-            RuntimeError: If column names cannot be determined (e.g., RawSQL)
-        """
-        from ..logical.plan import (
-            Aggregate,
-            Explode,
-            FileScan,
-            Join,
-            Project,
-            RawSQL,
-            TableScan,
-        )
-
-        base_plan = self._find_base_plan(plan)
-
-        # Handle RawSQL - cannot determine schema without execution
-        if isinstance(base_plan, RawSQL):
-            raise RuntimeError(
-                "Cannot determine column names from RawSQL without executing the query. "
-                "Use df.collect() first or specify columns explicitly."
-            )
-
-        # Handle Project - extract from projections
-        if isinstance(base_plan, Project):
-            column_names: List[str] = []
-            for proj in base_plan.projections:
-                col_name = self._extract_column_name(proj)
-                if col_name:
-                    column_names.append(col_name)
-                elif proj.op == "star":
-                    # For "*", need to get all columns from underlying plan
-                    child_names = self._extract_column_names(base_plan.child)
-                    column_names.extend(child_names)
-            return column_names
-
-        # Handle Aggregate - extract from aggregates
-        if isinstance(base_plan, Aggregate):
-            column_names = []
-            # Add grouping columns
-            for group_col in base_plan.grouping:
-                col_name = self._extract_column_name(group_col)
-                if col_name:
-                    column_names.append(col_name)
-            # Add aggregate columns
-            for agg_col in base_plan.aggregates:
-                col_name = self._extract_column_name(agg_col)
-                if col_name:
-                    column_names.append(col_name)
-            return column_names
-
-        # Handle Join - combine columns from both sides
-        if isinstance(base_plan, Join):
-            left_names = self._extract_column_names(base_plan.left)
-            right_names = self._extract_column_names(base_plan.right)
-            return left_names + right_names
-
-        # Handle Explode - add exploded column alias
-        if isinstance(base_plan, Explode):
-            child_names = self._extract_column_names(base_plan.child)
-            # Add the exploded column alias
-            alias = base_plan.alias or "value"
-            if alias not in child_names:
-                child_names.append(alias)
-            return child_names
-
-        # Handle TableScan - query database metadata
-        if isinstance(base_plan, TableScan):
-            if self.database is None:
-                raise RuntimeError(
-                    "Cannot determine column names: DataFrame has no database connection"
-                )
-            from ..utils.inspector import get_table_columns
-
-            table_name = base_plan.alias or base_plan.table
-            columns = get_table_columns(self.database, table_name)
-            return [col_info.name for col_info in columns]
-
-        # Handle FileScan - use schema if available
-        if isinstance(base_plan, FileScan):
-            if base_plan.schema:
-                return [col_def.name for col_def in base_plan.schema]
-            # If no schema, try to infer from column_name (for text files)
-            if base_plan.column_name:
-                return [base_plan.column_name]
-            # Cannot determine without schema
-            raise RuntimeError(
-                f"Cannot determine column names from FileScan without schema. "
-                f"File: {base_plan.path}, Format: {base_plan.format}"
-            )
-
-        # For other plan types, try to get from child
-        children = base_plan.children()
-        if children:
-            return self._extract_column_names(children[0])
-
-        # If we can't determine, raise error
-        raise RuntimeError(
-            f"Cannot determine column names from plan type: {type(base_plan).__name__}"
-        )
-
-    def _extract_schema_from_plan(self, plan: LogicalPlan) -> List["ColumnInfo"]:
-        """Extract schema information from a logical plan.
-
-        Args:
-            plan: Logical plan to extract schema from
-
-        Returns:
-            List of ColumnInfo objects with column names and types
-
-        Raises:
-            RuntimeError: If schema cannot be determined
-        """
-        from ..logical.plan import (
-            Aggregate,
-            Explode,
-            FileScan,
-            Join,
-            Project,
-            RawSQL,
-            TableScan,
-        )
-        from ..utils.inspector import ColumnInfo
-
-        base_plan = self._find_base_plan(plan)
-
-        # Handle RawSQL - cannot determine schema without execution
-        if isinstance(base_plan, RawSQL):
-            raise RuntimeError(
-                "Cannot determine schema from RawSQL without executing the query. "
-                "Use df.collect() first or specify schema explicitly."
-            )
-
-        # Handle Project - extract from projections
-        if isinstance(base_plan, Project):
-            schema: List[ColumnInfo] = []
-            child_schema = self._extract_schema_from_plan(base_plan.child)
-
-            for proj in base_plan.projections:
-                col_name = self._extract_column_name(proj)
-                if col_name:
-                    # Try to find type from child schema
-                    col_type = "UNKNOWN"
-                    for child_col in child_schema:
-                        if child_col.name == col_name or (
-                            proj.op == "column"
-                            and proj.args
-                            and str(proj.args[0]) == child_col.name
-                        ):
-                            col_type = child_col.type_name
-                            break
-                    schema.append(ColumnInfo(name=col_name, type_name=col_type))
-                elif proj.op == "star":
-                    # For "*", include all columns from child
-                    schema.extend(child_schema)
-            return schema
-
-        # Handle Aggregate - extract from aggregates
-        if isinstance(base_plan, Aggregate):
-            schema = []
-            child_schema = self._extract_schema_from_plan(base_plan.child)
-
-            # Add grouping columns
-            for group_col in base_plan.grouping:
-                col_name = self._extract_column_name(group_col)
-                if col_name:
-                    col_type = "UNKNOWN"
-                    for child_col in child_schema:
-                        if child_col.name == col_name:
-                            col_type = child_col.type_name
-                            break
-                    schema.append(ColumnInfo(name=col_name, type_name=col_type))
-
-            # Add aggregate columns (typically numeric types)
-            for agg_col in base_plan.aggregates:
-                col_name = self._extract_column_name(agg_col)
-                if col_name:
-                    # Aggregates are typically numeric, but we can't be sure
-                    # Use a generic type or try to infer from expression
-                    schema.append(ColumnInfo(name=col_name, type_name="NUMERIC"))
-            return schema
-
-        # Handle Join - combine schemas from both sides
-        if isinstance(base_plan, Join):
-            left_schema = self._extract_schema_from_plan(base_plan.left)
-            right_schema = self._extract_schema_from_plan(base_plan.right)
-            return left_schema + right_schema
-
-        # Handle Explode - add exploded column
-        if isinstance(base_plan, Explode):
-            child_schema = self._extract_schema_from_plan(base_plan.child)
-            alias = base_plan.alias or "value"
-            # Add exploded column (typically array/JSON element, so use TEXT)
-            child_schema.append(ColumnInfo(name=alias, type_name="TEXT"))
-            return child_schema
-
-        # Handle TableScan - query database metadata
-        if isinstance(base_plan, TableScan):
-            if self.database is None:
-                raise RuntimeError("Cannot determine schema: DataFrame has no database connection")
-            from ..utils.inspector import get_table_columns
-
-            table_name = base_plan.alias or base_plan.table
-            return get_table_columns(self.database, table_name)
-
-        # Handle FileScan - use schema if available
-        if isinstance(base_plan, FileScan):
-            if base_plan.schema:
-                return [
-                    ColumnInfo(name=col_def.name, type_name=col_def.type_name)
-                    for col_def in base_plan.schema
-                ]
-            # If no schema, try to infer from column_name (for text files)
-            if base_plan.column_name:
-                return [ColumnInfo(name=base_plan.column_name, type_name="TEXT")]
-            # Cannot determine without schema
-            raise RuntimeError(
-                f"Cannot determine schema from FileScan without explicit schema. "
-                f"File: {base_plan.path}, Format: {base_plan.format}"
-            )
-
-        # For other plan types, try to get from child
-        children = base_plan.children()
-        if children:
-            return self._extract_schema_from_plan(children[0])
-
-        # If we can't determine, raise error
-        raise RuntimeError(f"Cannot determine schema from plan type: {type(base_plan).__name__}")
-
-    def _normalize_sort_expression(self, expr: Column) -> SortOrder:
-        """Normalize a sort expression to a SortOrder."""
-        if expr.op == "sort_desc":
-            return operators.sort_order(expr.args[0], descending=True)
-        if expr.op == "sort_asc":
-            return operators.sort_order(expr.args[0], descending=False)
-        return operators.sort_order(expr, descending=False)
-
-    def _normalize_join_condition(
-        self,
-        on: Optional[
-            Union[str, Sequence[str], Sequence[Tuple[str, str]], Column, Sequence[Column]]
-        ],
-    ) -> Union[Sequence[Tuple[str, str]], Column]:
-        """Normalize join condition to either tuple pairs or a Column expression.
-
-        Returns:
-            - Sequence[Tuple[str, str]]: For tuple/string-based joins (backward compatible)
-            - Column: For PySpark-style Column expression joins
-        """
-        if on is None:
-            raise ValueError("join requires an `on` argument for equality joins")
-
-        # Handle Column expressions (PySpark-style)
-        if isinstance(on, Column):
-            return on
-        if isinstance(on, Sequence) and len(on) > 0 and isinstance(on[0], Column):
-            # Multiple Column expressions - combine with AND
-            conditions: List[Column] = []
-            for entry in on:
-                if not isinstance(entry, Column):
-                    raise ValueError(
-                        "All elements in join condition must be Column expressions when using PySpark-style syntax"
-                    )
-                conditions.append(entry)
-            # Combine all conditions with AND
-            result = conditions[0]
-            for cond in conditions[1:]:
-                result = result & cond
-            return result
-
-        # Handle tuple/string-based joins (backward compatible)
-        if isinstance(on, str):
-            return [(on, on)]
-        normalized: List[Tuple[str, str]] = []
-        for entry in on:
-            if isinstance(entry, tuple):
-                if len(entry) != 2:
-                    raise ValueError("join tuples must specify (left, right) column names")
-                normalized.append((entry[0], entry[1]))
-            else:
-                # At this point, entry must be a string (not a Column, as we've already checked)
-                assert isinstance(entry, str), "entry must be a string at this point"
-                normalized.append((entry, entry))
-        return normalized
 
 
 class AsyncNullHandling:

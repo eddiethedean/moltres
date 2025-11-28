@@ -21,6 +21,7 @@ from typing import (
 from ..expressions.column import Column, col
 from ..logical.plan import LogicalPlan
 from .dataframe import DataFrame
+from .interface_common import InterfaceCommonMixin
 
 # Import PandasColumn wrapper for string accessor support
 try:
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class PandasDataFrame:
+class PandasDataFrame(InterfaceCommonMixin):
     """Pandas-style interface wrapper around Moltres DataFrame.
 
     Provides familiar pandas API methods while maintaining lazy evaluation
@@ -205,44 +206,18 @@ class PandasDataFrame:
             >>> df.query("name in ['Alice', 'Bob']")
             >>> df.query("age = 30")  # Both = and == work
         """
-        from ..expressions.sql_parser import parse_sql_expr
-        from ..utils.exceptions import PandasAPIError
+
+        from .pandas_operations import parse_query_expression
 
         # Get available column names for context and validation
         available_columns: Optional[Set[str]] = None
         try:
             available_columns = set(self.columns)
         except Exception:
-            # Fallback: try to extract from plan
-            try:
-                if hasattr(self._df, "plan") and hasattr(self._df.plan, "projections"):
-                    available_columns = set()
-                    for proj in self._df.plan.projections:
-                        if isinstance(proj, Column) and proj.op == "column" and proj.args:
-                            available_columns.add(str(proj.args[0]))
-            except Exception:
-                pass
+            pass
 
         # Parse query string to Column expression
-        try:
-            predicate = parse_sql_expr(expr, available_columns)
-        except ValueError as e:
-            # Provide more helpful error message
-            raise PandasAPIError(
-                f"Failed to parse query expression: {expr}",
-                suggestion=(
-                    f"Error: {str(e)}\n"
-                    "Query syntax should follow pandas-style syntax:\n"
-                    "  - Use '=' or '==' for equality: 'age == 25' or 'age = 25'\n"
-                    "  - Use 'and'/'or' keywords: 'age > 25 and status == \"active\"'\n"
-                    "  - Use comparison operators: >, <, >=, <=, !=, ==\n"
-                    f"{'  - Available columns: ' + ', '.join(sorted(available_columns)) if available_columns else ''}"
-                ),
-                context={
-                    "query": expr,
-                    "available_columns": list(available_columns) if available_columns else [],
-                },
-            ) from e
+        predicate = parse_query_expression(expr, available_columns, self._df.plan)
 
         # Apply filter
         return self._with_dataframe(self._df.where(predicate))
@@ -264,12 +239,9 @@ class PandasDataFrame:
         """
         from .pandas_groupby import PandasGroupBy
 
-        if isinstance(by, str):
-            columns = (by,)
-        elif isinstance(by, (list, tuple)):
-            columns = tuple(by)
-        else:
-            raise TypeError(f"by must be str or sequence of str, got {type(by)}")
+        from .pandas_operations import normalize_groupby_by
+
+        columns = normalize_groupby_by(by)
 
         # Validate columns exist
         self._validate_columns_exist(list(columns), "groupby")
@@ -308,52 +280,44 @@ class PandasDataFrame:
             >>> df1.merge(df2, left_on='customer_id', right_on='id')
             >>> df1.merge(df2, on='id', how='left')
         """
+        from .pandas_operations import normalize_merge_how, prepare_merge_keys
+
         # Normalize how parameter
-        how_map = {
-            "inner": "inner",
-            "left": "left",
-            "right": "right",
-            "outer": "outer",
-            "full": "outer",
-            "full_outer": "outer",
-        }
-        join_how = how_map.get(how.lower(), "inner")
+        join_how = normalize_merge_how(how)
 
         # Determine join keys
-        if on is not None:
-            # Same column names in both DataFrames
-            if isinstance(on, str):
-                # Validate columns exist in both DataFrames
-                self._validate_columns_exist([on], "merge (left DataFrame)")
-                right._validate_columns_exist([on], "merge (right DataFrame)")
-                join_on = [(on, on)]
-            else:
-                # Validate all columns exist
-                self._validate_columns_exist(list(on), "merge (left DataFrame)")
-                right._validate_columns_exist(list(on), "merge (right DataFrame)")
-                join_on = [(col, col) for col in on]
-        elif left_on is not None and right_on is not None:
-            # Different column names
-            if isinstance(left_on, str) and isinstance(right_on, str):
-                # Validate columns exist
-                self._validate_columns_exist([left_on], "merge (left DataFrame)")
-                right._validate_columns_exist([right_on], "merge (right DataFrame)")
-                join_on = [(left_on, right_on)]
-            elif isinstance(left_on, (list, tuple)) and isinstance(right_on, (list, tuple)):
-                if len(left_on) != len(right_on):
-                    raise ValueError("left_on and right_on must have the same length")
-                # Validate all columns exist
-                self._validate_columns_exist(list(left_on), "merge (left DataFrame)")
-                right._validate_columns_exist(list(right_on), "merge (right DataFrame)")
-                join_on = list(zip(left_on, right_on))
-            else:
-                raise TypeError("left_on and right_on must both be str or both be sequences")
-        else:
-            raise ValueError("Must specify either 'on' or both 'left_on' and 'right_on'")
+        join_on = prepare_merge_keys(
+            on=on,
+            left_on=left_on,
+            right_on=right_on,
+            left_columns=self.columns,
+            right_columns=right.columns,
+            left_validate_fn=self._validate_columns_exist,
+            right_validate_fn=right._validate_columns_exist,
+        )
 
         # Perform join
         result_df = self._df.join(right._df, on=join_on, how=join_how)
         return self._with_dataframe(result_df)
+
+    def crossJoin(self, other: "PandasDataFrame") -> "PandasDataFrame":
+        """Perform a cross join (Cartesian product) with another DataFrame.
+
+        Args:
+            other: Another PandasDataFrame to cross join with
+
+        Returns:
+            New PandasDataFrame containing the Cartesian product of rows
+
+        Example:
+            >>> df1 = db.table("table1").pandas()
+            >>> df2 = db.table("table2").pandas()
+            >>> df_cross = df1.crossJoin(df2)
+        """
+        result_df = self._df.crossJoin(other._df)
+        return self._with_dataframe(result_df)
+
+    cross_join = crossJoin  # Alias for consistency
 
     def sort_values(
         self,
@@ -1384,6 +1348,23 @@ class PandasDataFrame:
             >>> result = cte_df.collect()
         """
         result_df = self._df.cte(name)
+        return self._with_dataframe(result_df)
+
+    def summary(self, *statistics: str) -> "PandasDataFrame":
+        """Compute summary statistics for numeric columns (pandas-style).
+
+        Args:
+            *statistics: Statistics to compute (e.g., "count", "mean", "stddev", "min", "max").
+                        If not provided, computes common statistics.
+
+        Returns:
+            PandasDataFrame with summary statistics
+
+        Example:
+            >>> df.summary()
+            >>> df.summary("count", "mean", "max")
+        """
+        result_df = self._df.summary(*statistics)
         return self._with_dataframe(result_df)
 
 

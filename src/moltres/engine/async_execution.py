@@ -74,6 +74,7 @@ class AsyncQueryExecutor:
         stmt: Union[str, "Select"],
         params: Optional[Dict[str, Any]] = None,
         connection: Optional["AsyncConnection"] = None,
+        model: Optional[Type[Any]] = None,
     ) -> AsyncQueryResult:
         """Execute a SELECT query and return results.
 
@@ -105,11 +106,41 @@ class AsyncQueryExecutor:
         _call_async_hooks("query_start", sql_str, 0.0, {"params": params})
 
         try:
+            # Check if we're using a SQLModel async session and have a model
+            use_sqlmodel_exec = False
+            sqlmodel_session = None
+            if model is not None:
+                # Check if we have a SQLModel async session available
+                if hasattr(self._connections, "_session") and self._connections._session is not None:
+                    session = self._connections._session
+                    # Check if it's a SQLModel async session (has .exec() method)
+                    if hasattr(session, "exec"):
+                        use_sqlmodel_exec = True
+                        sqlmodel_session = session
+
             # Use provided connection or create a new one
             if connection is not None:
                 # Use the provided connection directly (don't manage its lifecycle)
                 conn = connection
                 exec_conn = self._apply_timeout(conn)
+                
+                # Use SQLModel .exec() if available and model is provided
+                if use_sqlmodel_exec and isinstance(stmt, Select) and model is not None:
+                    # SQLModel async .exec() returns SQLModel instances directly
+                    try:
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings(
+                                "ignore", category=SAWarning, message=".*cartesian product.*"
+                            )
+                            # SQLModel's async exec() works with Select statements
+                            exec_result = await sqlmodel_session.exec(stmt)
+                            # .exec() returns an iterable of SQLModel instances
+                            sqlmodel_instances = list(exec_result)
+                            return AsyncQueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                    except Exception:
+                        # Fall back to regular execute if exec() fails
+                        pass
+
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
                 # Suppress cartesian product warnings for cross joins (intentional)
                 with warnings.catch_warnings():
@@ -122,6 +153,23 @@ class AsyncQueryExecutor:
                         result = await exec_conn.execute(text(stmt), params or {})
             else:
                 # Create a new connection (manage its lifecycle)
+                # Use SQLModel .exec() if available and model is provided
+                if use_sqlmodel_exec and isinstance(stmt, Select) and model is not None:
+                    # SQLModel async .exec() returns SQLModel instances directly
+                    try:
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings(
+                                "ignore", category=SAWarning, message=".*cartesian product.*"
+                            )
+                            # SQLModel's async exec() works with Select statements
+                            exec_result = await sqlmodel_session.exec(stmt)
+                            # .exec() returns an iterable of SQLModel instances
+                            sqlmodel_instances = list(exec_result)
+                            return AsyncQueryResult(rows=sqlmodel_instances, rowcount=len(sqlmodel_instances))
+                    except Exception:
+                        # Fall back to regular execute if exec() fails
+                        pass
+
                 async with self._connections.connect() as conn:
                     exec_conn = self._apply_timeout(conn)
                     # Execute SQLAlchemy statement directly or use text() for SQL strings

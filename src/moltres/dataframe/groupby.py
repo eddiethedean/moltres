@@ -71,29 +71,22 @@ class GroupedDataFrame:
             raise ValueError("agg requires at least one aggregation expression")
 
         # Normalize all aggregations to Column expressions
-        normalized_aggs = []
-        for agg_expr in aggregations:
-            if isinstance(agg_expr, str):
-                # String column name - default to sum() and alias with column name
-                from ..expressions.functions import sum as sum_func
+        from .groupby_helpers import normalize_aggregations, validate_aggregation
 
-                normalized_aggs.append(sum_func(col(agg_expr)).alias(agg_expr))
-            elif isinstance(agg_expr, dict):
-                # Dictionary syntax: {"column": "function"}
-                for col_name, func_name in agg_expr.items():
-                    agg_col = self._create_aggregation_from_string(col_name, func_name)
-                    normalized_aggs.append(agg_col)
-            elif isinstance(agg_expr, Column):
-                # Already a Column expression
-                normalized_aggs.append(agg_expr)
-            else:
-                raise ValueError(
-                    f"Invalid aggregation type: {type(agg_expr)}. "
-                    "Expected Column, str, or Dict[str, str]"
-                )
+        # Allow empty aggregations for special cases like dropDuplicates
+        normalized_aggs = normalize_aggregations(
+            aggregations, alias_with_column_name=True, allow_empty=True
+        )
 
-        normalized = tuple(self._validate_aggregation(expr) for expr in normalized_aggs)
-        plan = operators.aggregate(self.plan, self.keys, normalized)
+        # If no aggregations, just return grouping columns (for dropDuplicates)
+        if not normalized_aggs:
+            # Select only grouping columns and apply distinct
+            grouping_cols = list(self.keys)
+            plan = operators.project(self.plan, tuple(grouping_cols))
+            plan = operators.distinct(plan)
+        else:
+            normalized = tuple(validate_aggregation(expr) for expr in normalized_aggs)
+            plan = operators.aggregate(self.plan, self.keys, normalized)
         return DataFrame(plan=plan, database=self.parent.database)
 
     @staticmethod
@@ -110,36 +103,9 @@ class GroupedDataFrame:
         Raises:
             ValueError: If the function name is not recognized
         """
-        from ..expressions.functions import (
-            avg,
-            count,
-            max as max_func,
-            min as min_func,
-            sum as sum_func,
-            count_distinct,
-        )
+        from .groupby_helpers import create_aggregation_from_string
 
-        from typing import Callable
-
-        func_map: Dict[str, Callable[[Column], Column]] = {
-            "sum": sum_func,
-            "avg": avg,
-            "average": avg,  # Alias for avg
-            "min": min_func,
-            "max": max_func,
-            "count": count,
-            "count_distinct": count_distinct,
-        }
-
-        func_name_lower = func_name.lower()
-        if func_name_lower not in func_map:
-            raise ValueError(
-                f"Unknown aggregation function: {func_name}. "
-                f"Supported functions: {', '.join(func_map.keys())}"
-            )
-
-        agg_func = func_map[func_name_lower]
-        return agg_func(col(column_name)).alias(column_name)
+        return create_aggregation_from_string(column_name, func_name)
 
     def pivot(
         self, pivot_col: str, values: Optional[Sequence[str]] = None
@@ -233,26 +199,14 @@ class PivotedGroupedDataFrame:
             raise ValueError("agg requires at least one aggregation expression")
 
         # Normalize all aggregations to Column expressions
-        normalized_aggs = []
-        for agg_expr in aggregations:
-            if isinstance(agg_expr, str):
-                # String column name - default to sum()
-                from ..expressions.functions import sum as sum_func
+        from .groupby_helpers import (
+            normalize_aggregations,
+            validate_aggregation,
+            extract_value_column,
+            extract_agg_func,
+        )
 
-                normalized_aggs.append(sum_func(col(agg_expr)))
-            elif isinstance(agg_expr, dict):
-                # Dictionary syntax: {"column": "function"}
-                for col_name, func_name in agg_expr.items():
-                    agg_col = self._create_aggregation_from_string(col_name, func_name)
-                    normalized_aggs.append(agg_col)
-            elif isinstance(agg_expr, Column):
-                # Already a Column expression
-                normalized_aggs.append(agg_expr)
-            else:
-                raise ValueError(
-                    f"Invalid aggregation type: {type(agg_expr)}. "
-                    "Expected Column, str, or Dict[str, str]"
-                )
+        normalized_aggs = normalize_aggregations(aggregations, alias_with_column_name=False)
 
         # For pivoted grouped data, we can only aggregate one column at a time
         # (PySpark behavior - pivot with multiple aggregations requires different syntax)
@@ -263,14 +217,14 @@ class PivotedGroupedDataFrame:
             )
 
         agg_expr = normalized_aggs[0]
-        self._validate_aggregation(agg_expr)
+        validate_aggregation(agg_expr)
 
         # Extract the value column from the aggregation
         # For sum(col("amount")), we need "amount"
-        value_column = self._extract_value_column(agg_expr)
+        value_column = extract_value_column(agg_expr)
 
         # Extract the aggregation function name
-        agg_func = self._extract_agg_func(agg_expr)
+        agg_func = extract_agg_func(agg_expr)
 
         # If pivot_values is not provided, infer them from the data (PySpark behavior)
         pivot_values = self.pivot_values
@@ -315,26 +269,9 @@ class PivotedGroupedDataFrame:
         Raises:
             ValueError: If the column cannot be extracted
         """
-        if not agg_expr.op.startswith("agg_"):
-            raise ValueError("Expected an aggregation expression")
+        from .groupby_helpers import extract_value_column
 
-        if not agg_expr.args:
-            raise ValueError("Aggregation expression must have arguments")
-
-        # The first argument should be a Column with op="column"
-        col_expr = agg_expr.args[0]
-        if not isinstance(col_expr, Column):
-            raise ValueError("Aggregation must operate on a column")
-
-        if col_expr.op == "column":
-            if not col_expr.args:
-                raise ValueError("Column expression must have arguments")
-            col_name = col_expr.args[0]
-            if not isinstance(col_name, str):
-                raise ValueError("Column name must be a string")
-            return col_name
-        else:
-            raise ValueError(f"Cannot extract column name from expression: {col_expr.op}")
+        return extract_value_column(agg_expr)
 
     @staticmethod
     def _extract_agg_func(agg_expr: Column) -> str:
@@ -346,22 +283,9 @@ class PivotedGroupedDataFrame:
         Returns:
             Aggregation function name (e.g., "sum")
         """
-        op = agg_expr.op
-        if op == "agg_sum":
-            return "sum"
-        elif op == "agg_avg":
-            return "avg"
-        elif op == "agg_min":
-            return "min"
-        elif op == "agg_max":
-            return "max"
-        elif op == "agg_count" or op == "agg_count_star":
-            return "count"
-        elif op == "agg_count_distinct":
-            return "count_distinct"
-        else:
-            # Default to sum if unknown
-            return "sum"
+        from .groupby_helpers import extract_agg_func
+
+        return extract_agg_func(agg_expr)
 
     @staticmethod
     def _create_aggregation_from_string(column_name: str, func_name: str) -> Column:
@@ -377,36 +301,9 @@ class PivotedGroupedDataFrame:
         Raises:
             ValueError: If the function name is not recognized
         """
-        from ..expressions.functions import (
-            avg,
-            count,
-            max as max_func,
-            min as min_func,
-            sum as sum_func,
-            count_distinct,
-        )
+        from .groupby_helpers import create_aggregation_from_string
 
-        from typing import Callable
-
-        func_map: Dict[str, Callable[[Column], Column]] = {
-            "sum": sum_func,
-            "avg": avg,
-            "average": avg,  # Alias for avg
-            "min": min_func,
-            "max": max_func,
-            "count": count,
-            "count_distinct": count_distinct,
-        }
-
-        func_name_lower = func_name.lower()
-        if func_name_lower not in func_map:
-            raise ValueError(
-                f"Unknown aggregation function: {func_name}. "
-                f"Supported functions: {', '.join(func_map.keys())}"
-            )
-
-        agg_func = func_map[func_name_lower]
-        return agg_func(col(column_name))
+        return create_aggregation_from_string(column_name, func_name)
 
     @staticmethod
     def _validate_aggregation(expr: Column) -> Column:
@@ -421,9 +318,6 @@ class PivotedGroupedDataFrame:
         Raises:
             ValueError: If the expression is not a valid aggregation
         """
-        if not expr.op.startswith("agg_"):
-            raise ValueError(
-                "Aggregation expressions must be created with moltres aggregate helpers "
-                "(e.g., sum(), avg(), count(), min(), max())"
-            )
-        return expr
+        from .groupby_helpers import validate_aggregation
+
+        return validate_aggregation(expr)

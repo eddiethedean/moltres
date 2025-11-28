@@ -63,7 +63,6 @@ def test_filter_string_and_condition(tmp_path):
     assert rows[0]["status"] == "active"
 
 
-@pytest.mark.skip(reason="OR operator parsing needs to be fixed in SQL parser")
 def test_filter_string_or_condition(tmp_path):
     """Test that filter('age < 18 OR age > 65') works."""
     db_path = tmp_path / "test.sqlite"
@@ -82,7 +81,6 @@ def test_filter_string_or_condition(tmp_path):
     assert all(row["age"] < 18 or row["age"] > 65 for row in rows)
 
 
-@pytest.mark.skip(reason="IS NULL operator not yet supported in SQL parser")
 def test_filter_string_is_null(tmp_path):
     """Test that filter('name IS NULL') works."""
     db_path = tmp_path / "test.sqlite"
@@ -94,8 +92,8 @@ def test_filter_string_is_null(tmp_path):
             "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 25), (2, NULL, 15), (3, 'Charlie', 30)"
         )
 
-    # Use Column API for now
-    df = db.table("users").select().filter(col("name").is_null())
+    # Use IS NULL operator
+    df = db.table("users").select().filter("name IS NULL")
     rows = df.collect()
 
     assert len(rows) == 1
@@ -103,7 +101,6 @@ def test_filter_string_is_null(tmp_path):
     assert rows[0]["name"] is None
 
 
-@pytest.mark.skip(reason="LIKE operator not yet supported in SQL parser")
 def test_filter_string_like(tmp_path):
     """Test that filter('name LIKE A%') works."""
     db_path = tmp_path / "test.sqlite"
@@ -115,15 +112,14 @@ def test_filter_string_like(tmp_path):
             "INSERT INTO users (id, name, age) VALUES (1, 'Alice', 25), (2, 'Bob', 15), (3, 'Anna', 30)"
         )
 
-    # Use Column API for now
-    df = db.table("users").select().filter(col("name").like("A%"))
+    # Use LIKE operator
+    df = db.table("users").select().filter("name LIKE 'A%'")
     rows = df.collect()
 
     assert len(rows) == 2
     assert all(row["name"].startswith("A") for row in rows)
 
 
-@pytest.mark.skip(reason="BETWEEN operator not yet supported in SQL parser")
 def test_filter_string_between(tmp_path):
     """Test that filter('amount BETWEEN 100 AND 500') works."""
     db_path = tmp_path / "test.sqlite"
@@ -135,15 +131,14 @@ def test_filter_string_between(tmp_path):
             "INSERT INTO orders (id, amount) VALUES (1, 50.0), (2, 200.0), (3, 600.0), (4, 300.0)"
         )
 
-    # Use Column API for now
-    df = db.table("orders").select().filter(col("amount").between(100, 500))
+    # Use BETWEEN operator
+    df = db.table("orders").select().filter("amount BETWEEN 100 AND 500")
     rows = df.collect()
 
     assert len(rows) == 2
     assert all(100 <= row["amount"] <= 500 for row in rows)
 
 
-@pytest.mark.skip(reason="NOT operator not yet supported in SQL parser")
 def test_filter_string_not(tmp_path):
     """Test that filter('NOT active') works."""
     db_path = tmp_path / "test.sqlite"
@@ -155,8 +150,8 @@ def test_filter_string_not(tmp_path):
             "INSERT INTO users (id, name, active) VALUES (1, 'Alice', 1), (2, 'Bob', 0), (3, 'Charlie', 1)"
         )
 
-    # Use Column API for now - filter for active = 0
-    df = db.table("users").select().filter("active = 0")
+    # Use NOT operator
+    df = db.table("users").select().filter("NOT active")
     rows = df.collect()
 
     assert len(rows) == 1
@@ -164,7 +159,6 @@ def test_filter_string_not(tmp_path):
     assert rows[0]["active"] == 0
 
 
-@pytest.mark.skip(reason="AND operator parsing needs to be fixed in SQL parser")
 def test_filter_string_parentheses(tmp_path):
     """Test that filter('(age > 18) AND (status = active)') works."""
     db_path = tmp_path / "test.sqlite"
@@ -177,8 +171,8 @@ def test_filter_string_parentheses(tmp_path):
             "(1, 'Alice', 25, 'active'), (2, 'Bob', 15, 'active'), (3, 'Charlie', 30, 'inactive')"
         )
 
-    # Use chaining for now
-    df = db.table("users").select().filter("age > 18").filter("status = 'active'")
+    # Use AND operator with parentheses
+    df = db.table("users").select().filter("(age > 18) AND (status = 'active')")
     rows = df.collect()
 
     assert len(rows) == 1

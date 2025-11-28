@@ -22,6 +22,10 @@ This directory contains example code demonstrating various features of Moltres.
 16. **16_ux_features.py** - UX improvements and convenience methods
 17. **17_sqlalchemy_models.py** - SQLAlchemy model integration
 18. **18_pandas_interface.py** - Pandas-style DataFrame interface with string accessor, query() improvements, and data inspection methods
+19. **19_polars_interface.py** - Polars-style DataFrame interface
+20. **20_sqlalchemy_integration.py** - SQLAlchemy integration patterns
+21. **21_sqlmodel_integration.py** - SQLModel and Pydantic integration
+22. **22_fastapi_integration.py** - FastAPI integration with sync and async endpoints
 
 ## Running Examples
 

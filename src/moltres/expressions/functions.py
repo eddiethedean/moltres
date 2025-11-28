@@ -1,13 +1,21 @@
-"""Expression helper functions."""
+"""Expression helper functions.
+
+This module re-exports all functions from category-specific modules
+for backward compatibility. The functions are now organized into:
+- functions.aggregation: sum, avg, min, max, count, etc.
+- functions.string: upper, lower, substring, trim, etc.
+- functions.datetime: year, month, day, date_format, etc.
+- functions.math: round, floor, ceil, sqrt, sin, cos, etc.
+- functions.window: row_number, rank, lag, lead, etc.
+- functions.array: array, array_length, array_contains, etc.
+- functions.json: json_extract, json_tuple, from_json, etc.
+- functions.misc: lit, coalesce, when, isnull, etc.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union
-
-from .column import Column, ColumnLike, ensure_column, literal
-
-if TYPE_CHECKING:
-    from ..dataframe.dataframe import DataFrame
+# Re-export everything from the new module structure for backward compatibility
+from .functions import *  # noqa: F403, F401
 
 __all__ = [
     "lit",

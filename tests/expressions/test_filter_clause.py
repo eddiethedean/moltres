@@ -231,17 +231,34 @@ class TestFilterClause:
         assert len(result) == 1
         assert result[0]["active_total"] == 300
 
-    @pytest.mark.skipif(True, reason="PostgreSQL test requires PostgreSQL connection")
     def test_filter_clause_postgresql(self, postgresql_connection):
         """Test FILTER clause with PostgreSQL (native support)."""
         db = postgresql_connection
-        df = db.createDataFrame(
+        # PostgreSQL requires BOOLEAN type for FILTER clause
+        from moltres.table.schema import ColumnDef
+        
+        # Create table with explicit BOOLEAN column
+        db.create_table(
+            "test_data",
             [
+                ColumnDef(name="id", type_name="INTEGER", primary_key=True),
+                ColumnDef(name="category", type_name="TEXT"),
+                ColumnDef(name="amount", type_name="INTEGER"),
+                ColumnDef(name="active", type_name="BOOLEAN"),
+            ],
+        ).collect()
+        
+        # Insert data with boolean values
+        from moltres.io.records import Records
+        Records(
+            _data=[
                 {"id": 1, "category": "A", "amount": 100, "active": True},
                 {"id": 2, "category": "A", "amount": 50, "active": False},
             ],
-            pk="id",
-        )
+            _database=db,
+        ).insert_into("test_data")
+        
+        df = db.table("test_data").select()
         result = (
             df.group_by("category")
             .agg(F.sum(col("amount")).filter(col("active")).alias("active_sum"))

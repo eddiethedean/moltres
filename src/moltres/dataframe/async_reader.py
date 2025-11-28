@@ -191,7 +191,9 @@ class AsyncDataLoader:
         Returns:
             AsyncFormatReader for the specified format
         """
-        return AsyncFormatReader(self, source)
+        from .reader_helpers import validate_format
+
+        return AsyncFormatReader(self, validate_format(source))
 
 
 class AsyncFormatReader:
@@ -199,7 +201,7 @@ class AsyncFormatReader:
 
     def __init__(self, reader: AsyncDataLoader, source: str):
         self._reader = reader
-        self._source = source.lower()
+        self._source = source
 
     async def load(self, path: str) -> AsyncDataFrame:
         """Load data from the specified path using the configured format.
@@ -213,23 +215,26 @@ class AsyncFormatReader:
         Raises:
             ValueError: If format is unsupported
         """
-        if self._source == "csv":
+        from .reader_helpers import validate_format
+
+        format_name = validate_format(self._source)
+        if format_name == "csv":
             return await self._reader.csv(path)
-        elif self._source == "json":
+        elif format_name == "json":
             return await self._reader.json(path)
-        elif self._source == "jsonl":
+        elif format_name == "jsonl":
             return await self._reader.jsonl(path)
-        elif self._source == "parquet":
+        elif format_name == "parquet":
             read_parquet, _ = _get_parquet_readers()
             if read_parquet is None:
                 raise ImportError(
                     "Parquet support requires pyarrow. Install with: pip install pyarrow"
                 )
             return await self._reader.parquet(path)
-        elif self._source == "text":
+        elif format_name == "text":
             return await self._reader.text(path)
         else:
-            raise ValueError(f"Unsupported format: {self._source}")
+            raise ValueError(f"Unsupported format: {format_name}")
 
 
 class AsyncRecordsLoader:

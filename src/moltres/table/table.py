@@ -1228,9 +1228,9 @@ class Database:
         """Compile a logical plan to a SQLAlchemy Select statement."""
         return compile_plan(plan, dialect=self._dialect)
 
-    def execute_plan(self, plan: LogicalPlan) -> QueryResult:
+    def execute_plan(self, plan: LogicalPlan, model: Optional[Type[Any]] = None) -> QueryResult:
         stmt = self.compile_plan(plan)
-        return self._executor.fetch(stmt)
+        return self._executor.fetch(stmt, model=model)
 
     def execute_plan_stream(self, plan: LogicalPlan) -> Iterator[List[Dict[str, object]]]:
         """Execute a plan and return an iterator of row chunks."""
@@ -1574,6 +1574,22 @@ class Database:
     def _dialect_name(self) -> str:
         if self.config.engine.dialect:
             return self.config.engine.dialect
+        # If session is provided, extract dialect from session's bind (engine)
+        if self.config.engine.session is not None:
+            session = self.config.engine.session
+            if hasattr(session, "get_bind"):
+                bind = session.get_bind()
+            elif hasattr(session, "bind"):
+                bind = session.bind
+            else:
+                bind = None
+            if bind is not None:
+                dialect_name = getattr(getattr(bind, "dialect", None), "name", None)
+                if dialect_name:
+                    # Normalize driver variants (e.g., "mysql+aiomysql" -> "mysql")
+                    if "+" in dialect_name:
+                        dialect_name = dialect_name.split("+", 1)[0]
+                    return dialect_name
         # Extract dialect from DSN, normalizing driver variants (e.g., "mysql+pymysql" -> "mysql")
         dsn = self.config.engine.dsn
         if not dsn:

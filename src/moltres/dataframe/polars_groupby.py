@@ -21,21 +21,36 @@ class PolarsGroupBy:
 
     _grouped: GroupedDataFrame
 
-    def agg(self, *exprs: Column) -> "PolarsDataFrame":
+    def agg(
+        self, *exprs: Union[Column, Dict[str, str]]
+    ) -> "PolarsDataFrame":
         """Apply aggregations using Polars-style expressions.
 
         Args:
-            *exprs: Column expressions for aggregations
+            *exprs: Column expressions for aggregations, or dictionary mapping column names to function names
 
         Returns:
             PolarsDataFrame with aggregated results
 
         Example:
             >>> df.group_by('country').agg(col('amount').sum(), col('price').mean())
+            >>> df.group_by('country').agg({"amount": "sum", "price": "avg"})  # Dictionary syntax
         """
         from .polars_dataframe import PolarsDataFrame
 
-        result_df = self._grouped.agg(*exprs)
+        # Handle dictionary syntax
+        normalized_exprs = []
+        for expr in exprs:
+            if isinstance(expr, dict):
+                # Dictionary syntax: {"column": "function"}
+                for col_name, func_name in expr.items():
+                    agg_col = self._grouped._create_aggregation_from_string(col_name, func_name)
+                    normalized_exprs.append(agg_col)
+            else:
+                # Column expression
+                normalized_exprs.append(expr)
+
+        result_df = self._grouped.agg(*normalized_exprs)
         return PolarsDataFrame.from_dataframe(result_df)
 
     def mean(self) -> "PolarsDataFrame":

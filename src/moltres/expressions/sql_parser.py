@@ -130,8 +130,41 @@ class SQLParser:
         left = self._parse_additive()
         while True:
             self._skip_whitespace()
+            # IS NULL / IS NOT NULL
+            if self._match_token(r"IS\s+NOT\s+NULL", case_insensitive=True):
+                left = Column(op="is_not_null", args=(left,))
+                continue
+            elif self._match_token(r"IS\s+NULL", case_insensitive=True):
+                left = Column(op="is_null", args=(left,))
+                continue
+            # LIKE / ILIKE
+            elif self._match_token(r"ILIKE\s+", case_insensitive=True):
+                self._skip_whitespace()
+                right = self._parse_additive()
+                # Extract string value from literal Column if it's a literal
+                pattern = right.args[0] if right.op == "literal" else right
+                left = Column(op="ilike", args=(left, pattern))
+                continue
+            elif self._match_token(r"LIKE\s+", case_insensitive=True):
+                self._skip_whitespace()
+                right = self._parse_additive()
+                # Extract string value from literal Column if it's a literal
+                pattern = right.args[0] if right.op == "literal" else right
+                left = Column(op="like", args=(left, pattern))
+                continue
+            # BETWEEN ... AND
+            elif self._match_token(r"BETWEEN\s+", case_insensitive=True):
+                self._skip_whitespace()
+                lower = self._parse_additive()
+                self._skip_whitespace()
+                if not self._match_token(r"AND\s+", case_insensitive=True):
+                    raise ValueError(f"Expected AND after BETWEEN at position {self.pos}")
+                self._skip_whitespace()
+                upper = self._parse_additive()
+                left = Column(op="between", args=(left, lower, upper))
+                continue
             # Support both = and == for equality (pandas-style)
-            if self._peek() == "=":
+            elif self._peek() == "=":
                 self._advance()
                 # Check if next character is also = (==)
                 if self.pos < len(self.expr) and self.expr[self.pos] == "=":
@@ -244,7 +277,11 @@ class SQLParser:
     def _parse_unary(self) -> Column:
         """Parse unary operators."""
         self._skip_whitespace()
-        if self._peek() == "-" and (
+        # NOT operator
+        if self._match_token(r"NOT\s+", case_insensitive=True):
+            expr = self._parse_unary()
+            return Column(op="not", args=(expr,))
+        elif self._peek() == "-" and (
             self.pos == 0 or self.expr[self.pos - 1].isspace() or self.expr[self.pos - 1] in "()"
         ):
             # Unary minus

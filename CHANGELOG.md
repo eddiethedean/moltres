@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2025-11-27
+
+### Added
+- **SQLAlchemy, SQLModel, and Pydantic Integration** – Comprehensive integration with SQLAlchemy ORM models, SQLModel, and Pydantic models:
+  - Model-based table creation and references
+  - Bidirectional type mapping between SQLAlchemy types and Moltres types
+  - Automatic constraint extraction from models
+  - Full async support for model operations
+  - Backward compatibility with string-based API
+
+### Fixed
+- Fixed mypy type errors in examples and async DataFrame implementations
+
+## [0.18.0] - 2025-11-26
+
+### Added
+- Added link to User Guides in README documentation section
+- Added meaningful outputs to guide code blocks
+
+## [0.17.0] - 2025-11-26
+
 ### Added
 - **Polars-Style Interface** – Comprehensive Polars LazyFrame-style API (`PolarsDataFrame`):
   - **Lazy Evaluation** – All operations build logical plans that execute only on `collect()` or `fetch()`, matching Polars' lazy evaluation model
@@ -153,7 +174,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Type safety** – Improved type annotations throughout async DataFrame implementations, removing unused type ignore comments and fixing all mypy errors
 - **CI/CD** – Pre-commit CI checks script now uses Python 3.11 for consistent type checking across all environments
 
-## [0.14.0] - 2025-01-27
+## [0.16.0] - 2025-11-26
+
+### Fixed
+- Fixed mypy type errors and improved CI checks
+- Fixed type checking issues across the codebase
+
+### Changed
+- Improved type safety with better type annotations
+- Enhanced CI/CD pipeline with pre-commit checks
+
+## [0.15.0] - 2025-11-25
+
+### Added
+- Added DuckDB dialect support
+- Added pandas-style interface for Moltres DataFrames
+- Added pre-commit CI checks script
+
+### Fixed
+- Fixed mypy type errors and type narrowing issues
+- Fixed redundant casts and type ignore comments
+- Updated pre-commit script to use same Python interpreter for mypy
+
+## [0.14.0] - 2025-11-24
 
 ### Added
 - **DataFrame Attributes** - PySpark-compatible introspection properties:
@@ -214,6 +257,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed index compilation to properly handle column references in SQLAlchemy Index objects
 - Fixed async index operations to use correct import paths
 
+## [0.11.0] - 2025-11-24
+
+### Fixed
+- Improved async PostgreSQL handling
+- Stabilized staging tables for test harness
+- Fixed harness doc formatting for validator
+- Fixed CI: format async CSV reader for ruff
+- Skip unsupported math tests on SQLite
+- Skip Postgres/MySQL tests when DB binaries missing
+
+## [0.10.0] - 2025-11-23
+
+### Added
+- **Chunked File Reading for Large Files** - Files are now read in chunks by default to safely handle files larger than available memory:
+  - Default streaming mode for all file reads
+  - Opt-out mechanism with `stream=False`
+  - Memory safety prevents out-of-memory errors
+  - Schema inference from first chunk
+  - Error recovery with automatic cleanup
+  - Empty file handling
+  - Both sync and async support
+
+## [0.9.0] - 2025-11-23
+
+### Added
+- **98% PySpark API Compatibility** - Major improvements to match PySpark's DataFrame API:
+  - Raw SQL query support via `db.sql()` method
+  - SQL expression selection with `selectExpr()` method
+  - Select all columns with `select("*")`
+  - SQL string predicates in `filter()` and `where()`
+  - String column names in aggregations
+  - Dictionary syntax in aggregations
+  - Pivot on GroupBy
+  - Explode function
+  - PySpark-style aliases (camelCase methods)
+  - Improved `withColumn()` to correctly handle adding and replacing columns
+- **PySpark-style dot notation column selection**
+- **LazyRecords for db.read.records.* API**
+- **createDataFrame function**
+
+### Changed
+- **API Compatibility** - Moltres now achieves ~98% API compatibility with PySpark for core DataFrame operations
+- All major DataFrame transformation methods now match PySpark's API
+- Both camelCase (PySpark-style) and snake_case (Python-style) naming conventions supported throughout the API
+
+### Fixed
+- Fixed `withColumn()` to correctly replace existing columns instead of duplicating them
+- Fixed pivot value inference to work automatically when values are not provided
+- Fixed column replacement logic in `withColumn()` to match PySpark's behavior
+- Fixed `select("*")` to work correctly when combined with other columns
+- Fixed async PostgreSQL connections that forwarded DSN `?options=-csearch_path=...` parameters to asyncpg
+- Fixed async PostgreSQL staging tables so `createDataFrame()` and file readers now create regular tables instead of connection-scoped temp tables
+
 ## [0.12.0] - 2025-11-24
 
 ### Added
@@ -241,6 +337,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Focused on essential quick start examples with links to comprehensive examples directory
   - All example links use GitHub URLs for PyPI compatibility
   - All code examples verified to run with actual outputs documented
+
+### Fixed
+- Fixed ruff F823: remove case from local imports
+- Fixed UnboundLocalError: remove literal from local imports
+- Fixed concat() function for SQLite dialect
+- Fixed Windows test failures: SQLite function support and path handling
+- Fixed linting error and SQLite path handling on Windows
+- Fixed indentation in OPS_RUNBOOKS.md code blocks
+- Fixed CI: Remove deprecated license classifier from pyproject.toml
 
 ### Added (continued)
 - **Chunked File Reading for Large Files** - Files are now read in chunks by default to safely handle files larger than available memory:
@@ -402,7 +507,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed async PostgreSQL connections that forwarded DSN `?options=-csearch_path=...` parameters to asyncpg (which rejects unknown keywords) by translating them into asyncpg `server_settings`.
 - Fixed async PostgreSQL staging tables so `createDataFrame()` and file readers now create regular tables instead of connection-scoped temp tables, preventing `UndefinedTableError` when inserts execute on different pooled connections.
 
-## [0.8.0] - 2025-11-22
+## [0.8.0] - 2025-11-21
 
 ### Added
 - **Lazy CRUD and DDL Operations** - All DataFrame CRUD and DDL operations are now lazy, requiring an explicit `.collect()` call for execution:
@@ -448,7 +553,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced test coverage for lazy operations and batch API
 - Improved code quality with proper type annotations and mypy strict checking
 
-## [0.7.0] - 2025-01-22
+## [0.7.0] - 2025-11-21
 
 ### Added
 - **PostgreSQL and MySQL Testing Infrastructure** - Comprehensive test support for multiple database backends:
@@ -486,7 +591,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved code quality with ruff formatting and mypy strict type checking
 - Enhanced test coverage with 301 passing tests across multiple database backends
 
-## [0.6.0] - 2025-01-21
+## [0.6.0] - 2025-11-21
 
 ### Added
 - **Null Handling Convenience Methods** - New `na` property on DataFrame for convenient null handling:
@@ -531,7 +636,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed mypy type checking errors related to type annotations in compiler and DDL modules
 - Fixed ruff linting errors for unused imports and code formatting
 
-## [0.5.0] - 2025-01-21
+## [0.5.0] - 2025-11-21
 
 ### Added
 - **Compressed File Reading** - Automatic detection and support for gzip, bz2, and xz compression formats
@@ -575,7 +680,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed type checking issues in compression utilities
 - Fixed column qualification in semi-join and anti-join to avoid ambiguous column errors
 
-## [0.4.0] - 2025-01-21
+## [0.4.0] - 2025-11-20
 
 ### Added
 - **Strict Type Checking** - Enabled mypy strict mode with comprehensive type annotations across the entire codebase
@@ -595,7 +700,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed duplicate class and function definitions in `logical/plan.py` and `logical/operators.py`
 - Fixed missing function imports in `expressions/__init__.py` (removed non-existent `date_add`, `date_sub`, `len`, `substr`, `pow`, `power`, `trunc`)
 
-## [0.3.0] - 2024-12-19
+## [0.3.0] - 2025-11-20
 
 ### Added
 - **Full async/await support** for all database operations, file I/O, and DataFrame operations
@@ -618,7 +723,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced error messages for async operations
 - Better separation between sync and async APIs
 
-## [0.2.0] - 2024-12-19
+## [0.2.0] - 2025-11-20
 
 ### Added
 - Comprehensive exception hierarchy with specific exception types (`ExecutionError`, `ValidationError`, `SchemaError`, `DatabaseConnectionError`, `UnsupportedOperationError`)
@@ -669,9 +774,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/eddiethedean/moltres/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/eddiethedean/moltres/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/eddiethedean/moltres/compare/v0.16.0...v0.17.0
+[0.16.0]: https://github.com/eddiethedean/moltres/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/eddiethedean/moltres/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/eddiethedean/moltres/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/eddiethedean/moltres/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/eddiethedean/moltres/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/eddiethedean/moltres/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/eddiethedean/moltres/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/eddiethedean/moltres/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/eddiethedean/moltres/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/eddiethedean/moltres/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/eddiethedean/moltres/compare/v0.5.0...v0.6.0

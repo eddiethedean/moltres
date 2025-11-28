@@ -100,6 +100,14 @@ __all__ = [
     "lit",
 ]
 
+# Optional FastAPI integration - only import if available
+try:
+    from .integrations import fastapi as fastapi_integration
+
+    __all__.append("fastapi_integration")
+except ImportError:
+    fastapi_integration = None  # type: ignore[assignment, misc]
+
 # Async imports - only available if async dependencies are installed
 if TYPE_CHECKING:
     from .table.async_table import AsyncDatabase
@@ -113,6 +121,7 @@ else:
 def connect(
     dsn: str | None = None,
     engine: object | None = None,
+    session: object | None = None,
     **options: object,
 ) -> Database:
     """Connect to a SQL database and return a ``Database`` handle.
@@ -134,11 +143,16 @@ def connect(
             - PostgreSQL: "postgresql://user:pass@host:port/dbname"
             - MySQL: "mysql://user:pass@host:port/dbname"
             If None, will use MOLTRES_DSN environment variable.
-            Cannot be provided if engine is provided.
+            Cannot be provided if engine or session is provided.
         engine: SQLAlchemy Engine instance to use. If provided, dsn is ignored.
                 This gives users more flexibility to configure the engine themselves.
                 Pool configuration options (pool_size, max_overflow, etc.) are ignored
                 when using an existing engine.
+                Cannot be provided if session is provided.
+        session: SQLAlchemy Session or SQLModel Session instance to use. If provided,
+                dsn and engine are ignored. The session's bind (engine) will be used.
+                This allows using Moltres with FastAPI's dependency-injected sessions.
+                Cannot be provided if dsn or engine is provided.
         **options: Optional configuration parameters (can also be set via environment variables):
             - echo: Enable SQLAlchemy echo mode for debugging (default: False)
             - fetch_format: Result format - "records", "pandas", or "polars" (default: "records")
@@ -159,8 +173,9 @@ def connect(
         Database instance for querying and table operations
 
     Raises:
-        ValueError: If neither dsn nor engine is provided and MOLTRES_DSN is not set
-        ValueError: If both dsn and engine are provided
+        ValueError: If neither dsn, engine, nor session is provided and MOLTRES_DSN is not set
+        ValueError: If multiple of dsn, engine, and session are provided
+        TypeError: If session is not a SQLAlchemy Session or SQLModel Session instance
 
     Example:
         >>> # Using connection string
@@ -184,12 +199,38 @@ def connect(
         >>> db2 = connect(engine=engine)
         >>> _ = db2.create_table("test", [column("x", "INTEGER")]).collect()  # doctest: +ELLIPSIS
         >>> db2.close()
+
+        >>> # Using SQLAlchemy Session (e.g., from FastAPI dependency injection)
+        >>> from sqlalchemy.orm import Session, sessionmaker
+        >>> SessionLocal = sessionmaker(bind=create_engine("sqlite:///:memory:"))
+        >>> with SessionLocal() as session:
+        ...     db3 = connect(session=session)
+        ...     _ = db3.create_table("test2", [column("x", "INTEGER")]).collect()  # doctest: +ELLIPSIS
     """
     from sqlalchemy.engine import Engine as SQLAlchemyEngine
 
     # Validate connection string format if provided
     if dsn is not None:
         _validate_connection_string(dsn, is_async=False)
+
+    # Check if session is provided
+    session_obj: object | None = None
+    if session is not None:
+        # Validate it's a Session-like object
+        if not (hasattr(session, "get_bind") or hasattr(session, "bind") or hasattr(session, "connection")):
+            raise TypeError(
+                "session must be a SQLAlchemy Session or SQLModel Session instance. "
+                f"Got: {type(session).__name__}"
+            )
+        session_obj = session
+    elif "session" in options:
+        session_from_options = options.pop("session")
+        if not (hasattr(session_from_options, "get_bind") or hasattr(session_from_options, "bind") or hasattr(session_from_options, "connection")):
+            raise TypeError(
+                "session must be a SQLAlchemy Session or SQLModel Session instance. "
+                f"Got: {type(session_from_options).__name__}"
+            )
+        session_obj = session_from_options
 
     # Check if engine is provided in kwargs (for backward compatibility)
     engine_obj: SQLAlchemyEngine | None = None
@@ -203,12 +244,12 @@ def connect(
             raise TypeError("engine must be a SQLAlchemy Engine instance")
         engine_obj = engine_from_options
 
-    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, **options)
+    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, session=session_obj, **options)
     return Database(config=config)
 
 
 def async_connect(
-    dsn: str | None = None, engine: object | None = None, **options: object
+    dsn: str | None = None, engine: object | None = None, session: object | None = None, **options: object
 ) -> AsyncDatabase:
     """Connect to a SQL database asynchronously and return an ``AsyncDatabase`` handle.
 
@@ -236,11 +277,16 @@ def async_connect(
             - MySQL: "mysql+aiomysql://user:pass@host:port/dbname"
             If None, will use MOLTRES_DSN environment variable.
             Note: DSN should include async driver (e.g., +asyncpg, +aiomysql, +aiosqlite)
-            Cannot be provided if engine is provided.
+            Cannot be provided if engine or session is provided.
         engine: SQLAlchemy async Engine instance to use. If provided, dsn is ignored.
                 This gives users more flexibility to configure the engine themselves.
                 Pool configuration options (pool_size, max_overflow, etc.) are ignored
                 when using an existing engine.
+                Cannot be provided if session is provided.
+        session: SQLAlchemy AsyncSession or SQLModel AsyncSession instance to use. If provided,
+                dsn and engine are ignored. The session's bind (async engine) will be used.
+                This allows using Moltres with FastAPI's dependency-injected async sessions.
+                Cannot be provided if dsn or engine is provided.
         **options: Optional configuration parameters (can also be set via environment variables):
             - echo: Enable SQLAlchemy echo mode for debugging (default: False)
             - fetch_format: Result format - "records", "pandas", or "polars" (default: "records")
@@ -261,8 +307,9 @@ def async_connect(
 
     Raises:
         ImportError: If async dependencies are not installed
-        ValueError: If neither dsn nor engine is provided and MOLTRES_DSN is not set
-        ValueError: If both dsn and engine are provided
+        ValueError: If neither dsn, engine, nor session is provided and MOLTRES_DSN is not set
+        ValueError: If multiple of dsn, engine, and session are provided
+        TypeError: If session is not a SQLAlchemy AsyncSession or SQLModel AsyncSession instance
 
     Example:
         >>> import asyncio
@@ -296,6 +343,25 @@ def async_connect(
     if dsn is not None:
         _validate_connection_string(dsn, is_async=True)
 
+    # Check if session is provided
+    session_obj: object | None = None
+    if session is not None:
+        # Validate it's an AsyncSession-like object
+        if not (hasattr(session, "get_bind") or hasattr(session, "bind") or hasattr(session, "connection")):
+            raise TypeError(
+                "session must be a SQLAlchemy AsyncSession or SQLModel AsyncSession instance. "
+                f"Got: {type(session).__name__}"
+            )
+        session_obj = session
+    elif "session" in options:
+        session_from_options = options.pop("session")
+        if not (hasattr(session_from_options, "get_bind") or hasattr(session_from_options, "bind") or hasattr(session_from_options, "connection")):
+            raise TypeError(
+                "session must be a SQLAlchemy AsyncSession or SQLModel AsyncSession instance. "
+                f"Got: {type(session_from_options).__name__}"
+            )
+        session_obj = session_from_options
+
     # Check if engine is provided in kwargs (for backward compatibility)
     engine_obj: SQLAlchemyAsyncEngine | None = None
     if engine is not None:
@@ -308,5 +374,5 @@ def async_connect(
             raise TypeError("engine must be a SQLAlchemy AsyncEngine instance")
         engine_obj = engine_from_options
 
-    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, **options)
+    config: MoltresConfig = create_config(dsn=dsn, engine=engine_obj, session=session_obj, **options)
     return AsyncDatabase(config=config)
