@@ -16,8 +16,8 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from django.http import HttpRequest, HttpResponse, JsonResponse
-    from django.utils.deprecation import MiddlewareMixin
+    from django.http import HttpRequest, HttpResponse, JsonResponse  # type: ignore[import-untyped]
+    from django.utils.deprecation import MiddlewareMixin  # type: ignore[import-untyped]
 
 try:
     from django.conf import settings  # type: ignore[import-untyped]

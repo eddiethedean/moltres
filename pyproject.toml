@@ -55,6 +55,7 @@ polars = ["polars>=1.0"]
 pandas = ["pandas>=2.1"]
 sqlmodel = ["sqlmodel>=0.0.14"]
 django = ["django>=3.2"]
+streamlit = ["streamlit>=1.28.0"]
 async = ["aiofiles>=23.0", "greenlet>=3.0.0"]
 async-postgresql = ["aiofiles>=23.0", "asyncpg>=0.29.0", "greenlet>=3.0.0"]
 async-mysql = ["aiofiles>=23.0", "aiomysql>=0.2.0", "greenlet>=3.0.0"]
@@ -73,7 +74,6 @@ dev = [
     "pre-commit>=3.5",
     "pandas>=2.1",
     "pandas-stubs>=2.1",
-    "types-pandas>=2.1",
     "polars>=1.0",
     "pyarrow>=10.0",
     "aiofiles>=23.0",
@@ -89,6 +89,7 @@ dev = [
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "django>=3.2",
+    "streamlit>=1.28.0",
 ]
 
 [tool.pytest.ini_options]

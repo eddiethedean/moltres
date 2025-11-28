@@ -11,3 +11,11 @@ try:
     __all__.append("django_integration")
 except ImportError:
     django_integration = None  # type: ignore[assignment]
+
+# Optional Streamlit integration - only import if available
+try:
+    from . import streamlit as streamlit_integration
+
+    __all__.append("streamlit_integration")
+except ImportError:
+    streamlit_integration = None  # type: ignore[assignment]

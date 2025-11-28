@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Streamlit Integration** – Comprehensive integration with Streamlit for building data applications:
+  - **DataFrame Display Component** (`moltres_dataframe`) – Display Moltres DataFrames in Streamlit with automatic conversion and query information display
+  - **Query Builder Widget** (`query_builder`) – Interactive UI for building queries using Streamlit widgets (table selector, column selector, filter builder)
+  - **Caching Integration** – Streamlit caching utilities for Moltres queries:
+    - `cached_query` decorator with TTL and max_entries support
+    - `clear_moltres_cache()` and `invalidate_query_cache()` for cache management
+  - **Session State Helpers** – Database connection management within Streamlit sessions:
+    - `get_db_from_session()` – Retrieve or create Database instance from session state
+    - `init_db_connection()` and `close_db_connection()` for connection lifecycle management
+    - Support for multiple databases with different keys
+    - Connection string configuration via Streamlit secrets/config
+  - **Query Visualization** (`visualize_query`) – Display SQL queries, execution plans, and performance metrics in organized Streamlit expanders
+  - **Error Handling** (`display_moltres_error`) – Convert Moltres exceptions to user-friendly Streamlit error messages
+  - **Graceful Degradation** – Optional dependency handling with clear error messages when Streamlit is not installed
+  - Comprehensive test coverage using Streamlit's AppTest framework
+  - Example file (`examples/25_streamlit_integration.py`) and comprehensive guide (`guides/14-streamlit-integration.md`)
+  - Added `streamlit>=1.28.0` to optional dependencies
+
 ## [0.19.0] - 2025-11-27
 
 ### Added

@@ -12,7 +12,7 @@ Key features:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 if TYPE_CHECKING:
     from fastapi import FastAPI, Request
@@ -30,12 +30,12 @@ try:
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
-    # Create stubs for type checking
-    HTTPException = None
-    Request = None
-    JSONResponse = None
-    status = None
-    Depends = None
+    # Create stubs for type checking - use Any to avoid type errors
+    HTTPException = None  # type: ignore[assignment, misc]
+    Request = None  # type: ignore[assignment, misc]
+    JSONResponse = None  # type: ignore[assignment, misc]
+    status = None  # type: ignore[assignment]
+    Depends = None  # type: ignore[assignment]
 
 
 def register_exception_handlers(app: "FastAPI") -> None:
@@ -303,7 +303,7 @@ def create_db_dependency(get_session: Callable[[], "Session"]) -> Callable[[], "
     # Create a dependency that FastAPI can properly inject
     # We need to use Depends inside the function signature for FastAPI to recognize it
     if FASTAPI_AVAILABLE:
-
+        # FastAPI available - use proper Depends signature
         def dependency(session: "Session" = Depends(get_session)) -> Database:
             # FastAPI will inject the session here
             # Check if we got a Depends object (when called directly, not by FastAPI)
@@ -323,8 +323,8 @@ def create_db_dependency(get_session: Callable[[], "Session"]) -> Callable[[], "
                     session_obj = session
             return connect(session=session_obj)
     else:
-
-        def dependency() -> Database:
+        # FastAPI not available - use fallback signature
+        def dependency(*args: Any, **kwargs: Any) -> Database:  # type: ignore[misc]
             # Fallback for when FastAPI is not available (testing)
             session_result = get_session()
             if inspect.isgenerator(session_result):
@@ -338,7 +338,7 @@ def create_db_dependency(get_session: Callable[[], "Session"]) -> Callable[[], "
 
 def create_async_db_dependency(
     get_session: Callable[[], "AsyncSession"],
-) -> Callable[..., "AsyncDatabase"]:
+) -> Callable[[], Coroutine[Any, Any, "AsyncDatabase"]]:
     """Create a FastAPI dependency for async database connections.
 
     This creates an async dependency function that can be used directly in FastAPI

@@ -37,6 +37,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 - 🎯 **SQLModel & Pydantic Integration** - Attach models to DataFrames for type safety and validation
 - 🚀 **FastAPI Integration** - Built-in utilities for error handling, dependency injection, and seamless FastAPI integration
 - 🎨 **Django Integration** - Middleware, database helpers, management commands, and template tags for Django applications
+- 📊 **Streamlit Integration** - Components, caching, and utilities for building interactive data apps with Streamlit
 
 ## 📦 Installation
 
@@ -56,6 +57,9 @@ pip install moltres[sqlmodel]  # Includes both SQLModel and Pydantic
 
 # Optional: For Django integration
 pip install moltres[django]  # Middleware, helpers, commands, and template tags
+
+# Optional: For Streamlit integration
+pip install moltres[streamlit]  # Components, caching, and utilities for Streamlit apps
 ```
 
 ## 🚀 Quick Start
@@ -240,6 +244,48 @@ class UserListView(View):
 📚 **[See the Django Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/13-django-integration.md)**  
 📚 **[See the Django Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)**
 
+### Streamlit Integration
+
+Seamless integration with Streamlit for building interactive data applications:
+
+```python
+import streamlit as st
+from moltres import connect, col
+from moltres.integrations.streamlit import (
+    moltres_dataframe,
+    query_builder,
+    cached_query,
+    get_db_from_session,
+    visualize_query,
+)
+
+# Get database connection from session state
+db = get_db_from_session()
+
+# Display DataFrame with query information
+df = db.table("users").select().where(col("age") > 25)
+moltres_dataframe(df, show_query_info=True)
+
+# Visualize query (SQL, plan, metrics)
+visualize_query(df, show_sql=True, show_plan=True, show_metrics=True)
+
+# Cache expensive queries
+@cached_query(ttl=3600)
+def get_user_stats():
+    return db.table("users").select().agg(...).collect()
+```
+
+**Key Features:**
+- **DataFrame Display**: Display DataFrames with automatic query information
+- **Interactive Query Builder**: Build queries interactively with Streamlit widgets
+- **Query Caching**: Cache query results with TTL and max entries support
+- **Session State Management**: Automatic database connection management in session state
+- **Query Visualization**: Display SQL, execution plans, and performance metrics
+- **Error Handling**: User-friendly error display with suggestions and context
+
+📚 **[See the Streamlit Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/14-streamlit-integration.md)**  
+📚 **[See the Streamlit Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/25_streamlit_integration.py)**
+
 ### Async Operations
 
 Full async/await support for all operations:
@@ -334,6 +380,7 @@ db.delete("users", where=col("email").is_null())
 - **[SQLModel & Pydantic Integration](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models with SQLModel and Pydantic
 - **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - Built-in utilities for FastAPI (error handling, dependency injection)
 - **[Django Integration](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Middleware, database helpers, management commands, and template tags for Django
+- **[Streamlit Integration](https://github.com/eddiethedean/moltres/blob/main/guides/14-streamlit-integration.md)** - Components, caching, and utilities for building interactive data apps with Streamlit
 
 ### Reference
 - **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
@@ -368,6 +415,7 @@ Comprehensive examples demonstrating all Moltres features:
 - **[21_sqlmodel_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/21_sqlmodel_integration.py)** - SQLModel and Pydantic integration
 - **[22_fastapi_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - FastAPI integration with built-in utilities (error handling, dependency injection, sync and async endpoints)
 - **[23_django_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Django integration with middleware, database helpers, management commands, and template tags
+- **[25_streamlit_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/25_streamlit_integration.py)** - Streamlit integration with DataFrame display, query builder, caching, and visualization
 
 See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
 
