@@ -56,6 +56,8 @@ pandas = ["pandas>=2.1"]
 sqlmodel = ["sqlmodel>=0.0.14"]
 django = ["django>=3.2"]
 streamlit = ["streamlit>=1.28.0"]
+airflow = ["apache-airflow>=2.5.0"]
+prefect = ["prefect>=2.0.0"]
 async = ["aiofiles>=23.0", "greenlet>=3.0.0"]
 async-postgresql = ["aiofiles>=23.0", "asyncpg>=0.29.0", "greenlet>=3.0.0"]
 async-mysql = ["aiofiles>=23.0", "aiomysql>=0.2.0", "greenlet>=3.0.0"]
@@ -90,6 +92,8 @@ dev = [
     "uvicorn>=0.23.0",
     "django>=3.2",
     "streamlit>=1.28.0",
+    "apache-airflow>=2.5.0",
+    "prefect>=2.0.0",
 ]
 
 [tool.pytest.ini_options]
@@ -182,6 +186,14 @@ module = [
     "benchmarks.*",
     "scripts.*",
 ]
+ignore_errors = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "examples.*"
+# Examples are demonstration code - less strict checking for readability
 ignore_errors = false
 disallow_untyped_defs = false
 disallow_incomplete_defs = false

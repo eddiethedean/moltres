@@ -710,15 +710,52 @@ def mysql_db() -> Generator:
     if not mysqld:
         pytest.skip("MySQL mysqld command not found")
 
+    import socket  # For port verification
+
+    # Helper function to check if a port is available
+    def is_port_available(port: int) -> bool:
+        """Check if a port is available for binding."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)
+                result = s.connect_ex(("localhost", port))
+                return result != 0  # Port is available if connection fails
+        except Exception:
+            return False
+
+    # Helper function to verify port is actually free (more thorough check)
+    def verify_port_free(port: int) -> bool:
+        """Verify port is free by attempting to bind to it."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(("localhost", port))
+                return True
+        except OSError:
+            return False
+
     # In parallel mode, use worker-specific port to avoid conflicts
     worker_id = os.environ.get("PYTEST_XDIST_WORKER")
     if worker_id:
         # Extract worker number (e.g., "gw0" -> 0, "gw1" -> 1)
         try:
             worker_num = int(worker_id.replace("gw", ""))
-            # Use a base port + worker number to ensure uniqueness
+            # Use a base port + (worker number * 10) to ensure larger gaps between ports
+            # This helps avoid conflicts when multiple workers initialize simultaneously
             base_port = 13306  # Base port for MySQL test instances
-            port = base_port + worker_num
+            port = base_port + (worker_num * 10)
+            # Verify port is available, try next few ports if not
+            max_attempts = 10
+            for attempt in range(max_attempts):
+                test_port = port + attempt
+                if is_port_available(test_port) and verify_port_free(test_port):
+                    port = test_port
+                    break
+            else:
+                pytest.skip(
+                    f"Could not find available port starting from {port}. "
+                    "This may indicate port conflicts or system resource issues."
+                )
         except (ValueError, AttributeError):
             # Fallback: get any unused port
             port = get_unused_port()
@@ -759,11 +796,21 @@ def mysql_db() -> Generator:
 
         def patched_initialize(self):
             """Patched initialize that skips mysql_install_db for MySQL 8.0+."""
-            self.my_cnf = self.settings.get("my_cnf", {})
+            # Get my_cnf from settings, making a copy to avoid modifying the original
+            original_my_cnf = self.settings.get("my_cnf", {})
+            self.my_cnf = original_my_cnf.copy() if original_my_cnf else {}
+
+            # Set defaults
             self.my_cnf.setdefault("socket", os.path.join(self.base_dir, "tmp", "mysql.sock"))
             self.my_cnf.setdefault("datadir", os.path.join(self.base_dir, "var"))
             self.my_cnf.setdefault("pid-file", os.path.join(self.base_dir, "tmp", "mysqld.pid"))
             self.my_cnf.setdefault("tmpdir", os.path.join(self.base_dir, "tmp"))
+
+            # Preserve port if it was set in settings or from outer scope
+            if port is not None:
+                self.my_cnf["port"] = port
+            elif "port" in original_my_cnf:
+                self.my_cnf["port"] = original_my_cnf["port"]
 
             # Skip mysql_install_db lookup for MySQL 8.0+
             self.mysql_install_db = None
@@ -792,13 +839,13 @@ def mysql_db() -> Generator:
 
         def patched_initialize_database(self):
             """Patched initialize_database that uses mysqld --initialize for MySQL 8.0+."""
-            # Get the original method's logic for setting up my.cnf
-            # Port should already be set from the outer scope if in parallel mode
-            if "port" not in self.my_cnf and "skip-networking" not in self.my_cnf:
-                # Only get unused port if not already set (non-parallel mode)
+            # Ensure port is set - prefer outer scope port (parallel mode), then my_cnf, then get unused
+            if "skip-networking" not in self.my_cnf:
                 if port is not None:
+                    # Always use port from outer scope if available (parallel mode)
                     self.my_cnf["port"] = port
-                else:
+                elif "port" not in self.my_cnf:
+                    # Non-parallel mode: get any unused port
                     from testing.common.database import get_unused_port
 
                     self.my_cnf["port"] = get_unused_port()
@@ -863,7 +910,22 @@ def mysql_db() -> Generator:
     # Configure MySQL with specific port if in parallel mode
     mysql_settings = {}
     if port is not None:
+        # Ensure port is set in my_cnf before Mysqld initialization
         mysql_settings["my_cnf"] = {"port": port}
+        # Also verify the port one more time before creating MySQL instance
+        if not verify_port_free(port):
+            # Port became unavailable, try to find another one
+            for attempt in range(10):
+                test_port = port + attempt + 1
+                if is_port_available(test_port) and verify_port_free(test_port):
+                    port = test_port
+                    mysql_settings["my_cnf"] = {"port": port}
+                    break
+            else:
+                pytest.skip(
+                    f"Port {port} became unavailable. Could not find alternative port. "
+                    "This may indicate port conflicts or system resource issues."
+                )
 
     try:
         mysql = Mysqld(**mysql_settings)

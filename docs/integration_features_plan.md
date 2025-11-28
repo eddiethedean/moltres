@@ -58,7 +58,7 @@ def my_view(request):
 - Data migration helpers using Moltres
 
 **API**:
-```python
+```bash
 # Management command
 python manage.py moltres_query "db.table('users').select().where(col('age') > 25)"
 ```

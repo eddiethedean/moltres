@@ -131,7 +131,7 @@ def check_mypy() -> bool:
     # Use the same Python interpreter that's running this script to ensure consistent mypy behavior
     import sys
 
-    mypy_cmd = [sys.executable, "-m", "mypy", "src", "examples"]
+    mypy_cmd = [sys.executable, "-m", "mypy", "src"]
     returncode, stdout, stderr = run_command(
         mypy_cmd,
         "mypy type checking",

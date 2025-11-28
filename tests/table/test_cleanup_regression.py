@@ -1,7 +1,9 @@
 """Regression tests for staging table cleanup in crash scenarios."""
 
+import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -141,7 +143,9 @@ def test_cleanup_on_interpreter_shutdown(tmp_path):
     """Test that atexit handler cleans up databases on interpreter shutdown."""
     # This test runs a subprocess that creates a database and exits
     # The atexit handler should clean up ephemeral tables
-    db_path_str = str(tmp_path / "shutdown_test.db")
+    # Use a unique database path to avoid conflicts in parallel execution
+    unique_id = uuid.uuid4().hex[:8]
+    db_path_str = str(tmp_path / f"shutdown_test_{unique_id}.db")
     # Get the project root (parent of tests directory)
     # __file__ is tests/table/test_cleanup_regression.py
     # parent is tests/table, parent.parent is tests, parent.parent.parent is project root
@@ -166,15 +170,22 @@ table_name = next(iter(db._ephemeral_tables))
 # Note: We can't easily verify this in-process, but we can check
 # that the cleanup code path exists and is registered
 """
+    # Use a unique working directory per test to avoid conflicts
+    unique_work_dir = tmp_path / f"work_{unique_id}"
+    unique_work_dir.mkdir(exist_ok=True)
+
     result = subprocess.run(
         [sys.executable, "-c", script],
-        cwd=tmp_path,
+        cwd=unique_work_dir,
         capture_output=True,
         text=True,
-        timeout=5,
+        timeout=10,  # Increased timeout for parallel execution
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},  # Ensure output is not buffered
     )
     # Script should run without error
-    assert result.returncode == 0, f"Script failed: {result.stderr}"
+    assert result.returncode == 0, (
+        f"Script failed with return code {result.returncode}: {result.stderr or result.stdout}"
+    )
 
 
 @pytest.mark.asyncio

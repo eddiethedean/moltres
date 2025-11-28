@@ -38,6 +38,8 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 - 🚀 **FastAPI Integration** - Built-in utilities for error handling, dependency injection, and seamless FastAPI integration
 - 🎨 **Django Integration** - Middleware, database helpers, management commands, and template tags for Django applications
 - 📊 **Streamlit Integration** - Components, caching, and utilities for building interactive data apps with Streamlit
+- 🌊 **Airflow Integration** - Operators for executing DataFrame operations, data quality checks, and ETL patterns in Airflow DAGs
+- 🔄 **Prefect Integration** - Tasks for executing DataFrame operations, data quality checks, and ETL patterns in Prefect flows
 
 ## 📦 Installation
 
@@ -60,6 +62,12 @@ pip install moltres[django]  # Middleware, helpers, commands, and template tags
 
 # Optional: For Streamlit integration
 pip install moltres[streamlit]  # Components, caching, and utilities for Streamlit apps
+
+# Optional: For Airflow integration
+pip install moltres[airflow]  # Operators for building data pipelines with Airflow
+
+# Optional: For Prefect integration
+pip install moltres[prefect]  # Tasks for building data pipelines with Prefect
 ```
 
 ## 🚀 Quick Start
@@ -285,6 +293,111 @@ def get_user_stats():
 
 📚 **[See the Streamlit Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/14-streamlit-integration.md)**  
 📚 **[See the Streamlit Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/25_streamlit_integration.py)**
+
+### Airflow Integration
+
+Seamless integration with Apache Airflow for building data pipelines with DataFrame operations and data quality checks:
+
+```python
+from airflow import DAG
+from airflow.utils.dates import days_ago
+from moltres.integrations.airflow import (
+    MoltresQueryOperator,
+    MoltresToTableOperator,
+    MoltresDataQualityOperator,
+)
+from moltres.integrations.data_quality import DataQualityCheck
+from moltres import col
+
+with DAG("moltres_pipeline", ...) as dag:
+    query_task = MoltresQueryOperator(
+        task_id="query_users",
+        dsn="postgresql://...",
+        query=lambda db: db.table("users").select().where(col("active") == True),
+        output_key="active_users",
+    )
+    
+    quality_check = MoltresDataQualityOperator(
+        task_id="check_quality",
+        dsn="postgresql://...",
+        query=lambda db: db.table("users").select(),
+        checks=[
+            DataQualityCheck.column_not_null("email"),
+            DataQualityCheck.column_range("age", min=0, max=150),
+        ],
+        fail_on_error=True,
+    )
+    
+    write_task = MoltresToTableOperator(
+        task_id="write_results",
+        dsn="postgresql://...",
+        table_name="active_users_summary",
+        input_key="active_users",
+    )
+    
+    query_task >> quality_check >> write_task
+```
+
+**Key Features:**
+- **Operators**: MoltresQueryOperator, MoltresToTableOperator, and MoltresDataQualityOperator for pipeline workflows
+- **XCom Integration**: Seamless data passing between tasks using Airflow's XCom
+- **Data Quality Checks**: Built-in data quality validation with configurable checks
+- **Error Handling**: Automatic conversion of Moltres errors to Airflow task failures
+- **ETL Helpers**: ETLPipeline class for common extract-transform-load patterns
+
+📚 **[See the Workflow Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/16-workflow-integration.md)**  
+📚 **[See the Airflow Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/27_airflow_integration.py)**
+
+### Prefect Integration
+
+Seamless integration with Prefect for building data pipelines with DataFrame operations and data quality checks:
+
+```python
+from prefect import flow
+from moltres.integrations.prefect import (
+    moltres_query,
+    moltres_to_table,
+    moltres_data_quality,
+)
+from moltres.integrations.data_quality import DataQualityCheck
+from moltres import col
+
+@flow(name="moltres_pipeline")
+def data_pipeline():
+    # Query data
+    users = moltres_query(
+        dsn="postgresql://...",
+        query=lambda db: db.table("users").select(),
+    )
+    
+    # Quality check
+    quality_result = moltres_data_quality(
+        dsn="postgresql://...",
+        query=lambda db: db.table("users").select(),
+        checks=[
+            DataQualityCheck.column_not_null("email"),
+            DataQualityCheck.column_range("age", min=0, max=150),
+        ],
+    )
+    
+    # Write results
+    if quality_result["overall_status"] == "passed":
+        moltres_to_table(
+            dsn="postgresql://...",
+            table_name="processed_users",
+            data=users,
+        )
+```
+
+**Key Features:**
+- **Tasks**: moltres_query, moltres_to_table, and moltres_data_quality tasks for pipeline workflows
+- **Flow Orchestration**: Easy integration with Prefect flows and conditional logic
+- **Data Quality Checks**: Built-in data quality validation with quality reports
+- **Error Handling**: Automatic retry support and error handling with Prefect's mechanisms
+- **ETL Helpers**: ETLPipeline class for common extract-transform-load patterns
+
+📚 **[See the Workflow Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/16-workflow-integration.md)**  
+📚 **[See the Prefect Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/28_prefect_integration.py)**
 
 ### Async Operations
 

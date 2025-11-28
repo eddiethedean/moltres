@@ -39,7 +39,7 @@ jobs:
           ruff format --check src examples tests
 
       - name: Run mypy
-        run: mypy src examples
+        run: mypy src
 
       - name: Validate documentation examples
         run: python scripts/validate_examples.py

@@ -85,13 +85,15 @@ engine = create_async_engine("sqlite+aiosqlite:///:memory:")
 db = AsyncDatabase.from_async_engine(engine)
 
 # Async Connection
-async with engine.connect() as conn:
-    db = AsyncDatabase.from_async_connection(conn)
+async def example_connection():
+    async with engine.connect() as conn:
+        db = AsyncDatabase.from_async_connection(conn)
 
 # Async Session
 AsyncSession = async_sessionmaker(bind=engine)
-async with AsyncSession() as session:
-    db = AsyncDatabase.from_async_session(session)
+async def example_session():
+    async with AsyncSession() as session:
+        db = AsyncDatabase.from_async_session(session)
 ```
 
 ## Converting DataFrames to SQLAlchemy Statements
@@ -273,17 +275,18 @@ from moltres.integration.async_integration import (
 
 engine = create_async_engine("sqlite+aiosqlite:///:memory:")
 
-# Create async database
-db = AsyncDatabase.from_async_engine(engine)
+async def example():
+    # Create async database
+    db = AsyncDatabase.from_async_engine(engine)
 
-# Convert async DataFrame to SQLAlchemy statement
-table_handle = await db.table("users")
-df = table_handle.select()
-stmt = df.to_sqlalchemy()
+    # Convert async DataFrame to SQLAlchemy statement
+    table_handle = await db.table("users")
+    df = table_handle.select()
+    stmt = df.to_sqlalchemy()
 
-# Execute with async connection
-async with engine.connect() as conn:
-    results = await execute_with_async_connection(df, conn)
+    # Execute with async connection
+    async with engine.connect() as conn:
+        results = await execute_with_async_connection(df, conn)
 ```
 
 ## Examples

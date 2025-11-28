@@ -337,14 +337,15 @@ with col3:
 Async DataFrames must be collected before use with Streamlit components:
 
 ```python
-# ❌ Don't do this
-async_df = await db.table("users").select()
-moltres_dataframe(async_df)  # Won't work
+async def example():
+    # ❌ Don't do this
+    async_df = await db.table("users").select()
+    moltres_dataframe(async_df)  # Won't work
 
-# ✅ Do this instead
-async_df = await db.table("users").select()
-results = await async_df.collect()
-st.dataframe(results)
+    # ✅ Do this instead
+    async_df = await db.table("users").select()
+    results = await async_df.collect()
+    st.dataframe(results)
 ```
 
 ## Troubleshooting
