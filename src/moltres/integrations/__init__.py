@@ -38,3 +38,19 @@ except ImportError:
 
 # Data quality framework (always available)
 from . import data_quality
+
+# Optional Pytest integration - only import if available
+try:
+    from . import pytest as pytest_integration
+
+    __all__.append("pytest_integration")
+except ImportError:
+    pytest_integration = None  # type: ignore[assignment]
+
+# Optional dbt integration - only import if available
+try:
+    from . import dbt as dbt_integration
+
+    __all__.append("dbt_integration")
+except ImportError:
+    dbt_integration = None  # type: ignore[assignment]

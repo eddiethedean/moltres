@@ -40,6 +40,8 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 - 📊 **Streamlit Integration** - Components, caching, and utilities for building interactive data apps with Streamlit
 - 🌊 **Airflow Integration** - Operators for executing DataFrame operations, data quality checks, and ETL patterns in Airflow DAGs
 - 🔄 **Prefect Integration** - Tasks for executing DataFrame operations, data quality checks, and ETL patterns in Prefect flows
+- 🧪 **Pytest Integration** - Fixtures, assertions, and utilities for testing Moltres DataFrames in pytest
+- 📊 **dbt Integration** - Use Moltres DataFrames in dbt Python models for analytics engineering
 
 ## 📦 Installation
 
@@ -68,6 +70,9 @@ pip install moltres[airflow]  # Operators for building data pipelines with Airfl
 
 # Optional: For Prefect integration
 pip install moltres[prefect]  # Tasks for building data pipelines with Prefect
+
+# Optional: For dbt integration
+pip install moltres[dbt]  # Use Moltres in dbt Python models
 ```
 
 ## 🚀 Quick Start
@@ -398,6 +403,56 @@ def data_pipeline():
 
 📚 **[See the Workflow Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/16-workflow-integration.md)**  
 📚 **[See the Prefect Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/28_prefect_integration.py)**
+
+### Pytest Integration
+
+Comprehensive testing utilities for Moltres DataFrames:
+
+```python
+from moltres.integrations.pytest import moltres_db, assert_dataframe_equal
+
+def test_user_query(moltres_db):
+    db = moltres_db
+    db.create_table("users", [...])
+    df = db.table("users").select()
+    assert_dataframe_equal(df, expected_df)
+```
+
+**Key Features:**
+- Database fixtures (`moltres_db`, `moltres_async_db`) with automatic cleanup
+- Test data fixtures for loading CSV/JSON files
+- Custom assertions (`assert_dataframe_equal`, `assert_schema_equal`)
+- Query logging for debugging
+- Database-specific test markers
+
+📚 **[See the Pytest Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/15-pytest-integration.md)**  
+📚 **[See the Pytest Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/26_pytest_integration.py)**
+
+### dbt Integration
+
+Use Moltres DataFrames in dbt Python models:
+
+```python
+# models/my_model.py
+def model(dbt, session):
+    from moltres.integrations.dbt import get_moltres_connection, moltres_ref
+    
+    db = get_moltres_connection(dbt.config)
+    users = moltres_ref(dbt, "users", db)
+    orders = moltres_ref(dbt, "orders", db)
+    
+    df = users.join(orders, on="user_id")
+    return df.collect()  # Return list of dicts for dbt
+```
+
+**Key Features:**
+- Connect to databases from dbt configuration
+- Reference dbt models and sources as Moltres DataFrames
+- Access dbt variables and configuration
+- Full DataFrame API in dbt Python models
+
+📚 **[See the dbt Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/17-dbt-integration.md)**  
+📚 **[See the dbt Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/29_dbt_integration.py)**
 
 ### Async Operations
 

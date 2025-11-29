@@ -58,6 +58,7 @@ django = ["django>=3.2"]
 streamlit = ["streamlit>=1.28.0"]
 airflow = ["apache-airflow>=2.5.0"]
 prefect = ["prefect>=2.0.0"]
+dbt = ["dbt-core>=1.5.0"]
 async = ["aiofiles>=23.0", "greenlet>=3.0.0"]
 async-postgresql = ["aiofiles>=23.0", "asyncpg>=0.29.0", "greenlet>=3.0.0"]
 async-mysql = ["aiofiles>=23.0", "aiomysql>=0.2.0", "greenlet>=3.0.0"]
@@ -94,6 +95,7 @@ dev = [
     "streamlit>=1.28.0",
     "apache-airflow>=2.5.0",
     "prefect>=2.0.0",
+    "dbt-core>=1.5.0",
 ]
 
 [tool.pytest.ini_options]
@@ -109,6 +111,8 @@ markers = [
     "multidb: marks tests that run against multiple databases",
     "integration: marks tests as integration tests (end-to-end workflows)",
     "slow: marks tests as slow (may take longer to run)",
+    "moltres_db(db_type): marks tests to use specific database backend (sqlite, postgresql, mysql)",
+    "moltres_performance: marks tests as performance tests with timing",
 ]
 
 [tool.coverage.run]
@@ -203,6 +207,15 @@ check_untyped_defs = false
 [[tool.mypy.overrides]]
 module = "moltres.integrations.django.templatetags.*"
 disallow_untyped_decorators = false
+
+# dbt is an optional dependency without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "moltres.integrations.dbt.*",
+    "dbt",
+    "dbt.*",
+]
+ignore_missing_imports = true
 
 # Note: pyarrow type stubs are provided in tests/stubs/pyarrow/
 # The stubs directory is automatically discovered by mypy via mypy_path

@@ -36,6 +36,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Example files (`examples/27_airflow_integration.py`, `examples/28_prefect_integration.py`)
   - Comprehensive guide (`guides/16-workflow-integration.md`) with detailed usage examples
   - Added `apache-airflow>=2.5.0` and `prefect>=2.0.0` to optional dependencies
+- **Pytest Integration** – Comprehensive testing utilities for Moltres DataFrames:
+  - **Database Fixtures** – Isolated test databases with automatic cleanup:
+    - `moltres_db` fixture for sync tests (SQLite by default, configurable to PostgreSQL/MySQL)
+    - `moltres_async_db` fixture for async tests
+    - Support for multiple database backends via pytest markers
+    - Transaction rollback for test isolation
+  - **Test Data Fixtures** – Load test data from CSV/JSON files:
+    - `test_data` fixture automatically loads files from `test_data/` directory
+    - `create_test_df()` helper for creating DataFrames from test data
+  - **Custom Assertions** – DataFrame comparison utilities:
+    - `assert_dataframe_equal()` for comparing DataFrames (schema + data)
+    - `assert_schema_equal()` for schema-only comparison
+    - `assert_query_results()` for query result validation
+    - Detailed diff reporting for test failures
+  - **Query Logging Plugin** – Track SQL queries during tests:
+    - `query_logger` fixture for query tracking and debugging
+    - Query count assertions and performance monitoring
+    - Query history inspection
+  - **Pytest Markers** – Database-specific and performance test markers:
+    - `@pytest.mark.moltres_db("postgresql")` for database-specific tests
+    - `@pytest.mark.moltres_performance` for performance tests
+  - Comprehensive test suite with full feature coverage
+  - Example file (`examples/26_pytest_integration.py`) and guide (`guides/15-pytest-integration.md`)
+- **dbt Integration** – Use Moltres DataFrames in dbt Python models:
+  - **Adapter Functions** – Connect to databases from dbt configuration:
+    - `get_moltres_connection()` to get Database instance from dbt config
+    - `moltres_dbt_adapter()` convenience function for dbt models
+    - Automatic connection string extraction from dbt profiles
+  - **Helper Functions** – Reference dbt models and sources:
+    - `moltres_ref()` to reference other dbt models as Moltres DataFrames
+    - `moltres_source()` to reference dbt sources
+    - `moltres_var()` to access dbt variables
+  - **dbt Macros** – SQL macros for common Moltres patterns
+  - Example file (`examples/29_dbt_integration.py`) and guide (`guides/17-dbt-integration.md`)
+  - Added `dbt-core>=1.5.0` to optional dependencies
 - **Streamlit Integration** – Comprehensive integration with Streamlit for building data applications:
   - **DataFrame Display Component** (`moltres_dataframe`) – Display Moltres DataFrames in Streamlit with automatic conversion and query information display
   - **Query Builder Widget** (`query_builder`) – Interactive UI for building queries using Streamlit widgets (table selector, column selector, filter builder)
