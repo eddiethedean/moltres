@@ -5,13 +5,10 @@
 [![CI](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/eddiethedean/moltres)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/eddiethedean/moltres/blob/main/LICENSE)
-[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 **The Missing DataFrame Layer for SQL in Python**
 
 **MOLTRES**: **M**odern **O**perations **L**ayer for **T**ransformations, **R**elational **E**xecution, and **S**QL
-
-[Installation](#-installation) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Examples](#-examples)
 
 </div>
 
@@ -19,65 +16,31 @@
 
 **Moltres** combines a DataFrame API (like Pandas/Polars), SQL pushdown execution (no data loading into memory), and real SQL CRUD operations (INSERT, UPDATE, DELETE) in one unified interface.
 
-Transform millions of rows using familiar DataFrame operations—all executed directly in SQL without materializing data. Update, insert, and delete with column-aware, type-safe operations.
+Transform millions of rows using familiar DataFrame operations—all executed directly in SQL without materializing data.
 
-## ✨ Features
+## ✨ Key Features
 
-- 🚀 **PySpark-Style DataFrame API** - Primary API with familiar operations (select, filter, join, groupBy, etc.) for seamless migration from PySpark
-- 🐼 **Optional Pandas-Style Interface** - Comprehensive Pandas-like API with string accessor, query(), dtypes, shape, pivot, sample, concat, and more
-- 🦀 **Optional Polars-Style Interface** - Polars LazyFrame-like API with expression-based operations, set operations, file I/O, CTEs, and more
-- 🎯 **98% PySpark API Compatibility** - Near-complete compatibility for seamless migration
-- 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database—no data loading into memory
-- ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE operations with DataFrame-style syntax
-- 📊 **Multiple Formats** - Read/write CSV, JSON, JSONL, Parquet, and more
-- 🐼 **Pandas & Polars Integration** - Pass pandas/polars DataFrames directly to moltres operations
-- 🌊 **Streaming Support** - Handle datasets larger than memory with chunked processing
+- 🚀 **PySpark-Style DataFrame API** - Primary API with 98% PySpark compatibility
+- 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database
+- ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE with DataFrame-style syntax
+- 🐼 **Pandas & Polars Interfaces** - Optional pandas/polars-style APIs
 - ⚡ **Async Support** - Full async/await support for all operations
-- 🔒 **Security First** - Built-in SQL injection prevention and validation
-- 🎯 **SQLModel & Pydantic Integration** - Attach models to DataFrames for type safety and validation
-- 🚀 **FastAPI Integration** - Built-in utilities for error handling, dependency injection, and seamless FastAPI integration
-- 🎨 **Django Integration** - Middleware, database helpers, management commands, and template tags for Django applications
-- 📊 **Streamlit Integration** - Components, caching, and utilities for building interactive data apps with Streamlit
-- 🌊 **Airflow Integration** - Operators for executing DataFrame operations, data quality checks, and ETL patterns in Airflow DAGs
-- 🔄 **Prefect Integration** - Tasks for executing DataFrame operations, data quality checks, and ETL patterns in Prefect flows
-- 🧪 **Pytest Integration** - Fixtures, assertions, and utilities for testing Moltres DataFrames in pytest
-- 📊 **dbt Integration** - Use Moltres DataFrames in dbt Python models for analytics engineering
+- 🔒 **Security First** - Built-in SQL injection prevention
+- 🎯 **Framework Integrations** - FastAPI, Django, Streamlit, SQLModel, Pydantic
 
 ## 📦 Installation
 
 ```bash
 pip install moltres
 
-# Optional: For async support
-pip install moltres[async-postgresql]  # PostgreSQL
-pip install moltres[async-mysql]       # MySQL
-pip install moltres[async-sqlite]     # SQLite
-
-# Optional: For pandas/polars result formats
-pip install moltres[pandas,polars]
-
-# Optional: For SQLModel/Pydantic integration
-pip install moltres[sqlmodel]  # Includes both SQLModel and Pydantic
-
-# Optional: For Django integration
-pip install moltres[django]  # Middleware, helpers, commands, and template tags
-
-# Optional: For Streamlit integration
-pip install moltres[streamlit]  # Components, caching, and utilities for Streamlit apps
-
-# Optional: For Airflow integration
-pip install moltres[airflow]  # Operators for building data pipelines with Airflow
-
-# Optional: For Prefect integration
-pip install moltres[prefect]  # Tasks for building data pipelines with Prefect
-
-# Optional: For dbt integration
-pip install moltres[dbt]  # Use Moltres in dbt Python models
+# Optional extras
+pip install moltres[async-postgresql]  # Async PostgreSQL
+pip install moltres[pandas,polars]     # Pandas/Polars result formats
+pip install moltres[sqlmodel]          # SQLModel/Pydantic integration
+pip install moltres[streamlit]        # Streamlit integration
 ```
 
 ## 🚀 Quick Start
-
-### Basic DataFrame Operations
 
 ```python
 from moltres import col, connect
@@ -90,415 +53,15 @@ db = connect("sqlite:///example.db")
 df = (
     db.table("orders")
     .select()
-    .join(db.table("customers").select(), on=[col("orders.customer_id") == col("customers.id")])
+    .join(db.table("customers"), on="customer_id")
     .where(col("active") == True)
     .group_by("country")
     .agg(F.sum(col("amount")).alias("total_amount"))
 )
 
-# Execute and get results (SQL is compiled and executed here)
+# Execute and get results
 results = df.collect()  # Returns list of dicts by default
 ```
-
-### Pandas-Style Interface
-
-```python
-df = db.table("users").pandas()
-
-# Pandas-style operations
-df[['id', 'name']]  # Select columns
-df.query('age > 25 and country == "USA"')  # Query with AND/OR
-df['name'].str.upper()  # String accessor
-df.groupby('country').agg(age='mean')  # GroupBy
-```
-
-📚 **[See the Pandas Interface Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)**
-
-### Polars-Style Interface
-
-```python
-df = db.table("users").polars()
-
-# Polars-style operations
-df.select("id", "name", (col("age") * 2).alias("double_age"))
-df.filter((col("age") > 25) & (col("country") == "USA"))
-df.group_by("country").agg(F.sum(col("age")))
-```
-
-📚 **[See the Polars Interface Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/10-polars-interface.md)**
-
-### SQLModel & Pydantic Integration
-
-Attach SQLModel or Pydantic models to DataFrames for type safety and validation:
-
-```python
-from sqlmodel import SQLModel, Field
-from pydantic import BaseModel
-
-# SQLModel: Database-backed models
-class User(SQLModel, table=True):
-    __tablename__ = "users"
-    id: int = Field(primary_key=True)
-    name: str
-    email: str
-
-# Pydantic: Validation-only models
-class UserData(BaseModel):
-    id: int
-    name: str
-    email: str
-
-# Use with SQLModel
-df = db.table(User).select()
-results = df.collect()  # Returns list of User instances
-
-# Use with Pydantic
-df = db.table("users").select().with_model(UserData)
-results = df.collect()  # Returns list of UserData instances with validation
-```
-
-📚 **[See the SQLModel & Pydantic Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)**
-
-### FastAPI Integration
-
-Seamless integration with FastAPI using built-in utilities for error handling and dependency injection:
-
-```python
-from fastapi import FastAPI, Depends
-from moltres.integrations.fastapi import (
-    register_exception_handlers,
-    create_async_db_dependency,
-    handle_moltres_errors,
-)
-from sqlmodel import SQLModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
-class User(SQLModel, table=True):
-    id: int = Field(primary_key=True)
-    name: str
-    email: str
-
-async def get_session():
-    # Your session creation logic
-    async with async_session_maker() as session:
-        yield session
-
-app = FastAPI()
-
-# Register exception handlers - automatically converts Moltres errors to HTTP responses
-register_exception_handlers(app)
-
-# Create database dependency
-get_db = create_async_db_dependency(get_session)
-
-@app.get("/users")
-@handle_moltres_errors  # Automatic error handling
-async def get_users(db=Depends(get_db)):
-    table_handle = await db.table(User)
-    df = table_handle.select()
-    return await df.collect()  # Returns User instances directly!
-```
-
-**Key Features:**
-- **Automatic Error Handling**: Moltres errors are automatically converted to appropriate HTTP responses (400, 404, 500, 503, 504)
-- **Dependency Injection**: Easy integration with FastAPI's dependency injection system
-- **Type Safety**: Full type hints and SQLModel instance returns
-- **Helpful Error Messages**: Error responses include suggestions and context
-
-📚 **[See the FastAPI Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)**
-
-### Django Integration
-
-Seamless integration with Django using middleware, database helpers, management commands, and template tags:
-
-```python
-# settings.py
-INSTALLED_APPS = [
-    # ... other apps
-    'moltres.integrations.django',
-]
-
-MIDDLEWARE = [
-    # ... other middleware
-    'moltres.integrations.django.MoltresExceptionMiddleware',
-]
-
-# views.py
-from django.http import JsonResponse
-from django.views import View
-from moltres.integrations.django import get_moltres_db
-from moltres import col
-
-class UserListView(View):
-    def get(self, request):
-        db = get_moltres_db(using='default')
-        df = db.table("users").select().where(col("active") == True)
-        results = df.collect()
-        return JsonResponse({'users': results}, safe=False)
-```
-
-**Template Usage:**
-```django
-{% load moltres_tags %}
-
-{% moltres_query "users" cache_timeout=3600 as users %}
-{% for user in users %}
-    <div>{{ user.name }} - {{ user.email }}</div>
-{% endfor %}
-```
-
-**Key Features:**
-- **Automatic Error Handling**: Middleware converts Moltres errors to appropriate HTTP responses
-- **Database Routing**: Support for Django's multi-database setup
-- **Management Commands**: Execute queries from the command line with `python manage.py moltres_query`
-- **Template Tags**: Query data directly in templates with caching support
-- **Transaction Management**: Integration with Django's transaction system
-
-📚 **[See the Django Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/13-django-integration.md)**  
-📚 **[See the Django Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)**
-
-### Streamlit Integration
-
-Seamless integration with Streamlit for building interactive data applications:
-
-```python
-import streamlit as st
-from moltres import connect, col
-from moltres.integrations.streamlit import (
-    moltres_dataframe,
-    query_builder,
-    cached_query,
-    get_db_from_session,
-    visualize_query,
-)
-
-# Get database connection from session state
-db = get_db_from_session()
-
-# Display DataFrame with query information
-df = db.table("users").select().where(col("age") > 25)
-moltres_dataframe(df, show_query_info=True)
-
-# Visualize query (SQL, plan, metrics)
-visualize_query(df, show_sql=True, show_plan=True, show_metrics=True)
-
-# Cache expensive queries
-@cached_query(ttl=3600)
-def get_user_stats():
-    return db.table("users").select().agg(...).collect()
-```
-
-**Key Features:**
-- **DataFrame Display**: Display DataFrames with automatic query information
-- **Interactive Query Builder**: Build queries interactively with Streamlit widgets
-- **Query Caching**: Cache query results with TTL and max entries support
-- **Session State Management**: Automatic database connection management in session state
-- **Query Visualization**: Display SQL, execution plans, and performance metrics
-- **Error Handling**: User-friendly error display with suggestions and context
-
-📚 **[See the Streamlit Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/14-streamlit-integration.md)**  
-📚 **[See the Streamlit Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/25_streamlit_integration.py)**
-
-### Airflow Integration
-
-Seamless integration with Apache Airflow for building data pipelines with DataFrame operations and data quality checks:
-
-```python
-from airflow import DAG
-from airflow.utils.dates import days_ago
-from moltres.integrations.airflow import (
-    MoltresQueryOperator,
-    MoltresToTableOperator,
-    MoltresDataQualityOperator,
-)
-from moltres.integrations.data_quality import DataQualityCheck
-from moltres import col
-
-with DAG("moltres_pipeline", ...) as dag:
-    query_task = MoltresQueryOperator(
-        task_id="query_users",
-        dsn="postgresql://...",
-        query=lambda db: db.table("users").select().where(col("active") == True),
-        output_key="active_users",
-    )
-    
-    quality_check = MoltresDataQualityOperator(
-        task_id="check_quality",
-        dsn="postgresql://...",
-        query=lambda db: db.table("users").select(),
-        checks=[
-            DataQualityCheck.column_not_null("email"),
-            DataQualityCheck.column_range("age", min=0, max=150),
-        ],
-        fail_on_error=True,
-    )
-    
-    write_task = MoltresToTableOperator(
-        task_id="write_results",
-        dsn="postgresql://...",
-        table_name="active_users_summary",
-        input_key="active_users",
-    )
-    
-    query_task >> quality_check >> write_task
-```
-
-**Key Features:**
-- **Operators**: MoltresQueryOperator, MoltresToTableOperator, and MoltresDataQualityOperator for pipeline workflows
-- **XCom Integration**: Seamless data passing between tasks using Airflow's XCom
-- **Data Quality Checks**: Built-in data quality validation with configurable checks
-- **Error Handling**: Automatic conversion of Moltres errors to Airflow task failures
-- **ETL Helpers**: ETLPipeline class for common extract-transform-load patterns
-
-📚 **[See the Workflow Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/16-workflow-integration.md)**  
-📚 **[See the Airflow Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/27_airflow_integration.py)**
-
-### Prefect Integration
-
-Seamless integration with Prefect for building data pipelines with DataFrame operations and data quality checks:
-
-```python
-from prefect import flow
-from moltres.integrations.prefect import (
-    moltres_query,
-    moltres_to_table,
-    moltres_data_quality,
-)
-from moltres.integrations.data_quality import DataQualityCheck
-from moltres import col
-
-@flow(name="moltres_pipeline")
-def data_pipeline():
-    # Query data
-    users = moltres_query(
-        dsn="postgresql://...",
-        query=lambda db: db.table("users").select(),
-    )
-    
-    # Quality check
-    quality_result = moltres_data_quality(
-        dsn="postgresql://...",
-        query=lambda db: db.table("users").select(),
-        checks=[
-            DataQualityCheck.column_not_null("email"),
-            DataQualityCheck.column_range("age", min=0, max=150),
-        ],
-    )
-    
-    # Write results
-    if quality_result["overall_status"] == "passed":
-        moltres_to_table(
-            dsn="postgresql://...",
-            table_name="processed_users",
-            data=users,
-        )
-```
-
-**Key Features:**
-- **Tasks**: moltres_query, moltres_to_table, and moltres_data_quality tasks for pipeline workflows
-- **Flow Orchestration**: Easy integration with Prefect flows and conditional logic
-- **Data Quality Checks**: Built-in data quality validation with quality reports
-- **Error Handling**: Automatic retry support and error handling with Prefect's mechanisms
-- **ETL Helpers**: ETLPipeline class for common extract-transform-load patterns
-
-📚 **[See the Workflow Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/16-workflow-integration.md)**  
-📚 **[See the Prefect Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/28_prefect_integration.py)**
-
-### Pytest Integration
-
-Comprehensive testing utilities for Moltres DataFrames:
-
-```python
-from moltres.integrations.pytest import moltres_db, assert_dataframe_equal
-
-def test_user_query(moltres_db):
-    db = moltres_db
-    db.create_table("users", [...])
-    df = db.table("users").select()
-    assert_dataframe_equal(df, expected_df)
-```
-
-**Key Features:**
-- Database fixtures (`moltres_db`, `moltres_async_db`) with automatic cleanup
-- Test data fixtures for loading CSV/JSON files
-- Custom assertions (`assert_dataframe_equal`, `assert_schema_equal`)
-- Query logging for debugging
-- Database-specific test markers
-
-📚 **[See the Pytest Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/15-pytest-integration.md)**  
-📚 **[See the Pytest Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/26_pytest_integration.py)**
-
-### dbt Integration
-
-Use Moltres DataFrames in dbt Python models:
-
-```python
-# models/my_model.py
-def model(dbt, session):
-    from moltres.integrations.dbt import get_moltres_connection, moltres_ref
-    
-    db = get_moltres_connection(dbt.config)
-    users = moltres_ref(dbt, "users", db)
-    orders = moltres_ref(dbt, "orders", db)
-    
-    df = users.join(orders, on="user_id")
-    return df.collect()  # Return list of dicts for dbt
-```
-
-**Key Features:**
-- Connect to databases from dbt configuration
-- Reference dbt models and sources as Moltres DataFrames
-- Access dbt variables and configuration
-- Full DataFrame API in dbt Python models
-
-📚 **[See the dbt Integration Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/17-dbt-integration.md)**  
-📚 **[See the dbt Integration Example →](https://github.com/eddiethedean/moltres/blob/main/examples/29_dbt_integration.py)**
-
-### Async Operations
-
-Full async/await support for all operations:
-
-```python
-from moltres import async_connect, col
-
-async def main() -> None:
-    db = async_connect("sqlite+aiosqlite:///example.db")
-    
-    # Create a table
-    from moltres.table.schema import column
-    
-    await db.create_table(
-        "products",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("name", "TEXT"),
-            column("price", "REAL"),
-        ],
-    ).collect()
-    
-    # Insert data
-    from moltres.io.records import AsyncRecords
-    
-    records = AsyncRecords(
-        _data=[
-            {"id": 1, "name": "Laptop", "price": 999.99},
-            {"id": 2, "name": "Mouse", "price": 29.99},
-        ],
-        _database=db,
-    )
-    await records.insert_into("products")
-    
-    # Async DataFrame operations
-    df = (await db.table("products")).select()
-    expensive = df.where(col("price") > 100)
-    results = await expensive.collect()
-    
-    await db.close()
-
-# Run with: asyncio.run(main())
-```
-
-📚 **[See the Async Operations Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md#async-support)**
 
 ### CRUD Operations
 
@@ -518,186 +81,44 @@ db.update("users", where=col("active") == 0, set={"active": 1})
 db.delete("users", where=col("email").is_null())
 ```
 
-📚 **[See CRUD Operations Guide →](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md#data-mutations)**
-
 ## 📖 Documentation
 
-### Getting Started
 - **[Getting Started Guide](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md)** - Step-by-step introduction
-- **[Examples Directory](https://github.com/eddiethedean/moltres/tree/main/examples)** - 19 comprehensive example files
-- **[Examples Guide](https://github.com/eddiethedean/moltres/blob/main/docs/EXAMPLES.md)** - Common patterns and use cases
-
-### Interface Guides
-- **[Pandas Interface](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)** - Complete pandas-style API reference
-- **[Polars Interface](https://github.com/eddiethedean/moltres/blob/main/guides/10-polars-interface.md)** - Complete Polars-style API reference
-- **[PySpark Migration](https://github.com/eddiethedean/moltres/blob/main/guides/03-migrating-from-pyspark.md)** - Migrating from PySpark
-
-### Core Topics
-- **[Reading Data](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#reading-data)** - Tables, SQL, files
-- **[Writing Data](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#writing-data)** - Tables, files, formats
-- **[Table Management](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#table-management)** - Create, drop, constraints
-- **[Schema Inspection](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md#schema-inspection)** - Reflection and inspection
-- **[Streaming](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md#streaming)** - Large dataset handling
-- **[Async Operations](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md#async-support)** - Async/await support
-
-### Advanced Topics
-- **[Performance Optimization](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)** - Query optimization and best practices
-- **[Error Handling](https://github.com/eddiethedean/moltres/blob/main/guides/06-error-handling.md)** - Exception handling and debugging
-- **[Best Practices](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)** - Production-ready patterns
-- **[Advanced Topics](https://github.com/eddiethedean/moltres/blob/main/guides/07-advanced-topics.md)** - Window functions, CTEs, transactions
-- **[SQLModel & Pydantic Integration](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models with SQLModel and Pydantic
-- **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - Built-in utilities for FastAPI (error handling, dependency injection)
-- **[Django Integration](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Middleware, database helpers, management commands, and template tags for Django
-- **[Streamlit Integration](https://github.com/eddiethedean/moltres/blob/main/guides/14-streamlit-integration.md)** - Components, caching, and utilities for building interactive data apps with Streamlit
-
-### Reference
-- **[Why Moltres?](https://github.com/eddiethedean/moltres/blob/main/docs/WHY_MOLTRES.md)** - Understanding the gap Moltres fills
-- **[Security Guide](https://github.com/eddiethedean/moltres/blob/main/docs/SECURITY.md)** - Security best practices
-- **[Troubleshooting](https://github.com/eddiethedean/moltres/blob/main/docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Examples Directory](https://github.com/eddiethedean/moltres/tree/main/examples)** - 29 comprehensive examples
+- **[User Guides](https://github.com/eddiethedean/moltres/tree/main/guides)** - Complete guides for all features
 - **[API Reference](https://github.com/eddiethedean/moltres/tree/main/docs/api)** - Complete API documentation
 
-## 📚 Examples
+### Framework Integrations
 
-Comprehensive examples demonstrating all Moltres features:
-
-- **[01_connecting.py](https://github.com/eddiethedean/moltres/blob/main/examples/01_connecting.py)** - Database connections (sync and async)
-- **[02_dataframe_basics.py](https://github.com/eddiethedean/moltres/blob/main/examples/02_dataframe_basics.py)** - Basic DataFrame operations
-- **[03_async_dataframe.py](https://github.com/eddiethedean/moltres/blob/main/examples/03_async_dataframe.py)** - Asynchronous operations
-- **[04_joins.py](https://github.com/eddiethedean/moltres/blob/main/examples/04_joins.py)** - Join operations
-- **[05_groupby.py](https://github.com/eddiethedean/moltres/blob/main/examples/05_groupby.py)** - GroupBy and aggregation
-- **[06_expressions.py](https://github.com/eddiethedean/moltres/blob/main/examples/06_expressions.py)** - Column expressions and functions
-- **[07_file_reading.py](https://github.com/eddiethedean/moltres/blob/main/examples/07_file_reading.py)** - Reading files (CSV, JSON, Parquet)
-- **[08_file_writing.py](https://github.com/eddiethedean/moltres/blob/main/examples/08_file_writing.py)** - Writing DataFrames to files
-- **[09_table_operations.py](https://github.com/eddiethedean/moltres/blob/main/examples/09_table_operations.py)** - Table operations and mutations
-- **[10_create_dataframe.py](https://github.com/eddiethedean/moltres/blob/main/examples/10_create_dataframe.py)** - Creating DataFrames from Python data
-- **[11_window_functions.py](https://github.com/eddiethedean/moltres/blob/main/examples/11_window_functions.py)** - Window functions
-- **[12_sql_operations.py](https://github.com/eddiethedean/moltres/blob/main/examples/12_sql_operations.py)** - Raw SQL and SQL operations
-- **[13_transactions.py](https://github.com/eddiethedean/moltres/blob/main/examples/13_transactions.py)** - Transaction management
-- **[14_reflection.py](https://github.com/eddiethedean/moltres/blob/main/examples/14_reflection.py)** - Schema inspection and reflection
-- **[15_pandas_polars_dataframes.py](https://github.com/eddiethedean/moltres/blob/main/examples/15_pandas_polars_dataframes.py)** - Pandas/Polars integration
-- **[16_ux_features.py](https://github.com/eddiethedean/moltres/blob/main/examples/16_ux_features.py)** - UX improvements
-- **[17_sqlalchemy_models.py](https://github.com/eddiethedean/moltres/blob/main/examples/17_sqlalchemy_models.py)** - SQLAlchemy ORM integration
-- **[18_pandas_interface.py](https://github.com/eddiethedean/moltres/blob/main/examples/18_pandas_interface.py)** - Pandas-style interface examples
-- **[19_polars_interface.py](https://github.com/eddiethedean/moltres/blob/main/examples/19_polars_interface.py)** - Polars-style interface examples
-- **[20_sqlalchemy_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/20_sqlalchemy_integration.py)** - SQLAlchemy integration patterns
-- **[21_sqlmodel_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/21_sqlmodel_integration.py)** - SQLModel and Pydantic integration
-- **[22_fastapi_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - FastAPI integration with built-in utilities (error handling, dependency injection, sync and async endpoints)
-- **[23_django_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Django integration with middleware, database helpers, management commands, and template tags
-- **[25_streamlit_integration.py](https://github.com/eddiethedean/moltres/blob/main/examples/25_streamlit_integration.py)** - Streamlit integration with DataFrame display, query builder, caching, and visualization
-
-See the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for all example files.
+- **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - Error handling, dependency injection
+- **[Django Integration](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Middleware, template tags, management commands
+- **[Streamlit Integration](https://github.com/eddiethedean/moltres/blob/main/examples/25_streamlit_integration.py)** - Components, caching, query visualization
+- **[SQLModel & Pydantic](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models
 
 ## 🛠️ Supported Operations
 
-### DataFrame Operations
-- `select()` / `selectExpr()` - Project columns or SQL expressions
-- `where()` / `filter()` - Filter rows
-- `join()` - Join with other DataFrames
-- `group_by()` / `groupBy()` - Group rows
-- `agg()` - Aggregate functions
-- `order_by()` / `orderBy()` / `sort()` - Sort rows
-- `limit()` - Limit number of rows
-- `distinct()` - Remove duplicate rows
-- `withColumn()` - Add or rename columns
-- `pivot()` - Pivot operations
-- `explode()` - Explode array/JSON columns
+**DataFrame Operations**: `select()`, `where()`, `join()`, `group_by()`, `agg()`, `order_by()`, `limit()`, `distinct()`, `pivot()`, and more
 
-### Column Expressions
-- **Arithmetic**: `+`, `-`, `*`, `/`, `%`
-- **Comparisons**: `==`, `!=`, `<`, `>`, `<=`, `>=`
-- **Boolean**: `&`, `|`, `~`
-- **Functions**: 130+ functions including mathematical, string, date/time, aggregate, window, array, JSON, and utility functions
-- **Window Functions**: `over()`, `partition_by()`, `order_by()` - Full PySpark compatibility
+**130+ Functions**: Mathematical, string, date/time, aggregate, window, array, JSON, and utility functions
 
-📚 **[See Expressions Guide →](https://github.com/eddiethedean/moltres/blob/main/examples/06_expressions.py)**
-
-### Supported SQL Dialects
-- ✅ **SQLite** - Full support
-- ✅ **PostgreSQL** - Full support with dialect-specific optimizations
-- ✅ **MySQL** - Full support with dialect-specific optimizations
-- ✅ **DuckDB** - Full support with PostgreSQL-compatible optimizations
-- ✅ **Other SQLAlchemy-supported databases** - ANSI SQL fallback
+**SQL Dialects**: SQLite, PostgreSQL, MySQL, DuckDB, and any SQLAlchemy-supported database
 
 ## 🧪 Development
 
-### Setup
-
 ```bash
-# Clone the repository
-git clone https://github.com/eddiethedean/moltres.git
-cd moltres
-
 # Install in development mode
 pip install -e ".[dev]"
 
-# Install pre-commit hooks
-pre-commit install
-```
-
-### Running Tests
-
-```bash
-# Run all tests
+# Run tests
 pytest
 
-# Run tests in parallel
-pytest -n 9
-
-# Run with coverage
-pytest --cov=src/moltres --cov-report=html
-```
-
-### Code Quality
-
-```bash
-# Linting
-ruff check .
-
-# Formatting
-ruff format .
-
-# Type checking (strict mode enabled)
-mypy src
-```
-
-### Pre-Commit CI Checks
-
-```bash
-# Run all CI checks (linting, type checking, tests)
-make ci-check
-
-# Quick linting check only
-make ci-check-lint
+# Code quality
+ruff check . && ruff format . && mypy src
 ```
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see [`CONTRIBUTING.md`](https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md) for guidelines.
-
-**Quick Start:**
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-**Before submitting:**
-- Run tests: `pytest`
-- Check code quality: `ruff check . && mypy src`
-- Update documentation if needed
-
-## 👤 Author
-
-**Odos Matthews**
-
-- GitHub: [@eddiethedean](https://github.com/eddiethedean)
-- Email: odosmatthews@gmail.com
-
-## 🙏 Acknowledgments
-
-- Inspired by PySpark's DataFrame API style, but focused on SQL feature support rather than PySpark feature parity
-- Built on SQLAlchemy for database connectivity and SQL compilation
-- Thanks to all contributors and users
+Contributions are welcome! See [`CONTRIBUTING.md`](https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
