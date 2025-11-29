@@ -103,7 +103,15 @@ autodoc_default_options = {
     "undoc-members": True,
     "show_inheritance": True,
 }
-autodoc_mock_imports = ["sqlalchemy", "pandas", "polars", "aiofiles"]
+autodoc_mock_imports = [
+    # Core optional dependencies that should not be required to build docs
+    "sqlalchemy",
+    "pandas",
+    "polars",
+    "aiofiles",
+    # Database/engine integrations that can cause import-time side effects
+    "duckdb_engine",
+]
 
 # Autosummary settings
 autosummary_generate = True
