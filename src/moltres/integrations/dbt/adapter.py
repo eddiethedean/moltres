@@ -16,7 +16,8 @@ try:
     DBT_AVAILABLE = True
 except ImportError:
     DBT_AVAILABLE = False
-    dbt = None
+    # Create stubs for type checking
+    dbt: Any = None  # type: ignore[no-redef]
 
 
 def get_moltres_connection(dbt_config: Any, profile_name: Optional[str] = None) -> "Database":

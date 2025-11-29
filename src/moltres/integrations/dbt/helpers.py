@@ -18,7 +18,8 @@ try:
     DBT_AVAILABLE = True
 except ImportError:
     DBT_AVAILABLE = False
-    dbt = None
+    # Create stubs for type checking
+    dbt: Any = None  # type: ignore[no-redef]
 
 
 def moltres_ref(dbt: Any, model_name: str, db: Optional["Database"] = None) -> "DataFrame":
