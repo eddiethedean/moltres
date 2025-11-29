@@ -91,9 +91,9 @@ db.delete("users", where=col("email").is_null())
 
 ### Framework Integrations
 
-- **[FastAPI Integration](https://moltres.readthedocs.io/en/latest/examples/22_fastapi_integration.html)** - Error handling, dependency injection
-- **[Django Integration](https://moltres.readthedocs.io/en/latest/examples/23_django_integration.html)** - Middleware, template tags, management commands
-- **[Streamlit Integration](https://moltres.readthedocs.io/en/latest/examples/25_streamlit_integration.html)** - Components, caching, query visualization
+- **[FastAPI Integration](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - Error handling, dependency injection
+- **[Django Integration](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - Middleware, template tags, management commands
+- **[Streamlit Integration](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - Components, caching, query visualization
 - **[SQLModel & Pydantic](https://moltres.readthedocs.io/en/latest/guides/sqlmodel-integration.html)** - Type-safe models
 
 ## 🛠️ Supported Operations
