@@ -63,6 +63,7 @@ Concepts, Operations, and Internals
    :caption: Concepts & Operations
 
    WHY_MOLTRES
+   moltres-design-notes
    PERFORMANCE
    PERFORMANCE_SLA
    RUNTIME_SUPPORT

@@ -45,6 +45,9 @@ version = release
 
 # -- General configuration ---------------------------------------------------
 
+# Explicitly set the master document so Sphinx/RTD use index.rst as the root.
+master_doc = "index"
+
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
