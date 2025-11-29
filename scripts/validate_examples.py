@@ -109,7 +109,11 @@ def main():
 
     markdown_files = list(find_all_markdown_files(project_root))
     # Filter to only docs, guides, and README, but skip internal planning docs that aren't runnable
-    skip_files = {"IMPROVE_PYTEST_GREEN_LIGHT.md"}
+    skip_files = {
+        "IMPROVE_PYTEST_GREEN_LIGHT.md",
+        "integration_features_plan.md",
+        "moltres_plan.md",
+    }
     markdown_files = [
         f
         for f in markdown_files
