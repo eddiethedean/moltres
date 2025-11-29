@@ -37,7 +37,7 @@ def db_path(tmp_path):
 @pytest.fixture
 def db(db_path):
     """Create a test database."""
-    database = connect(f"sqlite:///{db_path}")
+    database = connect(f"sqlite:///{db_path.as_posix()}")
     # Create a test table
     database.create_table(
         "users",
@@ -71,8 +71,8 @@ class TestDataFrameDisplay:
 
     def test_moltres_dataframe_basic(self, db, db_path):
         """Test basic DataFrame display."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -90,8 +90,8 @@ moltres_dataframe(df, show_query_info=False)
 
     def test_moltres_dataframe_with_query_info(self, db, db_path):
         """Test DataFrame display with query information."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -111,8 +111,8 @@ moltres_dataframe(df, show_query_info=True)
 
     def test_moltres_dataframe_with_kwargs(self, db, db_path):
         """Test DataFrame display with additional kwargs."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -130,8 +130,8 @@ moltres_dataframe(df, height=400, use_container_width=True)
 
     def test_moltres_dataframe_error_handling(self, db_path):
         """Test DataFrame display error handling."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -155,8 +155,8 @@ class TestQueryBuilder:
 
     def test_query_builder_basic(self, db, db_path):
         """Test basic query builder."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -179,8 +179,8 @@ if df:
     def test_query_builder_no_tables(self, tmp_path):
         """Test query builder with no tables."""
         empty_db_path = tmp_path / "empty.db"
-        # Convert path to string and escape backslashes for Windows compatibility
-        empty_db_path_str = str(empty_db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        empty_db_path_str = empty_db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -202,8 +202,8 @@ class TestCaching:
 
     def test_cached_query_decorator(self, db, db_path):
         """Test cached_query decorator."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -257,7 +257,7 @@ class TestSessionStateHelpers:
         from moltres.io.records import Records
 
         # Create database and table
-        test_db = connect(f"sqlite:///{db_path}")
+        test_db = connect(f"sqlite:///{db_path.as_posix()}")
         test_db.create_table(
             "users",
             [
@@ -277,8 +277,8 @@ class TestSessionStateHelpers:
         test_db.close()
 
         # Now test the Streamlit app
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres.integrations.streamlit import get_db_from_session
@@ -302,8 +302,8 @@ st.dataframe(df.collect())
 
     def test_init_db_connection(self, db_path):
         """Test initializing database connection."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres.integrations.streamlit import init_db_connection
@@ -324,8 +324,8 @@ class TestQueryVisualization:
 
     def test_visualize_query_sql_only(self, db, db_path):
         """Test query visualization with SQL only."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -345,8 +345,8 @@ visualize_query(df, show_sql=True, show_plan=False, show_metrics=False)
 
     def test_visualize_query_with_plan(self, db, db_path):
         """Test query visualization with plan."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -364,8 +364,8 @@ visualize_query(df, show_sql=True, show_plan=True, show_metrics=False)
 
     def test_visualize_query_with_metrics(self, db, db_path):
         """Test query visualization with metrics."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect
@@ -456,8 +456,8 @@ class TestIntegration:
 
     def test_full_workflow(self, db, db_path):
         """Test a full workflow using Streamlit integration."""
-        # Convert path to string and escape backslashes for Windows compatibility
-        db_path_str = str(db_path).replace("\\", "/")
+        # Convert path to forward slashes for Windows compatibility
+        db_path_str = db_path.as_posix()
         app_code = f"""
 import streamlit as st
 from moltres import connect, col

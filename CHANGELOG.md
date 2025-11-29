@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2025-11-29
+
+### Fixed
+- **Windows Path Handling in Streamlit Tests** – Fixed Windows CI failures by replacing `.replace("\\", "/")` with `.as_posix()` for proper path conversion in Streamlit integration tests
+
 ## [0.19.0] - 2025-11-29
 
 ### Changed
