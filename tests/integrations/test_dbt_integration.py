@@ -69,7 +69,7 @@ class TestDbtHelpers:
         # Create mock dbt context
         mock_dbt = MagicMock()
         mock_dbt.config = MagicMock()
-        
+
         # Mock dbt.ref() to return an object with a proper identifier attribute
         mock_relation = MagicMock()
         mock_relation.identifier = "test_model"  # Return actual string identifier
@@ -98,7 +98,7 @@ class TestDbtHelpers:
         # Create mock dbt context
         mock_dbt = MagicMock()
         mock_dbt.config = MagicMock()
-        
+
         # Mock dbt.source() to return an object with a proper identifier attribute
         mock_relation = MagicMock()
         mock_relation.identifier = "source_table"  # Return actual string identifier
