@@ -60,7 +60,14 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    # Avoid clashing with Sphinx's root `index` document.
+    # `docs/index.md` is included via `moltres-design-notes.md` instead.
+    "index.md",
+]
 
 # MyST configuration for Markdown support
 myst_enable_extensions = [
