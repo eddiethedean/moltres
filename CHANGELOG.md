@@ -89,6 +89,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Example file (`docs/examples/25_streamlit_integration.py`) and comprehensive guide (`guides/14-streamlit-integration.md`)
   - Added `streamlit>=1.28.0` to optional dependencies
 
+### Changed
+- **Documentation Organization** – Moved example directories to `docs/` for better organization:
+  - `example_data/` → `docs/example_data/`
+  - `example_output/` → `docs/example_output/`
+  - `examples/` → `docs/examples/`
+  - Updated all references throughout codebase, guides, and documentation
+  - Updated test files to use new `docs/examples/` path
+  - Example files now use relative paths from `__file__` for data/output directories
+- **Docstring Optimization for Read the Docs** – Enhanced all docstrings for optimal Read the Docs deployment:
+  - Added Sphinx cross-references (`:class:`, `:func:`, `:meth:`) throughout codebase
+  - Ensured Google-style format consistency across all modules
+  - Added proper type annotations in Returns sections with Sphinx references
+  - Completed Args/Returns/Raises sections for all public API functions and classes
+  - Enhanced module-level docstrings with comprehensive descriptions
+  - Updated 948+ docstrings across 133 source files
+  - Created helper scripts for docstring management (`scripts/update_docstrings_for_rtd.py`, `scripts/find_missing_docstrings.py`)
+
 ### Fixed
 - **MySQL Test Port Conflicts** – Fixed port conflicts in parallel test execution by implementing worker-specific port assignment with retry logic and port verification
 - **Cleanup Regression Test** – Fixed parallel execution issues in cleanup regression test by using unique database paths and working directories per test execution
@@ -96,6 +113,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI Configuration** – Configured mypy to only check `src` directory (excluding examples) to prevent CI failures while maintaining strict type checking for source code
 - **Pre-Commit Script** – Simplified `scripts/pre_commit_ci_checks.py` to run the exact same commands as CI (using Python 3.11), removing custom error parsing logic and ensuring local checks match CI behavior
 - **dbt Integration Type Hints** – Fixed mypy type checking errors in dbt integration by correcting type ignore comments for optional dependency handling
+- **README Quick Start Example** – Fixed join example in README:
+  - Added `.select()` to `db.table("customers")` before joining (TableHandle must be converted to DataFrame)
+  - Fixed join condition to use proper column references: `on=[col("orders.customer_id") == col("customers.id")]`
 
 ## [0.19.0] - 2025-11-27
 
