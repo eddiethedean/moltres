@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import time
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 if TYPE_CHECKING:
     import streamlit as st
@@ -98,7 +98,7 @@ def moltres_dataframe(
 
                 # Show row count
                 if isinstance(results, list):
-                    row_count: int | str = len(results)
+                    row_count: Union[int, str] = len(results)
                 elif hasattr(results, "__len__"):
                     row_count = int(len(results))  # Convert to int for type safety
                 else:
@@ -450,7 +450,7 @@ def visualize_query(
                 execution_time = time.time() - start_time
 
                 if isinstance(results, list):
-                    row_count: int | str = len(results)
+                    row_count: Union[int, str] = len(results)
                 elif hasattr(results, "__len__"):
                     row_count = int(len(results))  # Convert to int for type safety
                 else:

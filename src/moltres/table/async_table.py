@@ -15,10 +15,10 @@ from typing import (
     Dict,
     List,
     Optional,
+    Union,
     overload,
     Sequence,
     Type,
-    Union,
 )
 
 from ..config import MoltresConfig
@@ -1471,7 +1471,7 @@ def _force_async_database_cleanup_for_tests() -> None:
         import threading
         import queue
 
-        result_queue: queue.Queue[Exception | None] = queue.Queue()
+        result_queue: queue.Queue[Union[Exception, None]] = queue.Queue()
 
         def run_in_thread() -> None:
             new_loop = asyncio.new_event_loop()
