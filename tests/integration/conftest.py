@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
+from typing import Union
 
 import pytest
 
@@ -165,7 +166,7 @@ def large_dataset(tmp_path):
 def temp_file_factory(tmp_path):
     """Factory for creating temporary test files."""
 
-    def _create_file(extension: str, content: str | list[dict] | None = None) -> Path:
+    def _create_file(extension: str, content: Union[str, list[dict], None] = None) -> Path:
         """Create a temporary file with optional content.
 
         Args:

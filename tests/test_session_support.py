@@ -6,6 +6,8 @@ directly to connect() and async_connect() instead of engines.
 
 from __future__ import annotations
 
+from typing import Union
+
 import pytest
 
 from moltres import connect, async_connect, col
@@ -121,7 +123,7 @@ def test_connect_with_sqlmodel_session(tmp_path):
     # Define SQLModel with unique class name to avoid conflicts when running all tests
     class SessionUser(SQLModel, table=True):
         __tablename__ = "session_users"
-        id: int | None = Field(default=None, primary_key=True)
+        id: Union[int, None] = Field(default=None, primary_key=True)
         name: str
         age: int
 
@@ -167,7 +169,7 @@ def test_connect_with_sqlmodel_session_filtering(tmp_path):
 
     class Product(SQLModel, table=True):
         __tablename__ = "products"
-        id: int | None = Field(default=None, primary_key=True)
+        id: Union[int, None] = Field(default=None, primary_key=True)
         name: str
         price: float
 
@@ -314,7 +316,7 @@ async def test_async_connect_with_sqlmodel_async_session(tmp_path):
     # Define SQLModel
     class User(SQLModel, table=True):
         __tablename__ = "async_users"
-        id: int | None = Field(default=None, primary_key=True)
+        id: Union[int, None] = Field(default=None, primary_key=True)
         name: str
         age: int
 
@@ -365,7 +367,7 @@ async def test_async_connect_with_sqlmodel_async_session_filtering(tmp_path):
 
     class Product(SQLModel, table=True):
         __tablename__ = "async_products"
-        id: int | None = Field(default=None, primary_key=True)
+        id: Union[int, None] = Field(default=None, primary_key=True)
         name: str
         price: float
 
@@ -643,7 +645,7 @@ def test_session_with_model_attachment(tmp_path):
 
     class User(SQLModel, table=True):
         __tablename__ = "model_users"
-        id: int | None = Field(default=None, primary_key=True)
+        id: Union[int, None] = Field(default=None, primary_key=True)
         name: str
         age: int
 
@@ -683,7 +685,7 @@ async def test_async_session_with_model_attachment(tmp_path):
 
     class User(SQLModel, table=True):
         __tablename__ = "async_model_users"
-        id: int | None = Field(default=None, primary_key=True)
+        id: Union[int, None] = Field(default=None, primary_key=True)
         name: str
         age: int
 
