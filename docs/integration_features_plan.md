@@ -105,7 +105,7 @@ python manage.py moltres_query "db.table('users').select().where(col('age') > 25
 - [ ] Add tests for template tags
 
 **Phase 1.5: Documentation and Examples**
-- [ ] Create example file `examples/23_django_integration.py`
+- [ ] Create example file `docs/examples/23_django_integration.py`
 - [ ] Update README with Django integration section
 - [ ] Create guide `guides/13-django-integration.md`
 
@@ -229,7 +229,7 @@ visualize_query(df)  # Shows query plan, SQL, and performance metrics
 - [ ] Add tests for visualization
 
 **Phase 2.5: Documentation and Examples**
-- [ ] Create example file `examples/25_streamlit_integration.py`
+- [ ] Create example file `docs/examples/25_streamlit_integration.py`
 - [ ] Update README with Streamlit integration section
 - [ ] Create guide `guides/14-streamlit-integration.md`
 
@@ -389,7 +389,7 @@ def test_query_logging(moltres_db, query_logger):
 - [ ] Add tests for query logging
 
 **Phase 3.6: Documentation and Examples**
-- [ ] Create example file `examples/26_pytest_integration.py`
+- [ ] Create example file `docs/examples/26_pytest_integration.py`
 - [ ] Update README with Pytest integration section
 - [ ] Create guide `guides/15-pytest-integration.md`
 - [ ] Add to pytest best practices documentation
@@ -567,8 +567,8 @@ pipeline = ETLPipeline(
 - [ ] Add tests for ETL helpers
 
 **Phase 4.5: Documentation and Examples**
-- [ ] Create example file `examples/27_airflow_integration.py`
-- [ ] Create example file `examples/28_prefect_integration.py`
+- [ ] Create example file `docs/examples/27_airflow_integration.py`
+- [ ] Create example file `docs/examples/28_prefect_integration.py`
 - [ ] Update README with Airflow/Prefect integration sections
 - [ ] Create guide `guides/16-workflow-integration.md`
 

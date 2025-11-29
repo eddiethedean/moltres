@@ -284,7 +284,7 @@ assert len(results) > 0
 
 - **Full API Comparison:** See [MOLTRES_VS_PYSPARK_COMPARISON.md](MOLTRES_VS_PYSPARK_COMPARISON.md)
 - **Detailed Audit:** See [PYSPARK_INTERFACE_AUDIT.md](PYSPARK_INTERFACE_AUDIT.md)
-- **Examples:** See `examples/` directory for working code samples
+- **Examples:** See `docs/examples/` directory for working code samples
 - **Issues:** Report inconsistencies or request features on GitHub
 
 ---

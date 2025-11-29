@@ -44,8 +44,8 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         >>> df = await db.table('users').polars()
         >>> # Polars-style operations
         >>> df.filter(col('age') > 25).select(['id', 'name'])
-        >>> # Returns actual Polars DataFrame
-        >>> result = await df.collect()  # pl.DataFrame
+        >>> # Returns actual Polars :class:`DataFrame`
+        >>> result = await df.collect()  # pl.:class:`DataFrame`
     """
 
     _df: AsyncDataFrame
@@ -89,7 +89,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
     def _validate_columns_exist(
         self, column_names: Sequence[str], operation: str = "operation"
     ) -> None:
-        """Validate that all specified columns exist in the DataFrame.
+        """Validate that all specified columns exist in the :class:`DataFrame`.
 
         Args:
             column_names: List of column names to validate
@@ -154,7 +154,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Note:
             Getting row count requires executing a COUNT query,
             which can be expensive for large datasets. The result is cached
-            for the lifetime of this DataFrame instance.
+            for the lifetime of this :class:`DataFrame` instance.
 
         Warning:
             This operation executes a SQL query. For large tables, consider
@@ -247,7 +247,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Select columns/expressions (Polars-style).
 
         Args:
-            *exprs: Column names or Column expressions to select
+            *exprs: :class:`Column` names or :class:`Column` expressions to select
 
         Returns:
             AsyncPolarsDataFrame with selected columns
@@ -270,7 +270,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Filter rows (Polars-style, uses 'filter' instead of 'where').
 
         Args:
-            predicate: Column expression for filtering condition
+            predicate: :class:`Column` expression for filtering condition
 
         Returns:
             Filtered AsyncPolarsDataFrame
@@ -286,7 +286,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Add or modify columns (Polars primary method for adding columns).
 
         Args:
-            *exprs: Column expressions or (name, expression) tuples
+            *exprs: :class:`Column` expressions or (name, expression) tuples
 
         Returns:
             AsyncPolarsDataFrame with new/modified columns
@@ -323,7 +323,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Add or modify a single column (alias for with_columns with one expression).
 
         Args:
-            expr: Column expression or (name, expression) tuple
+            expr: :class:`Column` expression or (name, expression) tuple
 
         Returns:
             AsyncPolarsDataFrame with new/modified column
@@ -337,7 +337,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Drop columns (Polars-style).
 
         Args:
-            *columns: Column names to drop
+            *columns: :class:`Column` names to drop
 
         Returns:
             AsyncPolarsDataFrame with dropped columns
@@ -396,7 +396,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Sort by columns (Polars-style).
 
         Args:
-            *columns: Column names or Column expressions to sort by
+            *columns: :class:`Column` names or :class:`Column` expressions to sort by
             descending: Sort order - single bool or sequence of bools for each column
 
         Returns:
@@ -537,7 +537,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Group rows by one or more columns (Polars-style).
 
         Args:
-            *columns: Column name(s) to group by
+            *columns: :class:`Column` name(s) to group by
 
         Returns:
             AsyncPolarsGroupBy object for aggregation
@@ -571,12 +571,12 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Join with another AsyncPolarsDataFrame (Polars-style).
 
         Args:
-            other: Right DataFrame to join with
-            on: Column name(s) to join on (must exist in both DataFrames)
+            other: Right :class:`DataFrame` to join with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
             how: Type of join ('inner', 'left', 'right', 'outer', 'anti', 'semi')
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
-            suffix: Suffix to append to overlapping column names from right DataFrame
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
+            suffix: Suffix to append to overlapping column names from right :class:`DataFrame`
 
         Returns:
             Joined AsyncPolarsDataFrame
@@ -632,13 +632,13 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         left_on: Optional[Union[str, Sequence[str]]] = None,
         right_on: Optional[Union[str, Sequence[str]]] = None,
     ) -> "AsyncPolarsDataFrame":
-        """Semi-join: filter rows in left DataFrame that have matches in right DataFrame.
+        """Semi-join: filter rows in left :class:`DataFrame` that have matches in right :class:`DataFrame`.
 
         Args:
-            other: Right DataFrame to join with
-            on: Column name(s) to join on (must exist in both DataFrames)
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
+            other: Right :class:`DataFrame` to join with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
 
         Returns:
             AsyncPolarsDataFrame with rows from left that have matches in right
@@ -657,13 +657,13 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         left_on: Optional[Union[str, Sequence[str]]] = None,
         right_on: Optional[Union[str, Sequence[str]]] = None,
     ) -> "AsyncPolarsDataFrame":
-        """Anti-join: filter rows in left DataFrame that don't have matches in right DataFrame.
+        """Anti-join: filter rows in left :class:`DataFrame` that don't have matches in right :class:`DataFrame`.
 
         Args:
-            other: Right DataFrame to join with
-            on: Column name(s) to join on (must exist in both DataFrames)
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
+            other: Right :class:`DataFrame` to join with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
 
         Returns:
             AsyncPolarsDataFrame with rows from left that don't have matches in right
@@ -681,7 +681,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Remove duplicate rows (Polars-style).
 
         Args:
-            subset: Column name(s) to consider for duplicates (None means all columns)
+            subset: :class:`Column` name(s) to consider for duplicates (None means all columns)
             keep: Which duplicate to keep ('first' or 'last')
 
         Returns:
@@ -745,7 +745,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Drop rows with null values (Polars-style).
 
         Args:
-            subset: Column name(s) to check for nulls (None means all columns)
+            subset: :class:`Column` name(s) to check for nulls (None means all columns)
 
         Returns:
             AsyncPolarsDataFrame with null rows removed
@@ -770,7 +770,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             value: Value to fill nulls with
             strategy: Fill strategy (e.g., 'forward', 'backward') - not fully supported
             limit: Maximum number of consecutive nulls to fill - not fully supported
-            subset: Column name(s) to fill nulls in (None means all columns)
+            subset: :class:`Column` name(s) to fill nulls in (None means all columns)
 
         Returns:
             AsyncPolarsDataFrame with nulls filled
@@ -793,20 +793,20 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Polars-style column access.
 
         Supports:
-        - df['col'] - Returns Column expression for filtering/expressions
+        - df['col'] - Returns :class:`Column` expression for filtering/expressions
         - df[['col1', 'col2']] - Returns new AsyncPolarsDataFrame with selected columns
-        - df[df['age'] > 25] - Boolean indexing (filtering via Column condition)
+        - df[df['age'] > 25] - Boolean indexing (filtering via :class:`Column` condition)
 
         Args:
-            key: Column name(s) or boolean Column condition
+            key: :class:`Column` name(s) or boolean :class:`Column` condition
 
         Returns:
-            - For single column string: Column expression
+            - For single column string: :class:`Column` expression
             - For list of columns: AsyncPolarsDataFrame with selected columns
-            - For boolean Column condition: AsyncPolarsDataFrame with filtered rows
+            - For boolean :class:`Column` condition: AsyncPolarsDataFrame with filtered rows
 
         Example:
-            >>> df['age']  # Returns Column expression
+            >>> df['age']  # Returns :class:`Column` expression
             >>> df[['id', 'name']]  # Returns AsyncPolarsDataFrame
             >>> df[df['age'] > 25]  # Returns filtered AsyncPolarsDataFrame
         """
@@ -844,18 +844,18 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
     async def collect(
         self, stream: bool = False
     ) -> Union["pl.DataFrame", AsyncIterator["pl.DataFrame"], List[Dict[str, Any]]]:
-        """Collect results as Polars DataFrame (async).
+        """Collect results as Polars :class:`DataFrame` (async).
 
         Args:
-            stream: If True, return an async iterator of Polars DataFrame chunks.
-                   If False (default), return a single Polars DataFrame.
+            stream: If True, return an async iterator of Polars :class:`DataFrame` chunks.
+                   If False (default), return a single Polars :class:`DataFrame`.
 
         Returns:
-            If stream=False: Polars DataFrame (if polars installed) or list of dicts
-            If stream=True: AsyncIterator of Polars DataFrame chunks
+            If stream=False: Polars :class:`DataFrame` (if polars installed) or list of dicts
+            If stream=True: AsyncIterator of Polars :class:`DataFrame` chunks
 
         Example:
-            >>> pdf = await df.collect()  # Returns pl.DataFrame
+            >>> pdf = await df.collect()  # Returns pl.:class:`DataFrame`
             >>> async for chunk in await df.collect(stream=True):  # Streaming
             ...     process(chunk)
         """
@@ -895,10 +895,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             n: Number of rows to fetch
 
         Returns:
-            Polars DataFrame with first n rows
+            Polars :class:`DataFrame` with first n rows
 
         Example:
-            >>> pdf = await df.fetch(10)  # First 10 rows as Polars DataFrame
+            >>> pdf = await df.fetch(10)  # First 10 rows as Polars :class:`DataFrame`
         """
         limited_df = self.limit(n)
         return await limited_df.collect()
@@ -999,7 +999,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         """Explode array/JSON columns into multiple rows (Polars-style).
 
         Args:
-            columns: Column name(s) to explode
+            columns: :class:`Column` name(s) to explode
 
         Returns:
             AsyncPolarsDataFrame with exploded rows
@@ -1025,7 +1025,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         For now, we'll use explode as the implementation.
 
         Args:
-            columns: Column name(s) to unnest
+            columns: :class:`Column` name(s) to unnest
 
         Returns:
             AsyncPolarsDataFrame with unnested columns
@@ -1043,12 +1043,12 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         columns: Optional[str] = None,
         aggregate_function: Optional[str] = None,
     ) -> "AsyncPolarsDataFrame":
-        """Pivot DataFrame (Polars-style).
+        """Pivot :class:`DataFrame` (Polars-style).
 
         Args:
-            values: Column(s) to aggregate
-            index: Column(s) to use as index (rows)
-            columns: Column to use as columns (pivot column)
+            values: :class:`Column`(s) to aggregate
+            index: :class:`Column`(s) to use as index (rows)
+            columns: :class:`Column` to use as columns (pivot column)
             aggregate_function: Aggregation function (e.g., 'sum', 'mean', 'count')
 
         Returns:
@@ -1083,11 +1083,11 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         variable_name: str = "variable",
         value_name: str = "value",
     ) -> "AsyncPolarsDataFrame":
-        """Melt DataFrame from wide to long format (Polars-style).
+        """Melt :class:`DataFrame` from wide to long format (Polars-style).
 
         Args:
-            id_vars: Column(s) to use as identifier variables
-            value_vars: Column(s) to unpivot (if None, unpivot all except id_vars)
+            id_vars: :class:`Column`(s) to use as identifier variables
+            value_vars: :class:`Column`(s) to unpivot (if None, unpivot all except id_vars)
             variable_name: Name for the variable column
             value_name: Name for the value column
 
@@ -1105,7 +1105,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         )
 
     def slice(self, offset: int, length: Optional[int] = None) -> "AsyncPolarsDataFrame":
-        """Slice DataFrame (Polars-style).
+        """Slice :class:`DataFrame` (Polars-style).
 
         Args:
             offset: Starting row index
@@ -1425,7 +1425,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         self,
         other: "AsyncPolarsDataFrame",
     ) -> "AsyncPolarsDataFrame":
-        """Return rows in this DataFrame that are not in another (Polars-style).
+        """Return rows in this :class:`DataFrame` that are not in another (Polars-style).
 
         Args:
             other: Another AsyncPolarsDataFrame to exclude from
@@ -1576,7 +1576,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         self,
         name: str,
     ) -> "AsyncPolarsDataFrame":
-        """Create a Common Table Expression (CTE) from this DataFrame.
+        """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
             name: Name for the CTE

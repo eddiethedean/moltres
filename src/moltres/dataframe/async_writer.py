@@ -1,4 +1,4 @@
-"""Async DataFrame write operations."""
+"""Async :class:`DataFrame` write operations."""
 
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ class AsyncDataFrameWriter:
         """Specify primary key columns for the target table.
 
         Args:
-            *columns: Column names to use as primary key
+            *columns: :class:`Column` names to use as primary key
 
         Returns:
             Self for method chaining
@@ -207,7 +207,7 @@ class AsyncDataFrameWriter:
 
         Args:
             table_name: Name of the table to update
-            where: Column expression for the WHERE clause
+            where: :class:`Column` expression for the WHERE clause
             set: Dictionary of column names to new values
 
         Example:
@@ -240,7 +240,7 @@ class AsyncDataFrameWriter:
 
         Args:
             table_name: Name of the table to delete from
-            where: Column expression for the WHERE clause
+            where: :class:`Column` expression for the WHERE clause
 
         Example:
             >>> df = await db.table("users").select()

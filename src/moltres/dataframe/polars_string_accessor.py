@@ -18,13 +18,13 @@ from ..expressions.functions import (
 
 @dataclass(frozen=True)
 class _PolarsStringAccessor:
-    """Polars-style string accessor for Column expressions.
+    """Polars-style string accessor for :class:`Column` expressions.
 
     Provides string methods that compile to SQL string functions.
-    All methods return Column expressions for lazy evaluation.
+    All methods return :class:`Column` expressions for lazy evaluation.
 
     Example:
-        >>> df['name'].str.upper()  # Returns Column expression
+        >>> df['name'].str.upper()  # Returns :class:`Column` expression
         >>> df.filter(df['name'].str.contains('Alice'))
     """
 
@@ -34,7 +34,7 @@ class _PolarsStringAccessor:
         """Convert string to uppercase.
 
         Returns:
-            Column expression for UPPER() SQL function
+            :class:`Column` expression for UPPER() SQL function
 
         Example:
             >>> df['name'].str.upper()
@@ -45,7 +45,7 @@ class _PolarsStringAccessor:
         """Convert string to lowercase.
 
         Returns:
-            Column expression for LOWER() SQL function
+            :class:`Column` expression for LOWER() SQL function
 
         Example:
             >>> df['name'].str.lower()
@@ -56,7 +56,7 @@ class _PolarsStringAccessor:
         """Remove leading and trailing whitespace.
 
         Returns:
-            Column expression for TRIM() SQL function
+            :class:`Column` expression for TRIM() SQL function
 
         Example:
             >>> df['name'].str.strip()
@@ -67,7 +67,7 @@ class _PolarsStringAccessor:
         """Remove leading whitespace.
 
         Returns:
-            Column expression for LTRIM() SQL function
+            :class:`Column` expression for LTRIM() SQL function
 
         Example:
             >>> df['name'].str.lstrip()
@@ -78,7 +78,7 @@ class _PolarsStringAccessor:
         """Remove trailing whitespace.
 
         Returns:
-            Column expression for RTRIM() SQL function
+            :class:`Column` expression for RTRIM() SQL function
 
         Example:
             >>> df['name'].str.rstrip()
@@ -93,7 +93,7 @@ class _PolarsStringAccessor:
             literal: If True, treat pattern as literal string (not regex)
 
         Returns:
-            Column expression for LIKE SQL pattern
+            :class:`Column` expression for LIKE SQL pattern
 
         Example:
             >>> df['name'].str.contains('Alice')
@@ -109,7 +109,7 @@ class _PolarsStringAccessor:
             pat: Pattern to check
 
         Returns:
-            Column expression for LIKE SQL pattern
+            :class:`Column` expression for LIKE SQL pattern
 
         Example:
             >>> df['name'].str.starts_with('A')
@@ -124,7 +124,7 @@ class _PolarsStringAccessor:
             pat: Pattern to check
 
         Returns:
-            Column expression for LIKE SQL pattern
+            :class:`Column` expression for LIKE SQL pattern
 
         Example:
             >>> df['name'].str.ends_with('e')
@@ -141,7 +141,7 @@ class _PolarsStringAccessor:
             literal: If True, treat pattern as literal string (not regex)
 
         Returns:
-            Column expression for REPLACE() SQL function
+            :class:`Column` expression for REPLACE() SQL function
 
         Example:
             >>> df['name'].str.replace('Alice', 'Alicia')
@@ -156,11 +156,11 @@ class _PolarsStringAccessor:
             inclusive: If True, include delimiter in results
 
         Returns:
-            Column expression (note: full split array support varies by database)
+            :class:`Column` expression (note: full split array support varies by database)
 
         Note:
             Full split array functionality depends on database support.
-            This returns a placeholder Column expression.
+            This returns a placeholder :class:`Column` expression.
 
         Example:
             >>> df['tags'].str.split(',')
@@ -176,7 +176,7 @@ class _PolarsStringAccessor:
         """Get string length.
 
         Returns:
-            Column expression for LENGTH() SQL function
+            :class:`Column` expression for LENGTH() SQL function
 
         Example:
             >>> df['name'].str.len()
@@ -187,7 +187,7 @@ class _PolarsStringAccessor:
         """Get string length (alternative syntax).
 
         Returns:
-            Column expression for LENGTH() SQL function
+            :class:`Column` expression for LENGTH() SQL function
 
         Example:
             >>> len(df['name'].str)

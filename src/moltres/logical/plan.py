@@ -45,7 +45,7 @@ class FileScan(LogicalPlan):
         format: File format ("csv", "json", "jsonl", "parquet", "text")
         schema: Optional explicit schema for the file data
         options: Dictionary of format-specific read options
-        column_name: Column name for text files (default: "value")
+        column_name: :class:`Column` name for text files (default: "value")
     """
 
     path: str
@@ -98,7 +98,7 @@ class Limit(LogicalPlan):
 
 @dataclass(frozen=True)
 class Sample(LogicalPlan):
-    """Sample rows from a DataFrame.
+    """Sample rows from a :class:`DataFrame`.
 
     Args:
         child: The logical plan to sample from
@@ -247,8 +247,8 @@ class Pivot(LogicalPlan):
 
     Args:
         child: The logical plan to pivot
-        pivot_column: Column to pivot on (becomes column headers)
-        value_column: Column containing values to aggregate
+        pivot_column: :class:`Column` to pivot on (becomes column headers)
+        value_column: :class:`Column` containing values to aggregate
         agg_func: Aggregation function name (e.g., "sum", "avg", "count")
         pivot_values: Optional list of specific values to pivot (if None, uses all distinct values)
     """
@@ -270,8 +270,8 @@ class GroupedPivot(LogicalPlan):
     Args:
         child: The logical plan to pivot
         grouping: Columns to group by
-        pivot_column: Column to pivot on (becomes column headers)
-        value_column: Column containing values to aggregate
+        pivot_column: :class:`Column` to pivot on (becomes column headers)
+        value_column: :class:`Column` containing values to aggregate
         agg_func: Aggregation function name (e.g., "sum", "avg", "count")
         pivot_values: Optional list of specific values to pivot (if None, must be provided or discovered)
     """

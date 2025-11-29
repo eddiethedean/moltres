@@ -5,7 +5,7 @@ more user-friendly and robust when used with Django.
 
 Key features:
 - Middleware for converting Moltres errors to Django HTTP responses
-- Database connection helpers with Django database routing support
+- :class:`Database` connection helpers with Django database routing support
 - Integration with Django's transaction management
 - Logging integration with Django's logging system
 """
@@ -244,16 +244,16 @@ class MoltresExceptionMiddleware:
 
 
 def get_moltres_db(using: str = "default"):
-    """Get a Moltres Database instance from Django's database connection.
+    """Get a Moltres :class:`Database` instance from Django's database connection.
 
-    This function creates a Moltres Database instance using Django's database
+    This function creates a Moltres :class:`Database` instance using Django's database
     connection, supporting Django's database routing and transaction management.
 
     Args:
         using: Django database alias (default: 'default'). Supports database routing.
 
     Returns:
-        Moltres Database instance
+        Moltres :class:`Database` instance
 
     Raises:
         ImportError: If Django is not installed

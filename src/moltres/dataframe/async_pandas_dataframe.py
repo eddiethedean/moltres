@@ -54,8 +54,8 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         >>> df[['id', 'name']].query('age > 25')
         >>> # Pandas-style groupby
         >>> df.groupby('country').agg({'amount': 'sum'})
-        >>> # Returns actual pandas DataFrame
-        >>> result = await df.collect()  # pd.DataFrame
+        >>> # Returns actual pandas :class:`DataFrame`
+        >>> result = await df.collect()  # pd.:class:`DataFrame`
     """
 
     _df: AsyncDataFrame
@@ -99,7 +99,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
     def _validate_columns_exist(
         self, column_names: Sequence[str], operation: str = "operation"
     ) -> None:
-        """Validate that all specified columns exist in the DataFrame.
+        """Validate that all specified columns exist in the :class:`DataFrame`.
 
         Args:
             column_names: List of column names to validate
@@ -133,20 +133,20 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Pandas-style column access.
 
         Supports:
-        - df['col'] - Returns Column expression for filtering/expressions
+        - df['col'] - Returns :class:`Column` expression for filtering/expressions
         - df[['col1', 'col2']] - Returns new AsyncPandasDataFrame with selected columns
-        - df[df['age'] > 25] - Boolean indexing (filtering via Column condition)
+        - df[df['age'] > 25] - Boolean indexing (filtering via :class:`Column` condition)
 
         Args:
-            key: Column name(s) or boolean Column condition
+            key: :class:`Column` name(s) or boolean :class:`Column` condition
 
         Returns:
-            - For single column string: Column expression
+            - For single column string: :class:`Column` expression
             - For list of columns: AsyncPandasDataFrame with selected columns
-            - For boolean Column condition: AsyncPandasDataFrame with filtered rows
+            - For boolean :class:`Column` condition: AsyncPandasDataFrame with filtered rows
 
         Example:
-            >>> df['age']  # Returns Column expression
+            >>> df['age']  # Returns :class:`Column` expression
             >>> df[['id', 'name']]  # Returns AsyncPandasDataFrame
             >>> df[df['age'] > 25]  # Returns filtered AsyncPandasDataFrame
         """
@@ -188,7 +188,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         )
 
     def query(self, expr: str) -> "AsyncPandasDataFrame":
-        """Filter DataFrame using a pandas-style query string.
+        """Filter :class:`DataFrame` using a pandas-style query string.
 
         Args:
             expr: Query string with pandas-style syntax (e.g., "age > 25 and status == 'active'")
@@ -230,7 +230,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Group rows by one or more columns (pandas-style).
 
         Args:
-            by: Column name(s) to group by
+            by: :class:`Column` name(s) to group by
             *args: Additional positional arguments (for pandas compatibility)
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
@@ -269,10 +269,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Merge two DataFrames (pandas-style join).
 
         Args:
-            right: Right DataFrame to merge with
-            on: Column name(s) to join on (must exist in both DataFrames)
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
+            right: Right :class:`DataFrame` to merge with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
             how: Type of join ('inner', 'left', 'right', 'outer')
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
@@ -305,7 +305,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         return self._with_dataframe(result_df)
 
     def crossJoin(self, other: "AsyncPandasDataFrame") -> "AsyncPandasDataFrame":
-        """Perform a cross join (Cartesian product) with another DataFrame.
+        """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
 
         Args:
             other: Another AsyncPandasDataFrame to cross join with
@@ -324,10 +324,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
     cross_join = crossJoin  # Alias for consistency
 
     def select(self, *columns: Union[str, Column]) -> "AsyncPandasDataFrame":
-        """Select columns from the DataFrame (pandas-style wrapper).
+        """Select columns from the :class:`DataFrame` (pandas-style wrapper).
 
         Args:
-            *columns: Column names or Column expressions to select
+            *columns: :class:`Column` names or :class:`Column` expressions to select
 
         Returns:
             AsyncPandasDataFrame with selected columns
@@ -351,7 +351,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Assign new columns (pandas-style).
 
         Args:
-            **kwargs: Column name = value pairs where value can be a Column expression or literal
+            **kwargs: :class:`Column` name = value pairs where value can be a :class:`Column` expression or literal
 
         Returns:
             AsyncPandasDataFrame with new columns
@@ -379,18 +379,18 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
     async def collect(
         self, stream: bool = False
     ) -> Union["pd.DataFrame", AsyncIterator["pd.DataFrame"]]:
-        """Collect results as pandas DataFrame (async).
+        """Collect results as pandas :class:`DataFrame` (async).
 
         Args:
-            stream: If True, return an async iterator of pandas DataFrame chunks.
-                   If False (default), return a single pandas DataFrame.
+            stream: If True, return an async iterator of pandas :class:`DataFrame` chunks.
+                   If False (default), return a single pandas :class:`DataFrame`.
 
         Returns:
-            If stream=False: pandas DataFrame
-            If stream=True: AsyncIterator of pandas DataFrame chunks
+            If stream=False: pandas :class:`DataFrame`
+            If stream=True: AsyncIterator of pandas :class:`DataFrame` chunks
 
         Example:
-            >>> pdf = await df.collect()  # Returns pd.DataFrame
+            >>> pdf = await df.collect()  # Returns pd.:class:`DataFrame`
             >>> async for chunk in await df.collect(stream=True):  # Streaming
             ...     process(chunk)
         """
@@ -471,7 +471,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             return {}
 
     async def shape(self) -> Tuple[int, int]:
-        """Get DataFrame shape (rows, columns) (pandas-style property, async).
+        """Get :class:`DataFrame` shape (rows, columns) (pandas-style property, async).
 
         Returns:
             Tuple of (number of rows, number of columns)
@@ -479,7 +479,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         Note:
             Getting row count requires executing a COUNT query,
             which can be expensive for large datasets. The result is cached
-            for the lifetime of this DataFrame instance.
+            for the lifetime of this :class:`DataFrame` instance.
 
         Warning:
             This operation executes a SQL query. For large tables, consider
@@ -526,10 +526,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         return shape_result
 
     async def empty(self) -> bool:
-        """Check if DataFrame is empty (pandas-style property, async).
+        """Check if :class:`DataFrame` is empty (pandas-style property, async).
 
         Returns:
-            True if DataFrame has no rows, False otherwise
+            True if :class:`DataFrame` has no rows, False otherwise
 
         Note:
             This requires executing a query to check row count.
@@ -600,7 +600,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Generate descriptive statistics (pandas-style, async).
 
         Returns:
-            pandas DataFrame with summary statistics
+            pandas :class:`DataFrame` with summary statistics
 
         Note:
             This executes the query and requires pandas to be installed.
@@ -622,7 +622,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         return pdf.describe()
 
     async def info(self) -> None:
-        """Print a concise summary of the DataFrame (pandas-style, async).
+        """Print a concise summary of the :class:`DataFrame` (pandas-style, async).
 
         Prints column names, types, non-null counts, and memory usage.
 
@@ -644,7 +644,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Count distinct values in column(s) (pandas-style, async).
 
         Args:
-            column: Column name to count. If None, counts distinct values for all columns.
+            column: :class:`Column` name to count. If None, counts distinct values for all columns.
 
         Returns:
             If column is specified: integer count of distinct values.
@@ -696,12 +696,12 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Count value frequencies (pandas-style, async).
 
         Args:
-            column: Column name to count values for
+            column: :class:`Column` name to count values for
             normalize: If True, return proportions instead of counts
             ascending: If True, sort in ascending order
 
         Returns:
-            pandas DataFrame with value counts
+            pandas :class:`DataFrame` with value counts
 
         Note:
             This executes the query and requires pandas to be installed.
@@ -787,7 +787,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Drop columns or rows (pandas-style).
 
         Args:
-            labels: Column name(s) to drop (if axis=0) or row labels (if axis=1, not supported)
+            labels: :class:`Column` name(s) to drop (if axis=0) or row labels (if axis=1, not supported)
             axis: 0 for columns, 1 for rows (rows not supported in lazy evaluation)
 
         Returns:
@@ -847,7 +847,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Sort by column values (pandas-style).
 
         Args:
-            by: Column name(s) to sort by
+            by: :class:`Column` name(s) to sort by
             ascending: Sort order - single bool or sequence of bools for each column
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
@@ -895,7 +895,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Remove duplicate rows (pandas-style).
 
         Args:
-            subset: Column name(s) to consider for duplicates (None means all columns)
+            subset: :class:`Column` name(s) to consider for duplicates (None means all columns)
             keep: Which duplicate to keep ('first' or 'last')
 
         Returns:
@@ -951,7 +951,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
 
         Args:
             how: 'any' to drop if any null, 'all' to drop if all null
-            subset: Column name(s) to check for nulls (None means all columns)
+            subset: :class:`Column` name(s) to check for nulls (None means all columns)
 
         Returns:
             AsyncPandasDataFrame with null rows removed
@@ -972,7 +972,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
 
         Args:
             value: Value to fill nulls with, or dict mapping column to value
-            subset: Column name(s) to fill nulls in (None means all columns)
+            subset: :class:`Column` name(s) to fill nulls in (None means all columns)
 
         Returns:
             AsyncPandasDataFrame with nulls filled
@@ -992,7 +992,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Explode array/JSON columns into multiple rows (pandas-style).
 
         Args:
-            column: Column name(s) to explode
+            column: :class:`Column` name(s) to explode
             ignore_index: If True, reset index (not used, for API compatibility)
 
         Returns:
@@ -1020,12 +1020,12 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         values: Optional[Union[str, Sequence[str]]] = None,
         aggfunc: Union[str, Dict[str, str]] = "sum",
     ) -> "AsyncPandasDataFrame":
-        """Pivot DataFrame (pandas-style).
+        """Pivot :class:`DataFrame` (pandas-style).
 
         Args:
-            index: Column(s) to use as index (rows)
-            columns: Column to use as columns (pivot column)
-            values: Column(s) to aggregate
+            index: :class:`Column`(s) to use as index (rows)
+            columns: :class:`Column` to use as columns (pivot column)
+            values: :class:`Column`(s) to aggregate
             aggfunc: Aggregation function(s) - string or dict mapping column to function
 
         Returns:
@@ -1065,9 +1065,9 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         """Create a pivot table (pandas-style).
 
         Args:
-            values: Column(s) to aggregate
-            index: Column(s) to use as index (rows)
-            columns: Column to use as columns (pivot column)
+            values: :class:`Column`(s) to aggregate
+            index: :class:`Column`(s) to use as index (rows)
+            columns: :class:`Column` to use as columns (pivot column)
             aggfunc: Aggregation function(s)
             fill_value: Value to fill missing values (not used, for API compatibility)
             margins: Add row/column margins (not supported, for API compatibility)
@@ -1093,11 +1093,11 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         var_name: str = "variable",
         value_name: str = "value",
     ) -> "AsyncPandasDataFrame":
-        """Melt DataFrame from wide to long format (pandas-style).
+        """Melt :class:`DataFrame` from wide to long format (pandas-style).
 
         Args:
-            id_vars: Column(s) to use as identifier variables
-            value_vars: Column(s) to unpivot (if None, unpivot all except id_vars)
+            id_vars: :class:`Column`(s) to use as identifier variables
+            value_vars: :class:`Column`(s) to unpivot (if None, unpivot all except id_vars)
             var_name: Name for the variable column
             value_name: Name for the value column
 
@@ -1121,7 +1121,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         weights: Optional[Union[str, Sequence[float]]] = None,
         random_state: Optional[int] = None,
     ) -> "AsyncPandasDataFrame":
-        """Sample rows from DataFrame (pandas-style).
+        """Sample rows from :class:`DataFrame` (pandas-style).
 
         Args:
             n: Number of rows to sample
@@ -1174,7 +1174,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         ignore_index: bool = False,
         verify_integrity: bool = False,
     ) -> "AsyncPandasDataFrame":
-        """Append rows from another DataFrame (pandas-style).
+        """Append rows from another :class:`DataFrame` (pandas-style).
 
         Note: pandas deprecated append() in favor of concat(). This is provided for compatibility.
 
@@ -1387,7 +1387,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         return self._with_dataframe(result_df)
 
     def cte(self, name: str) -> "AsyncPandasDataFrame":
-        """Create a Common Table Expression (CTE) from this DataFrame.
+        """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
             name: Name for the CTE

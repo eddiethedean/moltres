@@ -1,4 +1,14 @@
-"""Table access primitives."""
+"""Table access primitives.
+
+This module provides the core database and table access functionality:
+
+- :class:`Database` - Main database connection and query interface
+- :class:`TableHandle` - Lightweight reference to a database table
+- :class:`Transaction` - Transaction context manager
+
+The :class:`Database` class is the primary entry point for all database operations,
+including table creation, querying, and data mutations.
+"""
 
 from __future__ import annotations
 
@@ -64,7 +74,21 @@ _ACTIVE_DATABASES: "weakref.WeakSet[Database]" = weakref.WeakSet()
 
 @dataclass
 class TableHandle:
-    """Lightweight handle representing a table reference."""
+    """Lightweight handle representing a table reference.
+
+    A :class:`TableHandle` provides access to a specific table in the database.
+    It can be created from a table name or from a SQLModel/Pydantic model class.
+
+    Attributes:
+        name: Name of the table
+        database: The :class:`Database` instance this handle belongs to
+        model: Optional SQLModel, Pydantic, or SQLAlchemy model class
+
+    Example:
+        >>> db = connect("sqlite:///:memory:")
+        >>> handle = db.table("users")
+        >>> df = handle.select()
+    """
 
     name: str
     database: "Database"
@@ -80,18 +104,31 @@ class TableHandle:
         return self.model
 
     def select(self, *columns: str) -> "DataFrame":
+        """Select columns from this table.
+
+        Args:
+            *columns: Optional column names to select. If empty, selects all columns.
+
+        Returns:
+            :class:`DataFrame`: DataFrame with selected columns
+
+        Example:
+            >>> db = connect("sqlite:///:memory:")
+            >>> handle = db.table("users")
+            >>> df = handle.select("id", "name")
+        """
         from ..dataframe.dataframe import DataFrame
 
         return DataFrame.from_table(self, columns=list(columns))
 
     def pandas(self, *columns: str) -> "PandasDataFrame":
-        """Create a PandasDataFrame from this table.
+        """Create a :class:`PandasDataFrame` from this table.
 
         Args:
             *columns: Optional column names to select
 
         Returns:
-            PandasDataFrame for pandas-style operations
+            :class:`PandasDataFrame`: :class:`PandasDataFrame` for pandas-style operations
 
         Example:
             >>> df = db.table('users').pandas()
@@ -104,13 +141,13 @@ class TableHandle:
         return PandasDataFrame.from_dataframe(df)
 
     def polars(self, *columns: str) -> "PolarsDataFrame":
-        """Create a PolarsDataFrame from this table.
+        """Create a :class:`PolarsDataFrame` from this table.
 
         Args:
             *columns: Optional column names to select
 
         Returns:
-            PolarsDataFrame for Polars-style operations
+            :class:`PolarsDataFrame`: :class:`PolarsDataFrame` for Polars-style operations
 
         Example:
             >>> df = db.table('users').polars()
@@ -124,32 +161,60 @@ class TableHandle:
 
 
 class Transaction:
-    """Transaction context for grouping multiple operations."""
+    """:class:`Transaction` context for grouping multiple operations."""
 
     def __init__(self, database: "Database", connection: Connection):
+        """Initialize a transaction context.
+
+        Args:
+            database: The database instance this transaction belongs to
+            connection: The SQLAlchemy connection for this transaction
+        """
         self.database = database
         self.connection = connection
         self._committed = False
         self._rolled_back = False
 
     def commit(self) -> None:
-        """Explicitly commit the transaction."""
+        """Explicitly commit the transaction.
+
+        Raises:
+            RuntimeError: If the transaction has already been committed or rolled back
+        """
         if self._committed or self._rolled_back:
             raise RuntimeError("Transaction already committed or rolled back")
         self.database.connection_manager.commit_transaction(self.connection)
         self._committed = True
 
     def rollback(self) -> None:
-        """Explicitly rollback the transaction."""
+        """Explicitly rollback the transaction.
+
+        Raises:
+            RuntimeError: If the transaction has already been committed or rolled back
+        """
         if self._committed or self._rolled_back:
             raise RuntimeError("Transaction already committed or rolled back")
         self.database.connection_manager.rollback_transaction(self.connection)
         self._rolled_back = True
 
     def __enter__(self) -> "Transaction":
+        """Enter the transaction context.
+
+        Returns:
+            :class:`Transaction`: This transaction instance
+        """
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit the transaction context.
+
+        Automatically commits if no exception occurred, or rolls back if an exception was raised.
+
+        Args:
+            exc_type: Exception type if an exception occurred, None otherwise
+            exc_val: Exception value if an exception occurred, None otherwise
+            exc_tb: Exception traceback if an exception occurred, None otherwise
+        """
         if exc_type is not None:
             # Exception occurred, rollback
             if not self._rolled_back and not self._committed:
@@ -161,7 +226,22 @@ class Transaction:
 
 
 class Database:
-    """Entry-point object returned by ``moltres.connect``."""
+    """Entry-point object returned by :func:`moltres.connect`.
+
+    The :class:`Database` class provides the main interface for all database operations
+    in Moltres. It handles connections, query execution, table management, and data
+    mutations.
+
+    Attributes:
+        config: The :class:`MoltresConfig` instance used for this database
+        dialect: The SQL dialect being used (e.g., "sqlite", "postgresql")
+
+    Example:
+        >>> from moltres import connect, col
+        >>> db = connect("sqlite:///example.db")
+        >>> df = db.table("users").select().where(col("active") == True)
+        >>> results = df.collect()
+    """
 
     def __init__(self, config: MoltresConfig):
         self.config = config
@@ -174,15 +254,25 @@ class Database:
 
     @property
     def connection_manager(self) -> ConnectionManager:
+        """Get the connection manager for this database.
+
+        Returns:
+            ConnectionManager: The connection manager instance
+        """
         return self._connections
 
     @property
     def executor(self) -> QueryExecutor:
+        """Get the query executor for this database.
+
+        Returns:
+            QueryExecutor: The query executor instance
+        """
         return self._executor
 
     @classmethod
     def from_engine(cls, engine: Engine, **options: object) -> "Database":
-        """Create a Database instance from an existing SQLAlchemy Engine.
+        """Create a :class:`Database` instance from an existing SQLAlchemy Engine.
 
         This allows you to use Moltres with an existing SQLAlchemy Engine,
         enabling integration with existing SQLAlchemy projects.
@@ -197,13 +287,13 @@ class Database:
                 - Other options are stored in config.options
 
         Returns:
-            Database instance configured to use the provided Engine
+            :class:`Database`: Database instance configured to use the provided Engine
 
         Example:
             >>> from sqlalchemy import create_engine
-            >>> from moltres import Database
+            >>> from moltres import :class:`Database`
             >>> engine = create_engine("sqlite:///:memory:")
-            >>> db = Database.from_engine(engine)
+            >>> db = :class:`Database`.from_engine(engine)
             >>> # Now use Moltres with your existing engine
             >>> from moltres.table.schema import column
             >>> _ = db.create_table("users", [column("id", "INTEGER")]).collect()
@@ -216,12 +306,12 @@ class Database:
 
     @classmethod
     def from_connection(cls, connection: Connection, **options: object) -> "Database":
-        """Create a Database instance from an existing SQLAlchemy Connection.
+        """Create a :class:`Database` instance from an existing SQLAlchemy Connection.
 
         This allows you to use Moltres with an existing SQLAlchemy Connection,
         enabling integration within existing transactions.
 
-        Note: The Database will use the Connection's engine, but will not manage
+        Note: The :class:`Database` will use the Connection's engine, but will not manage
         the Connection's lifecycle. The user is responsible for managing the connection.
 
         Args:
@@ -229,14 +319,14 @@ class Database:
             **options: Optional configuration parameters (same as from_engine)
 
         Returns:
-            Database instance configured to use the Connection's engine
+            :class:`Database` instance configured to use the Connection's engine
 
         Example:
             >>> from sqlalchemy import create_engine
-            >>> from moltres import Database
+            >>> from moltres import :class:`Database`
             >>> engine = create_engine("sqlite:///:memory:")
             >>> with engine.connect() as conn:
-            ...     db = Database.from_connection(conn)
+            ...     db = :class:`Database`.from_connection(conn)
             ...     # Use Moltres within the connection's transaction
             ...     from moltres.table.schema import column
             ...     _ = db.create_table("users", [column("id", "INTEGER")]).collect()
@@ -247,12 +337,12 @@ class Database:
 
     @classmethod
     def from_session(cls, session: "Session", **options: object) -> "Database":
-        """Create a Database instance from a SQLAlchemy ORM Session.
+        """Create a :class:`Database` instance from a SQLAlchemy ORM Session.
 
         This allows you to use Moltres with an existing SQLAlchemy ORM Session,
         enabling integration with ORM-based applications.
 
-        Note: The Database will use the Session's bind/engine, but will not manage
+        Note: The :class:`Database` will use the Session's bind/engine, but will not manage
         the Session's lifecycle. The user is responsible for managing the session.
 
         Args:
@@ -260,16 +350,16 @@ class Database:
             **options: Optional configuration parameters (same as from_engine)
 
         Returns:
-            Database instance configured to use the Session's bind/engine
+            :class:`Database` instance configured to use the Session's bind/engine
 
         Example:
             >>> from sqlalchemy import create_engine
             >>> from sqlalchemy.orm import sessionmaker
-            >>> from moltres import Database
+            >>> from moltres import :class:`Database`
             >>> engine = create_engine("sqlite:///:memory:")
             >>> Session = sessionmaker(bind=engine)
             >>> with Session() as session:
-            ...     db = Database.from_session(session)
+            ...     db = :class:`Database`.from_session(session)
             ...     # Use Moltres with your existing session
             ...     from moltres.table.schema import column
             ...     _ = db.create_table("users", [column("id", "INTEGER")]).collect()
@@ -317,7 +407,7 @@ class Database:
         This should be called when done with the database connection,
         especially for ephemeral test databases.
 
-        Note: After calling close(), the Database instance should not be used.
+        Note: After calling close(), the :class:`Database` instance should not be used.
         """
         self._close_resources()
 
@@ -354,12 +444,26 @@ class Database:
 
     @overload
     def table(self, name: str) -> TableHandle:
-        """Get a handle to a table in the database from table name."""
+        """Get a handle to a table in the database from table name.
+
+        Args:
+            name: Name of the table
+
+        Returns:
+            :class:`TableHandle`: Handle to the specified table
+        """
         ...
 
     @overload
     def table(self, model_class: Type["DeclarativeBase"]) -> TableHandle:
-        """Get a handle to a table in the database from SQLAlchemy model class."""
+        """Get a handle to a table in the database from SQLAlchemy model class.
+
+        Args:
+            model_class: SQLAlchemy or SQLModel model class
+
+        Returns:
+            :class:`TableHandle`: Handle to the table corresponding to the model
+        """
         ...
 
     def table(  # type: ignore[misc]
@@ -371,7 +475,7 @@ class Database:
             name_or_model: Name of the table, SQLAlchemy model class, or SQLModel model class
 
         Returns:
-            TableHandle for the specified table
+            :class:`TableHandle` for the specified table
 
         Raises:
             ValidationError: If table name is invalid
@@ -382,8 +486,8 @@ class Database:
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> _ = db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
             >>> # Get table handle by name
             >>> users = db.table("users")
             >>> df = users.select("id", "name")
@@ -443,7 +547,7 @@ class Database:
 
         Args:
             table_name: Name of the table to insert into
-            rows: Sequence of row dictionaries, Records, pandas DataFrame, polars DataFrame, or polars LazyFrame
+            rows: Sequence of row dictionaries, :class:`Records`, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
 
         Returns:
             Number of rows inserted
@@ -487,7 +591,7 @@ class Database:
 
         Args:
             table_name: Name of the table to update
-            where: Column expression for the WHERE clause
+            where: :class:`Column` expression for the WHERE clause
             set: Dictionary of column names to new values
 
         Returns:
@@ -501,8 +605,8 @@ class Database:
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
             >>> # Update rows
             >>> count = db.update("users", where=col("id") == 1, set={"name": "Alice Updated"})
             >>> count
@@ -526,7 +630,7 @@ class Database:
 
         Args:
             table_name: Name of the table to delete from
-            where: Column expression for the WHERE clause
+            where: :class:`Column` expression for the WHERE clause
 
         Returns:
             Number of rows deleted
@@ -539,8 +643,8 @@ class Database:
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
             >>> # Delete rows
             >>> count = db.delete("users", where=col("id") == 1)
             >>> count
@@ -580,7 +684,7 @@ class Database:
 
         Args:
             table_name: Name of the table to merge into
-            rows: Sequence of row dictionaries, Records, pandas DataFrame, polars DataFrame, or polars LazyFrame
+            rows: Sequence of row dictionaries, :class:`Records`, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
             on: Sequence of column names that form the conflict key
             when_matched: Optional dictionary of column updates when a conflict occurs
             when_not_matched: Optional dictionary of default values when inserting new rows
@@ -620,18 +724,18 @@ class Database:
     def read(self) -> "ReadAccessor":
         """Return a ReadAccessor for accessing read operations.
 
-        Use db.read.records.* for Records-based reads (backward compatibility).
-        Use db.load.* for DataFrame-based reads (PySpark-style).
+        Use db.read.records.* for :class:`Records`-based reads (backward compatibility).
+        Use db.load.* for :class:`DataFrame`-based reads (PySpark-style).
         """
         from ..dataframe.reader import ReadAccessor
 
         return ReadAccessor(self)
 
     def sql(self, sql: str, **params: object) -> "DataFrame":
-        """Execute a SQL query and return a DataFrame.
+        """Execute a SQL query and return a :class:`DataFrame`.
 
         Similar to PySpark's `spark.sql()`, this method accepts a raw SQL string
-        and returns a lazy DataFrame that can be chained with further operations.
+        and returns a lazy :class:`DataFrame` that can be chained with further operations.
         The SQL dialect is determined by the database connection.
 
         Args:
@@ -640,15 +744,15 @@ class Database:
                      Use `:param_name` syntax in SQL and pass values as kwargs.
 
         Returns:
-            Lazy DataFrame that can be chained with further operations
+            Lazy :class:`DataFrame` that can be chained with further operations
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db).insert_into("users")
             >>> # Basic SQL query
             >>> df = db.sql("SELECT * FROM users WHERE age > 18")
             >>> results = df.collect()
@@ -663,7 +767,7 @@ class Database:
             'Alice'
             >>> # Chaining operations
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> _ = Records(_data=[{"id": 1, "amount": 150.0}, {"id": 2, "amount": 50.0}], _database=db).insert_into("orders")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 150.0}, {"id": 2, "amount": 50.0}], _database=db).insert_into("orders")
             >>> df3 = db.sql("SELECT * FROM orders").where(col("amount") > 100).limit(1)
             >>> results3 = df3.collect()
             >>> len(results3)
@@ -686,7 +790,7 @@ class Database:
         schema: Optional[Sequence[ColumnDef]] = None,
         **options: object,
     ) -> "PolarsDataFrame":
-        """Scan a CSV file as a PolarsDataFrame (Polars-style).
+        """Scan a CSV file as a :class:`PolarsDataFrame` (Polars-style).
 
         Args:
             path: Path to the CSV file
@@ -694,7 +798,7 @@ class Database:
             **options: Format-specific options (e.g., header=True, delimiter=",")
 
         Returns:
-            PolarsDataFrame containing the CSV data (lazy)
+            :class:`PolarsDataFrame` containing the CSV data (lazy)
 
         Example:
             >>> from moltres import connect
@@ -716,7 +820,7 @@ class Database:
         schema: Optional[Sequence[ColumnDef]] = None,
         **options: object,
     ) -> "PolarsDataFrame":
-        """Scan a JSON file (array of objects) as a PolarsDataFrame (Polars-style).
+        """Scan a JSON file (array of objects) as a :class:`PolarsDataFrame` (Polars-style).
 
         Args:
             path: Path to the JSON file
@@ -724,7 +828,7 @@ class Database:
             **options: Format-specific options (e.g., multiline=True)
 
         Returns:
-            PolarsDataFrame containing the JSON data (lazy)
+            :class:`PolarsDataFrame` containing the JSON data (lazy)
 
         Example:
             >>> from moltres import connect
@@ -746,7 +850,7 @@ class Database:
         schema: Optional[Sequence[ColumnDef]] = None,
         **options: object,
     ) -> "PolarsDataFrame":
-        """Scan a JSONL file (one JSON object per line) as a PolarsDataFrame (Polars-style).
+        """Scan a JSONL file (one JSON object per line) as a :class:`PolarsDataFrame` (Polars-style).
 
         Args:
             path: Path to the JSONL file
@@ -754,7 +858,7 @@ class Database:
             **options: Format-specific options
 
         Returns:
-            PolarsDataFrame containing the JSONL data (lazy)
+            :class:`PolarsDataFrame` containing the JSONL data (lazy)
 
         Example:
             >>> from moltres import connect
@@ -776,7 +880,7 @@ class Database:
         schema: Optional[Sequence[ColumnDef]] = None,
         **options: object,
     ) -> "PolarsDataFrame":
-        """Scan a Parquet file as a PolarsDataFrame (Polars-style).
+        """Scan a Parquet file as a :class:`PolarsDataFrame` (Polars-style).
 
         Args:
             path: Path to the Parquet file
@@ -784,7 +888,7 @@ class Database:
             **options: Format-specific options
 
         Returns:
-            PolarsDataFrame containing the Parquet data (lazy)
+            :class:`PolarsDataFrame` containing the Parquet data (lazy)
 
         Raises:
             RuntimeError: If pandas or pyarrow are not installed
@@ -810,7 +914,7 @@ class Database:
         schema: Optional[Sequence[ColumnDef]] = None,
         **options: object,
     ) -> "PolarsDataFrame":
-        """Scan a text file as a single column PolarsDataFrame (Polars-style).
+        """Scan a text file as a single column :class:`PolarsDataFrame` (Polars-style).
 
         Args:
             path: Path to the text file
@@ -819,7 +923,7 @@ class Database:
             **options: Format-specific options
 
         Returns:
-            PolarsDataFrame containing the text file lines (lazy)
+            :class:`PolarsDataFrame` containing the text file lines (lazy)
 
         Example:
             >>> from moltres import connect
@@ -993,7 +1097,7 @@ class Database:
         Args:
             name: Name of the index to create
             table: Name of the table to create the index on
-            columns: Column name(s) to index (single string or sequence)
+            columns: :class:`Column` name(s) to index (single string or sequence)
             unique: If True, create a UNIQUE index (default: False)
             if_not_exists: If True, don't error if index already exists (default: True)
 
@@ -1376,7 +1480,7 @@ class Database:
         Otherwise, it is committed on successful exit.
 
         Yields:
-            Transaction object that can be used for explicit commit/rollback
+            :class:`Transaction` object that can be used for explicit commit/rollback
 
         Example:
             >>> with db.transaction() as txn:
@@ -1411,51 +1515,51 @@ class Database:
         pk: Optional[Union[str, Sequence[str]]] = None,
         auto_pk: Optional[Union[str, Sequence[str]]] = None,
     ) -> "DataFrame":
-        """Create a DataFrame from Python data (list of dicts, list of tuples, Records, LazyRecords, pandas DataFrame, polars DataFrame, or polars LazyFrame).
+        """Create a :class:`DataFrame` from Python data (list of dicts, list of tuples, :class:`Records`, LazyRecords, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame).
 
-        Creates a temporary table, inserts the data, and returns a DataFrame querying from that table.
+        Creates a temporary table, inserts the data, and returns a :class:`DataFrame` querying from that table.
         If LazyRecords is provided, it will be auto-materialized.
-        If pandas/polars DataFrame or LazyFrame is provided, it will be converted to Records with lazy conversion.
+        If pandas/polars :class:`DataFrame` or LazyFrame is provided, it will be converted to :class:`Records` with lazy conversion.
 
         Args:
             data: Input data in one of supported formats:
                 - List of dicts: [{"col1": val1, "col2": val2}, ...]
                 - List of tuples: Requires schema parameter with column names
-                - Records object: Extracts data and schema if available
+                - :class:`Records` object: Extracts data and schema if available
                 - LazyRecords object: Auto-materializes and extracts data and schema
-                - pandas DataFrame: Converts to Records with schema preservation
-                - polars DataFrame: Converts to Records with schema preservation
-                - polars LazyFrame: Materializes and converts to Records with schema preservation
+                - pandas :class:`DataFrame`: Converts to :class:`Records` with schema preservation
+                - polars :class:`DataFrame`: Converts to :class:`Records` with schema preservation
+                - polars LazyFrame: Materializes and converts to :class:`Records` with schema preservation
             schema: Optional explicit schema. If not provided, schema is inferred from data.
             pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
             auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
 
         Returns:
-            DataFrame querying from the created temporary table
+            :class:`DataFrame` querying from the created temporary table
 
         Raises:
             ValueError: If data is empty and no schema provided, or if primary key requirements are not met
             ValidationError: If list of tuples provided without schema, or other validation errors
 
         Example:
-            >>> # Create DataFrame from list of dicts
+            >>> # Create :class:`DataFrame` from list of dicts
             >>> df = db.createDataFrame([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], pk="id")
-            >>> # Create DataFrame with auto-incrementing primary key
+            >>> # Create :class:`DataFrame` with auto-incrementing primary key
             >>> df = db.createDataFrame([{"name": "Alice"}, {"name": "Bob"}], auto_pk="id")
-            >>> # Create DataFrame from Records
-            >>> from moltres.io.records import Records
-            >>> records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> # Create :class:`DataFrame` from :class:`Records`
+            >>> from moltres.io.records import :class:`Records`
+            >>> records = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db)
             >>> df = db.createDataFrame(records, pk="id")
-            >>> # Create DataFrame from LazyRecords (auto-materializes)
+            >>> # Create :class:`DataFrame` from LazyRecords (auto-materializes)
             >>> lazy_records = db.read.records.csv("data.csv")
             >>> df = db.createDataFrame(lazy_records, pk="id")
-            >>> # Create DataFrame from pandas DataFrame
+            >>> # Create :class:`DataFrame` from pandas :class:`DataFrame`
             >>> import pandas as pd
-            >>> pdf = pd.DataFrame([{"id": 1, "name": "Alice"}])
+            >>> pdf = pd.:class:`DataFrame`([{"id": 1, "name": "Alice"}])
             >>> df = db.createDataFrame(pdf, pk="id")
-            >>> # Create DataFrame from polars DataFrame
+            >>> # Create :class:`DataFrame` from polars :class:`DataFrame`
             >>> import polars as pl
-            >>> plf = pl.DataFrame([{"id": 1, "name": "Alice"}])
+            >>> plf = pl.:class:`DataFrame`([{"id": 1, "name": "Alice"}])
             >>> df = db.createDataFrame(plf, pk="id")
         """
         from ..dataframe.create_dataframe import (
@@ -1602,7 +1706,7 @@ class Database:
 
 
 def _cleanup_all_databases() -> None:
-    """Best-effort cleanup for any Database instances left open at exit.
+    """Best-effort cleanup for any :class:`Database` instances left open at exit.
 
     This is called on normal interpreter shutdown and on signal handlers
     for crash scenarios (SIGTERM, SIGINT).

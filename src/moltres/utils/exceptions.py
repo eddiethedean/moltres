@@ -303,7 +303,7 @@ class PandasAPIError(MoltresError):
 
 
 class ColumnNotFoundError(ValidationError):
-    """Raised when a column is not found in a DataFrame."""
+    """Raised when a column is not found in a :class:`DataFrame`."""
 
     def __init__(
         self,

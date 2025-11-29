@@ -1,4 +1,4 @@
-"""DataFrame write operations."""
+""":class:`DataFrame` write operations."""
 
 from __future__ import annotations
 
@@ -104,7 +104,7 @@ class DataFrameWriter:
         """Specify primary key columns for the target table.
 
         Args:
-            *columns: Column names to use as primary key
+            *columns: :class:`Column` names to use as primary key
 
         Returns:
             Self for method chaining
@@ -135,7 +135,7 @@ class DataFrameWriter:
     sort_by = sortBy
 
     def save_as_table(self, name: str, primary_key: Optional[Sequence[str]] = None) -> None:
-        """Write the DataFrame to a table with the given name.
+        """Write the :class:`DataFrame` to a table with the given name.
 
         Args:
             name: Name of the target table
@@ -147,9 +147,9 @@ class DataFrameWriter:
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
-            >>> # Save DataFrame to new table
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
+            >>> # Save :class:`DataFrame` to new table
             >>> df = db.table("source").select()
             >>> df.write.save_as_table("target")
             >>> # Verify table was created
@@ -175,7 +175,7 @@ class DataFrameWriter:
     saveAsTable = save_as_table  # PySpark-style alias
 
     def insertInto(self, table_name: str) -> None:
-        """Insert DataFrame into an existing table (table must already exist).
+        """Insert :class:`DataFrame` into an existing table (table must already exist).
 
         Example:
             >>> from moltres import connect
@@ -183,9 +183,9 @@ class DataFrameWriter:
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("target", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
-            >>> # Insert DataFrame into existing table
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
+            >>> # Insert :class:`DataFrame` into existing table
             >>> df = db.table("source").select()
             >>> df.write.insertInto("target")
             >>> # Verify data was inserted
@@ -242,7 +242,7 @@ class DataFrameWriter:
 
         Args:
             table_name: Name of the table to update
-            where: Column expression for the WHERE clause
+            where: :class:`Column` expression for the WHERE clause
             set: Dictionary of column names to new values
 
         Example:
@@ -275,15 +275,15 @@ class DataFrameWriter:
 
         Args:
             table_name: Name of the table to delete from
-            where: Column expression for the WHERE clause
+            where: :class:`Column` expression for the WHERE clause
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
             >>> # Delete rows matching condition
             >>> df = db.table("users").select()
             >>> df.write.delete("users", where=col("id") == 1)
@@ -311,7 +311,7 @@ class DataFrameWriter:
         delete_rows(table_handle, where=where, transaction=transaction)
 
     def save(self, path: str, format: Optional[str] = None) -> None:
-        """Save DataFrame to a file or directory in the specified format."""
+        """Save :class:`DataFrame` to a file or directory in the specified format."""
         format_to_use = format or self._format
         if format_to_use is None:
             # Infer format from file extension
@@ -353,19 +353,19 @@ class DataFrameWriter:
             )
 
     def csv(self, path: str) -> None:
-        """Save DataFrame as CSV file."""
+        """Save :class:`DataFrame` as CSV file."""
         self._save_csv(path)
 
     def json(self, path: str) -> None:
-        """Save DataFrame as JSON file (array of objects)."""
+        """Save :class:`DataFrame` as JSON file (array of objects)."""
         self._save_json(path)
 
     def jsonl(self, path: str) -> None:
-        """Save DataFrame as JSONL file (one JSON object per line)."""
+        """Save :class:`DataFrame` as JSONL file (one JSON object per line)."""
         self._save_jsonl(path)
 
     def text(self, path: str) -> None:
-        """Save DataFrame as text file (expects a single 'value' column)."""
+        """Save :class:`DataFrame` as text file (expects a single 'value' column)."""
         self._save_text(path)
 
     def orc(self, path: str) -> None:
@@ -377,7 +377,7 @@ class DataFrameWriter:
         )
 
     def parquet(self, path: str) -> None:
-        """Save DataFrame as Parquet file."""
+        """Save :class:`DataFrame` as Parquet file."""
         self._save_parquet(path)
 
     def _execute_write(self) -> None:
@@ -462,7 +462,7 @@ class DataFrameWriter:
             insert_rows(table_handle, rows, transaction=transaction)
 
     def _infer_schema_from_plan(self) -> Optional[Sequence[ColumnDef]]:
-        """Infer schema from DataFrame plan without materializing data.
+        """Infer schema from :class:`DataFrame` plan without materializing data.
 
         Returns:
             Inferred schema or None if inference is not possible
@@ -639,7 +639,7 @@ class DataFrameWriter:
     def _infer_or_get_schema(
         self, rows: List[dict[str, object]], *, force_nullable: bool = False
     ) -> Sequence[ColumnDef]:
-        """Infer schema from DataFrame plan or use provided schema."""
+        """Infer schema from :class:`DataFrame` plan or use provided schema."""
         from .writer_helpers import infer_or_get_schema
 
         return infer_or_get_schema(
@@ -694,7 +694,7 @@ class DataFrameWriter:
         return infer_type_from_value(value)
 
     def _save_csv(self, path: str) -> None:
-        """Save DataFrame as CSV file."""
+        """Save :class:`DataFrame` as CSV file."""
         self._ensure_file_layout_supported()
 
         if self._partition_by:
@@ -739,7 +739,7 @@ class DataFrameWriter:
             writer.writerows(rows)
 
     def _save_csv_stream(self, path: str) -> None:
-        """Save DataFrame as CSV file in streaming mode."""
+        """Save :class:`DataFrame` as CSV file in streaming mode."""
         path_obj = Path(path)
         if not self._prepare_file_target(path_obj):
             return
@@ -774,7 +774,7 @@ class DataFrameWriter:
                     writer.writerows(chunk)
 
     def _save_json(self, path: str) -> None:
-        """Save DataFrame as JSON file (array of objects)."""
+        """Save :class:`DataFrame` as JSON file (array of objects)."""
         self._ensure_file_layout_supported()
         indent_val = self._options.get("indent")
 
@@ -819,7 +819,7 @@ class DataFrameWriter:
             json.dump(rows, f, indent=indent, ensure_ascii=False, default=json_default)
 
     def _save_jsonl(self, path: str) -> None:
-        """Save DataFrame as JSONL file (one JSON object per line)."""
+        """Save :class:`DataFrame` as JSONL file (one JSON object per line)."""
         self._ensure_file_layout_supported()
         if self._should_stream_output():
             self._save_jsonl_stream(path)
@@ -850,7 +850,7 @@ class DataFrameWriter:
                 f.write(json.dumps(row, ensure_ascii=False, default=json_default) + "\n")
 
     def _save_jsonl_stream(self, path: str) -> None:
-        """Save DataFrame as JSONL file in streaming mode."""
+        """Save :class:`DataFrame` as JSONL file in streaming mode."""
         path_obj = Path(path)
         if not self._prepare_file_target(path_obj):
             return
@@ -873,7 +873,7 @@ class DataFrameWriter:
                     f.write(json.dumps(row, ensure_ascii=False, default=json_default) + "\n")
 
     def _save_text(self, path: str) -> None:
-        """Save DataFrame as text file (one value per line)."""
+        """Save :class:`DataFrame` as text file (one value per line)."""
         self._ensure_file_layout_supported()
         column = cast(str, self._options.get("column", "value"))
         line_sep = cast(str, self._options.get("lineSep", "\n"))
@@ -913,7 +913,7 @@ class DataFrameWriter:
                 f.write(f"{row[column]}{line_sep}")
 
     def _save_parquet(self, path: str) -> None:
-        """Save DataFrame as Parquet file."""
+        """Save :class:`DataFrame` as Parquet file."""
         self._ensure_file_layout_supported()
         from ..utils.optional_deps import get_pandas, get_pyarrow, get_pyarrow_parquet
 

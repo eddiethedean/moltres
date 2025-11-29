@@ -32,7 +32,7 @@ This directory contains example code demonstrating various features of Moltres.
 Each example file is self-contained and can be run independently:
 
 ```bash
-python examples/01_connecting.py
+python docs/examples/01_connecting.py
 ```
 
 Note: Some examples require additional dependencies:

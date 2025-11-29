@@ -23,15 +23,15 @@ except ImportError:
 
 
 def moltres_ref(dbt: Any, model_name: str, db: Optional["Database"] = None) -> "DataFrame":
-    """Reference a dbt model as a Moltres DataFrame.
+    """Reference a dbt model as a Moltres :class:`DataFrame`.
 
     Args:
         dbt: dbt context object (passed to model() function)
         model_name: Name of the dbt model to reference
-        db: Optional Database instance (will use get_moltres_connection if not provided)
+        db: Optional :class:`Database` instance (will use get_moltres_connection if not provided)
 
     Returns:
-        DataFrame referencing the dbt model table
+        :class:`DataFrame` referencing the dbt model table
 
     Example:
         >>> def model(dbt, session):
@@ -62,16 +62,16 @@ def moltres_ref(dbt: Any, model_name: str, db: Optional["Database"] = None) -> "
 def moltres_source(
     dbt: Any, source_name: str, table_name: str, db: Optional["Database"] = None
 ) -> "DataFrame":
-    """Reference a dbt source as a Moltres DataFrame.
+    """Reference a dbt source as a Moltres :class:`DataFrame`.
 
     Args:
         dbt: dbt context object (passed to model() function)
         source_name: Name of the dbt source
         table_name: Name of the table in the source
-        db: Optional Database instance (will use get_moltres_connection if not provided)
+        db: Optional :class:`Database` instance (will use get_moltres_connection if not provided)
 
     Returns:
-        DataFrame referencing the dbt source table
+        :class:`DataFrame` referencing the dbt source table
 
     Example:
         >>> def model(dbt, session):

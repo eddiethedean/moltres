@@ -4,9 +4,9 @@ This module provides fixtures and utilities to make testing with Moltres
 more convenient and robust.
 
 Key features:
-- Database connection fixtures with automatic cleanup
+- :class:`Database` connection fixtures with automatic cleanup
 - Test data fixtures and helpers
-- Custom assertions for DataFrame comparisons
+- Custom assertions for :class:`DataFrame` comparisons
 - Query logging for test debugging
 - Pytest markers for database-specific tests
 """
@@ -52,7 +52,7 @@ def _moltres_db_fixture(tmp_path: Path, request: Any) -> Generator[Database, Non
         request: Pytest request object for accessing markers
 
     Yields:
-        Database instance configured for testing
+        :class:`Database` instance configured for testing
 
     Example:
         >>> def test_query(moltres_db):
@@ -117,7 +117,7 @@ def _moltres_async_db_fixture(tmp_path: Path, request: Any) -> Generator[Any, No
         request: Pytest request object for accessing markers
 
     Yields:
-        AsyncDatabase instance configured for testing
+        :class:`AsyncDatabase` instance configured for testing
 
     Example:
         >>> @pytest.mark.asyncio
@@ -238,8 +238,8 @@ def _test_data_fixture(request: Any) -> Generator[Dict[str, Any], None, None]:
         >>> def test_with_data(moltres_db, test_data):
         ...     db = moltres_db
         ...     db.create_table("users", test_data["users_schema"])
-        ...     from moltres.io.records import Records
-        ...     Records(_data=test_data["users"], _database=db).insert_into("users")
+        ...     from moltres.io.records import :class:`Records`
+        ...     :class:`Records`(_data=test_data["users"], _database=db).insert_into("users")
     """
     _check_pytest_available()
 
@@ -272,14 +272,14 @@ def _test_data_fixture(request: Any) -> Generator[Dict[str, Any], None, None]:
 
 
 def create_test_df(data: List[Dict[str, Any]], database: Optional["Database"] = None) -> Any:
-    """Create a Moltres DataFrame from test data.
+    """Create a Moltres :class:`DataFrame` from test data.
 
     Args:
         data: List of dictionaries representing rows
         database: Optional database instance
 
     Returns:
-        DataFrame instance
+        :class:`DataFrame` instance
 
     Example:
         >>> data = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
@@ -327,8 +327,8 @@ def assert_dataframe_equal(
     """Assert that two DataFrames are equal.
 
     Args:
-        df1: First DataFrame to compare
-        df2: Second DataFrame to compare
+        df1: First :class:`DataFrame` to compare
+        df2: Second :class:`DataFrame` to compare
         ignore_order: If True, ignore row order when comparing
         check_schema: If True, also compare schemas
         rtol: Relative tolerance for floating point comparisons
@@ -477,7 +477,7 @@ def assert_query_results(
     """Assert query results match expectations.
 
     Args:
-        df: DataFrame to check
+        df: :class:`DataFrame` to check
         expected_count: Expected exact number of rows
         expected_rows: Expected exact rows (list of dicts)
         min_count: Minimum number of rows

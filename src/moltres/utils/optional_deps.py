@@ -19,12 +19,12 @@ _SKIP_PANDAS = os.environ.get("MOLTRES_SKIP_PANDAS_TESTS", "0") == "1"
 
 
 class PandasDataFrameLike(Protocol):
-    """Protocol for pandas DataFrame-like objects."""
+    """Protocol for pandas :class:`DataFrame`-like objects."""
 
     columns: list[str]
 
     def to_dict(self, orient: str = "records") -> list[dict[str, Any]]:
-        """Convert DataFrame to list of dicts."""
+        """Convert :class:`DataFrame` to list of dicts."""
         ...
 
     def __len__(self) -> int:
@@ -33,14 +33,14 @@ class PandasDataFrameLike(Protocol):
 
 
 class MockPandasDataFrame:
-    """Minimal mock for pandas DataFrame to avoid importing pandas."""
+    """Minimal mock for pandas :class:`DataFrame` to avoid importing pandas."""
 
     def __init__(self, data: list[dict[str, Any]] | None = None):
         self._data = data or []
         self.columns = list(self._data[0].keys()) if self._data else []
 
     def to_dict(self, orient: str = "records") -> list[dict[str, Any]]:
-        """Convert mock DataFrame to list of dicts."""
+        """Convert mock :class:`DataFrame` to list of dicts."""
         if orient == "records":
             return self._data
         raise ValueError(f"Unsupported orient: {orient}")
@@ -53,7 +53,7 @@ class PyArrowTableLike(Protocol):
     """Protocol for pyarrow Table-like objects."""
 
     def to_pandas(self) -> PandasDataFrameLike:
-        """Convert to pandas DataFrame."""
+        """Convert to pandas :class:`DataFrame`."""
         ...
 
 
@@ -64,7 +64,7 @@ class MockPyArrowTable:
         self._data = data or []
 
     def to_pandas(self) -> PandasDataFrameLike:
-        """Convert to pandas DataFrame (returns mock)."""
+        """Convert to pandas :class:`DataFrame` (returns mock)."""
         pandas_module = get_pandas()
         # Access DataFrame attribute - mypy can't verify dynamic module attributes
         dataframe_class = getattr(pandas_module, "DataFrame", MockPandasDataFrame)

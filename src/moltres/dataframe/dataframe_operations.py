@@ -1,7 +1,7 @@
-"""Complex DataFrame operations extracted for better maintainability.
+"""Complex :class:`DataFrame` operations extracted for better maintainability.
 
 This module contains complex operations like joins, set operations, pivots,
-explode, and CTEs that are used by DataFrame and AsyncDataFrame.
+explode, and CTEs that are used by :class:`DataFrame` and AsyncDataFrame.
 """
 
 from __future__ import annotations
@@ -30,15 +30,15 @@ def join_dataframes(
     """Join two DataFrames.
 
     Args:
-        left: Left DataFrame
-        right: Right DataFrame
+        left: Left :class:`DataFrame`
+        right: Right :class:`DataFrame`
         on: Join condition
         how: Join type ("inner", "left", "right", "full", "cross")
         lateral: If True, create a LATERAL join
         hints: Optional sequence of join hints
 
     Returns:
-        New DataFrame containing the join result
+        New :class:`DataFrame` containing the join result
     """
     if left.database is None or right.database is None:
         raise RuntimeError("Both DataFrames must be bound to a Database before joining")
@@ -80,12 +80,12 @@ def semi_join_dataframes(
     """Perform a semi-join between two DataFrames.
 
     Args:
-        left: Left DataFrame
-        right: Right DataFrame
+        left: Left :class:`DataFrame`
+        right: Right :class:`DataFrame`
         on: Join condition
 
     Returns:
-        New DataFrame containing rows from left that have matches in right
+        New :class:`DataFrame` containing rows from left that have matches in right
     """
     if left.database is None or right.database is None:
         raise RuntimeError("Both DataFrames must be bound to a Database before semi_join")
@@ -108,12 +108,12 @@ def anti_join_dataframes(
     """Perform an anti-join between two DataFrames.
 
     Args:
-        left: Left DataFrame
-        right: Right DataFrame
+        left: Left :class:`DataFrame`
+        right: Right :class:`DataFrame`
         on: Join condition
 
     Returns:
-        New DataFrame containing rows from left that have no matches in right
+        New :class:`DataFrame` containing rows from left that have no matches in right
     """
     if left.database is None or right.database is None:
         raise RuntimeError("Both DataFrames must be bound to a Database before anti_join")
@@ -131,12 +131,12 @@ def union_dataframes(left: DataFrame, right: DataFrame, distinct: bool = True) -
     """Union two DataFrames.
 
     Args:
-        left: Left DataFrame
-        right: Right DataFrame
+        left: Left :class:`DataFrame`
+        right: Right :class:`DataFrame`
         distinct: If True, return distinct rows only (UNION). If False, return all rows (UNION ALL).
 
     Returns:
-        New DataFrame containing the union result
+        New :class:`DataFrame` containing the union result
     """
     if left.database is None or right.database is None:
         raise RuntimeError("Both DataFrames must be bound to a Database before union")
@@ -150,12 +150,12 @@ def intersect_dataframes(left: DataFrame, right: DataFrame, distinct: bool = Tru
     """Intersect two DataFrames.
 
     Args:
-        left: Left DataFrame
-        right: Right DataFrame
+        left: Left :class:`DataFrame`
+        right: Right :class:`DataFrame`
         distinct: If True, return distinct rows only. If False, return all rows.
 
     Returns:
-        New DataFrame containing the intersection result
+        New :class:`DataFrame` containing the intersection result
     """
     if left.database is None or right.database is None:
         raise RuntimeError("Both DataFrames must be bound to a Database before intersect")
@@ -166,15 +166,15 @@ def intersect_dataframes(left: DataFrame, right: DataFrame, distinct: bool = Tru
 
 
 def except_dataframes(left: DataFrame, right: DataFrame, distinct: bool = True) -> DataFrame:
-    """Return rows from left DataFrame that are not in right DataFrame.
+    """Return rows from left :class:`DataFrame` that are not in right :class:`DataFrame`.
 
     Args:
-        left: Left DataFrame
-        right: Right DataFrame
+        left: Left :class:`DataFrame`
+        right: Right :class:`DataFrame`
         distinct: If True, return distinct rows only. If False, return all rows.
 
     Returns:
-        New DataFrame containing the except result
+        New :class:`DataFrame` containing the except result
     """
     if left.database is None or right.database is None:
         raise RuntimeError("Both DataFrames must be bound to a Database before except")
@@ -191,17 +191,17 @@ def pivot_dataframe(
     agg_func: str = "sum",
     pivot_values: Optional[Sequence[str]] = None,
 ) -> DataFrame:
-    """Pivot a DataFrame to reshape data from long to wide format.
+    """Pivot a :class:`DataFrame` to reshape data from long to wide format.
 
     Args:
-        df: DataFrame to pivot
-        pivot_column: Column name to pivot on
-        value_column: Column name containing values to aggregate
+        df: :class:`DataFrame` to pivot
+        pivot_column: :class:`Column` name to pivot on
+        value_column: :class:`Column` name containing values to aggregate
         agg_func: Aggregation function ("sum", "avg", "count", "min", "max")
         pivot_values: Optional sequence of pivot values (if None, will be inferred)
 
     Returns:
-        New DataFrame with pivoted data
+        New :class:`DataFrame` with pivoted data
     """
     plan = operators.pivot(
         df.plan, pivot_column, value_column, agg_func=agg_func, pivot_values=pivot_values
@@ -213,12 +213,12 @@ def explode_dataframe(df: DataFrame, column: Union[Column, str], alias: str = "v
     """Explode an array/JSON column into multiple rows.
 
     Args:
-        df: DataFrame to explode
-        column: Column expression or column name to explode
+        df: :class:`DataFrame` to explode
+        column: :class:`Column` expression or column name to explode
         alias: Alias for the exploded value column
 
     Returns:
-        New DataFrame with exploded rows
+        New :class:`DataFrame` with exploded rows
     """
     if isinstance(column, str):
         from ..expressions.column import col
@@ -231,14 +231,14 @@ def explode_dataframe(df: DataFrame, column: Union[Column, str], alias: str = "v
 
 
 def cte_dataframe(df: DataFrame, name: str) -> DataFrame:
-    """Create a Common Table Expression (CTE) from a DataFrame.
+    """Create a Common Table Expression (CTE) from a :class:`DataFrame`.
 
     Args:
-        df: DataFrame to convert to CTE
+        df: :class:`DataFrame` to convert to CTE
         name: Name for the CTE
 
     Returns:
-        New DataFrame representing the CTE
+        New :class:`DataFrame` representing the CTE
     """
     plan = operators.cte(df.plan, name)
     return DataFrame(plan=plan, database=df.database)
@@ -250,13 +250,13 @@ def recursive_cte_dataframe(
     """Create a Recursive Common Table Expression (WITH RECURSIVE) from DataFrames.
 
     Args:
-        initial: Initial DataFrame (base case)
+        initial: Initial :class:`DataFrame` (base case)
         name: Name for the recursive CTE
-        recursive: DataFrame representing the recursive part (references the CTE)
+        recursive: :class:`DataFrame` representing the recursive part (references the CTE)
         union_all: If True, use UNION ALL; if False, use UNION (distinct)
 
     Returns:
-        New DataFrame representing the recursive CTE
+        New :class:`DataFrame` representing the recursive CTE
     """
     if initial.database is None or recursive.database is None:
         raise RuntimeError("Both DataFrames must be bound to a Database before recursive_cte")

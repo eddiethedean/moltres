@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PandasGroupBy:
-    """Pandas-style GroupBy wrapper around Moltres GroupedDataFrame.
+    """Pandas-style GroupBy wrapper around Moltres :class:`GroupedDataFrame`.
 
     Provides pandas-style groupby API with dictionary aggregation support.
     """
@@ -25,10 +25,10 @@ class PandasGroupBy:
         """Apply aggregations using pandas-style dictionary syntax.
 
         Args:
-            **aggregations: Column names mapped to aggregation functions or dicts
+            **aggregations: :class:`Column` names mapped to aggregation functions or dicts
 
         Returns:
-            PandasDataFrame with aggregated results
+            :class:`PandasDataFrame` with aggregated results
 
         Example:
             >>> df.groupby('country').agg(amount='sum', price='mean')
@@ -63,7 +63,7 @@ class PandasGroupBy:
     def _create_aggregation(
         self, column_name: str, func_name: str, alias: Optional[str] = None
     ) -> Column:
-        """Create an aggregation Column from a column name and function name.
+        """Create an aggregation :class:`Column` from a column name and function name.
 
         Args:
             column_name: Name of the column to aggregate
@@ -71,7 +71,7 @@ class PandasGroupBy:
             alias: Optional alias for the result column
 
         Returns:
-            Column expression for the aggregation
+            :class:`Column` expression for the aggregation
         """
         from .groupby_helpers import create_aggregation_from_string
 
@@ -91,7 +91,7 @@ class PandasGroupBy:
         """Sum all numeric columns in each group.
 
         Returns:
-            PandasDataFrame with sum of all numeric columns for each group
+            :class:`PandasDataFrame` with sum of all numeric columns for each group
 
         Note:
             This attempts to sum all columns. For better control, use agg() with
@@ -129,7 +129,7 @@ class PandasGroupBy:
         """Mean of all numeric columns in each group.
 
         Returns:
-            PandasDataFrame with mean of all numeric columns for each group
+            :class:`PandasDataFrame` with mean of all numeric columns for each group
 
         Note:
             This attempts to average all columns. For better control, use agg() with

@@ -2,7 +2,7 @@
 
 This module provides Prefect tasks for using Moltres DataFrames in Prefect flows.
 Key features:
-- moltres_query task for executing DataFrame operations
+- moltres_query task for executing :class:`DataFrame` operations
 - moltres_to_table task for writing DataFrames to tables
 - moltres_data_quality task for data quality validation
 - ETL pipeline helpers
@@ -64,15 +64,15 @@ if PREFECT_AVAILABLE:
         query_timeout: Optional[float] = None,
         **kwargs: Any,
     ) -> Any:
-        """Prefect task for executing Moltres DataFrame operations.
+        """Prefect task for executing Moltres :class:`DataFrame` operations.
 
-        This task executes a query function that receives a Database instance
+        This task executes a query function that receives a :class:`Database` instance
         and returns results that can be used in downstream tasks.
 
         Args:
-            dsn: Database connection string (or use session parameter)
+            dsn: :class:`Database` connection string (or use session parameter)
             session: SQLAlchemy session to use (alternative to dsn)
-            query: Callable that receives a Database instance and returns a DataFrame
+            query: Callable that receives a :class:`Database` instance and returns a :class:`DataFrame`
             query_timeout: Optional query timeout in seconds
             **kwargs: Additional arguments passed to the task decorator
 
@@ -163,10 +163,10 @@ if PREFECT_AVAILABLE:
         from an upstream task or be passed directly.
 
         Args:
-            dsn: Database connection string (or use session parameter)
+            dsn: :class:`Database` connection string (or use session parameter)
             session: SQLAlchemy session to use (alternative to dsn)
             table_name: Name of the target table
-            data: Data to write (list of dictionaries or Records). If None, must be passed from upstream task.
+            data: Data to write (list of dictionaries or :class:`Records`). If None, must be passed from upstream task.
             mode: Write mode - 'append', 'overwrite', 'ignore', or 'error_if_exists'
             if_exists: Alias for mode (for compatibility)
             **kwargs: Additional arguments passed to the task decorator
@@ -252,9 +252,9 @@ if PREFECT_AVAILABLE:
         quality report that can be used for conditional flow control.
 
         Args:
-            dsn: Database connection string (or use session parameter)
+            dsn: :class:`Database` connection string (or use session parameter)
             session: SQLAlchemy session to use (alternative to dsn)
-            query: Callable that receives a Database instance and returns a DataFrame
+            query: Callable that receives a :class:`Database` instance and returns a :class:`DataFrame`
             checks: List of check configurations (can use DataQualityCheck factory methods)
             fail_fast: Whether to stop checking after first failure (default: False)
             **kwargs: Additional arguments passed to the task decorator
@@ -385,10 +385,10 @@ class ETLPipeline:
         """Initialize ETL pipeline.
 
         Args:
-            extract: Function that returns a DataFrame (extract step)
-            transform: Optional function that takes a DataFrame and returns a transformed DataFrame
-            load: Optional function that takes a DataFrame and executes the load step
-            validate: Optional function that takes a DataFrame and returns True if valid
+            extract: Function that returns a :class:`DataFrame` (extract step)
+            transform: Optional function that takes a :class:`DataFrame` and returns a transformed :class:`DataFrame`
+            load: Optional function that takes a :class:`DataFrame` and executes the load step
+            validate: Optional function that takes a :class:`DataFrame` and returns True if valid
         """
         self.extract = extract
         self.transform = transform

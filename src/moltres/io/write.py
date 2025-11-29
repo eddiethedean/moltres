@@ -18,7 +18,7 @@ class SupportsToDicts(Protocol):  # pragma: no cover - typing aid
 def insert_rows(table: str, rows: list[dict[str, object]]) -> None:
     """Insert rows into a table.
 
-    Note: This function is a placeholder. Use TableHandle.insert() instead.
+    Note: This function is a placeholder. Use :class:`TableHandle`.insert() instead.
 
     Args:
         table: Table name (unused, kept for API compatibility)

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PolarsGroupBy:
-    """Polars-style GroupBy wrapper around Moltres GroupedDataFrame.
+    """Polars-style GroupBy wrapper around Moltres :class:`GroupedDataFrame`.
 
     Provides Polars-style groupby API with expression-based aggregations.
     """
@@ -25,10 +25,10 @@ class PolarsGroupBy:
         """Apply aggregations using Polars-style expressions.
 
         Args:
-            *exprs: Column expressions for aggregations, or dictionary mapping column names to function names
+            *exprs: :class:`Column` expressions for aggregations, or dictionary mapping column names to function names
 
         Returns:
-            PolarsDataFrame with aggregated results
+            :class:`PolarsDataFrame` with aggregated results
 
         Example:
             >>> df.group_by('country').agg(col('amount').sum(), col('price').mean())
@@ -55,7 +55,7 @@ class PolarsGroupBy:
         """Mean of all numeric columns in each group.
 
         Returns:
-            PolarsDataFrame with mean of all numeric columns for each group
+            :class:`PolarsDataFrame` with mean of all numeric columns for each group
 
         Note:
             This attempts to average all columns. For better control, use agg() with
@@ -89,7 +89,7 @@ class PolarsGroupBy:
         """Sum all numeric columns in each group.
 
         Returns:
-            PolarsDataFrame with sum of all numeric columns for each group
+            :class:`PolarsDataFrame` with sum of all numeric columns for each group
         """
         from .polars_dataframe import PolarsDataFrame
         from ..expressions import functions as F

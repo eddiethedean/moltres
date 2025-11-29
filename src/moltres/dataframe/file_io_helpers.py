@@ -27,14 +27,14 @@ def route_file_read(
     Args:
         format_name: File format ("csv", "json", "jsonl", "parquet", "text")
         path: Path to the file
-        database: Database instance (sync or async)
+        database: :class:`Database` instance (sync or async)
         schema: Optional schema definition
         options: Read options dictionary
         column_name: Optional column name for text files
         async_mode: If True, use async readers; if False, use sync readers
 
     Returns:
-        Records or AsyncRecords object (depending on async_mode)
+        :class:`Records` or :class:`AsyncRecords` object (depending on async_mode)
 
     Raises:
         ValueError: If format is unsupported
@@ -124,14 +124,14 @@ def route_file_read_streaming(
     Args:
         format_name: File format ("csv", "json", "jsonl", "parquet", "text")
         path: Path to the file
-        database: Database instance (sync or async)
+        database: :class:`Database` instance (sync or async)
         schema: Optional schema definition
         options: Read options dictionary
         column_name: Optional column name for text files
         async_mode: If True, use async readers; if False, use sync readers
 
     Returns:
-        Records or AsyncRecords object with streaming generator (depending on async_mode)
+        :class:`Records` or :class:`AsyncRecords` object with streaming generator (depending on async_mode)
 
     Raises:
         ValueError: If format is unsupported

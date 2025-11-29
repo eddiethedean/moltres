@@ -1,4 +1,4 @@
-"""Json functions for DataFrame operations."""
+"""Json functions for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def json_extract(column: ColumnLike, path: str) -> Column:
         path: JSON path expression (e.g., "$.key", "$.nested.key", "$[0]")
 
     Returns:
-        Column expression for json_extract
+        :class:`Column` expression for json_extract
 
     Example:
         >>> # Note: json_extract() requires database-specific JSON support
@@ -25,8 +25,8 @@ def json_extract(column: ColumnLike, path: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("json_data", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.json_extract(col("json_data"), "$.name").alias("name"))
         >>> results = df.collect()
         >>> results[0]["name"]
@@ -44,7 +44,7 @@ def json_tuple(column: ColumnLike, *paths: str) -> Column:
         *paths: JSON path expressions (e.g., "$.key1", "$.key2")
 
     Returns:
-        Column expression for json_tuple (returns array of values)
+        :class:`Column` expression for json_tuple (returns array of values)
 
     Example:
         >>> # Note: json_tuple() requires database-specific JSON support (PostgreSQL/MySQL)
@@ -54,8 +54,8 @@ def json_tuple(column: ColumnLike, *paths: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("json_data", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.json_tuple(col("json_data"), "$.name", "$.age").alias("tuple"))
         >>> results = df.collect()
         >>> len(results[0]["tuple"])
@@ -75,7 +75,7 @@ def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
         schema: Optional schema string (for validation)
 
     Returns:
-        Column expression for from_json
+        :class:`Column` expression for from_json
 
     Example:
         >>> # Note: from_json() requires database-specific JSON support (PostgreSQL/MySQL)
@@ -85,8 +85,8 @@ def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("json_str", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_str": '{"name": "Alice"}'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_str": '{"name": "Alice"}'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.from_json(col("json_str")).alias("json_obj"))
         >>> results = df.collect()
         >>> isinstance(results[0]["json_obj"], dict)
@@ -102,10 +102,10 @@ def to_json(column: ColumnLike) -> Column:
     """Convert a column to a JSON string.
 
     Args:
-        column: Column expression to convert
+        column: :class:`Column` expression to convert
 
     Returns:
-        Column expression for to_json
+        :class:`Column` expression for to_json
 
     Example:
         >>> # Note: to_json() requires database-specific JSON support (PostgreSQL/MySQL)
@@ -115,8 +115,8 @@ def to_json(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("value", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 42}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 42}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.to_json(col("value")).alias("json_str"))
         >>> results = df.collect()
         >>> # DuckDB returns JSON as the actual value type, not a string
@@ -134,7 +134,7 @@ def json_array_length(column: ColumnLike) -> Column:
         column: JSON array column expression
 
     Returns:
-        Column expression for json_array_length
+        :class:`Column` expression for json_array_length
 
     Example:
         >>> # Note: json_array_length() requires database-specific JSON support
@@ -144,8 +144,8 @@ def json_array_length(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("json_array", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_array": '[1, 2, 3]'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_array": '[1, 2, 3]'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.json_array_length(col("json_array")).alias("length"))
         >>> results = df.collect()
         >>> results[0]["length"]

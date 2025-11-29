@@ -97,7 +97,7 @@ def to_sqlalchemy_select_async(df: "AsyncDataFrame", dialect: Optional[str] = No
     Args:
         df: Moltres AsyncDataFrame to convert
         dialect: Optional SQL dialect name. If not provided, uses the dialect
-                from the AsyncDataFrame's attached AsyncDatabase, or defaults to "ansi"
+                from the AsyncDataFrame's attached :class:`AsyncDatabase`, or defaults to "ansi"
 
     Returns:
         SQLAlchemy Select statement
@@ -124,7 +124,7 @@ def from_sqlalchemy_select_async(
 
     Args:
         select_stmt: SQLAlchemy Select statement to convert
-        database: Optional AsyncDatabase instance to attach to the AsyncDataFrame
+        database: Optional :class:`AsyncDatabase` instance to attach to the AsyncDataFrame
 
     Returns:
         Moltres AsyncDataFrame that can be further chained with Moltres operations

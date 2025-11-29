@@ -1,7 +1,7 @@
-"""Conversion utilities for Records.
+"""Conversion utilities for :class:`Records`.
 
 This module contains helper functions for converting between pandas/polars
-DataFrames and Records, including schema extraction and type conversion.
+DataFrames and :class:`Records`, including schema extraction and type conversion.
 """
 
 from __future__ import annotations
@@ -16,13 +16,13 @@ if TYPE_CHECKING:
 
 
 def is_pandas_dataframe(obj: Any) -> bool:
-    """Check if object is a pandas DataFrame without importing pandas unnecessarily.
+    """Check if object is a pandas :class:`DataFrame` without importing pandas unnecessarily.
 
     Args:
         obj: Object to check
 
     Returns:
-        True if object is a pandas DataFrame, False otherwise
+        True if object is a pandas :class:`DataFrame`, False otherwise
     """
     module = getattr(type(obj), "__module__", "")
     if "pandas" not in module:
@@ -35,13 +35,13 @@ def is_pandas_dataframe(obj: Any) -> bool:
 
 
 def is_polars_dataframe(obj: Any) -> bool:
-    """Check if object is a polars DataFrame.
+    """Check if object is a polars :class:`DataFrame`.
 
     Args:
         obj: Object to check
 
     Returns:
-        True if object is a polars DataFrame, False otherwise
+        True if object is a polars :class:`DataFrame`, False otherwise
     """
     module = getattr(type(obj), "__module__", "")
     if "polars" not in module:
@@ -141,10 +141,10 @@ def convert_polars_type_to_sql_type(polars_type: Any) -> str:
 
 
 def extract_schema_from_pandas_dataframe(df: Any) -> Optional[List["ColumnDef"]]:
-    """Extract schema from pandas DataFrame.
+    """Extract schema from pandas :class:`DataFrame`.
 
     Args:
-        df: pandas DataFrame
+        df: pandas :class:`DataFrame`
 
     Returns:
         List of ColumnDef objects or None if extraction fails
@@ -170,10 +170,10 @@ def extract_schema_from_pandas_dataframe(df: Any) -> Optional[List["ColumnDef"]]
 
 
 def extract_schema_from_polars_dataframe(df: Any) -> Optional[List["ColumnDef"]]:
-    """Extract schema from polars DataFrame.
+    """Extract schema from polars :class:`DataFrame`.
 
     Args:
-        df: polars DataFrame
+        df: polars :class:`DataFrame`
 
     Returns:
         List of ColumnDef objects or None if extraction fails
@@ -235,16 +235,16 @@ def extract_schema_from_polars_lazyframe(lf: Any) -> Optional[List["ColumnDef"]]
 
 
 def convert_dataframe_to_rows(df: Any) -> List[dict[str, object]]:
-    """Convert pandas/polars DataFrame or polars LazyFrame to list of dictionaries.
+    """Convert pandas/polars :class:`DataFrame` or polars LazyFrame to list of dictionaries.
 
     Args:
-        df: pandas DataFrame, polars DataFrame, or polars LazyFrame
+        df: pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
 
     Returns:
         List of row dictionaries
 
     Raises:
-        ValueError: If DataFrame type is not supported
+        ValueError: If :class:`DataFrame` type is not supported
     """
     if is_pandas_dataframe(df):
         # Convert pandas DataFrame to list of dicts
@@ -261,10 +261,10 @@ def convert_dataframe_to_rows(df: Any) -> List[dict[str, object]]:
 
 
 def extract_schema_from_dataframe(df: Any) -> Optional[List["ColumnDef"]]:
-    """Extract schema from pandas/polars DataFrame or polars LazyFrame.
+    """Extract schema from pandas/polars :class:`DataFrame` or polars LazyFrame.
 
     Args:
-        df: pandas DataFrame, polars DataFrame, or polars LazyFrame
+        df: pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
 
     Returns:
         List of ColumnDef objects or None if extraction fails

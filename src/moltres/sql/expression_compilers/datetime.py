@@ -23,7 +23,7 @@ def compile_datetime_operation(
     Args:
         compiler: The ExpressionCompiler instance
         op: Operation name (e.g., "year", "month", "date_format")
-        expression: Column expression to compile
+        expression: :class:`Column` expression to compile
 
     Returns:
         Compiled SQLAlchemy column element, or None if not handled

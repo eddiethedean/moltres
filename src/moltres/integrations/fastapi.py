@@ -216,14 +216,14 @@ def register_exception_handlers(app: "FastAPI") -> None:
 def get_db(session: "Session") -> "Database":
     """FastAPI dependency helper for sync database connections.
 
-    This is a convenience function for creating Moltres Database instances
+    This is a convenience function for creating Moltres :class:`Database` instances
     from FastAPI dependency-injected SQLAlchemy/SQLModel sessions.
 
     Args:
         session: SQLAlchemy Session or SQLModel Session from FastAPI dependency
 
     Returns:
-        Moltres Database instance
+        Moltres :class:`Database` instance
 
     Example:
         >>> from fastapi import Depends
@@ -231,7 +231,7 @@ def get_db(session: "Session") -> "Database":
         >>> from moltres.integrations.fastapi import get_db
         >>>
         >>> @app.get("/users")
-        >>> def get_users(db: Database = Depends(lambda: get_db(Depends(get_session)))):
+        >>> def get_users(db: :class:`Database` = Depends(lambda: get_db(Depends(get_session)))):
         ...     # Use db for Moltres operations
         ...     df = db.table("users").select()
         ...     return df.collect()
@@ -244,14 +244,14 @@ def get_db(session: "Session") -> "Database":
 async def get_async_db(session: "AsyncSession") -> "AsyncDatabase":
     """FastAPI dependency helper for async database connections.
 
-    This is a convenience function for creating Moltres AsyncDatabase instances
+    This is a convenience function for creating Moltres :class:`AsyncDatabase` instances
     from FastAPI dependency-injected async SQLAlchemy/SQLModel sessions.
 
     Args:
         session: SQLAlchemy AsyncSession or SQLModel AsyncSession from FastAPI dependency
 
     Returns:
-        Moltres AsyncDatabase instance
+        Moltres :class:`AsyncDatabase` instance
 
     Example:
         >>> from fastapi import Depends
@@ -259,7 +259,7 @@ async def get_async_db(session: "AsyncSession") -> "AsyncDatabase":
         >>> from moltres.integrations.fastapi import get_async_db
         >>>
         >>> @app.get("/users")
-        >>> async def get_users(db: AsyncDatabase = Depends(lambda: get_async_db(Depends(get_async_session)))):
+        >>> async def get_users(db: :class:`AsyncDatabase` = Depends(lambda: get_async_db(Depends(get_async_session)))):
         ...     # Use db for async Moltres operations
         ...     df = (await db.table("users")).select()
         ...     return await df.collect()
@@ -279,7 +279,7 @@ def create_db_dependency(get_session: Callable[[], "Session"]) -> Callable[[], "
         get_session: Function that returns a SQLAlchemy Session (typically from Depends)
 
     Returns:
-        Dependency function that returns a Moltres Database instance
+        Dependency function that returns a Moltres :class:`Database` instance
 
     Example:
         >>> from fastapi import Depends
@@ -293,7 +293,7 @@ def create_db_dependency(get_session: Callable[[], "Session"]) -> Callable[[], "
         >>> get_db = create_db_dependency(get_session)
         >>>
         >>> @app.get("/users")
-        >>> def get_users(db: Database = Depends(get_db)):
+        >>> def get_users(db: :class:`Database` = Depends(get_db)):
         ...     df = db.table("users").select()
         ...     return df.collect()
     """
@@ -349,7 +349,7 @@ def create_async_db_dependency(
                      Can be a regular async function or an async generator function (with yield).
 
     Returns:
-        Async dependency function that returns a Moltres AsyncDatabase instance.
+        Async dependency function that returns a Moltres :class:`AsyncDatabase` instance.
         This function should be used with Depends(get_db) in route handlers.
 
     Example:
@@ -364,7 +364,7 @@ def create_async_db_dependency(
         >>> get_db = create_async_db_dependency(get_async_session)
         >>>
         >>> @app.get("/users")
-        >>> async def get_users(db: AsyncDatabase = Depends(get_db)):
+        >>> async def get_users(db: :class:`AsyncDatabase` = Depends(get_db)):
         ...     df = (await db.table("users")).select()
         ...     return await df.collect()
     """
@@ -409,7 +409,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
         >>>
         >>> @app.get("/users")
         >>> @handle_moltres_errors
-        >>> def get_users(db: Database):
+        >>> def get_users(db: :class:`Database`):
         ...     df = db.table("users").select()
         ...     return df.collect()
     """

@@ -274,7 +274,7 @@ class QualityChecker:
     async def check_async(
         self, df: "AsyncDataFrame", checks: Sequence[Dict[str, Any]]
     ) -> QualityReport:
-        """Execute quality checks on an async DataFrame.
+        """Execute quality checks on an async :class:`DataFrame`.
 
         Args:
             df: AsyncDataFrame to check
@@ -314,10 +314,10 @@ class QualityChecker:
         )
 
     def check(self, df: "DataFrame", checks: Sequence[Dict[str, Any]]) -> QualityReport:
-        """Execute quality checks on a sync DataFrame.
+        """Execute quality checks on a sync :class:`DataFrame`.
 
         Args:
-            df: DataFrame to check
+            df: :class:`DataFrame` to check
             checks: List of check configurations
 
         Returns:

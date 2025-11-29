@@ -618,5 +618,5 @@ INSTALLED_APPS = [
 
 - [FastAPI Integration Guide](11-sqlalchemy-integration.md) - Similar patterns for FastAPI
 - [SQLAlchemy Integration Guide](11-sqlalchemy-integration.md) - Using Moltres with SQLAlchemy
-- [Examples](../examples/23_django_integration.py) - Complete Django integration examples
+- [Examples](../docs/examples/23_django_integration.py) - Complete Django integration examples
 

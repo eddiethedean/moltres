@@ -1,4 +1,15 @@
-"""Lazy DataFrame representation."""
+"""Lazy :class:`DataFrame` representation.
+
+This module provides the core :class:`DataFrame` class, which represents a lazy
+query plan that is executed only when results are requested (via :meth:`collect`,
+:meth:`show`, etc.).
+
+The :class:`DataFrame` class supports:
+- PySpark-style operations (select, where, join, groupBy, etc.)
+- SQL pushdown execution (all operations compile to SQL)
+- Lazy evaluation (queries are not executed until collect/show is called)
+- Model integration (SQLModel, Pydantic, SQLAlchemy)
+"""
 
 from __future__ import annotations
 
@@ -38,6 +49,27 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class DataFrame(DataFrameHelpersMixin):
+    """Lazy :class:`DataFrame` representing a query plan.
+
+    A :class:`DataFrame` is an immutable, lazy representation of a SQL query.
+    Operations on a :class:`DataFrame` build up a logical plan that is only executed
+    when you call :meth:`collect`, :meth:`show`, or similar execution methods.
+
+    All operations compile to SQL and execute directly on the database - no
+    data is loaded into memory until you explicitly request results.
+
+    Attributes:
+        plan: The logical plan representing this query
+        database: Optional :class:`Database` instance for executing the query
+        model: Optional SQLModel, Pydantic, or SQLAlchemy model class for type safety
+
+    Example:
+        >>> from moltres import connect, col
+        >>> db = connect("sqlite:///example.db")
+        >>> df = db.table("users").select().where(col("age") > 25)
+        >>> results = df.collect()  # Query executes here
+    """
+
     plan: LogicalPlan
     database: Optional["Database"] = None
     model: Optional[Type[Any]] = None  # SQLModel class, if attached
@@ -65,29 +97,29 @@ class DataFrame(DataFrameHelpersMixin):
     def from_sqlalchemy(
         cls, select_stmt: "Select", database: Optional["Database"] = None
     ) -> "DataFrame":
-        """Create a DataFrame from a SQLAlchemy Select statement.
+        """Create a :class:`DataFrame` from a SQLAlchemy Select statement.
 
         This allows you to integrate existing SQLAlchemy queries with Moltres
-        DataFrame operations. The SQLAlchemy statement is wrapped as a RawSQL
+        :class:`DataFrame` operations. The SQLAlchemy statement is wrapped as a RawSQL
         logical plan, which can then be further chained with Moltres operations.
 
         Args:
             select_stmt: SQLAlchemy Select statement to convert
-            database: Optional Database instance to attach to the DataFrame.
-                     If provided, allows the DataFrame to be executed with collect().
+            database: Optional :class:`Database` instance to attach to the :class:`DataFrame`.
+                     If provided, allows the :class:`DataFrame` to be executed with collect().
 
         Returns:
-            DataFrame that can be further chained with Moltres operations
+            :class:`DataFrame`: :class:`DataFrame` that can be further chained with Moltres operations
 
         Example:
             >>> from sqlalchemy import create_engine, select, table, column
-            >>> from moltres import DataFrame
+            >>> from moltres import :class:`DataFrame`
             >>> engine = create_engine("sqlite:///:memory:")
             >>> # Create a SQLAlchemy select statement
             >>> users = table("users", column("id"), column("name"))
             >>> sa_stmt = select(users.c.id, users.c.name).where(users.c.id > 1)
-            >>> # Convert to Moltres DataFrame
-            >>> df = DataFrame.from_sqlalchemy(sa_stmt)
+            >>> # Convert to Moltres :class:`DataFrame`
+            >>> df = :class:`DataFrame`.from_sqlalchemy(sa_stmt)
             >>> # Can now chain Moltres operations
             >>> df2 = df.select("id")
         """
@@ -105,23 +137,23 @@ class DataFrame(DataFrameHelpersMixin):
         return cls(plan=plan, database=database)
 
     def select(self, *columns: Union[Column, str]) -> "DataFrame":
-        """Select specific columns from the DataFrame.
+        """Select specific columns from the :class:`DataFrame`.
 
         Args:
-            *columns: Column names or Column expressions to select.
+            *columns: :class:`Column` names or :class:`Column` expressions to select.
                      Use "*" to select all columns (same as empty select).
                      Can combine "*" with other columns: select("*", col("new_col"))
 
         Returns:
-            New DataFrame with selected columns
+            New :class:`DataFrame` with selected columns
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("email", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
             >>> # Select specific columns
             >>> df = db.table("users").select("id", "name", "email")
             >>> results = df.collect()
@@ -134,7 +166,7 @@ class DataFrame(DataFrameHelpersMixin):
             3
             >>> # Select with expressions
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> _ = Records(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
             >>> df3 = db.table("orders").select(col("id"), (col("amount") * 1.1).alias("amount_with_tax"))
             >>> results3 = df3.collect()
             >>> results3[0]["amount_with_tax"]
@@ -226,21 +258,21 @@ class DataFrame(DataFrameHelpersMixin):
         """Select columns using SQL expressions.
 
         This method allows you to write SQL expressions directly instead of
-        building Column objects manually, similar to PySpark's selectExpr().
+        building :class:`Column` objects manually, similar to PySpark's selectExpr().
 
         Args:
             *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
 
         Returns:
-            New DataFrame with selected expressions
+            New :class:`DataFrame` with selected expressions
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "amount": 100.0, "name": "Alice"}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0, "name": "Alice"}], _database=db).insert_into("orders")
             >>> # Basic column selection
             >>> df = db.table("orders").selectExpr("id", "name")
             >>> results = df.collect()
@@ -292,20 +324,20 @@ class DataFrame(DataFrameHelpersMixin):
         """Filter rows based on a condition.
 
         Args:
-            predicate: Column expression or SQL string representing the filter condition.
-                      Can be a Column object or a SQL string like "age > 18".
+            predicate: :class:`Column` expression or SQL string representing the filter condition.
+                      Can be a :class:`Column` object or a SQL string like "age > 18".
 
         Returns:
-            New DataFrame with filtered rows
+            New :class:`DataFrame` with filtered rows
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db).insert_into("users")
-            >>> # Filter by condition using Column
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db).insert_into("users")
+            >>> # Filter by condition using :class:`Column`
             >>> df = db.table("users").select().where(col("age") >= 18)
             >>> results = df.collect()
             >>> len(results)
@@ -317,9 +349,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> results2 = df2.collect()
             >>> len(results2)
             1
-            >>> # Multiple conditions with Column
+            >>> # Multiple conditions with :class:`Column`
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL"), column("status", "TEXT")]).collect()
-            >>> _ = Records(_data=[{"id": 1, "amount": 150.0, "status": "active"}, {"id": 2, "amount": 50.0, "status": "active"}], _database=db).insert_into("orders")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 150.0, "status": "active"}, {"id": 2, "amount": 50.0, "status": "active"}], _database=db).insert_into("orders")
             >>> df3 = db.table("orders").select().where((col("amount") > 100) & (col("status") == "active"))
             >>> results3 = df3.collect()
             >>> len(results3)
@@ -359,7 +391,7 @@ class DataFrame(DataFrameHelpersMixin):
                   If 0, returns an empty result set.
 
         Returns:
-            New DataFrame with the limit applied
+            New :class:`DataFrame` with the limit applied
 
         Raises:
             ValueError: If count is negative
@@ -369,8 +401,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> # Limit to 3 rows
             >>> df = db.table("users").select().limit(3)
             >>> results = df.collect()
@@ -378,7 +410,7 @@ class DataFrame(DataFrameHelpersMixin):
             3
             >>> # Limit with ordering
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> Records(_data=[{"id": i, "amount": float(i * 10)} for i in range(1, 6)], _database=db).insert_into("orders")
+            >>> :class:`Records`(_data=[{"id": i, "amount": float(i * 10)} for i in range(1, 6)], _database=db).insert_into("orders")
             >>> df2 = db.table("orders").select().order_by(col("amount").desc()).limit(2)
             >>> results2 = df2.collect()
             >>> len(results2)
@@ -392,22 +424,22 @@ class DataFrame(DataFrameHelpersMixin):
         return self._with_plan(operators.limit(self.plan, count))
 
     def sample(self, fraction: float, seed: Optional[int] = None) -> "DataFrame":
-        """Sample a fraction of rows from the DataFrame.
+        """Sample a fraction of rows from the :class:`DataFrame`.
 
         Args:
             fraction: Fraction of rows to sample (0.0 to 1.0)
             seed: Optional random seed for reproducible sampling
 
         Returns:
-            New DataFrame with sampled rows
+            New :class:`DataFrame` with sampled rows
 
         Example:
             >>> from moltres import connect
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 11)], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 11)], _database=db).insert_into("users")
             >>> # Sample 30% of rows with seed for reproducibility
             >>> df = db.table("users").select().sample(0.3, seed=42)
             >>> results = df.collect()
@@ -421,19 +453,19 @@ class DataFrame(DataFrameHelpersMixin):
         """Sort rows by one or more columns.
 
         Args:
-            *columns: Column expressions or column names to sort by. Use .asc() or .desc() for sort order.
-                     Can be strings (column names) or Column objects.
+            *columns: :class:`Column` expressions or column names to sort by. Use .asc() or .desc() for sort order.
+                     Can be strings (column names) or :class:`Column` objects.
 
         Returns:
-            New DataFrame with sorted rows
+            New :class:`DataFrame` with sorted rows
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Charlie"}, {"id": 2, "name": "Alice"}, {"id": 3, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Charlie"}, {"id": 2, "name": "Alice"}, {"id": 3, "name": "Bob"}], _database=db).insert_into("users")
             >>> # Sort ascending with string column name
             >>> df = db.table("users").select().order_by("name")
             >>> results = df.collect()
@@ -441,16 +473,16 @@ class DataFrame(DataFrameHelpersMixin):
             'Alice'
             >>> results[1]["name"]
             'Bob'
-            >>> # Sort descending with Column object
+            >>> # Sort descending with :class:`Column` object
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> _ = Records(_data=[{"id": 1, "amount": 50.0}, {"id": 2, "amount": 100.0}, {"id": 3, "amount": 25.0}], _database=db).insert_into("orders")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 50.0}, {"id": 2, "amount": 100.0}, {"id": 3, "amount": 25.0}], _database=db).insert_into("orders")
             >>> df2 = db.table("orders").select().order_by(col("amount").desc())
             >>> results2 = df2.collect()
             >>> results2[0]["amount"]
             100.0
             >>> # Multiple sort columns
             >>> db.create_table("sales", [column("region", "TEXT"), column("amount", "REAL")]).collect()
-            >>> _ = Records(_data=[{"region": "North", "amount": 100.0}, {"region": "North", "amount": 50.0}, {"region": "South", "amount": 75.0}], _database=db).insert_into("sales")
+            >>> _ = :class:`Records`(_data=[{"region": "North", "amount": 100.0}, {"region": "North", "amount": 50.0}, {"region": "South", "amount": 75.0}], _database=db).insert_into("sales")
             >>> df3 = db.table("sales").select().order_by("region", col("amount").desc())
             >>> results3 = df3.collect()
             >>> results3[0]["region"]
@@ -480,15 +512,15 @@ class DataFrame(DataFrameHelpersMixin):
         lateral: bool = False,
         hints: Optional[Sequence[str]] = None,
     ) -> "DataFrame":
-        """Join with another DataFrame.
+        """Join with another :class:`DataFrame`.
 
         Args:
-            other: Another DataFrame to join with
+            other: Another :class:`DataFrame` to join with
             on: Join condition - can be:
                 - A single column name (assumes same name in both DataFrames): ``on="order_id"``
                 - A sequence of column names (assumes same names in both): ``on=["col1", "col2"]``
                 - A sequence of (left_column, right_column) tuples: ``on=[("id", "customer_id")]``
-                - A Column expression (PySpark-style): ``on=[col("left_col") == col("right_col")]``
+                - A :class:`Column` expression (PySpark-style): ``on=[col("left_col") == col("right_col")]``
                 - A single Column expression: ``on=col("left_col") == col("right_col")``
             how: Join type ("inner", "left", "right", "full", "cross")
             lateral: If True, create a LATERAL join (PostgreSQL, MySQL 8.0+).
@@ -497,10 +529,10 @@ class DataFrame(DataFrameHelpersMixin):
                    Dialect-specific: MySQL uses USE INDEX, PostgreSQL uses /*+ ... */ comments.
 
         Returns:
-            New DataFrame containing the join result
+            New :class:`DataFrame` containing the join result
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect, col
@@ -509,10 +541,10 @@ class DataFrame(DataFrameHelpersMixin):
             >>> # Setup tables
             >>> db.create_table("customers", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("orders", [column("id", "INTEGER"), column("customer_id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("customers")
-            >>> _ = Records(_data=[{"id": 1, "customer_id": 1, "amount": 100.0}], _database=db).insert_into("orders")
-            >>> # PySpark-style with Column expressions (recommended)
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("customers")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "customer_id": 1, "amount": 100.0}], _database=db).insert_into("orders")
+            >>> # PySpark-style with :class:`Column` expressions (recommended)
             >>> customers = db.table("customers").select()
             >>> orders = db.table("orders").select()
             >>> df = customers.join(orders, on=[col("customers.id") == col("orders.customer_id")], how="inner")
@@ -525,13 +557,13 @@ class DataFrame(DataFrameHelpersMixin):
             100.0
             >>> # Same column name (simplest)
             >>> db.create_table("items", [column("order_id", "INTEGER"), column("product", "TEXT")]).collect()
-            >>> _ = Records(_data=[{"order_id": 1, "product": "Widget"}], _database=db).insert_into("items")
+            >>> _ = :class:`Records`(_data=[{"order_id": 1, "product": "Widget"}], _database=db).insert_into("items")
             >>> df2 = orders.join(db.table("items").select(), on="order_id", how="inner")
             >>> results2 = df2.collect()
             >>> results2[0]["product"]
             'Widget'
             >>> # Left join
-            >>> _ = Records(_data=[{"id": 2, "name": "Bob"}], _database=db).insert_into("customers")
+            >>> _ = :class:`Records`(_data=[{"id": 2, "name": "Bob"}], _database=db).insert_into("customers")
             >>> df3 = customers.join(orders, on=[col("customers.id") == col("orders.customer_id")], how="left")
             >>> results3 = df3.collect()
             >>> len(results3)
@@ -546,16 +578,16 @@ class DataFrame(DataFrameHelpersMixin):
         return join_dataframes(self, other, on=on, how=how, lateral=lateral, hints=hints)
 
     def crossJoin(self, other: "DataFrame") -> "DataFrame":
-        """Perform a cross join (Cartesian product) with another DataFrame.
+        """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
 
         Args:
-            other: Another DataFrame to cross join with
+            other: Another :class:`DataFrame` to cross join with
 
         Returns:
-            New DataFrame containing the Cartesian product of rows
+            New :class:`DataFrame` containing the Cartesian product of rows
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect
@@ -563,9 +595,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("table1", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("table2", [column("id", "INTEGER"), column("value", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "A"}, {"id": 2, "name": "B"}], _database=db).insert_into("table1")
-            >>> _ = Records(_data=[{"id": 1, "value": "X"}, {"id": 2, "value": "Y"}], _database=db).insert_into("table2")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "A"}, {"id": 2, "name": "B"}], _database=db).insert_into("table1")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "value": "X"}, {"id": 2, "value": "Y"}], _database=db).insert_into("table2")
             >>> df1 = db.table("table1").select()
             >>> df2 = db.table("table2").select()
             >>> # Cross join (Cartesian product)
@@ -583,22 +615,22 @@ class DataFrame(DataFrameHelpersMixin):
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
     ) -> "DataFrame":
-        """Perform a semi-join: return rows from this DataFrame where a matching row exists in other.
+        """Perform a semi-join: return rows from this :class:`DataFrame` where a matching row exists in other.
 
         This is equivalent to filtering with EXISTS subquery.
 
         Args:
-            other: Another DataFrame to semi-join with (used as EXISTS subquery)
+            other: Another :class:`DataFrame` to semi-join with (used as EXISTS subquery)
             on: Join condition - can be:
                 - A single column name (assumes same name in both DataFrames)
                 - A sequence of column names (assumes same names in both)
                 - A sequence of (left_column, right_column) tuples
 
         Returns:
-            New DataFrame containing rows from this DataFrame that have matches in other
+            New :class:`DataFrame` containing rows from this :class:`DataFrame` that have matches in other
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect
@@ -606,9 +638,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("customers", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("orders", [column("id", "INTEGER"), column("customer_id", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("customers")
-            >>> _ = Records(_data=[{"id": 1, "customer_id": 1}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("customers")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "customer_id": 1}], _database=db).insert_into("orders")
             >>> # Find customers who have placed orders
             >>> customers = db.table("customers").select()
             >>> orders = db.table("orders").select()
@@ -630,22 +662,22 @@ class DataFrame(DataFrameHelpersMixin):
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
     ) -> "DataFrame":
-        """Perform an anti-join: return rows from this DataFrame where no matching row exists in other.
+        """Perform an anti-join: return rows from this :class:`DataFrame` where no matching row exists in other.
 
         This is equivalent to filtering with NOT EXISTS subquery.
 
         Args:
-            other: Another DataFrame to anti-join with (used as NOT EXISTS subquery)
+            other: Another :class:`DataFrame` to anti-join with (used as NOT EXISTS subquery)
             on: Join condition - can be:
                 - A single column name (assumes same name in both DataFrames)
                 - A sequence of column names (assumes same names in both)
                 - A sequence of (left_column, right_column) tuples
 
         Returns:
-            New DataFrame containing rows from this DataFrame that have no matches in other
+            New :class:`DataFrame` containing rows from this :class:`DataFrame` that have no matches in other
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect
@@ -653,9 +685,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("customers", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("orders", [column("id", "INTEGER"), column("customer_id", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("customers")
-            >>> _ = Records(_data=[{"id": 1, "customer_id": 1}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("customers")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "customer_id": 1}], _database=db).insert_into("orders")
             >>> # Find customers who have not placed any orders
             >>> customers = db.table("customers").select()
             >>> orders = db.table("orders").select()
@@ -678,24 +710,24 @@ class DataFrame(DataFrameHelpersMixin):
         agg_func: str = "sum",
         pivot_values: Optional[Sequence[str]] = None,
     ) -> "DataFrame":
-        """Pivot the DataFrame to reshape data from long to wide format.
+        """Pivot the :class:`DataFrame` to reshape data from long to wide format.
 
         Args:
-            pivot_column: Column to pivot on (values become column headers)
-            value_column: Column containing values to aggregate
+            pivot_column: :class:`Column` to pivot on (values become column headers)
+            value_column: :class:`Column` containing values to aggregate
             agg_func: Aggregation function to apply (default: "sum")
             pivot_values: Optional list of specific values to pivot (if None, uses all distinct values)
 
         Returns:
-            New DataFrame with pivoted data
+            New :class:`DataFrame` with pivoted data
 
         Example:
             >>> from moltres import connect
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("sales", [column("date", "TEXT"), column("product", "TEXT"), column("amount", "REAL")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"date": "2024-01-01", "product": "A", "amount": 100.0}, {"date": "2024-01-01", "product": "B", "amount": 200.0}, {"date": "2024-01-02", "product": "A", "amount": 150.0}], _database=db).insert_into("sales")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"date": "2024-01-01", "product": "A", "amount": 100.0}, {"date": "2024-01-01", "product": "B", "amount": 200.0}, {"date": "2024-01-02", "product": "A", "amount": 150.0}], _database=db).insert_into("sales")
             >>> # Pivot sales data by product
             >>> df = db.table("sales").select("date", "product", "amount")
             >>> pivoted = df.pivot(pivot_column="product", value_column="amount", agg_func="sum")
@@ -712,11 +744,11 @@ class DataFrame(DataFrameHelpersMixin):
         """Explode an array/JSON column into multiple rows (one row per element).
 
         Args:
-            column: Column expression or column name to explode (must be array or JSON)
+            column: :class:`Column` expression or column name to explode (must be array or JSON)
             alias: Alias for the exploded value column (default: "value")
 
         Returns:
-            New DataFrame with exploded rows
+            New :class:`DataFrame` with exploded rows
 
         Example:
             >>> from moltres import connect, col
@@ -725,8 +757,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> # Note: explode() requires array/JSON support which varies by database
             >>> # This example shows the API usage pattern
             >>> db.create_table("users", [column("id", "INTEGER"), column("tags", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "tags": '["python", "sql"]'}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "tags": '["python", "sql"]'}], _database=db).insert_into("users")
             >>> # Explode a JSON array column (database-specific support required)
             >>> df = db.table("users").select()
             >>> exploded = df.explode(col("tags"), alias="tag")
@@ -742,10 +774,10 @@ class DataFrame(DataFrameHelpersMixin):
         """Group rows by one or more columns for aggregation.
 
         Args:
-            *columns: Column names or Column expressions to group by
+            *columns: :class:`Column` names or :class:`Column` expressions to group by
 
         Returns:
-            GroupedDataFrame that can be used with aggregation functions
+            :class:`GroupedDataFrame` that can be used with aggregation functions
 
         Example:
             >>> from moltres import connect, col
@@ -754,8 +786,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> # Group by single column
             >>> db.create_table("orders", [column("customer_id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"customer_id": 1, "amount": 100.0}, {"customer_id": 1, "amount": 50.0}, {"customer_id": 2, "amount": 200.0}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"customer_id": 1, "amount": 100.0}, {"customer_id": 1, "amount": 50.0}, {"customer_id": 2, "amount": 200.0}], _database=db).insert_into("orders")
             >>> df = db.table("orders").select().group_by("customer_id").agg(F.sum(col("amount")).alias("total"))
             >>> results = df.collect()
             >>> len(results)
@@ -764,7 +796,7 @@ class DataFrame(DataFrameHelpersMixin):
             150.0
             >>> # Group by multiple columns
             >>> db.create_table("sales", [column("region", "TEXT"), column("product", "TEXT"), column("revenue", "REAL")]).collect()
-            >>> _ = Records(_data=[{"region": "North", "product": "A", "revenue": 100.0}, {"region": "North", "product": "A", "revenue": 50.0}], _database=db).insert_into("sales")
+            >>> _ = :class:`Records`(_data=[{"region": "North", "product": "A", "revenue": 100.0}, {"region": "North", "product": "A", "revenue": 50.0}], _database=db).insert_into("sales")
             >>> df2 = db.table("sales").select().group_by("region", "product").agg(F.sum(col("revenue")).alias("total_revenue"), F.count("*").alias("count"))
             >>> results2 = df2.collect()
             >>> results2[0]["total_revenue"]
@@ -786,16 +818,16 @@ class DataFrame(DataFrameHelpersMixin):
     groupBy = group_by
 
     def union(self, other: "DataFrame") -> "DataFrame":
-        """Union this DataFrame with another DataFrame (distinct rows only).
+        """Union this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only).
 
         Args:
-            other: Another DataFrame to union with
+            other: Another :class:`DataFrame` to union with
 
         Returns:
-            New DataFrame containing the union of rows
+            New :class:`DataFrame` containing the union of rows
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect
@@ -803,9 +835,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("table1", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("table2", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("table1")
-            >>> _ = Records(_data=[{"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}], _database=db).insert_into("table2")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("table1")
+            >>> _ = :class:`Records`(_data=[{"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}], _database=db).insert_into("table2")
             >>> df1 = db.table("table1").select()
             >>> df2 = db.table("table2").select()
             >>> # Union (distinct rows only)
@@ -823,16 +855,16 @@ class DataFrame(DataFrameHelpersMixin):
         return union_dataframes(self, other, distinct=True)
 
     def unionAll(self, other: "DataFrame") -> "DataFrame":
-        """Union this DataFrame with another DataFrame (all rows, including duplicates).
+        """Union this :class:`DataFrame` with another :class:`DataFrame` (all rows, including duplicates).
 
         Args:
-            other: Another DataFrame to union with
+            other: Another :class:`DataFrame` to union with
 
         Returns:
-            New DataFrame containing the union of all rows
+            New :class:`DataFrame` containing the union of all rows
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect
@@ -840,9 +872,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("table1", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("table2", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("table1")
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("table2")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("table1")
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("table2")
             >>> df1 = db.table("table1").select()
             >>> df2 = db.table("table2").select()
             >>> # UnionAll (all rows, including duplicates)
@@ -857,16 +889,16 @@ class DataFrame(DataFrameHelpersMixin):
         return union_dataframes(self, other, distinct=False)
 
     def intersect(self, other: "DataFrame") -> "DataFrame":
-        """Intersect this DataFrame with another DataFrame (distinct rows only).
+        """Intersect this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only).
 
         Args:
-            other: Another DataFrame to intersect with
+            other: Another :class:`DataFrame` to intersect with
 
         Returns:
-            New DataFrame containing the intersection of rows
+            New :class:`DataFrame` containing the intersection of rows
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect
@@ -874,9 +906,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("table1", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("table2", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("table1")
-            >>> _ = Records(_data=[{"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}], _database=db).insert_into("table2")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("table1")
+            >>> _ = :class:`Records`(_data=[{"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}], _database=db).insert_into("table2")
             >>> df1 = db.table("table1").select()
             >>> df2 = db.table("table2").select()
             >>> # Intersect (common rows only)
@@ -893,16 +925,16 @@ class DataFrame(DataFrameHelpersMixin):
         return intersect_dataframes(self, other, distinct=True)
 
     def except_(self, other: "DataFrame") -> "DataFrame":
-        """Return rows in this DataFrame that are not in another DataFrame (distinct rows only).
+        """Return rows in this :class:`DataFrame` that are not in another :class:`DataFrame` (distinct rows only).
 
         Args:
-            other: Another DataFrame to exclude from
+            other: Another :class:`DataFrame` to exclude from
 
         Returns:
-            New DataFrame containing rows in this DataFrame but not in other
+            New :class:`DataFrame` containing rows in this :class:`DataFrame` but not in other
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same Database
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
 
         Example:
             >>> from moltres import connect
@@ -910,9 +942,9 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("table1", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("table2", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("table1")
-            >>> _ = Records(_data=[{"id": 2, "name": "Bob"}], _database=db).insert_into("table2")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("table1")
+            >>> _ = :class:`Records`(_data=[{"id": 2, "name": "Bob"}], _database=db).insert_into("table2")
             >>> df1 = db.table("table1").select()
             >>> df2 = db.table("table2").select()
             >>> # Except (rows in df1 but not in df2)
@@ -929,21 +961,21 @@ class DataFrame(DataFrameHelpersMixin):
         return except_dataframes(self, other, distinct=True)
 
     def cte(self, name: str) -> "DataFrame":
-        """Create a Common Table Expression (CTE) from this DataFrame.
+        """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
             name: Name for the CTE
 
         Returns:
-            New DataFrame representing the CTE
+            New :class:`DataFrame` representing the CTE
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "amount": 150.0}, {"id": 2, "amount": 50.0}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 150.0}, {"id": 2, "amount": 50.0}], _database=db).insert_into("orders")
             >>> # Create CTE
             >>> cte_df = db.table("orders").select().where(col("amount") > 100).cte("high_value_orders")
             >>> # Query the CTE
@@ -961,15 +993,15 @@ class DataFrame(DataFrameHelpersMixin):
     def recursive_cte(
         self, name: str, recursive: "DataFrame", union_all: bool = False
     ) -> "DataFrame":
-        """Create a Recursive Common Table Expression (WITH RECURSIVE) from this DataFrame.
+        """Create a Recursive Common Table Expression (WITH RECURSIVE) from this :class:`DataFrame`.
 
         Args:
             name: Name for the recursive CTE
-            recursive: DataFrame representing the recursive part (references the CTE)
+            recursive: :class:`DataFrame` representing the recursive part (references the CTE)
             union_all: If True, use UNION ALL; if False, use UNION (distinct)
 
         Returns:
-            New DataFrame representing the recursive CTE
+            New :class:`DataFrame` representing the recursive CTE
 
         Example:
             >>> # Fibonacci sequence example
@@ -983,18 +1015,18 @@ class DataFrame(DataFrameHelpersMixin):
         return recursive_cte_dataframe(self, name, recursive, union_all)
 
     def distinct(self) -> "DataFrame":
-        """Return a new DataFrame with distinct rows.
+        """Return a new :class:`DataFrame` with distinct rows.
 
         Returns:
-            New DataFrame with distinct rows
+            New :class:`DataFrame` with distinct rows
 
         Example:
             >>> from moltres import connect
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Alice"}, {"id": 3, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Alice"}, {"id": 3, "name": "Bob"}], _database=db).insert_into("users")
             >>> df = db.table("users").select("name").distinct()
             >>> results = df.collect()
             >>> len(results)
@@ -1009,14 +1041,14 @@ class DataFrame(DataFrameHelpersMixin):
         return self._with_plan(operators.distinct(self.plan))
 
     def dropDuplicates(self, subset: Optional[Sequence[str]] = None) -> "DataFrame":
-        """Return a new DataFrame with duplicate rows removed.
+        """Return a new :class:`DataFrame` with duplicate rows removed.
 
         Args:
             subset: Optional list of column names to consider when identifying duplicates.
                    If None, all columns are considered.
 
         Returns:
-            New DataFrame with duplicates removed
+            New :class:`DataFrame` with duplicates removed
 
         Note:
             This is equivalent to distinct() when subset is None.
@@ -1031,14 +1063,14 @@ class DataFrame(DataFrameHelpersMixin):
         return self.group_by(*subset).agg()
 
     def withColumn(self, colName: str, col_expr: Union[Column, str]) -> "DataFrame":
-        """Add or replace a column in the DataFrame.
+        """Add or replace a column in the :class:`DataFrame`.
 
         Args:
             colName: Name of the column to add or replace
-            col_expr: Column expression or column name
+            col_expr: :class:`Column` expression or column name
 
         Returns:
-            New DataFrame with the added/replaced column
+            New :class:`DataFrame` with the added/replaced column
 
         Note:
             This operation adds a Project on top of the current plan.
@@ -1051,8 +1083,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL"), column("category", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "amount": 100.0, "category": "A"}, {"id": 2, "amount": 200.0, "category": "A"}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0, "category": "A"}, {"id": 2, "amount": 200.0, "category": "A"}], _database=db).insert_into("orders")
             >>> # Add a computed column
             >>> df = db.table("orders").select()
             >>> df2 = df.withColumn("amount_with_tax", col("amount") * 1.1)
@@ -1129,21 +1161,21 @@ class DataFrame(DataFrameHelpersMixin):
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
     def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> "DataFrame":
-        """Add or replace multiple columns in the DataFrame.
+        """Add or replace multiple columns in the :class:`DataFrame`.
 
         Args:
-            cols_map: Dictionary mapping column names to Column expressions or column names
+            cols_map: Dictionary mapping column names to :class:`Column` expressions or column names
 
         Returns:
-            New DataFrame with the added/replaced columns
+            New :class:`DataFrame` with the added/replaced columns
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
             >>> df = db.table("orders").select()
             >>> # Add multiple columns at once
             >>> df2 = df.withColumns({
@@ -1164,22 +1196,22 @@ class DataFrame(DataFrameHelpersMixin):
         return result_df
 
     def withColumnRenamed(self, existing: str, new: str) -> "DataFrame":
-        """Rename a column in the DataFrame.
+        """Rename a column in the :class:`DataFrame`.
 
         Args:
             existing: Current name of the column
             new: New name for the column
 
         Returns:
-            New DataFrame with the renamed column
+            New :class:`DataFrame` with the renamed column
 
         Example:
             >>> from moltres import connect
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
             >>> df = db.table("users").select().withColumnRenamed("name", "user_name")
             >>> results = df.collect()
             >>> "user_name" in results[0]
@@ -1213,16 +1245,16 @@ class DataFrame(DataFrameHelpersMixin):
             return self._with_plan(operators.project(self.plan, (existing_col,)))
 
     def drop(self, *cols: Union[str, Column]) -> "DataFrame":
-        """Drop one or more columns from the DataFrame.
+        """Drop one or more columns from the :class:`DataFrame`.
 
         Args:
-            *cols: Column names or Column objects to drop
+            *cols: :class:`Column` names or :class:`Column` objects to drop
 
         Returns:
-            New DataFrame with the specified columns removed
+            New :class:`DataFrame` with the specified columns removed
 
         Note:
-            This operation only works if the DataFrame has a Project operation.
+            This operation only works if the :class:`DataFrame` has a Project operation.
             Otherwise, it will create a Project that excludes the specified columns.
 
         Example:
@@ -1230,8 +1262,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("email", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
             >>> # Drop by string column name
             >>> df = db.table("users").select().drop("email")
             >>> results = df.collect()
@@ -1239,7 +1271,7 @@ class DataFrame(DataFrameHelpersMixin):
             True
             >>> "name" in results[0]
             True
-            >>> # Drop by Column object
+            >>> # Drop by :class:`Column` object
             >>> df2 = db.table("users").select().drop(col("email"))
             >>> results2 = df2.collect()
             >>> "email" not in results2[0]
@@ -1286,7 +1318,7 @@ class DataFrame(DataFrameHelpersMixin):
 
     # ---------------------------------------------------------------- execution
     def to_sql(self) -> str:
-        """Convert the DataFrame's logical plan to a SQL string.
+        """Convert the :class:`DataFrame`'s logical plan to a SQL string.
 
         Returns:
             SQL string representation of the query
@@ -1317,15 +1349,15 @@ class DataFrame(DataFrameHelpersMixin):
         return str(stmt)
 
     def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
-        """Convert DataFrame's logical plan to a SQLAlchemy Select statement.
+        """Convert :class:`DataFrame`'s logical plan to a SQLAlchemy Select statement.
 
         This method allows you to use Moltres DataFrames with existing SQLAlchemy
         connections, sessions, or other SQLAlchemy infrastructure.
 
         Args:
             dialect: Optional SQL dialect name (e.g., "postgresql", "mysql", "sqlite").
-                    If not provided, uses the dialect from the attached Database,
-                    or defaults to "ansi" if no Database is attached.
+                    If not provided, uses the dialect from the attached :class:`Database`,
+                    or defaults to "ansi" if no :class:`Database` is attached.
 
         Returns:
             SQLAlchemy Select statement that can be executed with any SQLAlchemy connection
@@ -1386,7 +1418,7 @@ class DataFrame(DataFrameHelpersMixin):
             >>> plan = df.explain(analyze=True)
 
         Raises:
-            RuntimeError: If DataFrame is not bound to a Database
+            RuntimeError: If :class:`DataFrame` is not bound to a :class:`Database`
 
         Example:
             >>> df = db.table("users").select().where(col("age") > 18)
@@ -1439,7 +1471,7 @@ class DataFrame(DataFrameHelpersMixin):
     ) -> Union[
         List[Dict[str, object]], Iterator[List[Dict[str, object]]], List[Any], Iterator[List[Any]]
     ]:
-        """Collect DataFrame results.
+        """Collect :class:`DataFrame` results.
 
         Args:
             stream: If True, return an iterator of row chunks. If False (default),
@@ -1452,7 +1484,7 @@ class DataFrame(DataFrameHelpersMixin):
             If stream=True and model attached: Iterator of row chunks (each chunk is a list of model instances).
 
         Raises:
-            RuntimeError: If DataFrame is not bound to a Database
+            RuntimeError: If :class:`DataFrame` is not bound to a :class:`Database`
             ImportError: If model is attached but Pydantic or SQLModel is not installed
 
         Example:
@@ -1460,8 +1492,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
             >>> # Collect all results
             >>> df = db.table("users").select()
             >>> results = df.collect()
@@ -1694,10 +1726,10 @@ class DataFrame(DataFrameHelpersMixin):
             filescan: FileScan logical plan node
 
         Returns:
-            Records object with _generator set (streaming mode)
+            :class:`Records` object with _generator set (streaming mode)
 
         Note:
-            This method returns Records with a generator, allowing chunked processing
+            This method returns :class:`Records` with a generator, allowing chunked processing
             without loading the entire file into memory. Use this for large files.
         """
         if self.database is None:
@@ -1716,7 +1748,7 @@ class DataFrame(DataFrameHelpersMixin):
         )
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
-        """Print the first n rows of the DataFrame.
+        """Print the first n rows of the :class:`DataFrame`.
 
         Args:
             n: Number of rows to show (default: 20)
@@ -1727,8 +1759,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> df.show(2)  # doctest: +SKIP
             >>> # Output: id | name
@@ -1789,8 +1821,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> rows = df.take(3)
             >>> len(rows)
@@ -1808,20 +1840,20 @@ class DataFrame(DataFrameHelpersMixin):
         """Return the first row as a dictionary, or None if empty.
 
         Returns:
-            First row as a dictionary, or None if DataFrame is empty
+            First row as a dictionary, or None if :class:`DataFrame` is empty
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> first_row = df.first()
             >>> first_row["name"]
             'Alice'
-            >>> # Empty DataFrame returns None
+            >>> # Empty :class:`DataFrame` returns None
             >>> df2 = db.table("users").select().where(col("id") > 100)
             >>> df2.first() is None
             True
@@ -1833,7 +1865,7 @@ class DataFrame(DataFrameHelpersMixin):
         return rows[0] if rows else None
 
     def head(self, n: int = 5) -> List[Dict[str, object]]:
-        """Return the first n rows of the DataFrame.
+        """Return the first n rows of the :class:`DataFrame`.
 
         Convenience method for quickly inspecting data.
 
@@ -1848,8 +1880,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> rows = df.head(3)
             >>> len(rows)
@@ -1864,9 +1896,9 @@ class DataFrame(DataFrameHelpersMixin):
         return rows
 
     def tail(self, n: int = 5) -> List[Dict[str, object]]:
-        """Return the last n rows of the DataFrame.
+        """Return the last n rows of the :class:`DataFrame`.
 
-        Note: This requires materializing the entire DataFrame, so it may be slow for large datasets.
+        Note: This requires materializing the entire :class:`DataFrame`, so it may be slow for large datasets.
 
         Args:
             n: Number of rows to return (default: 5)
@@ -1879,8 +1911,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select().order_by("id")
             >>> rows = df.tail(2)
             >>> len(rows)
@@ -1901,7 +1933,7 @@ class DataFrame(DataFrameHelpersMixin):
         """Count distinct values in column(s).
 
         Args:
-            column: Column name to count. If None, counts distinct values for all columns.
+            column: :class:`Column` name to count. If None, counts distinct values for all columns.
 
         Returns:
             If column is specified: integer count of distinct values.
@@ -1913,8 +1945,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("country", "TEXT"), column("age", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "country": "USA", "age": 25}, {"id": 2, "country": "USA", "age": 30}, {"id": 3, "country": "UK", "age": 25}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "country": "USA", "age": 25}, {"id": 2, "country": "USA", "age": 30}, {"id": 3, "country": "UK", "age": 25}], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> # Count distinct values in a column
             >>> df.nunique("country")
@@ -1957,7 +1989,7 @@ class DataFrame(DataFrameHelpersMixin):
             return counts
 
     def count(self) -> int:
-        """Return the number of rows in the DataFrame.
+        """Return the number of rows in the :class:`DataFrame`.
 
         Returns:
             Number of rows
@@ -1970,8 +2002,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> df.count()
             5
@@ -2000,7 +2032,7 @@ class DataFrame(DataFrameHelpersMixin):
             *cols: Optional column names to describe. If not provided, describes all numeric columns.
 
         Returns:
-            DataFrame with statistics: count, mean, stddev, min, max
+            :class:`DataFrame` with statistics: count, mean, stddev, min, max
 
         Note:
             This is a simplified implementation. A full implementation would
@@ -2036,7 +2068,7 @@ class DataFrame(DataFrameHelpersMixin):
                         If not provided, computes common statistics.
 
         Returns:
-            DataFrame with summary statistics
+            :class:`DataFrame` with summary statistics
 
         Note:
             This is a simplified implementation. A full implementation would
@@ -2060,7 +2092,7 @@ class DataFrame(DataFrameHelpersMixin):
             subset: Optional list of column names to fill. If None, fills all columns.
 
         Returns:
-            New DataFrame with null values filled
+            New :class:`DataFrame` with null values filled
 
         Note:
             This uses COALESCE or CASE WHEN to replace nulls in SQL.
@@ -2070,8 +2102,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "age": None}, {"id": 2, "name": None, "age": 25}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "age": None}, {"id": 2, "name": None, "age": 25}], _database=db).insert_into("users")
             >>> # Fill nulls with single value
             >>> df = db.table("users").select().fillna(0, subset=["age"])
             >>> results = df.collect()
@@ -2121,15 +2153,15 @@ class DataFrame(DataFrameHelpersMixin):
             subset: Optional list of column names to check. If None, checks all columns.
 
         Returns:
-            New DataFrame with null rows removed
+            New :class:`DataFrame` with null rows removed
 
         Example:
             >>> from moltres import connect
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": None, "age": 30}, {"id": 3, "name": "Bob", "age": None}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": None, "age": 30}, {"id": 3, "name": "Bob", "age": None}], _database=db).insert_into("users")
             >>> # Drop rows where any column in subset is null
             >>> df = db.table("users").select().dropna(how="any", subset=["name", "age"])
             >>> results = df.collect()
@@ -2169,10 +2201,10 @@ class DataFrame(DataFrameHelpersMixin):
         return self.where(predicate)
 
     def polars(self) -> "PolarsDataFrame":
-        """Convert this DataFrame to a PolarsDataFrame for Polars-style operations.
+        """Convert this :class:`DataFrame` to a :class:`PolarsDataFrame` for Polars-style operations.
 
         Returns:
-            PolarsDataFrame wrapping this DataFrame
+            :class:`PolarsDataFrame` wrapping this :class:`DataFrame`
 
         Example:
             >>> from moltres import connect
@@ -2200,16 +2232,16 @@ class DataFrame(DataFrameHelpersMixin):
 
     @property
     def write(self) -> "DataFrameWriter":
-        """Return a DataFrameWriter for writing this DataFrame to a table."""
+        """Return a :class:`DataFrameWriter` for writing this :class:`DataFrame` to a table."""
         from .writer import DataFrameWriter
 
         return DataFrameWriter(self)
 
     @property
     def columns(self) -> List[str]:
-        """Return a list of column names in this DataFrame.
+        """Return a list of column names in this :class:`DataFrame`.
 
-        Similar to PySpark's DataFrame.columns property, this extracts column
+        Similar to PySpark's :class:`DataFrame`.columns property, this extracts column
         names from the logical plan without requiring query execution.
 
         Returns:
@@ -2239,9 +2271,9 @@ class DataFrame(DataFrameHelpersMixin):
 
     @property
     def schema(self) -> List["ColumnInfo"]:
-        """Return the schema of this DataFrame as a list of ColumnInfo objects.
+        """Return the schema of this :class:`DataFrame` as a list of ColumnInfo objects.
 
-        Similar to PySpark's DataFrame.schema property, this extracts column
+        Similar to PySpark's :class:`DataFrame`.schema property, this extracts column
         names and types from the logical plan without requiring query execution.
 
         Returns:
@@ -2273,7 +2305,7 @@ class DataFrame(DataFrameHelpersMixin):
     def dtypes(self) -> List[Tuple[str, str]]:
         """Return a list of tuples containing column names and their data types.
 
-        Similar to PySpark's DataFrame.dtypes property, this returns a list
+        Similar to PySpark's :class:`DataFrame`.dtypes property, this returns a list
         of (column_name, type_name) tuples.
 
         Returns:
@@ -2301,10 +2333,10 @@ class DataFrame(DataFrameHelpersMixin):
         return [(col_info.name, col_info.type_name) for col_info in schema]
 
     def printSchema(self) -> None:
-        """Print the schema of this DataFrame in a tree format.
+        """Print the schema of this :class:`DataFrame` in a tree format.
 
-        Similar to PySpark's DataFrame.printSchema() method, this prints
-        a formatted representation of the DataFrame's schema.
+        Similar to PySpark's :class:`DataFrame`.printSchema() method, this prints
+        a formatted representation of the :class:`DataFrame`'s schema.
 
         Example:
             >>> from moltres import connect
@@ -2334,23 +2366,23 @@ class DataFrame(DataFrameHelpersMixin):
         """Enable bracket notation column access (e.g., df["col"], df[["col1", "col2"]]).
 
         Supports:
-        - df['col'] - Returns Column expression with string/date accessors
-        - df[['col1', 'col2']] - Returns new DataFrame with selected columns
-        - df[df['age'] > 25] - Boolean indexing (filtering via Column condition)
+        - df['col'] - Returns :class:`Column` expression with string/date accessors
+        - df[['col1', 'col2']] - Returns new :class:`DataFrame` with selected columns
+        - df[df['age'] > 25] - Boolean indexing (filtering via :class:`Column` condition)
 
         Args:
-            key: Column name(s) or boolean Column condition
+            key: :class:`Column` name(s) or boolean :class:`Column` condition
 
         Returns:
             - For single column string: PySparkColumn (with .str and .dt accessors)
-            - For list of columns: DataFrame with selected columns
-            - For boolean Column condition: DataFrame with filtered rows
+            - For list of columns: :class:`DataFrame` with selected columns
+            - For boolean :class:`Column` condition: :class:`DataFrame` with filtered rows
 
         Example:
             >>> df = db.table("users").select()
             >>> df['age']  # Returns PySparkColumn with .str and .dt accessors
-            >>> df[['id', 'name']]  # Returns DataFrame with selected columns
-            >>> df[df['age'] > 25]  # Returns filtered DataFrame
+            >>> df[['id', 'name']]  # Returns :class:`DataFrame` with selected columns
+            >>> df[df['age'] > 25]  # Returns filtered :class:`DataFrame`
         """
         # Import here to avoid circular imports
         try:
@@ -2396,10 +2428,10 @@ class DataFrame(DataFrameHelpersMixin):
         columns via dot notation, similar to PySpark's API.
 
         Args:
-            name: Column name to access
+            name: :class:`Column` name to access
 
         Returns:
-            Column object for the specified column name
+            :class:`Column` object for the specified column name
 
         Raises:
             AttributeError: If the attribute doesn't exist and isn't a valid column name
@@ -2438,13 +2470,13 @@ class DataFrame(DataFrameHelpersMixin):
         )
 
     def _with_model(self, model: Optional[Type[Any]]) -> "DataFrame":
-        """Create a new DataFrame with a SQLModel attached.
+        """Create a new :class:`DataFrame` with a SQLModel attached.
 
         Args:
             model: SQLModel model class to attach, or None to remove model
 
         Returns:
-            New DataFrame with the model attached
+            New :class:`DataFrame` with the model attached
         """
         return DataFrame(
             plan=self.plan,
@@ -2453,7 +2485,7 @@ class DataFrame(DataFrameHelpersMixin):
         )
 
     def with_model(self, model: Type[Any]) -> "DataFrame":
-        """Attach a SQLModel or Pydantic model to this DataFrame.
+        """Attach a SQLModel or Pydantic model to this :class:`DataFrame`.
 
         When a model is attached, `collect()` will return model instances
         instead of dictionaries. This provides type safety and validation.
@@ -2462,7 +2494,7 @@ class DataFrame(DataFrameHelpersMixin):
             model: SQLModel or Pydantic model class to attach
 
         Returns:
-            New DataFrame with the model attached
+            New :class:`DataFrame` with the model attached
 
         Raises:
             TypeError: If model is not a SQLModel or Pydantic class
@@ -2495,7 +2527,7 @@ class DataFrame(DataFrameHelpersMixin):
 class NullHandling:
     """Helper class for null handling operations on DataFrames.
 
-    Accessed via the `na` property on DataFrame instances.
+    Accessed via the `na` property on :class:`DataFrame` instances.
     """
 
     def __init__(self, df: DataFrame):
@@ -2504,14 +2536,14 @@ class NullHandling:
     def drop(self, how: str = "any", subset: Optional[Sequence[str]] = None) -> DataFrame:
         """Drop rows with null values.
 
-        This is a convenience wrapper around DataFrame.dropna().
+        This is a convenience wrapper around :class:`DataFrame`.dropna().
 
         Args:
             how: "any" (drop if any null) or "all" (drop if all null) (default: "any")
             subset: Optional list of column names to check. If None, checks all columns.
 
         Returns:
-            New DataFrame with null rows removed
+            New :class:`DataFrame` with null rows removed
 
         Example:
             >>> df.na.drop()  # Drop rows with any null values
@@ -2525,14 +2557,14 @@ class NullHandling:
     ) -> DataFrame:
         """Fill null values with a specified value.
 
-        This is a convenience wrapper around DataFrame.fillna().
+        This is a convenience wrapper around :class:`DataFrame`.fillna().
 
         Args:
             value: Value to use for filling nulls. Can be a single value or a dict mapping column names to values.
             subset: Optional list of column names to fill. If None, fills all columns.
 
         Returns:
-            New DataFrame with null values filled
+            New :class:`DataFrame` with null values filled
 
         Example:
             >>> df.na.fill(0)  # Fill all nulls with 0

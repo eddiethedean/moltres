@@ -162,7 +162,7 @@ df_clean = (
 
 Analyze user cohorts:
 
-**See also:** [Window function examples](https://github.com/eddiethedean/moltres/blob/main/examples/11_window_functions.py) for advanced analytics
+**See also:** [Window function examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/11_window_functions.py) for advanced analytics
 
 ```python
 from moltres import col, connect
@@ -307,7 +307,7 @@ results = ranked_products.collect()
 
 Complete ETL workflow:
 
-**See also:** [File reading examples](https://github.com/eddiethedean/moltres/blob/main/examples/07_file_reading.py) and [File writing examples](https://github.com/eddiethedean/moltres/blob/main/examples/08_file_writing.py)
+**See also:** [File reading examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/07_file_reading.py) and [File writing examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/08_file_writing.py)
 
 ```python
 from moltres import col, connect
@@ -511,7 +511,7 @@ results = pivot.collect()
 
 Insert new records or update existing:
 
-**See also:** [Table operations and CRUD examples](https://github.com/eddiethedean/moltres/blob/main/examples/09_table_operations.py)
+**See also:** [Table operations and CRUD examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/09_table_operations.py)
 
 ```python
 from moltres import col, connect

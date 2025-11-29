@@ -1,4 +1,4 @@
-"""Aggregation functions for DataFrame operations."""
+"""Aggregation functions for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 
@@ -16,10 +16,10 @@ def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     """Compute the sum of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the sum aggregate
+        :class:`Column` expression for the sum aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -27,8 +27,8 @@ def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL"), column("status", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "amount": 100.0, "status": "active"}, {"category": "A", "amount": 200.0, "status": "completed"}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "amount": 100.0, "status": "active"}, {"category": "A", "amount": 200.0, "status": "completed"}], _database=db).insert_into("sales")
             >>> # Sum aggregation
             >>> df = db.table("sales").select().group_by("category").agg(F.sum(col("amount")).alias("total"))
         >>> results = df.collect()
@@ -48,10 +48,10 @@ def avg(column: ColumnLike) -> Column:
     """Compute the average of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the average aggregate
+        :class:`Column` expression for the average aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -59,8 +59,8 @@ def avg(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("price", "REAL"), column("active", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 10.0, "active": 1}, {"category": "A", "price": 20.0, "active": 1}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 10.0, "active": 1}, {"category": "A", "price": 20.0, "active": 1}], _database=db).insert_into("products")
             >>> # Average aggregation
             >>> df = db.table("products").select().group_by("category").agg(F.avg(col("price")).alias("avg_price"))
         >>> results = df.collect()
@@ -75,10 +75,10 @@ def min(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     """Compute the minimum value of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the minimum aggregate
+        :class:`Column` expression for the minimum aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -86,8 +86,8 @@ def min(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("price", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
             >>> # Minimum aggregation
             >>> df = db.table("products").select().group_by("category").agg(F.min(col("price")).alias("min_price"))
         >>> results = df.collect()
@@ -102,10 +102,10 @@ def max(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     """Compute the maximum value of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the maximum aggregate
+        :class:`Column` expression for the maximum aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -113,8 +113,8 @@ def max(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("price", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
             >>> # Maximum aggregation
             >>> df = db.table("products").select().group_by("category").agg(F.max(col("price")).alias("max_price"))
         >>> results = df.collect()
@@ -129,10 +129,10 @@ def count(column: Union[ColumnLike, str] = "*") -> Column:
     """Count the number of rows or non-null values.
 
     Args:
-        column: Column expression, literal value, or "*" for counting all rows
+        column: :class:`Column` expression, literal value, or "*" for counting all rows
 
     Returns:
-        Column expression for the count aggregate
+        :class:`Column` expression for the count aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -140,8 +140,8 @@ def count(column: Union[ColumnLike, str] = "*") -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("id", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "id": 1}, {"category": "A", "id": 2}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "id": 1}, {"category": "A", "id": 2}], _database=db).insert_into("products")
         >>> # Count all rows
         >>> df = db.table("products").select().group_by("category").agg(F.count("*").alias("count"))
         >>> results = df.collect()
@@ -166,7 +166,7 @@ def count_distinct(*columns: ColumnLike) -> Column:
         *columns: One or more column expressions
 
     Returns:
-        Column expression for the count distinct aggregate
+        :class:`Column` expression for the count distinct aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -174,8 +174,8 @@ def count_distinct(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("category", "TEXT"), column("user_id", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "user_id": 1}, {"category": "A", "user_id": 2}, {"category": "A", "user_id": 1}], _database=db).insert_into("orders")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "user_id": 1}, {"category": "A", "user_id": 2}, {"category": "A", "user_id": 1}], _database=db).insert_into("orders")
         >>> df = db.table("orders").select().group_by("category").agg(F.count_distinct(col("user_id")).alias("distinct_users"))
         >>> results = df.collect()
         >>> results[0]["distinct_users"]
@@ -192,10 +192,10 @@ def stddev(column: ColumnLike) -> Column:
     """Compute the standard deviation of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the standard deviation aggregate
+        :class:`Column` expression for the standard deviation aggregate
 
     Example:
         >>> # Note: stddev() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -205,8 +205,8 @@ def stddev(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.stddev(col("amount")).alias("std"))
         >>> results = df.collect()
         >>> results[0]["std"] > 0
@@ -220,10 +220,10 @@ def variance(column: ColumnLike) -> Column:
     """Compute the variance of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the variance aggregate
+        :class:`Column` expression for the variance aggregate
 
     Example:
         >>> # Note: variance() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -233,8 +233,8 @@ def variance(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.variance(col("amount")).alias("var"))
         >>> results = df.collect()
         >>> results[0]["var"] > 0
@@ -252,7 +252,7 @@ def corr(column1: ColumnLike, column2: ColumnLike) -> Column:
         column2: Second column expression
 
     Returns:
-        Column expression for the correlation aggregate
+        :class:`Column` expression for the correlation aggregate
 
     Example:
         >>> # Note: corr() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -262,8 +262,8 @@ def corr(column1: ColumnLike, column2: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("x", "REAL"), column("y", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
         >>> # For global aggregation, select the aggregation directly
         >>> df = db.table("data").select(F.corr(col("x"), col("y")).alias("correlation"))
         >>> results = df.collect()
@@ -282,7 +282,7 @@ def covar(column1: ColumnLike, column2: ColumnLike) -> Column:
         column2: Second column expression
 
     Returns:
-        Column expression for the covariance aggregate
+        :class:`Column` expression for the covariance aggregate
 
     Example:
         >>> # Note: covar() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -292,8 +292,8 @@ def covar(column1: ColumnLike, column2: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("x", "REAL"), column("y", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
         >>> # For global aggregation, select the aggregation directly
         >>> df = db.table("data").select(F.covar(col("x"), col("y")).alias("covariance"))
         >>> results = df.collect()
@@ -308,11 +308,11 @@ def percentile_cont(column: ColumnLike, fraction: float) -> Column:
     """Compute the continuous percentile (interpolated) of a column.
 
     Args:
-        column: Column expression to compute percentile for
+        column: :class:`Column` expression to compute percentile for
         fraction: Percentile fraction (0.0 to 1.0, e.g., 0.5 for median)
 
     Returns:
-        Column expression for percentile_cont aggregate
+        :class:`Column` expression for percentile_cont aggregate
 
     Example:
         >>> # Note: percentile_cont() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -322,8 +322,8 @@ def percentile_cont(column: ColumnLike, fraction: float) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("price", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.percentile_cont(col("price"), 0.5).alias("median_price"))
         >>> results = df.collect()
         >>> 100.0 <= results[0]["median_price"] <= 200.0
@@ -339,11 +339,11 @@ def percentile_disc(column: ColumnLike, fraction: float) -> Column:
     """Compute the discrete percentile (actual value) of a column.
 
     Args:
-        column: Column expression to compute percentile for
+        column: :class:`Column` expression to compute percentile for
         fraction: Percentile fraction (0.0 to 1.0, e.g., 0.5 for median)
 
     Returns:
-        Column expression for percentile_disc aggregate
+        :class:`Column` expression for percentile_disc aggregate
 
     Example:
         >>> # Note: percentile_disc() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -353,8 +353,8 @@ def percentile_disc(column: ColumnLike, fraction: float) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("price", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.percentile_disc(col("price"), 0.9).alias("p90_price"))
         >>> results = df.collect()
         >>> results[0]["p90_price"] in [100.0, 200.0]
@@ -370,10 +370,10 @@ def collect_list(column: ColumnLike) -> Column:
     """Collect values from a column into an array (aggregate function).
 
     Args:
-        column: Column expression to collect
+        column: :class:`Column` expression to collect
 
     Returns:
-        Column expression for collect_list aggregate
+        :class:`Column` expression for collect_list aggregate
 
     Example:
         >>> # Note: collect_list() requires database-specific array support (PostgreSQL/MySQL)
@@ -383,8 +383,8 @@ def collect_list(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("items", [column("category", "TEXT"), column("item", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "y"}], _database=db).insert_into("items")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "y"}], _database=db).insert_into("items")
         >>> df = db.table("items").select().group_by("category").agg(F.collect_list(col("item")).alias("items_list"))
         >>> results = df.collect()
         >>> len(results[0]["items_list"])
@@ -398,10 +398,10 @@ def collect_set(column: ColumnLike) -> Column:
     """Collect distinct values from a column into an array (aggregate function).
 
     Args:
-        column: Column expression to collect
+        column: :class:`Column` expression to collect
 
     Returns:
-        Column expression for collect_set aggregate
+        :class:`Column` expression for collect_set aggregate
 
     Example:
         >>> # Note: collect_set() requires database-specific array support (PostgreSQL/MySQL)
@@ -411,8 +411,8 @@ def collect_set(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("items", [column("category", "TEXT"), column("item", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "x"}], _database=db).insert_into("items")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "x"}], _database=db).insert_into("items")
         >>> df = db.table("items").select().group_by("category").agg(F.collect_set(col("item")).alias("items_set"))
         >>> results = df.collect()
         >>> len(results[0]["items_set"])

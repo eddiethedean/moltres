@@ -444,13 +444,13 @@ else:
 
 ### Getting Help
 
-- Check the example files: `examples/27_airflow_integration.py` and `examples/28_prefect_integration.py`
+- Check the example files: `docs/examples/27_airflow_integration.py` and `docs/examples/28_prefect_integration.py`
 - Review the data quality framework documentation
 - Check framework-specific documentation for orchestration patterns
 
 ## Examples
 
 See comprehensive examples in:
-- `examples/27_airflow_integration.py` - Airflow examples
-- `examples/28_prefect_integration.py` - Prefect examples
+- `docs/examples/27_airflow_integration.py` - Airflow examples
+- `docs/examples/28_prefect_integration.py` - Prefect examples
 

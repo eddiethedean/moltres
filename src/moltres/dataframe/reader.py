@@ -64,18 +64,18 @@ class DataLoader:
         return self
 
     def table(self, name: str) -> DataFrame:
-        """Read from a database table as a DataFrame.
+        """Read from a database table as a :class:`DataFrame`.
 
         Note: This is equivalent to db.table(name).select().
-        Returns a DataFrame that can be transformed before execution.
+        Returns a :class:`DataFrame` that can be transformed before execution.
 
         Example:
             >>> from moltres import connect
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
             >>> # Read table using read.table()
             >>> df = db.read.table("users")
             >>> results = df.collect()
@@ -86,13 +86,13 @@ class DataLoader:
         return self._database.table(name).select()
 
     def csv(self, path: str) -> DataFrame:
-        """Read a CSV file as a DataFrame.
+        """Read a CSV file as a :class:`DataFrame`.
 
         Args:
             path: Path to the CSV file
 
         Returns:
-            DataFrame containing the CSV data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the CSV data (lazy, materialized on .collect())
 
         Example:
             >>> from moltres import connect
@@ -123,13 +123,13 @@ class DataLoader:
         return DataFrame(plan=plan, database=self._database)
 
     def json(self, path: str) -> DataFrame:
-        """Read a JSON file (array of objects) as a DataFrame.
+        """Read a JSON file (array of objects) as a :class:`DataFrame`.
 
         Args:
             path: Path to the JSON file
 
         Returns:
-            DataFrame containing the JSON data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the JSON data (lazy, materialized on .collect())
 
         Example:
             >>> from moltres import connect
@@ -159,13 +159,13 @@ class DataLoader:
         return DataFrame(plan=plan, database=self._database)
 
     def jsonl(self, path: str) -> DataFrame:
-        """Read a JSONL file (one JSON object per line) as a DataFrame.
+        """Read a JSONL file (one JSON object per line) as a :class:`DataFrame`.
 
         Args:
             path: Path to the JSONL file
 
         Returns:
-            DataFrame containing the JSONL data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the JSONL data (lazy, materialized on .collect())
 
         Example:
             >>> from moltres import connect
@@ -198,13 +198,13 @@ class DataLoader:
         return DataFrame(plan=plan, database=self._database)
 
     def parquet(self, path: str) -> DataFrame:
-        """Read a Parquet file as a DataFrame.
+        """Read a Parquet file as a :class:`DataFrame`.
 
         Args:
             path: Path to the Parquet file
 
         Returns:
-            DataFrame containing the Parquet data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the Parquet data (lazy, materialized on .collect())
 
         Raises:
             RuntimeError: If pandas or pyarrow are not installed
@@ -216,7 +216,7 @@ class DataLoader:
             ...     import pandas as pd
             ...     db = connect("sqlite:///:memory:")
             ...     # Create a Parquet file (requires pandas/pyarrow)
-            ...     df_pd = pd.DataFrame([{"id": 1, "name": "Alice"}])
+            ...     df_pd = pd.:class:`DataFrame`([{"id": 1, "name": "Alice"}])
             ...     with tempfile.NamedTemporaryFile(suffix='.parquet', delete=False) as f:
             ...         df_pd.to_parquet(f.name)
             ...         parquet_path = f.name
@@ -240,14 +240,14 @@ class DataLoader:
         return DataFrame(plan=plan, database=self._database)
 
     def text(self, path: str, column_name: str = "value") -> DataFrame:
-        """Read a text file as a single column (one line per row) as a DataFrame.
+        """Read a text file as a single column (one line per row) as a :class:`DataFrame`.
 
         Args:
             path: Path to the text file
             column_name: Name of the column to create (default: "value")
 
         Returns:
-            DataFrame containing the text file lines (lazy, materialized on .collect())
+            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
 
         Example:
             >>> from moltres import connect
@@ -285,7 +285,7 @@ class DataLoader:
             column_name: Name of the column to create (default: "value")
 
         Returns:
-            DataFrame containing the text file lines (lazy, materialized on .collect())
+            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
         """
         return self.text(path, column_name)
 
@@ -317,7 +317,7 @@ class FormatReader:
             path: Path to the data file
 
         Returns:
-            DataFrame containing the data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the data (lazy, materialized on .collect())
 
         Raises:
             ValueError: If format is unsupported
@@ -340,9 +340,9 @@ class FormatReader:
 
 
 class RecordsLoader:
-    """Builder for loading data from files as LazyRecords (lazy Records).
+    """Builder for loading data from files as LazyRecords (lazy :class:`Records`).
 
-    Provides backward compatibility and convenience for cases where Records are preferred
+    Provides backward compatibility and convenience for cases where :class:`Records` are preferred
     over DataFrames. Use db.read.records.csv() etc. to get LazyRecords directly.
     LazyRecords materialize on-demand when used.
     """
@@ -501,15 +501,15 @@ class RecordsLoader:
         )
 
     def dicts(self, data: Sequence[Dict[str, object]]) -> Records:
-        """Create Records from a list of dictionaries.
+        """Create :class:`Records` from a list of dictionaries.
 
-        Note: This returns Records (not LazyRecords) since the data is already materialized.
+        Note: This returns :class:`Records` (not LazyRecords) since the data is already materialized.
 
         Args:
-            data: List of dictionaries to convert to Records
+            data: List of dictionaries to convert to :class:`Records`
 
         Returns:
-            Records containing the data (already materialized)
+            :class:`Records` containing the data (already materialized)
         """
         return Records(_data=list(data), _database=self._database, _schema=self._schema)
 
@@ -528,7 +528,7 @@ class ReadAccessor:
 
     @property
     def records(self) -> RecordsLoader:
-        """Access to Records-based read methods."""
+        """Access to :class:`Records`-based read methods."""
         return self._records
 
     # Builder methods that configure the underlying DataLoader
@@ -564,13 +564,13 @@ class ReadAccessor:
 
     # DataFrame read methods (delegate to DataLoader)
     def table(self, name: str) -> DataFrame:
-        """Read from a database table as a DataFrame.
+        """Read from a database table as a :class:`DataFrame`.
 
         Args:
             name: Name of the table to read
 
         Returns:
-            DataFrame that can be transformed before execution
+            :class:`DataFrame` that can be transformed before execution
 
         Example:
             >>> df = db.read.table("users")
@@ -579,46 +579,46 @@ class ReadAccessor:
         return self._loader.table(name)
 
     def csv(self, path: str) -> DataFrame:
-        """Read a CSV file as a DataFrame.
+        """Read a CSV file as a :class:`DataFrame`.
 
         Args:
             path: Path to the CSV file
 
         Returns:
-            DataFrame containing the CSV data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the CSV data (lazy, materialized on .collect())
         """
         return self._loader.csv(path)
 
     def json(self, path: str) -> DataFrame:
-        """Read a JSON file (array of objects) as a DataFrame.
+        """Read a JSON file (array of objects) as a :class:`DataFrame`.
 
         Args:
             path: Path to the JSON file
 
         Returns:
-            DataFrame containing the JSON data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the JSON data (lazy, materialized on .collect())
         """
         return self._loader.json(path)
 
     def jsonl(self, path: str) -> DataFrame:
-        """Read a JSONL file (one JSON object per line) as a DataFrame.
+        """Read a JSONL file (one JSON object per line) as a :class:`DataFrame`.
 
         Args:
             path: Path to the JSONL file
 
         Returns:
-            DataFrame containing the JSONL data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the JSONL data (lazy, materialized on .collect())
         """
         return self._loader.jsonl(path)
 
     def parquet(self, path: str) -> DataFrame:
-        """Read a Parquet file as a DataFrame.
+        """Read a Parquet file as a :class:`DataFrame`.
 
         Args:
             path: Path to the Parquet file
 
         Returns:
-            DataFrame containing the Parquet data (lazy, materialized on .collect())
+            :class:`DataFrame` containing the Parquet data (lazy, materialized on .collect())
 
         Raises:
             RuntimeError: If pandas or pyarrow are not installed
@@ -626,14 +626,14 @@ class ReadAccessor:
         return self._loader.parquet(path)
 
     def text(self, path: str, column_name: str = "value") -> DataFrame:
-        """Read a text file as a single column (one line per row) as a DataFrame.
+        """Read a text file as a single column (one line per row) as a :class:`DataFrame`.
 
         Args:
             path: Path to the text file
             column_name: Name of the column to create (default: "value")
 
         Returns:
-            DataFrame containing the text file lines (lazy, materialized on .collect())
+            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
         """
         return self._loader.text(path, column_name)
 
@@ -645,7 +645,7 @@ class ReadAccessor:
             column_name: Name of the column to create (default: "value")
 
         Returns:
-            DataFrame containing the text file lines (lazy, materialized on .collect())
+            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
         """
         return self._loader.textFile(path, column_name)
 

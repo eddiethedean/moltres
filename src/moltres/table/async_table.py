@@ -182,7 +182,7 @@ class AsyncDatabase:
 
     @classmethod
     def from_async_engine(cls, engine: "AsyncEngine", **options: object) -> "AsyncDatabase":
-        """Create an AsyncDatabase instance from an existing SQLAlchemy AsyncEngine.
+        """Create an :class:`AsyncDatabase` instance from an existing SQLAlchemy AsyncEngine.
 
         This allows you to use Moltres with an existing SQLAlchemy AsyncEngine,
         enabling integration with existing async SQLAlchemy projects.
@@ -197,13 +197,13 @@ class AsyncDatabase:
                 - Other options are stored in config.options
 
         Returns:
-            AsyncDatabase instance configured to use the provided AsyncEngine
+            :class:`AsyncDatabase` instance configured to use the provided AsyncEngine
 
         Example:
             >>> from sqlalchemy.ext.asyncio import create_async_engine
-            >>> from moltres import AsyncDatabase
+            >>> from moltres import :class:`AsyncDatabase`
             >>> engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-            >>> db = AsyncDatabase.from_async_engine(engine)
+            >>> db = :class:`AsyncDatabase`.from_async_engine(engine)
             >>> # Now use Moltres with your existing async engine
             >>> from moltres.table.schema import column
             >>> await db.create_table("users", [column("id", "INTEGER")]).collect()
@@ -218,12 +218,12 @@ class AsyncDatabase:
     def from_async_connection(
         cls, connection: "AsyncConnection", **options: object
     ) -> "AsyncDatabase":
-        """Create an AsyncDatabase instance from an existing SQLAlchemy AsyncConnection.
+        """Create an :class:`AsyncDatabase` instance from an existing SQLAlchemy AsyncConnection.
 
         This allows you to use Moltres with an existing SQLAlchemy AsyncConnection,
         enabling integration within existing async transactions.
 
-        Note: The AsyncDatabase will use the AsyncConnection's engine, but will not manage
+        Note: The :class:`AsyncDatabase` will use the AsyncConnection's engine, but will not manage
         the AsyncConnection's lifecycle. The user is responsible for managing the connection.
 
         Args:
@@ -231,14 +231,14 @@ class AsyncDatabase:
             **options: Optional configuration parameters (same as from_async_engine)
 
         Returns:
-            AsyncDatabase instance configured to use the AsyncConnection's engine
+            :class:`AsyncDatabase` instance configured to use the AsyncConnection's engine
 
         Example:
             >>> from sqlalchemy.ext.asyncio import create_async_engine
-            >>> from moltres import AsyncDatabase
+            >>> from moltres import :class:`AsyncDatabase`
             >>> engine = create_async_engine("sqlite+aiosqlite:///:memory:")
             >>> async with engine.connect() as conn:
-            ...     db = AsyncDatabase.from_async_connection(conn)
+            ...     db = :class:`AsyncDatabase`.from_async_connection(conn)
             ...     # Use Moltres within the connection's transaction
             ...     from moltres.table.schema import column
             ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
@@ -249,12 +249,12 @@ class AsyncDatabase:
 
     @classmethod
     def from_async_session(cls, session: "AsyncSession", **options: object) -> "AsyncDatabase":
-        """Create an AsyncDatabase instance from a SQLAlchemy AsyncSession.
+        """Create an :class:`AsyncDatabase` instance from a SQLAlchemy AsyncSession.
 
         This allows you to use Moltres with an existing SQLAlchemy AsyncSession,
         enabling integration with async ORM-based applications.
 
-        Note: The AsyncDatabase will use the AsyncSession's bind/engine, but will not manage
+        Note: The :class:`AsyncDatabase` will use the AsyncSession's bind/engine, but will not manage
         the AsyncSession's lifecycle. The user is responsible for managing the session.
 
         Args:
@@ -262,15 +262,15 @@ class AsyncDatabase:
             **options: Optional configuration parameters (same as from_async_engine)
 
         Returns:
-            AsyncDatabase instance configured to use the AsyncSession's bind/engine
+            :class:`AsyncDatabase` instance configured to use the AsyncSession's bind/engine
 
         Example:
             >>> from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-            >>> from moltres import AsyncDatabase
+            >>> from moltres import :class:`AsyncDatabase`
             >>> engine = create_async_engine("sqlite+aiosqlite:///:memory:")
             >>> AsyncSession = async_sessionmaker(bind=engine)
             >>> async with AsyncSession() as session:
-            ...     db = AsyncDatabase.from_async_session(session)
+            ...     db = :class:`AsyncDatabase`.from_async_session(session)
             ...     # Use Moltres with your existing async session
             ...     from moltres.table.schema import column
             ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
@@ -335,8 +335,8 @@ class AsyncDatabase:
             >>> async def example():
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice"}], _database=db)
             ...     await records.insert_into("users")
             ...     # Get table handle
             ...     users = await db.table("users")
@@ -395,7 +395,7 @@ class AsyncDatabase:
     def read(self) -> "AsyncReadAccessor":
         """Return an AsyncReadAccessor for accessing read operations.
 
-        Use await db.read.records.* for AsyncRecords-based reads (backward compatibility).
+        Use await db.read.records.* for :class:`AsyncRecords`-based reads (backward compatibility).
         Use db.load.* for AsyncDataFrame-based reads (PySpark-style).
         """
         from ..dataframe.async_reader import AsyncReadAccessor
@@ -424,8 +424,8 @@ class AsyncDatabase:
             >>> async def example():
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db)
             ...     await records.insert_into("users")
             ...     # Basic SQL query
             ...     df = db.sql("SELECT * FROM users WHERE age > 18")
@@ -691,7 +691,7 @@ class AsyncDatabase:
             >>> from sqlalchemy.orm import DeclarativeBase
             >>> class User(Base):
             ...     __tablename__ = "users"
-            ...     id = Column(Integer, primary_key=True)
+            ...     id = :class:`Column`(Integer, primary_key=True)
             >>> op = db.create_table(User)
             >>> table = await op.collect()
         """
@@ -768,7 +768,7 @@ class AsyncDatabase:
         Args:
             name: Name of the index to create
             table: Name of the table to create the index on
-            columns: Column name(s) to index (single string or sequence)
+            columns: :class:`Column` name(s) to index (single string or sequence)
             unique: If True, create a UNIQUE index (default: False)
             if_not_exists: If True, don't error if index already exists (default: True)
 
@@ -1181,21 +1181,21 @@ class AsyncDatabase:
         pk: Optional[Union[str, Sequence[str]]] = None,
         auto_pk: Optional[Union[str, Sequence[str]]] = None,
     ) -> "AsyncDataFrame":
-        """Create an AsyncDataFrame from Python data (list of dicts, list of tuples, AsyncRecords, AsyncLazyRecords, pandas DataFrame, polars DataFrame, or polars LazyFrame).
+        """Create an AsyncDataFrame from Python data (list of dicts, list of tuples, :class:`AsyncRecords`, AsyncLazyRecords, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame).
 
         Creates a temporary table, inserts the data, and returns an AsyncDataFrame querying from that table.
         If AsyncLazyRecords is provided, it will be auto-materialized.
-        If pandas/polars DataFrame or LazyFrame is provided, it will be converted to Records with lazy conversion.
+        If pandas/polars :class:`DataFrame` or LazyFrame is provided, it will be converted to :class:`Records` with lazy conversion.
 
         Args:
             data: Input data in one of supported formats:
                 - List of dicts: [{"col1": val1, "col2": val2}, ...]
                 - List of tuples: Requires schema parameter with column names
-                - AsyncRecords object: Extracts data and schema if available
+                - :class:`AsyncRecords` object: Extracts data and schema if available
                 - AsyncLazyRecords object: Auto-materializes and extracts data and schema
-                - pandas DataFrame: Converts to Records with schema preservation
-                - polars DataFrame: Converts to Records with schema preservation
-                - polars LazyFrame: Materializes and converts to Records with schema preservation
+                - pandas :class:`DataFrame`: Converts to :class:`Records` with schema preservation
+                - polars :class:`DataFrame`: Converts to :class:`Records` with schema preservation
+                - polars LazyFrame: Materializes and converts to :class:`Records` with schema preservation
             schema: Optional explicit schema. If not provided, schema is inferred from data.
             pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
             auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
@@ -1398,7 +1398,7 @@ class AsyncDatabase:
 
 
 def _cleanup_all_async_databases() -> None:
-    """Best-effort cleanup for AsyncDatabase instances left open at exit.
+    """Best-effort cleanup for :class:`AsyncDatabase` instances left open at exit.
 
     Note: This runs in atexit context, so we can't reliably use asyncio.
     Instead, we mark databases as needing cleanup and log a warning.

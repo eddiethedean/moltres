@@ -90,7 +90,7 @@ def column(
         scale: Scale for DECIMAL/NUMERIC types (default: None)
 
     Returns:
-        ColumnDef object for use in table creation
+        :class:`ColumnDef`: ColumnDef object for use in table creation
 
     Example:
         >>> from moltres import connect
@@ -106,8 +106,8 @@ def column(
         ...         column("balance", "DECIMAL", precision=10, scale=2)
         ...     ]
         ... ).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "name": "Alice", "age": 30, "balance": 100.50}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "age": 30, "balance": 100.50}], _database=db).insert_into("users")
         >>> df = db.table("users").select()
         >>> results = df.collect()
         >>> results[0]["name"]
@@ -138,7 +138,7 @@ def decimal(
     """Convenience helper for creating DECIMAL/NUMERIC column definitions.
 
     Args:
-        name: Column name
+        name: :class:`Column` name
         precision: Total number of digits
         scale: Number of digits after the decimal point
         nullable: Whether the column can be NULL
@@ -172,7 +172,7 @@ def uuid(
     """Convenience helper for creating UUID column definitions.
 
     Args:
-        name: Column name
+        name: :class:`Column` name
         nullable: Whether the column can be NULL
         default: Default value for the column
         primary_key: Whether this column is a primary key
@@ -202,7 +202,7 @@ def json(
     """Convenience helper for creating JSON/JSONB column definitions.
 
     Args:
-        name: Column name
+        name: :class:`Column` name
         nullable: Whether the column can be NULL
         default: Default value for the column
         jsonb: If True, use JSONB (PostgreSQL only), otherwise use JSON
@@ -229,7 +229,7 @@ def unique(columns: Union[str, Sequence[str]], name: Optional[str] = None) -> Un
     """Convenience helper for creating UNIQUE constraints.
 
     Args:
-        columns: Column name(s) for the unique constraint
+        columns: :class:`Column` name(s) for the unique constraint
         name: Optional constraint name
 
     Returns:
@@ -280,9 +280,9 @@ def foreign_key(
     """Convenience helper for creating FOREIGN KEY constraints.
 
     Args:
-        columns: Column name(s) in this table
+        columns: :class:`Column` name(s) in this table
         references_table: Name of the referenced table
-        references_columns: Column name(s) in the referenced table
+        references_columns: :class:`Column` name(s) in the referenced table
         name: Optional constraint name
         on_delete: Optional action on delete (e.g., "CASCADE", "SET NULL", "RESTRICT")
         on_update: Optional action on update (e.g., "CASCADE", "SET NULL", "RESTRICT")

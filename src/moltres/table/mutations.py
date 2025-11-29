@@ -27,7 +27,7 @@ def insert_rows(
 
     Args:
         handle: The table handle to insert into
-        rows: Sequence of row dictionaries, Records, pandas DataFrame, polars DataFrame, or polars LazyFrame
+        rows: Sequence of row dictionaries, :class:`Records`, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
         transaction: Optional transaction connection to use
 
     Returns:
@@ -86,7 +86,7 @@ def update_rows(
 
     Args:
         handle: The table handle to update
-        where: Column expression for the WHERE clause
+        where: :class:`Column` expression for the WHERE clause
         values: Dictionary of column names to new values
         transaction: Optional transaction connection to use
 
@@ -119,7 +119,7 @@ def delete_rows(handle: TableHandle, *, where: Column, transaction: Optional[Any
 
     Args:
         handle: The table handle to delete from
-        where: Column expression for the WHERE clause
+        where: :class:`Column` expression for the WHERE clause
         transaction: Optional transaction connection to use
 
     Returns:

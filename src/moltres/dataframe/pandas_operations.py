@@ -1,6 +1,6 @@
-"""Common operations for Pandas-style DataFrame interfaces.
+"""Common operations for Pandas-style :class:`DataFrame` interfaces.
 
-This module contains shared logic used by both PandasDataFrame and
+This module contains shared logic used by both :class:`PandasDataFrame` and
 AsyncPandasDataFrame to reduce duplication and improve maintainability.
 """
 
@@ -18,15 +18,15 @@ if TYPE_CHECKING:
 def parse_query_expression(
     expr: str, available_columns: Optional[Set[str]], df_plan: Any
 ) -> Column:
-    """Parse a pandas-style query string into a Column expression.
+    """Parse a pandas-style query string into a :class:`Column` expression.
 
     Args:
         expr: Query string with pandas-style syntax
         available_columns: Set of available column names (for validation)
-        df_plan: DataFrame plan (for fallback column extraction)
+        df_plan: :class:`DataFrame` plan (for fallback column extraction)
 
     Returns:
-        Column expression representing the query predicate
+        :class:`Column` expression representing the query predicate
 
     Raises:
         PandasAPIError: If the query string cannot be parsed
@@ -100,13 +100,13 @@ def prepare_merge_keys(
     """Prepare join keys for merge operation.
 
     Args:
-        on: Column name(s) to join on (must exist in both DataFrames)
-        left_on: Column name(s) in left DataFrame
-        right_on: Column name(s) in right DataFrame
-        left_columns: Available columns in left DataFrame (for validation)
-        right_columns: Available columns in right DataFrame (for validation)
-        left_validate_fn: Function to validate left DataFrame columns
-        right_validate_fn: Function to validate right DataFrame columns
+        on: :class:`Column` name(s) to join on (must exist in both DataFrames)
+        left_on: :class:`Column` name(s) in left :class:`DataFrame`
+        right_on: :class:`Column` name(s) in right :class:`DataFrame`
+        left_columns: Available columns in left :class:`DataFrame` (for validation)
+        right_columns: Available columns in right :class:`DataFrame` (for validation)
+        left_validate_fn: Function to validate left :class:`DataFrame` columns
+        right_validate_fn: Function to validate right :class:`DataFrame` columns
 
     Returns:
         List of (left_col, right_col) tuples for join keys
@@ -152,7 +152,7 @@ def normalize_groupby_by(by: Union[str, Sequence[str]]) -> Tuple[str, ...]:
     """Normalize groupby 'by' parameter to tuple of column names.
 
     Args:
-        by: Column name(s) to group by
+        by: :class:`Column` name(s) to group by
 
     Returns:
         Tuple of column name strings
@@ -173,7 +173,7 @@ def validate_columns_exist(
     available_columns: Sequence[str],
     operation: str = "operation",
 ) -> None:
-    """Validate that all specified columns exist in the DataFrame.
+    """Validate that all specified columns exist in the :class:`DataFrame`.
 
     Args:
         column_names: List of column names to validate

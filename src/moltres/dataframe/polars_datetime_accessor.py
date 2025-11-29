@@ -21,13 +21,13 @@ from ..expressions.functions import (
 
 @dataclass(frozen=True)
 class _PolarsDateTimeAccessor:
-    """Polars-style datetime accessor for Column expressions.
+    """Polars-style datetime accessor for :class:`Column` expressions.
 
     Provides datetime methods that compile to SQL date/time functions.
-    All methods return Column expressions for lazy evaluation.
+    All methods return :class:`Column` expressions for lazy evaluation.
 
     Example:
-        >>> df['date'].dt.year()  # Returns Column expression
+        >>> df['date'].dt.year()  # Returns :class:`Column` expression
         >>> df.filter(df['date'].dt.year() > 2020)
     """
 
@@ -37,7 +37,7 @@ class _PolarsDateTimeAccessor:
         """Extract year from datetime.
 
         Returns:
-            Column expression for EXTRACT(YEAR FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(YEAR FROM ...) SQL function
 
         Example:
             >>> df['date'].dt.year()
@@ -48,7 +48,7 @@ class _PolarsDateTimeAccessor:
         """Extract month from datetime.
 
         Returns:
-            Column expression for EXTRACT(MONTH FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(MONTH FROM ...) SQL function
 
         Example:
             >>> df['date'].dt.month()
@@ -59,7 +59,7 @@ class _PolarsDateTimeAccessor:
         """Extract day of month from datetime.
 
         Returns:
-            Column expression for EXTRACT(DAY FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(DAY FROM ...) SQL function
 
         Example:
             >>> df['date'].dt.day()
@@ -70,7 +70,7 @@ class _PolarsDateTimeAccessor:
         """Extract hour from datetime.
 
         Returns:
-            Column expression for EXTRACT(HOUR FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(HOUR FROM ...) SQL function
 
         Example:
             >>> df['timestamp'].dt.hour()
@@ -81,7 +81,7 @@ class _PolarsDateTimeAccessor:
         """Extract minute from datetime.
 
         Returns:
-            Column expression for EXTRACT(MINUTE FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(MINUTE FROM ...) SQL function
 
         Example:
             >>> df['timestamp'].dt.minute()
@@ -92,7 +92,7 @@ class _PolarsDateTimeAccessor:
         """Extract second from datetime.
 
         Returns:
-            Column expression for EXTRACT(SECOND FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(SECOND FROM ...) SQL function
 
         Example:
             >>> df['timestamp'].dt.second()
@@ -103,7 +103,7 @@ class _PolarsDateTimeAccessor:
         """Extract quarter from datetime.
 
         Returns:
-            Column expression for EXTRACT(QUARTER FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(QUARTER FROM ...) SQL function
 
         Example:
             >>> df['date'].dt.quarter()
@@ -114,7 +114,7 @@ class _PolarsDateTimeAccessor:
         """Extract week number from datetime.
 
         Returns:
-            Column expression for EXTRACT(WEEK FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(WEEK FROM ...) SQL function
 
         Example:
             >>> df['date'].dt.week()
@@ -125,7 +125,7 @@ class _PolarsDateTimeAccessor:
         """Extract day of week from datetime (1=Monday, 7=Sunday).
 
         Returns:
-            Column expression for EXTRACT(DOW FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(DOW FROM ...) SQL function
 
         Example:
             >>> df['date'].dt.day_of_week()
@@ -136,7 +136,7 @@ class _PolarsDateTimeAccessor:
         """Extract day of year from datetime.
 
         Returns:
-            Column expression for EXTRACT(DOY FROM ...) SQL function
+            :class:`Column` expression for EXTRACT(DOY FROM ...) SQL function
 
         Example:
             >>> df['date'].dt.day_of_year()

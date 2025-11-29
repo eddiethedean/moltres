@@ -31,16 +31,16 @@ async def read_csv(
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> AsyncRecords:
-    """Read CSV file asynchronously and return AsyncRecords.
+    """Read CSV file asynchronously and return :class:`AsyncRecords`.
 
     Args:
         path: Path to CSV file
-        database: AsyncDatabase instance
+        database: :class:`AsyncDatabase` instance
         schema: Optional explicit schema
         options: Reader options (header, delimiter, inferSchema)
 
     Returns:
-        AsyncRecords containing the CSV data
+        :class:`AsyncRecords` containing the CSV data
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -256,12 +256,12 @@ async def read_csv_stream(
 
     Args:
         path: Path to CSV file
-        database: AsyncDatabase instance
+        database: :class:`AsyncDatabase` instance
         schema: Optional explicit schema
         options: Reader options (header, delimiter, inferSchema, chunk_size)
 
     Returns:
-        AsyncRecords with streaming generator
+        :class:`AsyncRecords` with streaming generator
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -471,14 +471,14 @@ async def read_csv_stream(
 def _create_async_records_from_data(
     database: "AsyncDatabase", rows: List[Dict[str, object]], schema: Optional[Sequence[ColumnDef]]
 ) -> AsyncRecords:
-    """Create AsyncRecords from materialized data."""
+    """Create :class:`AsyncRecords` from materialized data."""
     return AsyncRecords(_data=rows, _schema=schema, _database=database)
 
 
 def _create_async_records_from_schema(
     database: "AsyncDatabase", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> AsyncRecords:
-    """Create AsyncRecords with explicit schema but no data."""
+    """Create :class:`AsyncRecords` with explicit schema but no data."""
     return AsyncRecords(_data=rows, _schema=schema, _database=database)
 
 
@@ -487,5 +487,5 @@ def _create_async_records_from_stream(
     chunk_generator: Callable[[], AsyncIterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> AsyncRecords:
-    """Create AsyncRecords from streaming generator."""
+    """Create :class:`AsyncRecords` from streaming generator."""
     return AsyncRecords(_generator=chunk_generator, _schema=schema, _database=database)

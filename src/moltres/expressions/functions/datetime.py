@@ -1,4 +1,4 @@
-"""Datetime functions for DataFrame operations."""
+"""Datetime functions for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def year(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for year
+        :class:`Column` expression for year
 
     Example:
         >>> from moltres import connect, col
@@ -22,8 +22,8 @@ def year(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.year(col("date")).alias("year"))
         >>> results = df.collect()
         >>> results[0]["year"]
@@ -40,7 +40,7 @@ def month(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for month
+        :class:`Column` expression for month
 
     Example:
         >>> from moltres import connect, col
@@ -48,8 +48,8 @@ def month(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-03-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-03-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.month(col("date")).alias("month"))
         >>> results = df.collect()
         >>> results[0]["month"]
@@ -66,7 +66,7 @@ def day(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for day
+        :class:`Column` expression for day
 
     Example:
         >>> from moltres import connect, col
@@ -74,8 +74,8 @@ def day(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.day(col("date")).alias("day"))
         >>> results = df.collect()
         >>> results[0]["day"]
@@ -92,7 +92,7 @@ def dayofweek(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for dayofweek
+        :class:`Column` expression for dayofweek
 
     Example:
         >>> from moltres import connect, col
@@ -100,8 +100,8 @@ def dayofweek(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.dayofweek(col("date")).alias("dow"))
         >>> results = df.collect()
         >>> # 2024-01-15 is a Monday (day 2 in SQLite)
@@ -119,7 +119,7 @@ def hour(column: ColumnLike) -> Column:
         column: Timestamp column
 
     Returns:
-        Column expression for hour
+        :class:`Column` expression for hour
 
     Example:
         >>> from moltres import connect, col
@@ -127,8 +127,8 @@ def hour(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("timestamp", "TIMESTAMP")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.hour(col("timestamp")).alias("hour"))
         >>> results = df.collect()
         >>> results[0]["hour"]
@@ -145,7 +145,7 @@ def minute(column: ColumnLike) -> Column:
         column: Timestamp column
 
     Returns:
-        Column expression for minute
+        :class:`Column` expression for minute
 
     Example:
         >>> from moltres import connect, col
@@ -153,8 +153,8 @@ def minute(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("timestamp", "TIMESTAMP")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.minute(col("timestamp")).alias("minute"))
         >>> results = df.collect()
         >>> results[0]["minute"]
@@ -171,7 +171,7 @@ def second(column: ColumnLike) -> Column:
         column: Timestamp column
 
     Returns:
-        Column expression for second
+        :class:`Column` expression for second
 
     Example:
         >>> from moltres import connect, col
@@ -179,8 +179,8 @@ def second(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("timestamp", "TIMESTAMP")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"timestamp": "2024-01-15 14:30:45"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"timestamp": "2024-01-15 14:30:45"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.second(col("timestamp")).alias("second"))
         >>> results = df.collect()
         >>> results[0]["second"]
@@ -198,7 +198,7 @@ def date_format(column: ColumnLike, format: str) -> Column:  # noqa: A001
         format: Format string (e.g., "YYYY-MM-DD")
 
     Returns:
-        Column expression for date_format
+        :class:`Column` expression for date_format
 
     Example:
         >>> # Note: date_format() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -219,7 +219,7 @@ def to_date(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa
         format: Optional format string (if None, uses default parsing)
 
     Returns:
-        Column expression for to_date
+        :class:`Column` expression for to_date
 
     Example:
         >>> # Note: to_date() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -238,7 +238,7 @@ def current_date() -> Column:
     """Get the current date.
 
     Returns:
-        Column expression for current_date
+        :class:`Column` expression for current_date
 
     Example:
         >>> from moltres import connect, col
@@ -259,7 +259,7 @@ def current_timestamp() -> Column:
     """Get the current timestamp.
 
     Returns:
-        Column expression for current_timestamp
+        :class:`Column` expression for current_timestamp
 
     Example:
         >>> from moltres import connect, col
@@ -284,7 +284,7 @@ def datediff(end: ColumnLike, start: ColumnLike) -> Column:
         start: Start date column
 
     Returns:
-        Column expression for datediff
+        :class:`Column` expression for datediff
 
     Example:
         >>> # Note: datediff() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -305,7 +305,7 @@ def add_months(column: ColumnLike, num_months: int) -> Column:
         num_months: Number of months to add (can be negative)
 
     Returns:
-        Column expression for add_months
+        :class:`Column` expression for add_months
 
     Example:
         >>> # Note: add_months() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -336,7 +336,7 @@ class When:
             value: Default value if no conditions match
 
         Returns:
-            Column expression for the complete CASE WHEN statement
+            :class:`Column` expression for the complete CASE WHEN statement
         """
         return Column(op="case_when", args=(tuple(self._conditions), ensure_column(value)))
 
@@ -349,7 +349,7 @@ def date_add(column: ColumnLike, interval: str) -> Column:
         interval: Interval string (e.g., "1 DAY", "2 MONTH", "3 YEAR", "1 HOUR")
 
     Returns:
-        Column expression for date_add
+        :class:`Column` expression for date_add
 
     Example:
         >>> # Note: date_add() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -370,7 +370,7 @@ def date_sub(column: ColumnLike, interval: str) -> Column:
         interval: Interval string (e.g., "1 DAY", "2 MONTH", "3 YEAR", "1 HOUR")
 
     Returns:
-        Column expression for date_sub
+        :class:`Column` expression for date_sub
 
     Example:
         >>> # Note: date_sub() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -380,8 +380,8 @@ def date_sub(column: ColumnLike, interval: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.date_sub(col("created_at"), "1 DAY").alias("yesterday"))
         >>> results = df.collect()
         >>> from datetime import date, datetime
@@ -400,7 +400,7 @@ def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  #
         format: Optional format string (if None, uses default parsing)
 
     Returns:
-        Column expression for to_timestamp
+        :class:`Column` expression for to_timestamp
 
     Example:
         >>> # Note: to_timestamp() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -410,8 +410,8 @@ def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  #
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("date_str", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date_str": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date_str": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.to_timestamp(col("date_str"), "yyyy-MM-dd HH:mm:ss").alias("timestamp"))
         >>> results = df.collect()
         >>> from datetime import datetime
@@ -432,7 +432,7 @@ def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = 
         format: Optional format string for parsing date strings
 
     Returns:
-        Column expression for unix_timestamp
+        :class:`Column` expression for unix_timestamp
 
     Example:
         >>> # Note: unix_timestamp() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -442,8 +442,8 @@ def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = 
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "TIMESTAMP")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.unix_timestamp(col("created_at")).alias("unix_ts"))
         >>> results = df.collect()
         >>> isinstance(results[0]["unix_ts"], (int, float))
@@ -465,7 +465,7 @@ def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  
         format: Optional format string (if None, uses default format)
 
     Returns:
-        Column expression for from_unixtime
+        :class:`Column` expression for from_unixtime
 
     Example:
         >>> # Note: from_unixtime() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -475,8 +475,8 @@ def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("unix_time", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"unix_time": 1705312200}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"unix_time": 1705312200}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.from_unixtime(col("unix_time"), "yyyy-MM-dd HH:mm:ss").alias("timestamp"))
         >>> results = df.collect()
         >>> isinstance(results[0]["timestamp"], str)
@@ -496,7 +496,7 @@ def date_trunc(unit: str, column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for date_trunc
+        :class:`Column` expression for date_trunc
 
     Example:
         >>> # Note: date_trunc() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -506,8 +506,8 @@ def date_trunc(unit: str, column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "TIMESTAMP")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.date_trunc("month", col("created_at")).alias("month_start"))
         >>> results = df.collect()
         >>> isinstance(results[0]["month_start"], (str, type(None)))
@@ -524,7 +524,7 @@ def quarter(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for quarter (1, 2, 3, or 4)
+        :class:`Column` expression for quarter (1, 2, 3, or 4)
 
     Example:
         >>> # Note: quarter() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -534,8 +534,8 @@ def quarter(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-03-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-03-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.quarter(col("created_at")).alias("q"))
         >>> results = df.collect()
         >>> 1 <= results[0]["q"] <= 4
@@ -552,7 +552,7 @@ def weekofyear(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for weekofyear
+        :class:`Column` expression for weekofyear
 
     Example:
         >>> # Note: weekofyear() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -562,8 +562,8 @@ def weekofyear(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.weekofyear(col("created_at")).alias("week"))
         >>> results = df.collect()
         >>> 1 <= results[0]["week"] <= 53
@@ -580,7 +580,7 @@ def week(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for week
+        :class:`Column` expression for week
 
     Example:
         >>> # Note: week() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -590,8 +590,8 @@ def week(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.week(col("created_at")).alias("week"))
         >>> results = df.collect()
         >>> 1 <= results[0]["week"] <= 53
@@ -608,7 +608,7 @@ def dayofyear(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for dayofyear
+        :class:`Column` expression for dayofyear
 
     Example:
         >>> # Note: dayofyear() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -618,8 +618,8 @@ def dayofyear(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.dayofyear(col("created_at")).alias("day_of_year"))
         >>> results = df.collect()
         >>> 1 <= results[0]["day_of_year"] <= 366
@@ -636,7 +636,7 @@ def last_day(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for last_day
+        :class:`Column` expression for last_day
 
     Example:
         >>> # Note: last_day() requires database-specific support (PostgreSQL/MySQL/DuckDB)
@@ -646,8 +646,8 @@ def last_day(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.last_day(col("created_at")).alias("last_day"))
         >>> results = df.collect()
         >>> from datetime import date
@@ -666,7 +666,7 @@ def months_between(date1: ColumnLike, date2: ColumnLike) -> Column:
         date2: Second date column
 
     Returns:
-        Column expression for months_between (can be fractional)
+        :class:`Column` expression for months_between (can be fractional)
 
     Example:
         >>> # Note: months_between() requires database-specific support (PostgreSQL/MySQL/DuckDB)
@@ -676,8 +676,8 @@ def months_between(date1: ColumnLike, date2: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("start_date", "DATE"), column("end_date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"start_date": "2024-01-15", "end_date": "2024-03-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"start_date": "2024-01-15", "end_date": "2024-03-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.months_between(col("end_date"), col("start_date")).alias("months"))
         >>> results = df.collect()
         >>> results[0]["months"] >= 0

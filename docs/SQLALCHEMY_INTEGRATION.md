@@ -111,7 +111,7 @@ Create a new module for SQLAlchemy integration with the following functions:
 - Show model-based querying
 - Show conversion examples
 
-**New example file (`examples/17_sqlalchemy_models.py`):**
+**New example file (`docs/examples/17_sqlalchemy_models.py`):**
 - Define sample SQLAlchemy models
 - Create tables from models
 - Query using models
@@ -131,7 +131,7 @@ Create a new module for SQLAlchemy integration with the following functions:
 3. **Modify:** `src/moltres/table/async_table.py` - Add async support
 4. **Modify:** `src/moltres/__init__.py` - Export integration utilities if needed
 5. **New file:** `tests/table/test_sqlalchemy_integration.py` - Comprehensive tests
-6. **New file:** `examples/17_sqlalchemy_models.py` - Usage examples
+6. **New file:** `docs/examples/17_sqlalchemy_models.py` - Usage examples
 7. **Modify:** `README.md` - Add integration documentation
 
 ## Implementation Notes
@@ -213,7 +213,7 @@ df = (
 5. **extract_constraints** - Constraint extraction is implemented in sqlalchemy_integration.py, but may need refinement based on testing
 6. **async_support** - Add SQLAlchemy model support to AsyncDatabase class
 7. **write_tests** - Create comprehensive test suite in `tests/table/test_sqlalchemy_integration.py`
-8. **create_examples** - Create `examples/17_sqlalchemy_models.py` with usage examples
+8. **create_examples** - Create `docs/examples/17_sqlalchemy_models.py` with usage examples
 9. **update_documentation** - Update README.md with SQLAlchemy integration section and examples
 
 ## Implementation Todos
@@ -225,6 +225,6 @@ df = (
 5. **extract_constraints** - Implement constraint extraction from SQLAlchemy models (PK, unique, FK, check, indexes)
 6. **async_support** - Add SQLAlchemy model support to AsyncDatabase class
 7. **write_tests** - Create comprehensive test suite in `tests/table/test_sqlalchemy_integration.py`
-8. **create_examples** - Create `examples/17_sqlalchemy_models.py` with usage examples
+8. **create_examples** - Create `docs/examples/17_sqlalchemy_models.py` with usage examples
 9. **update_documentation** - Update README.md with SQLAlchemy integration section and examples
 

@@ -1,6 +1,6 @@
-"""Common helper functions for DataFrame writer implementations.
+"""Common helper functions for :class:`DataFrame` writer implementations.
 
-This module contains shared logic used by both DataFrameWriter and AsyncDataFrameWriter
+This module contains shared logic used by both :class:`DataFrameWriter` and AsyncDataFrameWriter
 to reduce code duplication.
 """
 
@@ -168,7 +168,7 @@ def can_use_insert_select(
     """Check if we can use INSERT INTO ... SELECT optimization.
 
     Args:
-        has_database: Whether DataFrame has a database connection
+        has_database: Whether :class:`DataFrame` has a database connection
         stream_override: Whether streaming is explicitly enabled/disabled
         mode: Write mode string
         plan_compilable: Whether the plan can be compiled to SQL

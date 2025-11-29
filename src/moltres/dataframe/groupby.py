@@ -1,4 +1,4 @@
-"""Grouped DataFrame helper."""
+"""Grouped :class:`DataFrame` helper."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from .dataframe import DataFrame
 
 @dataclass(frozen=True)
 class GroupedDataFrame:
-    """Represents a DataFrame grouped by one or more columns.
+    """Represents a :class:`DataFrame` grouped by one or more columns.
 
-    This is returned by DataFrame.group_by() and provides aggregation methods.
+    This is returned by :class:`DataFrame`.group_by() and provides aggregation methods.
     """
 
     plan: LogicalPlan
@@ -27,13 +27,13 @@ class GroupedDataFrame:
 
         Args:
             *aggregations: One or more aggregation expressions. Can be:
-                - Column expressions (e.g., sum(col("amount")))
+                - :class:`Column` expressions (e.g., sum(col("amount")))
                 - String column names (e.g., "amount" - defaults to sum())
                 - Dictionary mapping column names to aggregation functions
                   (e.g., {"amount": "sum", "price": "avg"})
 
         Returns:
-            DataFrame with aggregated results
+            :class:`DataFrame` with aggregated results
 
         Raises:
             ValueError: If no aggregations are provided or if invalid
@@ -45,9 +45,9 @@ class GroupedDataFrame:
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL"), column("price", "REAL")]).collect()
-            >>> from moltres.io.records import Records
-            >>> Records(_data=[{"category": "A", "amount": 100.0, "price": 10.0}, {"category": "A", "amount": 200.0, "price": 20.0}, {"category": "B", "amount": 150.0, "price": 15.0}], _database=db).insert_into("sales")
-            >>> # Using Column expressions
+            >>> from moltres.io.records import :class:`Records`
+            >>> :class:`Records`(_data=[{"category": "A", "amount": 100.0, "price": 10.0}, {"category": "A", "amount": 200.0, "price": 20.0}, {"category": "B", "amount": 150.0, "price": 15.0}], _database=db).insert_into("sales")
+            >>> # Using :class:`Column` expressions
             >>> df = db.table("sales").select()
             >>> result = df.group_by("category").agg(F.sum(col("amount")).alias("total"), F.avg(col("price")).alias("avg_price"))
             >>> results = result.collect()
@@ -91,14 +91,14 @@ class GroupedDataFrame:
 
     @staticmethod
     def _create_aggregation_from_string(column_name: str, func_name: str) -> Column:
-        """Create an aggregation Column from a column name and function name string.
+        """Create an aggregation :class:`Column` from a column name and function name string.
 
         Args:
             column_name: Name of the column to aggregate
             func_name: Name of the aggregation function (e.g., "sum", "avg", "min", "max", "count")
 
         Returns:
-            Column expression for the aggregation
+            :class:`Column` expression for the aggregation
 
         Raises:
             ValueError: If the function name is not recognized
@@ -113,7 +113,7 @@ class GroupedDataFrame:
         """Pivot the grouped data on a column.
 
         Args:
-            pivot_col: Column to pivot on (values become column headers)
+            pivot_col: :class:`Column` to pivot on (values become column headers)
             values: Optional list of specific values to pivot (if None, must be provided later or discovered)
 
         Returns:
@@ -136,7 +136,7 @@ class GroupedDataFrame:
         """Validate that an expression is a valid aggregation.
 
         Args:
-            expr: Column expression to validate
+            expr: :class:`Column` expression to validate
 
         Returns:
             The validated column expression
@@ -154,9 +154,9 @@ class GroupedDataFrame:
 
 @dataclass(frozen=True)
 class PivotedGroupedDataFrame:
-    """Represents a DataFrame grouped by columns with a pivot operation applied.
+    """Represents a :class:`DataFrame` grouped by columns with a pivot operation applied.
 
-    This is returned by GroupedDataFrame.pivot() and provides aggregation methods
+    This is returned by :class:`GroupedDataFrame`.pivot() and provides aggregation methods
     that will create pivoted columns.
     """
 
@@ -171,13 +171,13 @@ class PivotedGroupedDataFrame:
 
         Args:
             *aggregations: One or more aggregation expressions. Can be:
-                - Column expressions (e.g., sum(col("amount")))
+                - :class:`Column` expressions (e.g., sum(col("amount")))
                 - String column names (e.g., "amount" - defaults to sum())
                 - Dictionary mapping column names to aggregation functions
                   (e.g., {"amount": "sum", "price": "avg"})
 
         Returns:
-            DataFrame with pivoted aggregated results
+            :class:`DataFrame` with pivoted aggregated results
 
         Raises:
             ValueError: If no aggregations are provided or if invalid
@@ -189,7 +189,7 @@ class PivotedGroupedDataFrame:
             >>> # Using string column name
             >>> df.group_by("category").pivot("status").agg("amount")
 
-            >>> # Using Column expression
+            >>> # Using :class:`Column` expression
             >>> df.group_by("category").pivot("status").agg(F.sum(col("amount")))
 
             >>> # With specific pivot values
@@ -261,10 +261,10 @@ class PivotedGroupedDataFrame:
         """Extract the column name from an aggregation expression.
 
         Args:
-            agg_expr: Aggregation Column expression (e.g., sum(col("amount")))
+            agg_expr: Aggregation :class:`Column` expression (e.g., sum(col("amount")))
 
         Returns:
-            Column name string (e.g., "amount")
+            :class:`Column` name string (e.g., "amount")
 
         Raises:
             ValueError: If the column cannot be extracted
@@ -278,7 +278,7 @@ class PivotedGroupedDataFrame:
         """Extract the aggregation function name from an aggregation expression.
 
         Args:
-            agg_expr: Aggregation Column expression (e.g., sum(col("amount")))
+            agg_expr: Aggregation :class:`Column` expression (e.g., sum(col("amount")))
 
         Returns:
             Aggregation function name (e.g., "sum")
@@ -289,14 +289,14 @@ class PivotedGroupedDataFrame:
 
     @staticmethod
     def _create_aggregation_from_string(column_name: str, func_name: str) -> Column:
-        """Create an aggregation Column from a column name and function name string.
+        """Create an aggregation :class:`Column` from a column name and function name string.
 
         Args:
             column_name: Name of the column to aggregate
             func_name: Name of the aggregation function (e.g., "sum", "avg", "min", "max", "count")
 
         Returns:
-            Column expression for the aggregation
+            :class:`Column` expression for the aggregation
 
         Raises:
             ValueError: If the function name is not recognized
@@ -310,7 +310,7 @@ class PivotedGroupedDataFrame:
         """Validate that an expression is a valid aggregation.
 
         Args:
-            expr: Column expression to validate
+            expr: :class:`Column` expression to validate
 
         Returns:
             The validated column expression

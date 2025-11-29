@@ -10,7 +10,7 @@ import json
 db = connect("sqlite:///example.db")
 
 # Create sample files
-data_dir = Path("example_data")
+data_dir = Path(__file__).parent.parent / "example_data"
 data_dir.mkdir(exist_ok=True)
 
 # CSV file

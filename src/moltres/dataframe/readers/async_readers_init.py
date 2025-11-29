@@ -1,4 +1,4 @@
-"""Async format-specific readers for DataFrame operations."""
+"""Async format-specific readers for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 

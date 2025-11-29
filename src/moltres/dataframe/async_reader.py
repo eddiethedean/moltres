@@ -238,9 +238,9 @@ class AsyncFormatReader:
 
 
 class AsyncRecordsLoader:
-    """Builder for loading data from files as AsyncLazyRecords (lazy AsyncRecords).
+    """Builder for loading data from files as AsyncLazyRecords (lazy :class:`AsyncRecords`).
 
-    Provides backward compatibility and convenience for cases where AsyncRecords are preferred
+    Provides backward compatibility and convenience for cases where :class:`AsyncRecords` are preferred
     over AsyncDataFrames. Use await db.read.records.csv() etc. to get AsyncLazyRecords directly.
     AsyncLazyRecords materialize on-demand when used.
     """
@@ -402,15 +402,15 @@ class AsyncRecordsLoader:
         )
 
     def dicts(self, data: Sequence[Dict[str, object]]) -> AsyncRecords:
-        """Create AsyncRecords from a list of dictionaries.
+        """Create :class:`AsyncRecords` from a list of dictionaries.
 
-        Note: This returns AsyncRecords (not AsyncLazyRecords) since the data is already materialized.
+        Note: This returns :class:`AsyncRecords` (not AsyncLazyRecords) since the data is already materialized.
 
         Args:
-            data: List of dictionaries to convert to AsyncRecords
+            data: List of dictionaries to convert to :class:`AsyncRecords`
 
         Returns:
-            AsyncRecords containing the data (already materialized)
+            :class:`AsyncRecords` containing the data (already materialized)
         """
         return AsyncRecords(_data=list(data), _database=self._database, _schema=self._schema)
 
@@ -429,7 +429,7 @@ class AsyncReadAccessor:
 
     @property
     def records(self) -> AsyncRecordsLoader:
-        """Access to AsyncRecords-based read methods."""
+        """Access to :class:`AsyncRecords`-based read methods."""
         return self._records
 
     # Builder methods that configure the underlying AsyncDataLoader

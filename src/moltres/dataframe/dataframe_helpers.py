@@ -1,7 +1,7 @@
-"""Shared helper methods for DataFrame and AsyncDataFrame classes.
+"""Shared helper methods for :class:`DataFrame` and AsyncDataFrame classes.
 
 This module contains common utility methods that are duplicated between
-the sync and async DataFrame implementations.
+the sync and async :class:`DataFrame` implementations.
 """
 
 from __future__ import annotations
@@ -26,9 +26,9 @@ class DataFrameHelpersProtocol(Protocol):
 
 
 class DataFrameHelpersMixin:
-    """Mixin class providing shared helper methods for DataFrame implementations.
+    """Mixin class providing shared helper methods for :class:`DataFrame` implementations.
 
-    This mixin can be used by both DataFrame and AsyncDataFrame to eliminate
+    This mixin can be used by both :class:`DataFrame` and AsyncDataFrame to eliminate
     code duplication in helper methods.
     """
 
@@ -38,23 +38,23 @@ class DataFrameHelpersMixin:
     database: Optional[Union["Database", "AsyncDatabase"]]
 
     def _normalize_projection(self, expr: Union[Column, str]) -> Column:
-        """Normalize a projection expression to a Column.
+        """Normalize a projection expression to a :class:`Column`.
 
         Args:
-            expr: Column expression or string column name
+            expr: :class:`Column` expression or string column name
 
         Returns:
-            Column expression
+            :class:`Column` expression
         """
         if isinstance(expr, Column):
             return expr
         return col(expr)
 
     def _is_window_function(self, col_expr: Column) -> bool:
-        """Check if a Column expression is a window function.
+        """Check if a :class:`Column` expression is a window function.
 
         Args:
-            col_expr: Column expression to check
+            col_expr: :class:`Column` expression to check
 
         Returns:
             True if the expression is a window function, False otherwise
@@ -91,13 +91,13 @@ class DataFrameHelpersMixin:
         return False
 
     def _extract_column_name(self, col_expr: Column) -> Optional[str]:
-        """Extract column name from a Column expression.
+        """Extract column name from a :class:`Column` expression.
 
         Args:
-            col_expr: Column expression to extract name from
+            col_expr: :class:`Column` expression to extract name from
 
         Returns:
-            Column name string, or None if cannot be determined
+            :class:`Column` name string, or None if cannot be determined
         """
         # If column has an alias, use that
         if col_expr._alias:
@@ -431,7 +431,7 @@ class DataFrameHelpersMixin:
         """Normalize a sort expression to a SortOrder.
 
         Args:
-            expr: Column expression to normalize
+            expr: :class:`Column` expression to normalize
 
         Returns:
             SortOrder object
@@ -448,14 +448,14 @@ class DataFrameHelpersMixin:
             Union[str, Sequence[str], Sequence[Tuple[str, str]], Column, Sequence[Column]]
         ],
     ) -> Union[Sequence[Tuple[str, str]], Column]:
-        """Normalize join condition to either tuple pairs or a Column expression.
+        """Normalize join condition to either tuple pairs or a :class:`Column` expression.
 
         Args:
-            on: Join condition - can be string, sequence of strings/tuples, or Column expression(s)
+            on: Join condition - can be string, sequence of strings/tuples, or :class:`Column` expression(s)
 
         Returns:
             - Sequence[Tuple[str, str]]: For tuple/string-based joins (backward compatible)
-            - Column: For PySpark-style Column expression joins
+            - :class:`Column`: For PySpark-style :class:`Column` expression joins
 
         Raises:
             ValueError: If join condition is invalid

@@ -18,7 +18,23 @@ FetchFormat = Literal["pandas", "polars", "records"]
 
 @dataclass
 class EngineConfig:
-    """Connection + execution options for SQLAlchemy engines."""
+    """Connection + execution options for SQLAlchemy engines.
+
+    Attributes:
+        dsn: Database connection string
+        engine: SQLAlchemy Engine or AsyncEngine instance
+        session: SQLAlchemy Session or AsyncSession instance
+        echo: Enable SQLAlchemy echo mode for debugging
+        fetch_format: Result format - "records", "pandas", or "polars"
+        dialect: Override SQL dialect detection
+        pool_size: Connection pool size
+        max_overflow: Maximum pool overflow connections
+        pool_timeout: Pool timeout in seconds
+        pool_recycle: Connection recycle time in seconds
+        pool_pre_ping: Enable connection health checks
+        query_timeout: Query execution timeout in seconds
+        future: Use SQLAlchemy 2.0 style
+    """
 
     dsn: str | None = None
     engine: Engine | "AsyncEngine" | None = None
@@ -35,7 +51,12 @@ class EngineConfig:
     future: bool = True
 
     def __post_init__(self) -> None:
-        """Validate that dsn, engine, or session is provided, but not multiple."""
+        """Validate that dsn, engine, or session is provided, but not multiple.
+
+        Raises:
+            ValueError: If none of dsn, engine, or session are provided
+            ValueError: If multiple of dsn, engine, and session are provided
+        """
         provided = [self.dsn, self.engine, self.session]
         if all(x is None for x in provided):
             raise ValueError("Either 'dsn', 'engine', or 'session' must be provided")
@@ -48,7 +69,14 @@ class EngineConfig:
 
 @dataclass
 class MoltresConfig:
-    """Container for all runtime configuration knobs."""
+    """Container for all runtime configuration knobs.
+
+    Attributes:
+        engine: Engine configuration
+        default_schema: Default database schema name
+        include_metadata: Whether to include metadata in query results
+        options: Additional configuration options
+    """
 
     engine: EngineConfig
     default_schema: str | None = None
@@ -109,7 +137,7 @@ def create_config(
     """Convenience helper used by ``moltres.connect``.
 
     Supports environment variables for configuration:
-    - MOLTRES_DSN: Database connection string
+    - MOLTRES_DSN: :class:`Database` connection string
     - MOLTRES_ECHO: Enable SQLAlchemy echo mode (true/false)
     - MOLTRES_FETCH_FORMAT: "records", "pandas", or "polars"
     - MOLTRES_DIALECT: Override SQL dialect detection
@@ -121,7 +149,7 @@ def create_config(
     - MOLTRES_QUERY_TIMEOUT: Query execution timeout in seconds
 
     Args:
-        dsn: Database connection string (e.g., "sqlite:///example.db").
+        dsn: :class:`Database` connection string (e.g., "sqlite:///example.db").
              If None, will try MOLTRES_DSN environment variable.
              Cannot be provided if engine or session is provided.
         engine: SQLAlchemy Engine instance to use. If provided, dsn is ignored.
@@ -144,7 +172,7 @@ def create_config(
             - Other options are stored in config.options
 
     Returns:
-        MoltresConfig instance with parsed configuration
+        :class:`MoltresConfig`: MoltresConfig instance with parsed configuration
 
     Raises:
         ValueError: If neither dsn, engine, nor session is provided and MOLTRES_DSN is not set

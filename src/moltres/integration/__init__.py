@@ -18,13 +18,13 @@ if TYPE_CHECKING:
 
 
 def execute_with_connection(df: "DataFrame", connection: "Connection") -> List[Dict[str, Any]]:
-    """Execute a Moltres DataFrame using a provided SQLAlchemy Connection.
+    """Execute a Moltres :class:`DataFrame` using a provided SQLAlchemy Connection.
 
     This allows you to execute Moltres queries within an existing SQLAlchemy
     transaction or connection context.
 
     Args:
-        df: Moltres DataFrame to execute
+        df: Moltres :class:`DataFrame` to execute
         connection: SQLAlchemy Connection to use for execution
 
     Returns:
@@ -53,13 +53,13 @@ def execute_with_connection(df: "DataFrame", connection: "Connection") -> List[D
 
 
 def execute_with_session(df: "DataFrame", session: "Session") -> List[Dict[str, Any]]:
-    """Execute a Moltres DataFrame using a SQLAlchemy ORM Session.
+    """Execute a Moltres :class:`DataFrame` using a SQLAlchemy ORM Session.
 
     This allows you to execute Moltres queries within an existing SQLAlchemy
     ORM session context.
 
     Args:
-        df: Moltres DataFrame to execute
+        df: Moltres :class:`DataFrame` to execute
         session: SQLAlchemy ORM Session to use for execution
 
     Returns:
@@ -83,14 +83,14 @@ def execute_with_session(df: "DataFrame", session: "Session") -> List[Dict[str, 
 
 
 def to_sqlalchemy_select(df: "DataFrame", dialect: Optional[str] = None) -> "Select":
-    """Convert a Moltres DataFrame to a SQLAlchemy Select statement.
+    """Convert a Moltres :class:`DataFrame` to a SQLAlchemy Select statement.
 
-    This is a convenience function that wraps DataFrame.to_sqlalchemy().
+    This is a convenience function that wraps :class:`DataFrame`.to_sqlalchemy().
 
     Args:
-        df: Moltres DataFrame to convert
+        df: Moltres :class:`DataFrame` to convert
         dialect: Optional SQL dialect name. If not provided, uses the dialect
-                from the DataFrame's attached Database, or defaults to "ansi"
+                from the :class:`DataFrame`'s attached :class:`Database`, or defaults to "ansi"
 
     Returns:
         SQLAlchemy Select statement
@@ -109,16 +109,16 @@ def to_sqlalchemy_select(df: "DataFrame", dialect: Optional[str] = None) -> "Sel
 def from_sqlalchemy_select(
     select_stmt: "Select", database: Optional["Database"] = None
 ) -> "DataFrame":
-    """Create a Moltres DataFrame from a SQLAlchemy Select statement.
+    """Create a Moltres :class:`DataFrame` from a SQLAlchemy Select statement.
 
-    This is a convenience function that wraps DataFrame.from_sqlalchemy().
+    This is a convenience function that wraps :class:`DataFrame`.from_sqlalchemy().
 
     Args:
         select_stmt: SQLAlchemy Select statement to convert
-        database: Optional Database instance to attach to the DataFrame
+        database: Optional :class:`Database` instance to attach to the :class:`DataFrame`
 
     Returns:
-        Moltres DataFrame that can be further chained with Moltres operations
+        Moltres :class:`DataFrame` that can be further chained with Moltres operations
 
     Example:
         >>> from sqlalchemy import create_engine, select, table, column
@@ -135,16 +135,16 @@ def from_sqlalchemy_select(
 
 
 def with_sqlmodel(df: "DataFrame", model: Type[Any]) -> "DataFrame":
-    """Attach a SQLModel or Pydantic model to a DataFrame.
+    """Attach a SQLModel or Pydantic model to a :class:`DataFrame`.
 
-    This is a convenience function that wraps DataFrame.with_model().
+    This is a convenience function that wraps :class:`DataFrame`.with_model().
 
     Args:
-        df: Moltres DataFrame
+        df: Moltres :class:`DataFrame`
         model: SQLModel or Pydantic model class to attach
 
     Returns:
-        DataFrame with the model attached
+        :class:`DataFrame` with the model attached
 
     Example:
         >>> from sqlmodel import SQLModel, Field
@@ -171,10 +171,10 @@ def with_sqlmodel(df: "DataFrame", model: Type[Any]) -> "DataFrame":
 def execute_with_connection_model(
     df: "DataFrame", connection: "Connection", model: Type[Any]
 ) -> List[Any]:
-    """Execute a Moltres DataFrame using a provided SQLAlchemy Connection and return SQLModel instances.
+    """Execute a Moltres :class:`DataFrame` using a provided SQLAlchemy Connection and return SQLModel instances.
 
     Args:
-        df: Moltres DataFrame to execute
+        df: Moltres :class:`DataFrame` to execute
         connection: SQLAlchemy Connection to use for execution
         model: SQLModel model class to instantiate results as
 
@@ -214,10 +214,10 @@ def execute_with_connection_model(
 
 
 def execute_with_session_model(df: "DataFrame", session: "Session", model: Type[Any]) -> List[Any]:
-    """Execute a Moltres DataFrame using a SQLAlchemy ORM Session and return SQLModel instances.
+    """Execute a Moltres :class:`DataFrame` using a SQLAlchemy ORM Session and return SQLModel instances.
 
     Args:
-        df: Moltres DataFrame to execute
+        df: Moltres :class:`DataFrame` to execute
         session: SQLAlchemy ORM Session to use for execution
         model: SQLModel model class to instantiate results as
 

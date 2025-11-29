@@ -373,7 +373,7 @@ df_pandas = pd.DataFrame(results)
 
 Moltres also provides a pandas-style interface for easier migration:
 
-**See also:** [Pandas interface examples](https://github.com/eddiethedean/moltres/blob/main/examples/18_pandas_interface.py), [Pandas/Polars integration examples](https://github.com/eddiethedean/moltres/blob/main/examples/15_pandas_polars_dataframes.py), and the [Pandas Interface Guide](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)
+**See also:** [Pandas interface examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/18_pandas_interface.py), [Pandas/Polars integration examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/15_pandas_polars_dataframes.py), and the [Pandas Interface Guide](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)
 
 ```python
 from moltres import connect

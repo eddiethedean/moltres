@@ -21,7 +21,7 @@ class _AsyncLocIndexer:
 
         Supports:
         - df.loc[df['age'] > 25] - Row filtering
-        - df.loc[:, ['col1', 'col2']] - Column selection
+        - df.loc[:, ['col1', 'col2']] - :class:`Column` selection
         - df.loc[df['age'] > 25, 'col1'] - Combined filter and select
         """
         # Handle different key types

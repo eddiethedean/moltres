@@ -209,10 +209,10 @@ class CreateTableOperation:
     model: Optional[Type["DeclarativeBase"]] = None
 
     def collect(self) -> "TableHandle":
-        """Execute the create table operation and return TableHandle.
+        """Execute the create table operation and return :class:`TableHandle`.
 
         Returns:
-            TableHandle for the newly created table
+            :class:`TableHandle` for the newly created table
 
         Raises:
             ExecutionError: If table creation fails

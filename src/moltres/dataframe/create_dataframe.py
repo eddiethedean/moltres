@@ -39,11 +39,11 @@ def normalize_data_to_rows(
         data: Input data in one of supported formats:
             - List of dicts: [{"col1": val1, "col2": val2}, ...]
             - List of tuples: Requires schema with column names
-            - Records object: Extract _data
+            - :class:`Records` object: Extract _data
             - LazyRecords object: Auto-materializes and extracts _data
-            - AsyncRecords object: Extract _data
-            - pandas DataFrame: Converts to list of dicts
-            - polars DataFrame: Converts to list of dicts
+            - :class:`AsyncRecords` object: Extract _data
+            - pandas :class:`DataFrame`: Converts to list of dicts
+            - polars :class:`DataFrame`: Converts to list of dicts
             - polars LazyFrame: Materializes and converts to list of dicts
 
     Returns:
@@ -126,10 +126,10 @@ def normalize_data_to_rows(
 def get_schema_from_records(
     records: Union[Records, LazyRecords, "AsyncRecords", "AsyncLazyRecords"],
 ) -> Optional[Sequence[ColumnDef]]:
-    """Extract schema from Records, LazyRecords, AsyncRecords, or AsyncLazyRecords object.
+    """Extract schema from :class:`Records`, LazyRecords, :class:`AsyncRecords`, or AsyncLazyRecords object.
 
     Args:
-        records: Records, LazyRecords, AsyncRecords, or AsyncLazyRecords object
+        records: :class:`Records`, LazyRecords, :class:`AsyncRecords`, or AsyncLazyRecords object
 
     Returns:
         Schema if available, None otherwise
@@ -302,14 +302,14 @@ def create_temp_table_from_streaming(
     schema: Optional[Sequence[ColumnDef]] = None,
     auto_pk: Optional[Union[str, Sequence[str]]] = None,
 ) -> tuple[str, Sequence[ColumnDef]]:
-    """Create a temporary table from streaming Records by inserting data in chunks.
+    """Create a temporary table from streaming :class:`Records` by inserting data in chunks.
 
     This function handles large files by reading and inserting data in chunks,
     avoiding loading the entire file into memory.
 
     Args:
-        database: Database instance to create table in
-        records: Records object with _generator set (streaming mode)
+        database: :class:`Database` instance to create table in
+        records: :class:`Records` object with _generator set (streaming mode)
         schema: Optional explicit schema. If not provided, inferred from first chunk.
         auto_pk: Optional column name(s) to create as auto-incrementing primary key
 
@@ -464,14 +464,14 @@ async def create_temp_table_from_streaming_async(
     schema: Optional[Sequence[ColumnDef]] = None,
     auto_pk: Optional[Union[str, Sequence[str]]] = None,
 ) -> tuple[str, Sequence[ColumnDef]]:
-    """Create a temporary table from streaming AsyncRecords by inserting data in chunks (async).
+    """Create a temporary table from streaming :class:`AsyncRecords` by inserting data in chunks (async).
 
     This function handles large files by reading and inserting data in chunks,
     avoiding loading the entire file into memory.
 
     Args:
-        database: AsyncDatabase instance to create table in
-        records: AsyncRecords object with _generator set (streaming mode)
+        database: :class:`AsyncDatabase` instance to create table in
+        records: :class:`AsyncRecords` object with _generator set (streaming mode)
         schema: Optional explicit schema. If not provided, inferred from first chunk.
         auto_pk: Optional column name(s) to create as auto-incrementing primary key
 

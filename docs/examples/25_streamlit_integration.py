@@ -15,7 +15,7 @@ Key features:
 To run this example:
 1. Install Streamlit: pip install streamlit
 2. Install Moltres with Streamlit: pip install moltres[streamlit]
-3. Run: streamlit run examples/25_streamlit_integration.py
+3. Run: streamlit run docs/examples/25_streamlit_integration.py
 
 Note: This is a demonstration file. In a real Streamlit app, you would
 organize this code into separate functions and use Streamlit's app structure.

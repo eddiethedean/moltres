@@ -1,6 +1,6 @@
-"""Common operations for Polars-style DataFrame interfaces.
+"""Common operations for Polars-style :class:`DataFrame` interfaces.
 
-This module contains shared logic used by both PolarsDataFrame and
+This module contains shared logic used by both :class:`PolarsDataFrame` and
 AsyncPolarsDataFrame to reduce duplication and improve maintainability.
 """
 
@@ -93,7 +93,7 @@ def validate_columns_exist(
     available_columns: Sequence[str],
     operation: str = "operation",
 ) -> None:
-    """Validate that all specified columns exist in the DataFrame.
+    """Validate that all specified columns exist in the :class:`DataFrame`.
 
     Args:
         column_names: List of column names to validate
@@ -144,13 +144,13 @@ def prepare_polars_join_keys(
     """Prepare join keys for Polars-style join operations (string-based).
 
     Args:
-        on: Column name(s) or list of tuples to join on
-        left_on: Column name(s) in left DataFrame
-        right_on: Column name(s) in right DataFrame
-        left_columns: Available columns in left DataFrame
-        right_columns: Available columns in right DataFrame
-        left_validate_fn: Function to validate left DataFrame columns
-        right_validate_fn: Function to validate right DataFrame columns
+        on: :class:`Column` name(s) or list of tuples to join on
+        left_on: :class:`Column` name(s) in left :class:`DataFrame`
+        right_on: :class:`Column` name(s) in right :class:`DataFrame`
+        left_columns: Available columns in left :class:`DataFrame`
+        right_columns: Available columns in right :class:`DataFrame`
+        left_validate_fn: Function to validate left :class:`DataFrame` columns
+        right_validate_fn: Function to validate right :class:`DataFrame` columns
 
     Returns:
         List of (left_col, right_col) tuples for join keys

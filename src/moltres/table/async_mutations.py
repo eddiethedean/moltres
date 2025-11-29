@@ -37,7 +37,7 @@ async def insert_rows_async(
 
     Args:
         handle: The table handle to insert into
-        rows: Sequence of row dictionaries, AsyncRecords, pandas DataFrame, polars DataFrame, or polars LazyFrame
+        rows: Sequence of row dictionaries, :class:`AsyncRecords`, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
 
     Returns:
         Number of rows affected
@@ -91,7 +91,7 @@ async def update_rows_async(
 
     Args:
         handle: The table handle to update
-        where: Column expression for the WHERE clause
+        where: :class:`Column` expression for the WHERE clause
         values: Dictionary of column names to new values
 
     Returns:
@@ -125,7 +125,7 @@ async def delete_rows_async(
 
     Args:
         handle: The table handle to delete from
-        where: Column expression for the WHERE clause
+        where: :class:`Column` expression for the WHERE clause
 
     Returns:
         Number of rows affected

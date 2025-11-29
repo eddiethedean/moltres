@@ -25,7 +25,7 @@ class AsyncPolarsGroupBy:
         """Apply aggregations using Polars-style expressions.
 
         Args:
-            *exprs: Column expressions for aggregations, or dictionary mapping column names to function names
+            *exprs: :class:`Column` expressions for aggregations, or dictionary mapping column names to function names
 
         Returns:
             AsyncPolarsDataFrame with aggregated results

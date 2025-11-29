@@ -152,7 +152,7 @@ line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint.per-file-ignores]
-"examples/*" = ["E402"]  # Allow imports not at top for educational examples
+"docs/examples/*" = ["E402"]  # Allow imports not at top for educational examples
 "notebooks/*.ipynb" = ["F821"]  # Notebooks have variables defined across cells
 "src/moltres/expressions/functions.py" = ["F405"]  # Star imports are intentional for API surface
 

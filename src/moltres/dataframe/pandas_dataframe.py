@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PandasDataFrame(InterfaceCommonMixin):
-    """Pandas-style interface wrapper around Moltres DataFrame.
+    """Pandas-style interface wrapper around Moltres :class:`DataFrame`.
 
     Provides familiar pandas API methods while maintaining lazy evaluation
     and SQL pushdown execution. All operations remain lazy until collect() is called.
@@ -49,8 +49,8 @@ class PandasDataFrame(InterfaceCommonMixin):
         >>> df[['id', 'name']].query('age > 25')
         >>> # Pandas-style groupby
         >>> df.groupby('country').agg({'amount': 'sum'})
-        >>> # Returns actual pandas DataFrame
-        >>> result = df.collect()  # pd.DataFrame
+        >>> # Returns actual pandas :class:`DataFrame`
+        >>> result = df.collect()  # pd.:class:`DataFrame`
     """
 
     _df: DataFrame
@@ -69,24 +69,24 @@ class PandasDataFrame(InterfaceCommonMixin):
 
     @classmethod
     def from_dataframe(cls, df: DataFrame) -> "PandasDataFrame":
-        """Create a PandasDataFrame from a regular DataFrame.
+        """Create a :class:`PandasDataFrame` from a regular :class:`DataFrame`.
 
         Args:
-            df: The DataFrame to wrap
+            df: The :class:`DataFrame` to wrap
 
         Returns:
-            PandasDataFrame wrapping the provided DataFrame
+            :class:`PandasDataFrame` wrapping the provided :class:`DataFrame`
         """
         return cls(_df=df)
 
     def _with_dataframe(self, df: DataFrame) -> "PandasDataFrame":
-        """Create a new PandasDataFrame with a different underlying DataFrame.
+        """Create a new :class:`PandasDataFrame` with a different underlying :class:`DataFrame`.
 
         Args:
-            df: The new underlying DataFrame
+            df: The new underlying :class:`DataFrame`
 
         Returns:
-            New PandasDataFrame instance
+            New :class:`PandasDataFrame` instance
         """
         # Clear caches when creating new DataFrame instance
         return PandasDataFrame(_df=df, _shape_cache=None, _dtypes_cache=None)
@@ -94,7 +94,7 @@ class PandasDataFrame(InterfaceCommonMixin):
     def _validate_columns_exist(
         self, column_names: Sequence[str], operation: str = "operation"
     ) -> None:
-        """Validate that all specified columns exist in the DataFrame.
+        """Validate that all specified columns exist in the :class:`DataFrame`.
 
         Args:
             column_names: List of column names to validate
@@ -129,22 +129,22 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Pandas-style column access.
 
         Supports:
-        - df['col'] - Returns Column expression for filtering/expressions
-        - df[['col1', 'col2']] - Returns new PandasDataFrame with selected columns
-        - df[df['age'] > 25] - Boolean indexing (filtering via Column condition)
+        - df['col'] - Returns :class:`Column` expression for filtering/expressions
+        - df[['col1', 'col2']] - Returns new :class:`PandasDataFrame` with selected columns
+        - df[df['age'] > 25] - Boolean indexing (filtering via :class:`Column` condition)
 
         Args:
-            key: Column name(s) or boolean Column condition
+            key: :class:`Column` name(s) or boolean :class:`Column` condition
 
         Returns:
-            - For single column string: Column expression
-            - For list of columns: PandasDataFrame with selected columns
-            - For boolean Column condition: PandasDataFrame with filtered rows
+            - For single column string: :class:`Column` expression
+            - For list of columns: :class:`PandasDataFrame` with selected columns
+            - For boolean :class:`Column` condition: :class:`PandasDataFrame` with filtered rows
 
         Example:
-            >>> df['age']  # Returns Column expression
-            >>> df[['id', 'name']]  # Returns PandasDataFrame
-            >>> df[df['age'] > 25]  # Returns filtered PandasDataFrame
+            >>> df['age']  # Returns :class:`Column` expression
+            >>> df[['id', 'name']]  # Returns :class:`PandasDataFrame`
+            >>> df[df['age'] > 25]  # Returns filtered :class:`PandasDataFrame`
         """
         # Single column string: df['col'] - return Column-like object for expressions
         if isinstance(key, str):
@@ -186,7 +186,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         )
 
     def query(self, expr: str) -> "PandasDataFrame":
-        """Filter DataFrame using a pandas-style query string.
+        """Filter :class:`DataFrame` using a pandas-style query string.
 
         Args:
             expr: Query string with pandas-style syntax (e.g., "age > 25 and status == 'active'")
@@ -194,7 +194,7 @@ class PandasDataFrame(InterfaceCommonMixin):
                   Supports 'and'/'or' keywords in addition to '&'/'|' operators.
 
         Returns:
-            Filtered PandasDataFrame
+            Filtered :class:`PandasDataFrame`
 
         Raises:
             ValueError: If the query string cannot be parsed
@@ -226,7 +226,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Group rows by one or more columns (pandas-style).
 
         Args:
-            by: Column name(s) to group by
+            by: :class:`Column` name(s) to group by
             *args: Additional positional arguments (for pandas compatibility)
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
@@ -265,15 +265,15 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Merge two DataFrames (pandas-style join).
 
         Args:
-            right: Right DataFrame to merge with
-            on: Column name(s) to join on (must exist in both DataFrames)
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
+            right: Right :class:`DataFrame` to merge with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
             how: Type of join ('inner', 'left', 'right', 'outer')
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
         Returns:
-            Merged PandasDataFrame
+            Merged :class:`PandasDataFrame`
 
         Example:
             >>> df1.merge(df2, on='id')
@@ -301,13 +301,13 @@ class PandasDataFrame(InterfaceCommonMixin):
         return self._with_dataframe(result_df)
 
     def crossJoin(self, other: "PandasDataFrame") -> "PandasDataFrame":
-        """Perform a cross join (Cartesian product) with another DataFrame.
+        """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
 
         Args:
-            other: Another PandasDataFrame to cross join with
+            other: Another :class:`PandasDataFrame` to cross join with
 
         Returns:
-            New PandasDataFrame containing the Cartesian product of rows
+            New :class:`PandasDataFrame` containing the Cartesian product of rows
 
         Example:
             >>> df1 = db.table("table1").pandas()
@@ -325,15 +325,15 @@ class PandasDataFrame(InterfaceCommonMixin):
         ascending: Union[bool, Sequence[bool]] = True,
         **kwargs: Any,
     ) -> "PandasDataFrame":
-        """Sort DataFrame by column(s) (pandas-style).
+        """Sort :class:`DataFrame` by column(s) (pandas-style).
 
         Args:
-            by: Column name(s) to sort by
+            by: :class:`Column` name(s) to sort by
             ascending: Sort order (True for ascending, False for descending)
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
         Returns:
-            Sorted PandasDataFrame
+            Sorted :class:`PandasDataFrame`
 
         Example:
             >>> df.sort_values('age')
@@ -374,7 +374,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
         Returns:
-            PandasDataFrame with renamed columns
+            :class:`PandasDataFrame` with renamed columns
 
         Example:
             >>> df.rename(columns={'old_name': 'new_name'})
@@ -390,11 +390,11 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Drop columns (pandas-style).
 
         Args:
-            columns: Column name(s) to drop
+            columns: :class:`Column` name(s) to drop
             **kwargs: Additional keyword arguments (for pandas compatibility)
 
         Returns:
-            PandasDataFrame with dropped columns
+            :class:`PandasDataFrame` with dropped columns
 
         Example:
             >>> df.drop(columns=['col1', 'col2'])
@@ -417,12 +417,12 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Remove duplicate rows (pandas-style).
 
         Args:
-            subset: Column name(s) to consider for duplicates (None means all columns)
+            subset: :class:`Column` name(s) to consider for duplicates (None means all columns)
             **kwargs: Additional keyword arguments (for pandas compatibility)
                 - keep: 'first' (default) or 'last' - which duplicate to keep
 
         Returns:
-            PandasDataFrame with duplicates removed
+            :class:`PandasDataFrame` with duplicates removed
 
         Example:
             >>> df.drop_duplicates()
@@ -480,13 +480,13 @@ class PandasDataFrame(InterfaceCommonMixin):
         return self._with_dataframe(result_df)
 
     def select(self, *columns: Union[str, Column]) -> "PandasDataFrame":
-        """Select columns from the DataFrame (pandas-style wrapper).
+        """Select columns from the :class:`DataFrame` (pandas-style wrapper).
 
         Args:
-            *columns: Column names or Column expressions to select
+            *columns: :class:`Column` names or :class:`Column` expressions to select
 
         Returns:
-            PandasDataFrame with selected columns
+            :class:`PandasDataFrame` with selected columns
 
         Example:
             >>> df.select('id', 'name')
@@ -507,10 +507,10 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Assign new columns (pandas-style).
 
         Args:
-            **kwargs: Column name = value pairs where value can be a Column expression or literal
+            **kwargs: :class:`Column` name = value pairs where value can be a :class:`Column` expression or literal
 
         Returns:
-            PandasDataFrame with new columns
+            :class:`PandasDataFrame` with new columns
 
         Example:
             >>> df.assign(total=df['amount'] * 1.1)
@@ -533,18 +533,18 @@ class PandasDataFrame(InterfaceCommonMixin):
     def collect(self, stream: Literal[True]) -> Iterator["pd.DataFrame"]: ...
 
     def collect(self, stream: bool = False) -> Union["pd.DataFrame", Iterator["pd.DataFrame"]]:
-        """Collect results as pandas DataFrame.
+        """Collect results as pandas :class:`DataFrame`.
 
         Args:
-            stream: If True, return an iterator of pandas DataFrame chunks.
-                   If False (default), return a single pandas DataFrame.
+            stream: If True, return an iterator of pandas :class:`DataFrame` chunks.
+                   If False (default), return a single pandas :class:`DataFrame`.
 
         Returns:
-            If stream=False: pandas DataFrame
-            If stream=True: Iterator of pandas DataFrame chunks
+            If stream=False: pandas :class:`DataFrame`
+            If stream=True: Iterator of pandas :class:`DataFrame` chunks
 
         Example:
-            >>> pdf = df.collect()  # Returns pd.DataFrame
+            >>> pdf = df.collect()  # Returns pd.:class:`DataFrame`
             >>> for chunk in df.collect(stream=True):  # Streaming
             ...     process(chunk)
         """
@@ -571,14 +571,14 @@ class PandasDataFrame(InterfaceCommonMixin):
             return pd.DataFrame(results)
 
     def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
-        """Convert PandasDataFrame's logical plan to a SQLAlchemy Select statement.
+        """Convert :class:`PandasDataFrame`'s logical plan to a SQLAlchemy Select statement.
 
-        This method delegates to the underlying DataFrame's to_sqlalchemy() method,
-        allowing you to use PandasDataFrame with existing SQLAlchemy infrastructure.
+        This method delegates to the underlying :class:`DataFrame`'s to_sqlalchemy() method,
+        allowing you to use :class:`PandasDataFrame` with existing SQLAlchemy infrastructure.
 
         Args:
             dialect: Optional SQL dialect name. If not provided, uses the dialect
-                    from the attached Database, or defaults to "ansi"
+                    from the attached :class:`Database`, or defaults to "ansi"
 
         Returns:
             SQLAlchemy Select statement that can be executed with any SQLAlchemy connection
@@ -652,7 +652,7 @@ class PandasDataFrame(InterfaceCommonMixin):
 
     @property
     def shape(self) -> Tuple[int, int]:
-        """Get DataFrame shape (rows, columns) (pandas-style property).
+        """Get :class:`DataFrame` shape (rows, columns) (pandas-style property).
 
         Returns:
             Tuple of (number of rows, number of columns)
@@ -660,7 +660,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         Note:
             Getting row count requires executing a COUNT query,
             which can be expensive for large datasets. The result is cached
-            for the lifetime of this DataFrame instance.
+            for the lifetime of this :class:`DataFrame` instance.
 
         Warning:
             This operation executes a SQL query. For large tables, consider
@@ -706,10 +706,10 @@ class PandasDataFrame(InterfaceCommonMixin):
 
     @property
     def empty(self) -> bool:
-        """Check if DataFrame is empty (pandas-style property).
+        """Check if :class:`DataFrame` is empty (pandas-style property).
 
         Returns:
-            True if DataFrame has no rows, False otherwise
+            True if :class:`DataFrame` has no rows, False otherwise
 
         Note:
             This requires executing a query to check row count.
@@ -728,7 +728,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             n: Number of rows to return (default: 5)
 
         Returns:
-            PandasDataFrame with first n rows
+            :class:`PandasDataFrame` with first n rows
 
         Example:
             >>> df.head(10)  # First 10 rows
@@ -742,7 +742,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             n: Number of rows to return (default: 5)
 
         Returns:
-            PandasDataFrame with last n rows
+            :class:`PandasDataFrame` with last n rows
 
         Note:
             This is a simplified implementation. For proper tail() behavior with lazy
@@ -777,7 +777,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Generate descriptive statistics (pandas-style).
 
         Returns:
-            pandas DataFrame with summary statistics
+            pandas :class:`DataFrame` with summary statistics
 
         Note:
             This executes the query and requires pandas to be installed.
@@ -799,7 +799,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         return pdf.describe()
 
     def info(self) -> None:
-        """Print a concise summary of the DataFrame (pandas-style).
+        """Print a concise summary of the :class:`DataFrame` (pandas-style).
 
         Prints column names, types, non-null counts, and memory usage.
 
@@ -821,7 +821,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Count distinct values in column(s) (pandas-style).
 
         Args:
-            column: Column name to count. If None, counts distinct values for all columns.
+            column: :class:`Column` name to count. If None, counts distinct values for all columns.
 
         Returns:
             If column is specified: integer count of distinct values.
@@ -873,12 +873,12 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Count value frequencies (pandas-style).
 
         Args:
-            column: Column name to count values for
+            column: :class:`Column` name to count values for
             normalize: If True, return proportions instead of counts
             ascending: If True, sort in ascending order
 
         Returns:
-            pandas DataFrame with value counts
+            pandas :class:`DataFrame` with value counts
 
         Note:
             This executes the query and requires pandas to be installed.
@@ -962,11 +962,11 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Explode array/JSON columns into multiple rows (pandas-style).
 
         Args:
-            column: Column name(s) to explode
+            column: :class:`Column` name(s) to explode
             ignore_index: If True, reset index (not used, for API compatibility)
 
         Returns:
-            PandasDataFrame with exploded rows
+            :class:`PandasDataFrame` with exploded rows
 
         Example:
             >>> df.explode('tags')
@@ -990,16 +990,16 @@ class PandasDataFrame(InterfaceCommonMixin):
         values: Optional[Union[str, Sequence[str]]] = None,
         aggfunc: Union[str, Dict[str, str]] = "sum",
     ) -> "PandasDataFrame":
-        """Pivot DataFrame (pandas-style).
+        """Pivot :class:`DataFrame` (pandas-style).
 
         Args:
-            index: Column(s) to use as index (rows)
-            columns: Column to use as columns (pivot column)
-            values: Column(s) to aggregate
+            index: :class:`Column`(s) to use as index (rows)
+            columns: :class:`Column` to use as columns (pivot column)
+            values: :class:`Column`(s) to aggregate
             aggfunc: Aggregation function(s) - string or dict mapping column to function
 
         Returns:
-            Pivoted PandasDataFrame
+            Pivoted :class:`PandasDataFrame`
 
         Example:
             >>> df.pivot(index='category', columns='status', values='amount', aggfunc='sum')
@@ -1035,15 +1035,15 @@ class PandasDataFrame(InterfaceCommonMixin):
         """Create a pivot table (pandas-style).
 
         Args:
-            values: Column(s) to aggregate
-            index: Column(s) to use as index (rows)
-            columns: Column to use as columns (pivot column)
+            values: :class:`Column`(s) to aggregate
+            index: :class:`Column`(s) to use as index (rows)
+            columns: :class:`Column` to use as columns (pivot column)
             aggfunc: Aggregation function(s)
             fill_value: Value to fill missing values (not used, for API compatibility)
             margins: Add row/column margins (not supported, for API compatibility)
 
         Returns:
-            Pivot table PandasDataFrame
+            Pivot table :class:`PandasDataFrame`
 
         Example:
             >>> df.pivot_table(values='amount', index='category', columns='status', aggfunc='mean')
@@ -1063,16 +1063,16 @@ class PandasDataFrame(InterfaceCommonMixin):
         var_name: str = "variable",
         value_name: str = "value",
     ) -> "PandasDataFrame":
-        """Melt DataFrame from wide to long format (pandas-style).
+        """Melt :class:`DataFrame` from wide to long format (pandas-style).
 
         Args:
-            id_vars: Column(s) to use as identifier variables
-            value_vars: Column(s) to unpivot (if None, unpivot all except id_vars)
+            id_vars: :class:`Column`(s) to use as identifier variables
+            value_vars: :class:`Column`(s) to unpivot (if None, unpivot all except id_vars)
             var_name: Name for the variable column
             value_name: Name for the value column
 
         Returns:
-            Melted PandasDataFrame
+            Melted :class:`PandasDataFrame`
 
         Example:
             >>> df.melt(id_vars=['id'], value_vars=['col1', 'col2'])
@@ -1091,7 +1091,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         weights: Optional[Union[str, Sequence[float]]] = None,
         random_state: Optional[int] = None,
     ) -> "PandasDataFrame":
-        """Sample rows from DataFrame (pandas-style).
+        """Sample rows from :class:`DataFrame` (pandas-style).
 
         Args:
             n: Number of rows to sample
@@ -1101,7 +1101,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             random_state: Random seed (alias for seed)
 
         Returns:
-            Sampled PandasDataFrame
+            Sampled :class:`PandasDataFrame`
 
         Example:
             >>> df.sample(n=10, random_state=42)
@@ -1130,7 +1130,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             n: Number of rows to return
 
         Returns:
-            PandasDataFrame with limited rows
+            :class:`PandasDataFrame` with limited rows
 
         Example:
             >>> df.limit(10)
@@ -1144,17 +1144,17 @@ class PandasDataFrame(InterfaceCommonMixin):
         ignore_index: bool = False,
         verify_integrity: bool = False,
     ) -> "PandasDataFrame":
-        """Append rows from another DataFrame (pandas-style).
+        """Append rows from another :class:`DataFrame` (pandas-style).
 
         Note: pandas deprecated append() in favor of concat(). This is provided for compatibility.
 
         Args:
-            other: Another PandasDataFrame to append
+            other: Another :class:`PandasDataFrame` to append
             ignore_index: If True, reset index (not used, for API compatibility)
             verify_integrity: Check for duplicate indices (not used, for API compatibility)
 
         Returns:
-            Appended PandasDataFrame
+            Appended :class:`PandasDataFrame`
 
         Example:
             >>> df1.append(df2)
@@ -1179,7 +1179,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             ignore_index: If True, reset index (not used, for API compatibility)
 
         Returns:
-            Concatenated PandasDataFrame
+            Concatenated :class:`PandasDataFrame`
 
         Example:
             >>> pd.concat([df1, df2])  # pandas style
@@ -1210,7 +1210,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             values: Dictionary mapping column names to sequences, or sequence for all columns
 
         Returns:
-            Filtered PandasDataFrame
+            Filtered :class:`PandasDataFrame`
 
         Example:
             >>> df.isin({'age': [25, 30, 35]})
@@ -1251,7 +1251,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             inclusive: Include boundaries - "both", "neither", "left", "right", or bool
 
         Returns:
-            Filtered PandasDataFrame
+            Filtered :class:`PandasDataFrame`
 
         Example:
             >>> df.between(left=20, right=30)  # All numeric columns
@@ -1326,7 +1326,7 @@ class PandasDataFrame(InterfaceCommonMixin):
             *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
 
         Returns:
-            PandasDataFrame with selected expressions
+            :class:`PandasDataFrame` with selected expressions
 
         Example:
             >>> df.select_expr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
@@ -1335,13 +1335,13 @@ class PandasDataFrame(InterfaceCommonMixin):
         return self._with_dataframe(result_df)
 
     def cte(self, name: str) -> "PandasDataFrame":
-        """Create a Common Table Expression (CTE) from this DataFrame.
+        """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
             name: Name for the CTE
 
         Returns:
-            PandasDataFrame representing the CTE
+            :class:`PandasDataFrame` representing the CTE
 
         Example:
             >>> cte_df = df.query('age > 25').cte('adults')
@@ -1358,7 +1358,7 @@ class PandasDataFrame(InterfaceCommonMixin):
                         If not provided, computes common statistics.
 
         Returns:
-            PandasDataFrame with summary statistics
+            :class:`PandasDataFrame` with summary statistics
 
         Example:
             >>> df.summary()
@@ -1379,7 +1379,7 @@ class _LocIndexer:
 
         Supports:
         - df.loc[df['age'] > 25] - Row filtering
-        - df.loc[:, ['col1', 'col2']] - Column selection
+        - df.loc[:, ['col1', 'col2']] - :class:`Column` selection
         - df.loc[df['age'] > 25, 'col1'] - Combined filter and select
         """
         # Handle different key types

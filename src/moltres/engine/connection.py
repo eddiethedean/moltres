@@ -91,7 +91,7 @@ class ConnectionManager:
                         This allows operations to share a transaction.
 
         Yields:
-            Database connection
+            :class:`Database` connection
         """
         if transaction is not None:
             # Use the provided transaction connection

@@ -4,7 +4,7 @@ This module provides integration with dbt (data build tool) for using
 Moltres DataFrames in dbt Python models.
 
 Key features:
-- Get Moltres Database instances from dbt connections
+- Get Moltres :class:`Database` instances from dbt connections
 - Reference dbt models and sources as Moltres DataFrames
 - Helper functions for common dbt patterns
 """

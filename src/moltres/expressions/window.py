@@ -20,7 +20,7 @@ class WindowSpec:
         """Partition the window by the given columns.
 
         Args:
-            *columns: Column expressions to partition by
+            *columns: :class:`Column` expressions to partition by
 
         Returns:
             New WindowSpec with partition_by set
@@ -31,7 +31,7 @@ class WindowSpec:
         """Order the window by the given columns.
 
         Args:
-            *columns: Column expressions to order by
+            *columns: :class:`Column` expressions to order by
 
         Returns:
             New WindowSpec with order_by set
@@ -71,7 +71,7 @@ class Window:
         """Create a window specification partitioned by columns.
 
         Args:
-            *columns: Column expressions to partition by
+            *columns: :class:`Column` expressions to partition by
 
         Returns:
             WindowSpec with partition_by set
@@ -83,7 +83,7 @@ class Window:
         """Create a window specification ordered by columns.
 
         Args:
-            *columns: Column expressions to order by
+            *columns: :class:`Column` expressions to order by
 
         Returns:
             WindowSpec with order_by set
@@ -122,7 +122,7 @@ def row_number() -> Column:
     """Generate a row number for each row in the window.
 
     Returns:
-        Column expression for row number
+        :class:`Column` expression for row number
     """
     return Column(op="window_row_number", args=())
 
@@ -131,7 +131,7 @@ def rank() -> Column:
     """Compute rank of values in the window (with gaps).
 
     Returns:
-        Column expression for rank
+        :class:`Column` expression for rank
     """
     return Column(op="window_rank", args=())
 
@@ -140,7 +140,7 @@ def dense_rank() -> Column:
     """Compute dense rank of values in the window (without gaps).
 
     Returns:
-        Column expression for dense rank
+        :class:`Column` expression for dense rank
     """
     return Column(op="window_dense_rank", args=())
 
@@ -149,12 +149,12 @@ def lag(column: ColumnLike, offset: int = 1, default: ColumnLike | None = None) 
     """Get the value from a previous row in the window.
 
     Args:
-        column: Column expression
+        column: :class:`Column` expression
         offset: Number of rows to look back (default: 1)
         default: Default value if offset goes beyond window (optional)
 
     Returns:
-        Column expression for lagged value
+        :class:`Column` expression for lagged value
     """
     args: list[ColumnLike] = [ensure_column(column), offset]
     if default is not None:
@@ -166,12 +166,12 @@ def lead(column: ColumnLike, offset: int = 1, default: ColumnLike | None = None)
     """Get the value from a following row in the window.
 
     Args:
-        column: Column expression
+        column: :class:`Column` expression
         offset: Number of rows to look ahead (default: 1)
         default: Default value if offset goes beyond window (optional)
 
     Returns:
-        Column expression for lead value
+        :class:`Column` expression for lead value
     """
     args: list[ColumnLike] = [ensure_column(column), offset]
     if default is not None:
@@ -183,10 +183,10 @@ def first_value(column: ColumnLike) -> Column:
     """Get the first value in the window.
 
     Args:
-        column: Column expression
+        column: :class:`Column` expression
 
     Returns:
-        Column expression for first value
+        :class:`Column` expression for first value
     """
     return Column(op="window_first_value", args=(ensure_column(column),))
 
@@ -195,9 +195,9 @@ def last_value(column: ColumnLike) -> Column:
     """Get the last value in the window.
 
     Args:
-        column: Column expression
+        column: :class:`Column` expression
 
     Returns:
-        Column expression for last value
+        :class:`Column` expression for last value
     """
     return Column(op="window_last_value", args=(ensure_column(column),))

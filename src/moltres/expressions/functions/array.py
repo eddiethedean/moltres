@@ -1,4 +1,4 @@
-"""Array functions for DataFrame operations."""
+"""Array functions for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ def array(*columns: ColumnLike) -> Column:
     """Create an array from multiple column values.
 
     Args:
-        *columns: Column expressions or literal values to include in the array
+        *columns: :class:`Column` expressions or literal values to include in the array
 
     Returns:
-        Column expression for array
+        :class:`Column` expression for array
 
     Example:
         >>> from moltres import connect, col
@@ -20,8 +20,8 @@ def array(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "INTEGER"), column("b", "INTEGER"), column("c", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": 1, "b": 2, "c": 3}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": 1, "b": 2, "c": 3}], _database=db).insert_into("data")
         >>> # Create array from columns (database-specific support required)
         >>> df = db.table("data").select(F.array(col("a"), col("b"), col("c")).alias("arr"))
         >>> # Note: Actual execution depends on database array support
@@ -39,7 +39,7 @@ def array_length(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_length
+        :class:`Column` expression for array_length
 
     Example:
         >>> # Note: array_length() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -67,7 +67,7 @@ def array_contains(column: ColumnLike, value: ColumnLike) -> Column:
         value: Value to search for (column expression or literal)
 
     Returns:
-        Column expression for array_contains (boolean)
+        :class:`Column` expression for array_contains (boolean)
 
     Example:
         >>> # Note: array_contains() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -95,7 +95,7 @@ def array_position(column: ColumnLike, value: ColumnLike) -> Column:
         value: Value to search for (column expression or literal)
 
     Returns:
-        Column expression for array_position (integer, or NULL if not found)
+        :class:`Column` expression for array_position (integer, or NULL if not found)
 
     Example:
         >>> # Note: array_position() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -123,7 +123,7 @@ def array_append(column: ColumnLike, element: ColumnLike) -> Column:
         element: Element to append (column expression or literal)
 
     Returns:
-        Column expression for array_append
+        :class:`Column` expression for array_append
 
     Example:
         >>> # Note: array_append() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -151,7 +151,7 @@ def array_prepend(column: ColumnLike, element: ColumnLike) -> Column:
         element: Element to prepend (column expression or literal)
 
     Returns:
-        Column expression for array_prepend
+        :class:`Column` expression for array_prepend
 
     Example:
         >>> # Note: array_prepend() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -179,7 +179,7 @@ def array_remove(column: ColumnLike, element: ColumnLike) -> Column:
         element: Element to remove (column expression or literal)
 
     Returns:
-        Column expression for array_remove
+        :class:`Column` expression for array_remove
 
     Example:
         >>> # Note: array_remove() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -206,7 +206,7 @@ def array_distinct(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_distinct
+        :class:`Column` expression for array_distinct
 
     Example:
         >>> # Note: array_distinct() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -233,7 +233,7 @@ def array_sort(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_sort
+        :class:`Column` expression for array_sort
 
     Example:
         >>> # Note: array_sort() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -260,7 +260,7 @@ def array_max(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_max
+        :class:`Column` expression for array_max
 
     Example:
         >>> # Note: array_max() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -287,7 +287,7 @@ def array_min(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_min
+        :class:`Column` expression for array_min
 
     Example:
         >>> # Note: array_min() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -314,7 +314,7 @@ def array_sum(column: ColumnLike) -> Column:
         column: Array column expression (must contain numeric elements)
 
     Returns:
-        Column expression for array_sum
+        :class:`Column` expression for array_sum
 
     Example:
         >>> # Note: array_sum() requires database-specific array support (DuckDB/PostgreSQL/MySQL)

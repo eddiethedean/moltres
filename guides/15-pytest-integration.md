@@ -275,7 +275,7 @@ markers = [
 
 ## Examples
 
-See `examples/26_pytest_integration.py` for comprehensive examples.
+See `docs/examples/26_pytest_integration.py` for comprehensive examples.
 
 ## See Also
 

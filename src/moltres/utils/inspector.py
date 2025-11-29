@@ -63,7 +63,7 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
     column names and types. Works with both sync and async databases.
 
     Args:
-        db: Database instance to query (Database or AsyncDatabase)
+        db: :class:`Database` instance to query (:class:`Database` or :class:`AsyncDatabase`)
         table_name: Name of the table to inspect
 
     Returns:
@@ -190,7 +190,7 @@ def get_table_schema(db: Union["Database", "AsyncDatabase"], table_name: str) ->
     Alias for get_table_columns() for consistency with PySpark terminology.
 
     Args:
-        db: Database instance to query
+        db: :class:`Database` instance to query
         table_name: Name of the table to inspect
 
     Returns:
@@ -205,7 +205,7 @@ def _get_inspector(db: Union["Database", "AsyncDatabase"]) -> Any:
     Handles both sync and async engines.
 
     Args:
-        db: Database instance
+        db: :class:`Database` instance
 
     Returns:
         SQLAlchemy Inspector instance
@@ -264,7 +264,7 @@ def get_table_names(
     sync and async databases.
 
     Args:
-        db: Database instance to query (Database or AsyncDatabase)
+        db: :class:`Database` instance to query (:class:`Database` or :class:`AsyncDatabase`)
         schema: Optional schema name (for multi-schema databases like PostgreSQL).
                 If None, uses default schema.
 
@@ -351,7 +351,7 @@ def get_view_names(
     sync and async databases.
 
     Args:
-        db: Database instance to query (Database or AsyncDatabase)
+        db: :class:`Database` instance to query (:class:`Database` or :class:`AsyncDatabase`)
         schema: Optional schema name (for multi-schema databases like PostgreSQL).
                 If None, uses default schema.
 
@@ -440,7 +440,7 @@ def reflect_table(
     Moltres ColumnDef objects. Works with both sync and async databases.
 
     Args:
-        db: Database instance to query (Database or AsyncDatabase)
+        db: :class:`Database` instance to query (:class:`Database` or :class:`AsyncDatabase`)
         table_name: Name of the table to reflect
         schema: Optional schema name (for multi-schema databases like PostgreSQL).
                 If None, uses default schema.
@@ -481,7 +481,7 @@ def reflect_database(
     in the database. Works with both sync and async databases.
 
     Args:
-        db: Database instance to query (Database or AsyncDatabase)
+        db: :class:`Database` instance to query (:class:`Database` or :class:`AsyncDatabase`)
         schema: Optional schema name (for multi-schema databases like PostgreSQL).
                 If None, uses default schema.
         views: If True, also reflect views (default: False)

@@ -2,7 +2,7 @@
 
 This module provides Airflow operators for using Moltres DataFrames in Airflow DAGs.
 Key features:
-- MoltresQueryOperator for executing DataFrame operations
+- MoltresQueryOperator for executing :class:`DataFrame` operations
 - MoltresToTableOperator for writing DataFrames to tables
 - MoltresDataQualityOperator for data quality validation
 - ETL pipeline helpers
@@ -57,9 +57,9 @@ def _handle_moltres_error(error: MoltresError, context: Optional[Context] = None
 
 
 class MoltresQueryOperator(BaseOperator if AIRFLOW_AVAILABLE else object):  # type: ignore[misc]
-    """Airflow operator for executing Moltres DataFrame operations.
+    """Airflow operator for executing Moltres :class:`DataFrame` operations.
 
-    This operator executes a query function that receives a Database instance
+    This operator executes a query function that receives a :class:`Database` instance
     and returns results that can be stored in XCom for downstream tasks.
 
     Example:
@@ -95,9 +95,9 @@ class MoltresQueryOperator(BaseOperator if AIRFLOW_AVAILABLE else object):  # ty
         """Initialize MoltresQueryOperator.
 
         Args:
-            dsn: Database connection string (or use session parameter)
+            dsn: :class:`Database` connection string (or use session parameter)
             session: SQLAlchemy session to use (alternative to dsn)
-            query: Callable that receives a Database instance and returns a DataFrame
+            query: Callable that receives a :class:`Database` instance and returns a :class:`DataFrame`
             output_key: XCom key for storing results (defaults to task_id)
             query_timeout: Optional query timeout in seconds
             do_xcom_push: Whether to push results to XCom (default: True)
@@ -176,7 +176,7 @@ class MoltresQueryOperator(BaseOperator if AIRFLOW_AVAILABLE else object):  # ty
 
 
 class MoltresToTableOperator(BaseOperator if AIRFLOW_AVAILABLE else object):  # type: ignore[misc]
-    """Airflow operator for writing DataFrame results to database tables.
+    """Airflow operator for writing :class:`DataFrame` results to database tables.
 
     This operator reads data from XCom (from upstream tasks) and writes it
     to a target database table.
@@ -214,7 +214,7 @@ class MoltresToTableOperator(BaseOperator if AIRFLOW_AVAILABLE else object):  # 
         """Initialize MoltresToTableOperator.
 
         Args:
-            dsn: Database connection string (or use session parameter)
+            dsn: :class:`Database` connection string (or use session parameter)
             session: SQLAlchemy session to use (alternative to dsn)
             table_name: Name of the target table
             input_key: XCom key to read input data from (defaults to task_id)
@@ -341,9 +341,9 @@ class MoltresDataQualityOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         """Initialize MoltresDataQualityOperator.
 
         Args:
-            dsn: Database connection string (or use session parameter)
+            dsn: :class:`Database` connection string (or use session parameter)
             session: SQLAlchemy session to use (alternative to dsn)
-            query: Callable that receives a Database instance and returns a DataFrame
+            query: Callable that receives a :class:`Database` instance and returns a :class:`DataFrame`
             checks: List of check configurations (can use DataQualityCheck factory methods)
             fail_on_error: Whether to fail the task if checks fail (default: True)
             fail_fast: Whether to stop checking after first failure (default: False)
@@ -462,10 +462,10 @@ class ETLPipeline:
         """Initialize ETL pipeline.
 
         Args:
-            extract: Function that returns a DataFrame (extract step)
-            transform: Optional function that takes a DataFrame and returns a transformed DataFrame
-            load: Optional function that takes a DataFrame and executes the load step
-            validate: Optional function that takes a DataFrame and returns True if valid
+            extract: Function that returns a :class:`DataFrame` (extract step)
+            transform: Optional function that takes a :class:`DataFrame` and returns a transformed :class:`DataFrame`
+            load: Optional function that takes a :class:`DataFrame` and executes the load step
+            validate: Optional function that takes a :class:`DataFrame` and returns True if valid
         """
         self.extract = extract
         self.transform = transform

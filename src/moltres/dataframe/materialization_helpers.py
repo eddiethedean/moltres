@@ -1,6 +1,6 @@
-"""Common helper functions for DataFrame materialization.
+"""Common helper functions for :class:`DataFrame` materialization.
 
-This module contains shared logic used by both DataFrame and AsyncDataFrame
+This module contains shared logic used by both :class:`DataFrame` and AsyncDataFrame
 for materializing FileScan nodes and converting results.
 """
 
@@ -49,7 +49,7 @@ def convert_rows_to_models(
 def convert_result_rows(result_rows: Any) -> List[Dict[str, object]]:
     """Convert query result rows to a list of dictionaries.
 
-    Handles different result row formats (pandas DataFrame, polars DataFrame, etc.)
+    Handles different result row formats (pandas :class:`DataFrame`, polars :class:`DataFrame`, etc.)
 
     Args:
         result_rows: Query result rows (can be various formats)

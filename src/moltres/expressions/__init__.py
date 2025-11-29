@@ -1,4 +1,14 @@
-"""Expression system public exports."""
+"""Expression system public exports.
+
+This module exports the core expression building blocks:
+
+- :func:`col` - Create column references
+- :func:`lit` - Create literal values
+- :class:`Column` - Column expression class
+- Expression functions - Mathematical, string, date/time, aggregate, etc.
+
+All expression functions are available directly from this module for convenience.
+"""
 
 from .column import Column, col, ensure_column, literal
 from .functions import (

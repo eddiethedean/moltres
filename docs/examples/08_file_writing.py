@@ -35,7 +35,7 @@ Records(_data=products_data, _database=db).insert_into("products")
 df = db.table("products").select()
 
 # Write to CSV
-output_dir = Path("example_output")
+output_dir = Path(__file__).parent.parent / "example_output"
 output_dir.mkdir(exist_ok=True)
 
 df.write.csv(str(output_dir / "products.csv"))

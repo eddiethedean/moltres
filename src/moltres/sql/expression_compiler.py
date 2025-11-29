@@ -44,14 +44,14 @@ class ExpressionCompiler:
         self._plan_compiler = plan_compiler
 
     def compile_expr(self, expression: Column) -> ColumnElement:
-        """Compile a Column expression to a SQLAlchemy column expression."""
+        """Compile a :class:`Column` expression to a SQLAlchemy column expression."""
         return self._compile(expression)
 
     def emit(self, expression: Column) -> str:
-        """Compile a Column expression to a SQL string.
+        """Compile a :class:`Column` expression to a SQL string.
 
         Args:
-            expression: Column expression to compile
+            expression: :class:`Column` expression to compile
 
         Returns:
             SQL string representation of the expression
@@ -61,7 +61,7 @@ class ExpressionCompiler:
         return str(compiled.compile(compile_kwargs={"literal_binds": True}))
 
     def _compile(self, expression: Union[Column, str, Any]) -> ColumnElement:
-        """Compile a Column expression to a SQLAlchemy column expression."""
+        """Compile a :class:`Column` expression to a SQLAlchemy column expression."""
         # Import here to ensure it's available throughout the method
         from sqlalchemy import column as sa_column, literal_column
         from sqlalchemy.sql import ColumnElement

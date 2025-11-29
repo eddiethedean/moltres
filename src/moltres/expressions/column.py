@@ -1,4 +1,19 @@
-"""Column helper similar to PySpark's ``Column``."""
+""":class:`Column` expressions for building SQL queries.
+
+This module provides the :class:`Column` class, which represents a column or
+expression in a SQL query. Columns support rich operators and can be used to
+build complex expressions.
+
+The :func:`col` function is the primary way to create column references.
+
+Example:
+    >>> from moltres import col
+    >>> # Create column expressions
+    >>> age_col = col("age")
+    >>> name_col = col("users.name")
+    >>> # Use in queries
+    >>> df = db.table("users").select(age_col, name_col)
+"""
 
 from __future__ import annotations
 
@@ -17,7 +32,20 @@ ColumnLike: TypeAlias = Union["Column", LiteralValue]
 
 @dataclass(frozen=True, eq=False)
 class Column(Expression):
-    """User-facing wrapper around expressions with rich operators."""
+    """User-facing wrapper around expressions with rich operators.
+
+    A :class:`Column` represents a column or expression in a SQL query.
+    Columns support arithmetic, comparison, and logical operators, and can be
+    used to build complex expressions.
+
+    Columns are typically created using the :func:`col` function.
+
+    Example:
+        >>> from moltres import col
+        >>> age = col("age")
+        >>> # Use in expressions
+        >>> df = db.table("users").select(age, (age * 2).alias("double_age"))
+    """
 
     source: Optional[str] = None
 
@@ -36,15 +64,15 @@ class Column(Expression):
             scale: Optional scale for DECIMAL/NUMERIC types
 
         Returns:
-            Column expression for the cast operation
+            :class:`Column`: Column expression for the cast operation
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> _ = db.create_table("products", [column("id", "INTEGER"), column("price", "REAL"), column("date_str", "TEXT")]).collect()  # doctest: +ELLIPSIS
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "price": 10.5, "date_str": "2024-01-01"}], _database=db).insert_into("products")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "price": 10.5, "date_str": "2024-01-01"}], _database=db).insert_into("products")
             >>> # Cast price to DECIMAL
             >>> df = db.table("products").select(col("price").cast("DECIMAL", precision=10, scale=2).alias("price_decimal"))
             >>> results = df.collect()
@@ -145,18 +173,18 @@ class Column(Expression):
         """Check if column value is in a list of values or a subquery.
 
         Args:
-            values: Either an iterable of values or a DataFrame (for subquery)
+            values: Either an iterable of values or a :class:`DataFrame` (for subquery)
 
         Returns:
-            Column expression for IN clause
+            :class:`Column` expression for IN clause
 
         Example:
             >>> from moltres import connect, col
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> _ = db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}, {"id": 3, "name": "Charlie"}], _database=db).insert_into("users")
             >>> # Check if id is in a list of values
             >>> df = db.table("users").select().where(col("id").isin([1, 3]))
             >>> results = df.collect()
@@ -199,13 +227,13 @@ class Column(Expression):
         """Create a window function expression.
 
         Args:
-            partition_by: Column(s) to partition by
-            order_by: Column(s) to order by within partition
+            partition_by: :class:`Column`(s) to partition by
+            order_by: :class:`Column`(s) to order by within partition
             rows_between: Tuple of (start, end) for ROWS BETWEEN clause
             range_between: Tuple of (start, end) for RANGE BETWEEN clause
 
         Returns:
-            Column expression with window function applied
+            :class:`Column` expression with window function applied
         """
         from ..logical.plan import WindowSpec
 
@@ -241,10 +269,10 @@ class Column(Expression):
         CASE WHEN expression.
 
         Args:
-            condition: Column expression representing the filter condition
+            condition: :class:`Column` expression representing the filter condition
 
         Returns:
-            Column expression with FILTER clause attached
+            :class:`Column` expression with FILTER clause attached
 
         Example:
             >>> from moltres import connect, col
@@ -252,8 +280,8 @@ class Column(Expression):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> _ = db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL"), column("status", "TEXT")]).collect()  # doctest: +ELLIPSIS
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "amount": 100.0, "status": "active"}, {"id": 2, "amount": 200.0, "status": "completed"}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0, "status": "active"}, {"id": 2, "amount": 200.0, "status": "completed"}], _database=db).insert_into("orders")
             >>> # Conditional aggregation with FILTER clause
             >>> df = db.table("orders").select(F.sum(col("amount")).filter(col("status") == "active").alias("active_total"))
             >>> results = df.collect()
@@ -282,21 +310,25 @@ def ensure_column(value: ColumnLike) -> Column:
 
 
 def col(name: str) -> Column:
-    """Create a Column expression from a column name.
+    """Create a :class:`Column` expression from a column name.
+
+    This is the primary way to reference columns in Moltres queries.
+    :class:`Column` names can be simple (e.g., "age") or qualified (e.g., "users.age").
 
     Args:
-        name: Column name as a string
+        name: :class:`Column` name as a string. Can be a simple name or qualified
+              with table name (e.g., "table.column").
 
     Returns:
-        Column expression that can be used in DataFrame operations
+        :class:`Column`: Column expression that can be used in :class:`DataFrame` operations
 
     Example:
         >>> from moltres import connect, col
         >>> db = connect("sqlite:///:memory:")
         >>> from moltres.table.schema import column
         >>> _ = db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(col("name"))
         >>> results = df.collect()
         >>> results[0]["name"]

@@ -157,7 +157,7 @@ def lit(value: Union[bool, int, float, str, None]) -> Column:
         value: The literal value (bool, int, float, str, or None)
 
     Returns:
-        Column expression representing the literal value
+        :class:`Column` expression representing the literal value
 
     Example:
         >>> from moltres import connect, col
@@ -165,8 +165,8 @@ def lit(value: Union[bool, int, float, str, None]) -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> from moltres.table.schema import column
         >>> _ = db.create_table("test", [column("x", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 10}], _database=db).insert_into("test")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 10}], _database=db).insert_into("test")
         >>> # Use lit() to create literal values in expressions
         >>> df = db.table("test").select((col("x") + F.lit(5)).alias("x_plus_5"))
         >>> results = df.collect()
@@ -190,10 +190,10 @@ def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     """Compute the sum of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the sum aggregate
+        :class:`Column` expression for the sum aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -201,8 +201,8 @@ def sum(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL"), column("status", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "amount": 100.0, "status": "active"}, {"category": "A", "amount": 200.0, "status": "completed"}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "amount": 100.0, "status": "active"}, {"category": "A", "amount": 200.0, "status": "completed"}], _database=db).insert_into("sales")
             >>> # Sum aggregation
             >>> df = db.table("sales").select().group_by("category").agg(F.sum(col("amount")).alias("total"))
         >>> results = df.collect()
@@ -222,10 +222,10 @@ def avg(column: ColumnLike) -> Column:
     """Compute the average of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the average aggregate
+        :class:`Column` expression for the average aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -233,8 +233,8 @@ def avg(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("price", "REAL"), column("active", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 10.0, "active": 1}, {"category": "A", "price": 20.0, "active": 1}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 10.0, "active": 1}, {"category": "A", "price": 20.0, "active": 1}], _database=db).insert_into("products")
             >>> # Average aggregation
             >>> df = db.table("products").select().group_by("category").agg(F.avg(col("price")).alias("avg_price"))
         >>> results = df.collect()
@@ -249,10 +249,10 @@ def min(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     """Compute the minimum value of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the minimum aggregate
+        :class:`Column` expression for the minimum aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -260,8 +260,8 @@ def min(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("price", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
             >>> # Minimum aggregation
             >>> df = db.table("products").select().group_by("category").agg(F.min(col("price")).alias("min_price"))
         >>> results = df.collect()
@@ -276,10 +276,10 @@ def max(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
     """Compute the maximum value of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the maximum aggregate
+        :class:`Column` expression for the maximum aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -287,8 +287,8 @@ def max(column: ColumnLike) -> Column:  # noqa: A001 - mirrored PySpark API
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("price", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 10.0}, {"category": "A", "price": 20.0}], _database=db).insert_into("products")
             >>> # Maximum aggregation
             >>> df = db.table("products").select().group_by("category").agg(F.max(col("price")).alias("max_price"))
         >>> results = df.collect()
@@ -303,10 +303,10 @@ def count(column: Union[ColumnLike, str] = "*") -> Column:
     """Count the number of rows or non-null values.
 
     Args:
-        column: Column expression, literal value, or "*" for counting all rows
+        column: :class:`Column` expression, literal value, or "*" for counting all rows
 
     Returns:
-        Column expression for the count aggregate
+        :class:`Column` expression for the count aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -314,8 +314,8 @@ def count(column: Union[ColumnLike, str] = "*") -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("products", [column("category", "TEXT"), column("id", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "id": 1}, {"category": "A", "id": 2}], _database=db).insert_into("products")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "id": 1}, {"category": "A", "id": 2}], _database=db).insert_into("products")
         >>> # Count all rows
         >>> df = db.table("products").select().group_by("category").agg(F.count("*").alias("count"))
         >>> results = df.collect()
@@ -340,7 +340,7 @@ def count_distinct(*columns: ColumnLike) -> Column:
         *columns: One or more column expressions
 
     Returns:
-        Column expression for the count distinct aggregate
+        :class:`Column` expression for the count distinct aggregate
 
     Example:
         >>> from moltres import connect, col
@@ -348,8 +348,8 @@ def count_distinct(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("category", "TEXT"), column("user_id", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "user_id": 1}, {"category": "A", "user_id": 2}, {"category": "A", "user_id": 1}], _database=db).insert_into("orders")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "user_id": 1}, {"category": "A", "user_id": 2}, {"category": "A", "user_id": 1}], _database=db).insert_into("orders")
         >>> df = db.table("orders").select().group_by("category").agg(F.count_distinct(col("user_id")).alias("distinct_users"))
         >>> results = df.collect()
         >>> results[0]["distinct_users"]
@@ -366,10 +366,10 @@ def coalesce(*columns: ColumnLike) -> Column:
     """Return the first non-null value from multiple columns.
 
     Args:
-        *columns: Column expressions to check
+        *columns: :class:`Column` expressions to check
 
     Returns:
-        Column expression for the first non-null value
+        :class:`Column` expression for the first non-null value
 
     Example:
         >>> from moltres import connect, col
@@ -377,8 +377,8 @@ def coalesce(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "INTEGER"), column("b", "INTEGER"), column("c", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": None, "b": None, "c": 5}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": None, "b": None, "c": 5}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.coalesce(col("a"), col("b"), col("c")).alias("first_non_null"))
         >>> results = df.collect()
         >>> results[0]["first_non_null"]
@@ -394,10 +394,10 @@ def concat(*columns: ColumnLike) -> Column:
     """Concatenate multiple columns or strings.
 
     Args:
-        *columns: Column expressions or literal values to concatenate
+        *columns: :class:`Column` expressions or literal values to concatenate
 
     Returns:
-        Column expression for concatenated result
+        :class:`Column` expression for concatenated result
 
     Example:
         >>> from moltres import connect, col
@@ -405,8 +405,8 @@ def concat(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("first_name", "TEXT"), column("last_name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"first_name": "John", "last_name": "Doe"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"first_name": "John", "last_name": "Doe"}], _database=db).insert_into("users")
         >>> # Concatenate columns
         >>> df = db.table("users").select(F.concat(col("first_name"), F.lit(" "), col("last_name")).alias("full_name"))
         >>> results = df.collect()
@@ -423,10 +423,10 @@ def upper(column: ColumnLike) -> Column:
     """Convert a string column to uppercase.
 
     Args:
-        column: Column to convert to uppercase
+        column: :class:`Column` to convert to uppercase
 
     Returns:
-        Column expression for uppercase string
+        :class:`Column` expression for uppercase string
 
     Example:
         >>> from moltres import connect, col
@@ -434,8 +434,8 @@ def upper(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.upper(col("name")).alias("name_upper"))
         >>> results = df.collect()
         >>> results[0]["name_upper"]
@@ -449,10 +449,10 @@ def lower(column: ColumnLike) -> Column:
     """Convert a string column to lowercase.
 
     Args:
-        column: Column to convert to lowercase
+        column: :class:`Column` to convert to lowercase
 
     Returns:
-        Column expression for lowercase string
+        :class:`Column` expression for lowercase string
 
     Example:
         >>> from moltres import connect, col
@@ -460,8 +460,8 @@ def lower(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "ALICE"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "ALICE"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.lower(col("name")).alias("name_lower"))
         >>> results = df.collect()
         >>> results[0]["name_lower"]
@@ -475,10 +475,10 @@ def greatest(*columns: ColumnLike) -> Column:
     """Get the greatest value from multiple columns.
 
     Args:
-        *columns: Column expressions to compare
+        *columns: :class:`Column` expressions to compare
 
     Returns:
-        Column expression for the greatest value
+        :class:`Column` expression for the greatest value
 
     Example:
         >>> from moltres import connect, col
@@ -486,8 +486,8 @@ def greatest(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "REAL"), column("b", "REAL"), column("c", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
         >>> # Note: greatest() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.greatest(col("a"), col("b"), col("c"))
         >>> db.close()
@@ -501,10 +501,10 @@ def least(*columns: ColumnLike) -> Column:
     """Get the least value from multiple columns.
 
     Args:
-        *columns: Column expressions to compare
+        *columns: :class:`Column` expressions to compare
 
     Returns:
-        Column expression for the least value
+        :class:`Column` expression for the least value
 
     Example:
         >>> from moltres import connect, col
@@ -512,8 +512,8 @@ def least(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "REAL"), column("b", "REAL"), column("c", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
         >>> # Note: least() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.least(col("a"), col("b"), col("c"))
         >>> db.close()
@@ -527,7 +527,7 @@ def row_number() -> Column:
     """Generate a row number for each row in a window.
 
     Returns:
-        Column expression for row_number() window function
+        :class:`Column` expression for row_number() window function
 
     Example:
         >>> from moltres import connect, col
@@ -535,8 +535,8 @@ def row_number() -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("sales", [column("id", "INTEGER"), column("category", "TEXT"), column("amount", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "amount": 100.0}, {"id": 2, "category": "A", "amount": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "amount": 100.0}, {"id": 2, "category": "A", "amount": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().withColumn("row_num", F.row_number().over(partition_by=col("category"), order_by=col("amount")))
         >>> results = df.collect()
         >>> results[0]["row_num"]
@@ -552,7 +552,7 @@ def rank() -> Column:
     """Compute the rank of rows within a window.
 
     Returns:
-        Column expression for rank() window function
+        :class:`Column` expression for rank() window function
 
     Example:
         >>> from moltres import connect, col
@@ -560,8 +560,8 @@ def rank() -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("scores", [column("id", "INTEGER"), column("category", "TEXT"), column("score", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 100.0}, {"id": 3, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 100.0}, {"id": 3, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
         >>> df = db.table("scores").select().withColumn("rank", F.rank().over(partition_by=col("category"), order_by=col("score")))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["id"])
@@ -581,7 +581,7 @@ def dense_rank() -> Column:
     """Compute the dense rank of rows within a window.
 
     Returns:
-        Column expression for dense_rank() window function
+        :class:`Column` expression for dense_rank() window function
 
     Example:
         >>> from moltres import connect, col
@@ -589,8 +589,8 @@ def dense_rank() -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("scores", [column("id", "INTEGER"), column("category", "TEXT"), column("score", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 100.0}, {"id": 3, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 100.0}, {"id": 3, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
         >>> df = db.table("scores").select().withColumn("dense_rank", F.dense_rank().over(partition_by=col("category"), order_by=col("score")))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["id"])
@@ -609,7 +609,7 @@ def percent_rank() -> Column:
     """Compute the percent rank of rows within a window.
 
     Returns:
-        Column expression for percent_rank() window function
+        :class:`Column` expression for percent_rank() window function
 
     Example:
         >>> from moltres import connect, col
@@ -617,8 +617,8 @@ def percent_rank() -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("scores", [column("id", "INTEGER"), column("category", "TEXT"), column("score", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
         >>> df = db.table("scores").select().withColumn("percent_rank", F.percent_rank().over(partition_by=col("category"), order_by=col("score")))
         >>> results = df.collect()
         >>> # percent_rank returns values between 0.0 and 1.0
@@ -633,7 +633,7 @@ def cume_dist() -> Column:
     """Compute the cumulative distribution of rows within a window.
 
     Returns:
-        Column expression for cume_dist() window function
+        :class:`Column` expression for cume_dist() window function
 
     Example:
         >>> from moltres import connect, col
@@ -641,8 +641,8 @@ def cume_dist() -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("scores", [column("id", "INTEGER"), column("category", "TEXT"), column("score", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "score": 100.0}, {"id": 2, "category": "A", "score": 90.0}], _database=db).insert_into("scores")
         >>> df = db.table("scores").select().withColumn("cume_dist", F.cume_dist().over(partition_by=col("category"), order_by=col("score")))
         >>> results = df.collect()
         >>> # cume_dist returns values between 0.0 and 1.0
@@ -657,11 +657,11 @@ def nth_value(column: ColumnLike, n: int) -> Column:
     """Get the nth value in a window.
 
     Args:
-        column: Column expression to get the value from
+        column: :class:`Column` expression to get the value from
         n: The position (1-based) of the value to retrieve
 
     Returns:
-        Column expression for nth_value() window function
+        :class:`Column` expression for nth_value() window function
 
     Example:
         >>> from moltres import connect, col
@@ -669,8 +669,8 @@ def nth_value(column: ColumnLike, n: int) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("sales", [column("id", "INTEGER"), column("category", "TEXT"), column("amount", "REAL"), column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "amount": 100.0, "date": "2024-01-01"}, {"id": 2, "category": "A", "amount": 200.0, "date": "2024-01-02"}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "amount": 100.0, "date": "2024-01-01"}, {"id": 2, "category": "A", "amount": 200.0, "date": "2024-01-02"}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().withColumn("second_amount", F.nth_value(col("amount"), 2).over(partition_by=col("category"), order_by=col("date")))
         >>> results = df.collect()
         >>> # nth_value(2) returns the second value in the window
@@ -688,7 +688,7 @@ def ntile(n: int) -> Column:
         n: Number of groups to divide rows into
 
     Returns:
-        Column expression for ntile() window function
+        :class:`Column` expression for ntile() window function
 
     Example:
         >>> from moltres import connect, col
@@ -696,8 +696,8 @@ def ntile(n: int) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("scores", [column("id", "INTEGER"), column("score", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "score": 100.0}, {"id": 2, "score": 90.0}, {"id": 3, "score": 80.0}, {"id": 4, "score": 70.0}], _database=db).insert_into("scores")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "score": 100.0}, {"id": 2, "score": 90.0}, {"id": 3, "score": 80.0}, {"id": 4, "score": 70.0}], _database=db).insert_into("scores")
         >>> df = db.table("scores").select().withColumn("quartile", F.ntile(4).over(order_by=col("score")))
         >>> results = df.collect()
         >>> # ntile(4) divides rows into 4 groups (1-4)
@@ -712,12 +712,12 @@ def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = Non
     """Get the value of a column from a previous row in the window.
 
     Args:
-        column: Column to get the lagged value from
+        column: :class:`Column` to get the lagged value from
         offset: Number of rows to look back (default: 1)
         default: Default value if offset goes beyond window (optional)
 
     Returns:
-        Column expression for lag() window function
+        :class:`Column` expression for lag() window function
 
     Example:
         >>> from moltres import connect, col
@@ -725,8 +725,8 @@ def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = Non
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER"), column("value", "REAL"), column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "value": 10.0, "date": "2024-01-01"}, {"id": 2, "value": 20.0, "date": "2024-01-02"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "value": 10.0, "date": "2024-01-01"}, {"id": 2, "value": 20.0, "date": "2024-01-02"}], _database=db).insert_into("data")
         >>> df = db.table("data").select().withColumn("prev_value", F.lag(col("value"), offset=1).over(order_by=col("date")))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["id"])
@@ -746,12 +746,12 @@ def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = No
     """Get the value of a column from a following row in the window.
 
     Args:
-        column: Column to get the leading value from
+        column: :class:`Column` to get the leading value from
         offset: Number of rows to look ahead (default: 1)
         default: Default value if offset goes beyond window (optional)
 
     Returns:
-        Column expression for lead() window function
+        :class:`Column` expression for lead() window function
 
     Example:
         >>> from moltres import connect, col
@@ -759,8 +759,8 @@ def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = No
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER"), column("value", "REAL"), column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "value": 10.0, "date": "2024-01-01"}, {"id": 2, "value": 20.0, "date": "2024-01-02"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "value": 10.0, "date": "2024-01-01"}, {"id": 2, "value": 20.0, "date": "2024-01-02"}], _database=db).insert_into("data")
         >>> df = db.table("data").select().withColumn("next_value", F.lead(col("value"), offset=1).over(order_by=col("date")))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["id"])
@@ -780,12 +780,12 @@ def substring(column: ColumnLike, pos: int, len: Optional[int] = None) -> Column
     """Extract a substring from a column.
 
     Args:
-        column: Column to extract substring from
+        column: :class:`Column` to extract substring from
         pos: Starting position (1-indexed)
         len: Length of substring (optional, if None returns rest of string)
 
     Returns:
-        Column expression for substring
+        :class:`Column` expression for substring
 
     Example:
         >>> from moltres import connect, col
@@ -793,8 +793,8 @@ def substring(column: ColumnLike, pos: int, len: Optional[int] = None) -> Column
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.substring(col("name"), 1, 3).alias("substr"))
         >>> results = df.collect()
         >>> results[0]["substr"]
@@ -810,10 +810,10 @@ def trim(column: ColumnLike) -> Column:
     """Remove leading and trailing whitespace from a column.
 
     Args:
-        column: Column to trim
+        column: :class:`Column` to trim
 
     Returns:
-        Column expression for trim
+        :class:`Column` expression for trim
 
     Example:
         >>> from moltres import connect, col
@@ -821,8 +821,8 @@ def trim(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "  Alice  "}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "  Alice  "}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.trim(col("name")).alias("trimmed"))
         >>> results = df.collect()
         >>> results[0]["trimmed"]
@@ -836,10 +836,10 @@ def ltrim(column: ColumnLike) -> Column:
     """Remove leading whitespace from a column.
 
     Args:
-        column: Column to trim
+        column: :class:`Column` to trim
 
     Returns:
-        Column expression for ltrim
+        :class:`Column` expression for ltrim
 
     Example:
         >>> from moltres import connect, col
@@ -847,8 +847,8 @@ def ltrim(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "  Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "  Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.ltrim(col("name")).alias("trimmed"))
         >>> results = df.collect()
         >>> results[0]["trimmed"]
@@ -862,10 +862,10 @@ def rtrim(column: ColumnLike) -> Column:
     """Remove trailing whitespace from a column.
 
     Args:
-        column: Column to trim
+        column: :class:`Column` to trim
 
     Returns:
-        Column expression for rtrim
+        :class:`Column` expression for rtrim
 
     Example:
         >>> from moltres import connect, col
@@ -873,8 +873,8 @@ def rtrim(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice  "}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice  "}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.rtrim(col("name")).alias("trimmed"))
         >>> results = df.collect()
         >>> results[0]["trimmed"]
@@ -888,12 +888,12 @@ def regexp_extract(column: ColumnLike, pattern: str, group_idx: int = 0) -> Colu
     """Extract a regex pattern from a column.
 
     Args:
-        column: Column to extract from
+        column: :class:`Column` to extract from
         pattern: Regular expression pattern
         group_idx: Capture group index (default: 0)
 
     Returns:
-        Column expression for regexp_extract
+        :class:`Column` expression for regexp_extract
     """
     return Column(op="regexp_extract", args=(ensure_column(column), pattern, group_idx))
 
@@ -902,12 +902,12 @@ def regexp_replace(column: ColumnLike, pattern: str, replacement: str) -> Column
     """Replace regex pattern matches in a column.
 
     Args:
-        column: Column to replace in
+        column: :class:`Column` to replace in
         pattern: Regular expression pattern
         replacement: Replacement string
 
     Returns:
-        Column expression for regexp_replace
+        :class:`Column` expression for regexp_replace
     """
     return Column(op="regexp_replace", args=(ensure_column(column), pattern, replacement))
 
@@ -916,11 +916,11 @@ def split(column: ColumnLike, delimiter: str) -> Column:
     """Split a column by delimiter.
 
     Args:
-        column: Column to split
+        column: :class:`Column` to split
         delimiter: Delimiter string
 
     Returns:
-        Column expression for split (returns array)
+        :class:`Column` expression for split (returns array)
     """
     return Column(op="split", args=(ensure_column(column), delimiter))
 
@@ -929,12 +929,12 @@ def replace(column: ColumnLike, search: str, replacement: str) -> Column:
     """Replace occurrences of a string in a column.
 
     Args:
-        column: Column to replace in
+        column: :class:`Column` to replace in
         search: String to search for
         replacement: Replacement string
 
     Returns:
-        Column expression for replace
+        :class:`Column` expression for replace
 
     Example:
         >>> from moltres import connect, col
@@ -942,8 +942,8 @@ def replace(column: ColumnLike, search: str, replacement: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("email", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"email": "alice@old.com"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"email": "alice@old.com"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.replace(col("email"), "old", "new").alias("new_email"))
         >>> results = df.collect()
         >>> results[0]["new_email"]
@@ -957,10 +957,10 @@ def length(column: ColumnLike) -> Column:
     """Get the length of a string column.
 
     Args:
-        column: Column to get length of
+        column: :class:`Column` to get length of
 
     Returns:
-        Column expression for length
+        :class:`Column` expression for length
 
     Example:
         >>> from moltres import connect, col
@@ -968,8 +968,8 @@ def length(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.length(col("name")).alias("name_length"))
         >>> results = df.collect()
         >>> results[0]["name_length"]
@@ -983,12 +983,12 @@ def lpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
     """Left pad a string column to a specified length.
 
     Args:
-        column: Column to pad
+        column: :class:`Column` to pad
         length: Target length
         pad: Padding character (default: space)
 
     Returns:
-        Column expression for lpad
+        :class:`Column` expression for lpad
 
     Example:
         >>> from moltres import connect, col
@@ -996,8 +996,8 @@ def lpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("code", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"code": "123"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"code": "123"}], _database=db).insert_into("users")
         >>> # Note: lpad() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.lpad(col("code"), 5, "0")
         >>> db.close()
@@ -1009,12 +1009,12 @@ def rpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
     """Right pad a string column to a specified length.
 
     Args:
-        column: Column to pad
+        column: :class:`Column` to pad
         length: Target length
         pad: Padding character (default: space)
 
     Returns:
-        Column expression for rpad
+        :class:`Column` expression for rpad
 
     Example:
         >>> from moltres import connect, col
@@ -1022,8 +1022,8 @@ def rpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("code", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"code": "123"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"code": "123"}], _database=db).insert_into("users")
         >>> # Note: rpad() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.rpad(col("code"), 5, "0")
         >>> db.close()
@@ -1035,11 +1035,11 @@ def round(column: ColumnLike, scale: int = 0) -> Column:
     """Round a numeric column to the specified number of decimal places.
 
     Args:
-        column: Column to round
+        column: :class:`Column` to round
         scale: Number of decimal places (default: 0)
 
     Returns:
-        Column expression for round
+        :class:`Column` expression for round
 
     Example:
         >>> from moltres import connect, col
@@ -1047,8 +1047,8 @@ def round(column: ColumnLike, scale: int = 0) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 10.567}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 10.567}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.round(col("value"), 2).alias("rounded"))
         >>> results = df.collect()
         >>> results[0]["rounded"]
@@ -1062,10 +1062,10 @@ def floor(column: ColumnLike) -> Column:
     """Get the floor of a numeric column.
 
     Args:
-        column: Column to get floor of
+        column: :class:`Column` to get floor of
 
     Returns:
-        Column expression for floor
+        :class:`Column` expression for floor
 
     Example:
         >>> from moltres import connect, col
@@ -1073,8 +1073,8 @@ def floor(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 10.7}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 10.7}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.floor(col("value")).alias("floor_value"))
         >>> results = df.collect()
         >>> float(results[0]["floor_value"])
@@ -1088,10 +1088,10 @@ def ceil(column: ColumnLike) -> Column:
     """Get the ceiling of a numeric column.
 
     Args:
-        column: Column to get ceiling of
+        column: :class:`Column` to get ceiling of
 
     Returns:
-        Column expression for ceil
+        :class:`Column` expression for ceil
 
     Example:
         >>> from moltres import connect, col
@@ -1099,8 +1099,8 @@ def ceil(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 10.3}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 10.3}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.ceil(col("value")).alias("ceil_value"))
         >>> results = df.collect()
         >>> float(results[0]["ceil_value"])
@@ -1114,10 +1114,10 @@ def abs(column: ColumnLike) -> Column:  # noqa: A001
     """Get the absolute value of a numeric column.
 
     Args:
-        column: Column to get absolute value of
+        column: :class:`Column` to get absolute value of
 
     Returns:
-        Column expression for abs
+        :class:`Column` expression for abs
 
     Example:
         >>> from moltres import connect, col
@@ -1125,8 +1125,8 @@ def abs(column: ColumnLike) -> Column:  # noqa: A001
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": -10.5}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": -10.5}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.abs(col("value")).alias("abs_value"))
         >>> results = df.collect()
         >>> results[0]["abs_value"]
@@ -1140,10 +1140,10 @@ def sqrt(column: ColumnLike) -> Column:
     """Get the square root of a numeric column.
 
     Args:
-        column: Column to get square root of
+        column: :class:`Column` to get square root of
 
     Returns:
-        Column expression for sqrt
+        :class:`Column` expression for sqrt
 
     Example:
         >>> from moltres import connect, col
@@ -1151,8 +1151,8 @@ def sqrt(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 16.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 16.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.sqrt(col("value")).alias("sqrt_value"))
         >>> results = df.collect()
         >>> results[0]["sqrt_value"]
@@ -1166,10 +1166,10 @@ def exp(column: ColumnLike) -> Column:
     """Get the exponential of a numeric column.
 
     Args:
-        column: Column to get exponential of
+        column: :class:`Column` to get exponential of
 
     Returns:
-        Column expression for exp
+        :class:`Column` expression for exp
 
     Example:
         >>> from moltres import connect, col
@@ -1177,8 +1177,8 @@ def exp(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 1.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 1.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.exp(col("value")).alias("exp_value"))
         >>> results = df.collect()
         >>> import builtins
@@ -1193,10 +1193,10 @@ def log(column: ColumnLike) -> Column:
     """Get the natural logarithm of a numeric column.
 
     Args:
-        column: Column to get logarithm of
+        column: :class:`Column` to get logarithm of
 
     Returns:
-        Column expression for log
+        :class:`Column` expression for log
 
     Example:
         >>> from moltres import connect, col
@@ -1204,8 +1204,8 @@ def log(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 2.718}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 2.718}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.log(col("value")).alias("log_value"))
         >>> results = df.collect()
         >>> import builtins
@@ -1220,10 +1220,10 @@ def log10(column: ColumnLike) -> Column:
     """Get the base-10 logarithm of a numeric column.
 
     Args:
-        column: Column to get logarithm of
+        column: :class:`Column` to get logarithm of
 
     Returns:
-        Column expression for log10
+        :class:`Column` expression for log10
 
     Example:
         >>> from moltres import connect, col
@@ -1231,8 +1231,8 @@ def log10(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 100.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 100.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.log10(col("value")).alias("log10_value"))
         >>> results = df.collect()
         >>> results[0]["log10_value"]
@@ -1246,10 +1246,10 @@ def sin(column: ColumnLike) -> Column:
     """Get the sine of a numeric column (in radians).
 
     Args:
-        column: Column to get sine of
+        column: :class:`Column` to get sine of
 
     Returns:
-        Column expression for sin
+        :class:`Column` expression for sin
 
     Example:
         >>> from moltres import connect, col
@@ -1258,8 +1258,8 @@ def sin(column: ColumnLike) -> Column:
         >>> import math
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": math.pi / 2}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": math.pi / 2}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.sin(col("value")).alias("sin_value"))
         >>> results = df.collect()
         >>> import builtins
@@ -1274,10 +1274,10 @@ def cos(column: ColumnLike) -> Column:
     """Get the cosine of a numeric column (in radians).
 
     Args:
-        column: Column to get cosine of
+        column: :class:`Column` to get cosine of
 
     Returns:
-        Column expression for cos
+        :class:`Column` expression for cos
 
     Example:
         >>> from moltres import connect, col
@@ -1286,8 +1286,8 @@ def cos(column: ColumnLike) -> Column:
         >>> import math
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 0.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 0.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.cos(col("value")).alias("cos_value"))
         >>> results = df.collect()
         >>> results[0]["cos_value"]
@@ -1301,10 +1301,10 @@ def tan(column: ColumnLike) -> Column:
     """Get the tangent of a numeric column (in radians).
 
     Args:
-        column: Column to get tangent of
+        column: :class:`Column` to get tangent of
 
     Returns:
-        Column expression for tan
+        :class:`Column` expression for tan
 
     Example:
         >>> from moltres import connect, col
@@ -1313,8 +1313,8 @@ def tan(column: ColumnLike) -> Column:
         >>> import math
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 0.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 0.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.tan(col("value")).alias("tan_value"))
         >>> results = df.collect()
         >>> results[0]["tan_value"]
@@ -1331,7 +1331,7 @@ def year(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for year
+        :class:`Column` expression for year
 
     Example:
         >>> from moltres import connect, col
@@ -1339,8 +1339,8 @@ def year(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.year(col("date")).alias("year"))
         >>> results = df.collect()
         >>> results[0]["year"]
@@ -1357,7 +1357,7 @@ def month(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for month
+        :class:`Column` expression for month
 
     Example:
         >>> from moltres import connect, col
@@ -1365,8 +1365,8 @@ def month(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-03-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-03-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.month(col("date")).alias("month"))
         >>> results = df.collect()
         >>> results[0]["month"]
@@ -1383,7 +1383,7 @@ def day(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for day
+        :class:`Column` expression for day
 
     Example:
         >>> from moltres import connect, col
@@ -1391,8 +1391,8 @@ def day(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.day(col("date")).alias("day"))
         >>> results = df.collect()
         >>> results[0]["day"]
@@ -1409,7 +1409,7 @@ def dayofweek(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for dayofweek
+        :class:`Column` expression for dayofweek
 
     Example:
         >>> from moltres import connect, col
@@ -1417,8 +1417,8 @@ def dayofweek(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date": "2024-01-15"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.dayofweek(col("date")).alias("dow"))
         >>> results = df.collect()
         >>> # 2024-01-15 is a Monday (day 2 in SQLite)
@@ -1436,7 +1436,7 @@ def hour(column: ColumnLike) -> Column:
         column: Timestamp column
 
     Returns:
-        Column expression for hour
+        :class:`Column` expression for hour
 
     Example:
         >>> from moltres import connect, col
@@ -1444,8 +1444,8 @@ def hour(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("timestamp", "TIMESTAMP")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.hour(col("timestamp")).alias("hour"))
         >>> results = df.collect()
         >>> results[0]["hour"]
@@ -1462,7 +1462,7 @@ def minute(column: ColumnLike) -> Column:
         column: Timestamp column
 
     Returns:
-        Column expression for minute
+        :class:`Column` expression for minute
 
     Example:
         >>> from moltres import connect, col
@@ -1470,8 +1470,8 @@ def minute(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("timestamp", "TIMESTAMP")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"timestamp": "2024-01-15 14:30:00"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.minute(col("timestamp")).alias("minute"))
         >>> results = df.collect()
         >>> results[0]["minute"]
@@ -1488,7 +1488,7 @@ def second(column: ColumnLike) -> Column:
         column: Timestamp column
 
     Returns:
-        Column expression for second
+        :class:`Column` expression for second
 
     Example:
         >>> from moltres import connect, col
@@ -1496,8 +1496,8 @@ def second(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("events", [column("timestamp", "TIMESTAMP")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"timestamp": "2024-01-15 14:30:45"}], _database=db).insert_into("events")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"timestamp": "2024-01-15 14:30:45"}], _database=db).insert_into("events")
         >>> df = db.table("events").select(F.second(col("timestamp")).alias("second"))
         >>> results = df.collect()
         >>> results[0]["second"]
@@ -1515,7 +1515,7 @@ def date_format(column: ColumnLike, format: str) -> Column:  # noqa: A001
         format: Format string (e.g., "YYYY-MM-DD")
 
     Returns:
-        Column expression for date_format
+        :class:`Column` expression for date_format
 
     Example:
         >>> # Note: date_format() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1536,7 +1536,7 @@ def to_date(column: ColumnLike, format: Optional[str] = None) -> Column:  # noqa
         format: Optional format string (if None, uses default parsing)
 
     Returns:
-        Column expression for to_date
+        :class:`Column` expression for to_date
 
     Example:
         >>> # Note: to_date() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1555,7 +1555,7 @@ def current_date() -> Column:
     """Get the current date.
 
     Returns:
-        Column expression for current_date
+        :class:`Column` expression for current_date
 
     Example:
         >>> from moltres import connect, col
@@ -1576,7 +1576,7 @@ def current_timestamp() -> Column:
     """Get the current timestamp.
 
     Returns:
-        Column expression for current_timestamp
+        :class:`Column` expression for current_timestamp
 
     Example:
         >>> from moltres import connect, col
@@ -1601,7 +1601,7 @@ def datediff(end: ColumnLike, start: ColumnLike) -> Column:
         start: Start date column
 
     Returns:
-        Column expression for datediff
+        :class:`Column` expression for datediff
 
     Example:
         >>> # Note: datediff() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1622,7 +1622,7 @@ def date_add(column: ColumnLike, interval: str) -> Column:
         interval: Interval string (e.g., "1 DAY", "2 MONTH", "3 YEAR", "1 HOUR")
 
     Returns:
-        Column expression for date_add
+        :class:`Column` expression for date_add
 
     Example:
         >>> # Note: date_add() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1643,7 +1643,7 @@ def date_sub(column: ColumnLike, interval: str) -> Column:
         interval: Interval string (e.g., "1 DAY", "2 MONTH", "3 YEAR", "1 HOUR")
 
     Returns:
-        Column expression for date_sub
+        :class:`Column` expression for date_sub
 
     Example:
         >>> # Note: date_sub() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1653,8 +1653,8 @@ def date_sub(column: ColumnLike, interval: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.date_sub(col("created_at"), "1 DAY").alias("yesterday"))
         >>> results = df.collect()
         >>> from datetime import date, datetime
@@ -1673,7 +1673,7 @@ def add_months(column: ColumnLike, num_months: int) -> Column:
         num_months: Number of months to add (can be negative)
 
     Returns:
-        Column expression for add_months
+        :class:`Column` expression for add_months
 
     Example:
         >>> # Note: add_months() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1704,7 +1704,7 @@ class When:
             value: Default value if no conditions match
 
         Returns:
-            Column expression for the complete CASE WHEN statement
+            :class:`Column` expression for the complete CASE WHEN statement
         """
         return Column(op="case_when", args=(tuple(self._conditions), ensure_column(value)))
 
@@ -1725,8 +1725,8 @@ def when(condition: Column, value: ColumnLike) -> When:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("age", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"age": 20}, {"age": 15}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"age": 20}, {"age": 15}], _database=db).insert_into("users")
         >>> df = db.table("users").select(col("age"), F.when(col("age") >= 18, "adult").otherwise("minor").alias("status"))
         >>> results = df.collect()
         >>> results[0]["status"]
@@ -1745,7 +1745,7 @@ def isnan(column: ColumnLike) -> Column:
         column: Numeric column to check
 
     Returns:
-        Column expression for isnan
+        :class:`Column` expression for isnan
 
     Example:
         >>> from moltres import connect, col
@@ -1753,8 +1753,8 @@ def isnan(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 1.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 1.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.isnan(col("value")))
         >>> results = df.collect()
         >>> # isnan returns 1 for NaN, 0 for non-NaN
@@ -1769,10 +1769,10 @@ def isnull(column: ColumnLike) -> Column:
     """Check if a column value is NULL (alias for is_null()).
 
     Args:
-        column: Column to check
+        column: :class:`Column` to check
 
     Returns:
-        Column expression for isnull (same as is_null())
+        :class:`Column` expression for isnull (same as is_null())
 
     Example:
         >>> from moltres import connect, col
@@ -1780,8 +1780,8 @@ def isnull(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.isnull(col("name")))
         >>> results = df.collect()
         >>> # isnull returns 1 for NULL, 0 for non-NULL
@@ -1798,10 +1798,10 @@ def isnotnull(column: ColumnLike) -> Column:
     """Check if a column value is NOT NULL (alias for is_not_null()).
 
     Args:
-        column: Column to check
+        column: :class:`Column` to check
 
     Returns:
-        Column expression for isnotnull (same as is_not_null())
+        :class:`Column` expression for isnotnull (same as is_not_null())
 
     Example:
         >>> from moltres import connect, col
@@ -1809,8 +1809,8 @@ def isnotnull(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.isnotnull(col("name")))
         >>> results = df.collect()
         >>> # isnotnull returns 1 for non-NULL, 0 for NULL
@@ -1830,7 +1830,7 @@ def isinf(column: ColumnLike) -> Column:
         column: Numeric column to check
 
     Returns:
-        Column expression for isinf
+        :class:`Column` expression for isinf
 
     Example:
         >>> from moltres import connect, col
@@ -1838,8 +1838,8 @@ def isinf(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 1.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 1.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.isinf(col("value")))
         >>> results = df.collect()
         >>> # isinf returns 1 for infinite, 0 for finite
@@ -1851,13 +1851,13 @@ def isinf(column: ColumnLike) -> Column:
 
 
 def scalar_subquery(subquery: "DataFrame") -> Column:
-    """Use a DataFrame as a scalar subquery in SELECT clause.
+    """Use a :class:`DataFrame` as a scalar subquery in SELECT clause.
 
     Args:
-        subquery: DataFrame representing the subquery (must return a single row/column)
+        subquery: :class:`DataFrame` representing the subquery (must return a single row/column)
 
     Returns:
-        Column expression for scalar subquery
+        :class:`Column` expression for scalar subquery
 
     Example:
         >>> # Note: scalar_subquery() requires database-specific support
@@ -1868,9 +1868,9 @@ def scalar_subquery(subquery: "DataFrame") -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("amount", "REAL")]).collect()
         >>> _ = db.create_table("customers", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"amount": 100.0}, {"amount": 200.0}], _database=db).insert_into("orders")
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"amount": 100.0}, {"amount": 200.0}], _database=db).insert_into("orders")
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
         >>> max_order = db.table("orders").select(F.max(col("amount")))
         >>> df = db.table("customers").select(col("name"), F.scalar_subquery(max_order).alias("max_order_amount"))
         >>> results = df.collect()
@@ -1887,10 +1887,10 @@ def exists(subquery: "DataFrame") -> Column:
     """Check if a subquery returns any rows (EXISTS clause).
 
     Args:
-        subquery: DataFrame representing the subquery to check
+        subquery: :class:`DataFrame` representing the subquery to check
 
     Returns:
-        Column expression for EXISTS clause
+        :class:`Column` expression for EXISTS clause
 
     Example:
         >>> # Note: exists() requires database-specific support
@@ -1901,9 +1901,9 @@ def exists(subquery: "DataFrame") -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("status", "TEXT")]).collect()
         >>> _ = db.create_table("customers", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"status": "active"}], _database=db).insert_into("orders")
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"status": "active"}], _database=db).insert_into("orders")
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
         >>> active_orders = db.table("orders").select().where(col("status") == "active")
         >>> df = db.table("customers").select().where(F.exists(active_orders))
         >>> results = df.collect()
@@ -1920,10 +1920,10 @@ def not_exists(subquery: "DataFrame") -> Column:
     """Check if a subquery returns no rows (NOT EXISTS clause).
 
     Args:
-        subquery: DataFrame representing the subquery to check
+        subquery: :class:`DataFrame` representing the subquery to check
 
     Returns:
-        Column expression for NOT EXISTS clause
+        :class:`Column` expression for NOT EXISTS clause
 
     Example:
         >>> # Note: not_exists() requires database-specific support
@@ -1934,9 +1934,9 @@ def not_exists(subquery: "DataFrame") -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("status", "TEXT")]).collect()
         >>> _ = db.create_table("customers", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"status": "active"}], _database=db).insert_into("orders")
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"status": "active"}], _database=db).insert_into("orders")
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
         >>> inactive_orders = db.table("orders").select().where(col("status") == "inactive")
         >>> df = db.table("customers").select().where(F.not_exists(inactive_orders))
         >>> results = df.collect()
@@ -1953,10 +1953,10 @@ def stddev(column: ColumnLike) -> Column:
     """Compute the standard deviation of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the standard deviation aggregate
+        :class:`Column` expression for the standard deviation aggregate
 
     Example:
         >>> # Note: stddev() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1966,8 +1966,8 @@ def stddev(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.stddev(col("amount")).alias("std"))
         >>> results = df.collect()
         >>> results[0]["std"] > 0
@@ -1981,10 +1981,10 @@ def variance(column: ColumnLike) -> Column:
     """Compute the variance of a column.
 
     Args:
-        column: Column expression or literal value
+        column: :class:`Column` expression or literal value
 
     Returns:
-        Column expression for the variance aggregate
+        :class:`Column` expression for the variance aggregate
 
     Example:
         >>> # Note: variance() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -1994,8 +1994,8 @@ def variance(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.variance(col("amount")).alias("var"))
         >>> results = df.collect()
         >>> results[0]["var"] > 0
@@ -2013,7 +2013,7 @@ def corr(column1: ColumnLike, column2: ColumnLike) -> Column:
         column2: Second column expression
 
     Returns:
-        Column expression for the correlation aggregate
+        :class:`Column` expression for the correlation aggregate
 
     Example:
         >>> # Note: corr() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2023,8 +2023,8 @@ def corr(column1: ColumnLike, column2: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("x", "REAL"), column("y", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
         >>> # For global aggregation, select the aggregation directly
         >>> df = db.table("data").select(F.corr(col("x"), col("y")).alias("correlation"))
         >>> results = df.collect()
@@ -2043,7 +2043,7 @@ def covar(column1: ColumnLike, column2: ColumnLike) -> Column:
         column2: Second column expression
 
     Returns:
-        Column expression for the covariance aggregate
+        :class:`Column` expression for the covariance aggregate
 
     Example:
         >>> # Note: covar() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2053,8 +2053,8 @@ def covar(column1: ColumnLike, column2: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("x", "REAL"), column("y", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 4.0}], _database=db).insert_into("data")
         >>> # For global aggregation, select the aggregation directly
         >>> df = db.table("data").select(F.covar(col("x"), col("y")).alias("covariance"))
         >>> results = df.collect()
@@ -2073,7 +2073,7 @@ def json_extract(column: ColumnLike, path: str) -> Column:
         path: JSON path expression (e.g., "$.key", "$.nested.key", "$[0]")
 
     Returns:
-        Column expression for json_extract
+        :class:`Column` expression for json_extract
 
     Example:
         >>> # Note: json_extract() requires database-specific JSON support
@@ -2083,8 +2083,8 @@ def json_extract(column: ColumnLike, path: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("json_data", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.json_extract(col("json_data"), "$.name").alias("name"))
         >>> results = df.collect()
         >>> results[0]["name"]
@@ -2098,10 +2098,10 @@ def array(*columns: ColumnLike) -> Column:
     """Create an array from multiple column values.
 
     Args:
-        *columns: Column expressions or literal values to include in the array
+        *columns: :class:`Column` expressions or literal values to include in the array
 
     Returns:
-        Column expression for array
+        :class:`Column` expression for array
 
     Example:
         >>> from moltres import connect, col
@@ -2109,8 +2109,8 @@ def array(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "INTEGER"), column("b", "INTEGER"), column("c", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": 1, "b": 2, "c": 3}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": 1, "b": 2, "c": 3}], _database=db).insert_into("data")
         >>> # Create array from columns (database-specific support required)
         >>> df = db.table("data").select(F.array(col("a"), col("b"), col("c")).alias("arr"))
         >>> # Note: Actual execution depends on database array support
@@ -2128,7 +2128,7 @@ def array_length(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_length
+        :class:`Column` expression for array_length
 
     Example:
         >>> # Note: array_length() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -2156,7 +2156,7 @@ def array_contains(column: ColumnLike, value: ColumnLike) -> Column:
         value: Value to search for (column expression or literal)
 
     Returns:
-        Column expression for array_contains (boolean)
+        :class:`Column` expression for array_contains (boolean)
 
     Example:
         >>> # Note: array_contains() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -2184,7 +2184,7 @@ def array_position(column: ColumnLike, value: ColumnLike) -> Column:
         value: Value to search for (column expression or literal)
 
     Returns:
-        Column expression for array_position (integer, or NULL if not found)
+        :class:`Column` expression for array_position (integer, or NULL if not found)
 
     Example:
         >>> # Note: array_position() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -2208,10 +2208,10 @@ def collect_list(column: ColumnLike) -> Column:
     """Collect values from a column into an array (aggregate function).
 
     Args:
-        column: Column expression to collect
+        column: :class:`Column` expression to collect
 
     Returns:
-        Column expression for collect_list aggregate
+        :class:`Column` expression for collect_list aggregate
 
     Example:
         >>> # Note: collect_list() requires database-specific array support (PostgreSQL/MySQL)
@@ -2221,8 +2221,8 @@ def collect_list(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("items", [column("category", "TEXT"), column("item", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "y"}], _database=db).insert_into("items")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "y"}], _database=db).insert_into("items")
         >>> df = db.table("items").select().group_by("category").agg(F.collect_list(col("item")).alias("items_list"))
         >>> results = df.collect()
         >>> len(results[0]["items_list"])
@@ -2236,10 +2236,10 @@ def collect_set(column: ColumnLike) -> Column:
     """Collect distinct values from a column into an array (aggregate function).
 
     Args:
-        column: Column expression to collect
+        column: :class:`Column` expression to collect
 
     Returns:
-        Column expression for collect_set aggregate
+        :class:`Column` expression for collect_set aggregate
 
     Example:
         >>> # Note: collect_set() requires database-specific array support (PostgreSQL/MySQL)
@@ -2249,8 +2249,8 @@ def collect_set(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("items", [column("category", "TEXT"), column("item", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "x"}], _database=db).insert_into("items")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "item": "x"}, {"category": "A", "item": "x"}], _database=db).insert_into("items")
         >>> df = db.table("items").select().group_by("category").agg(F.collect_set(col("item")).alias("items_set"))
         >>> results = df.collect()
         >>> len(results[0]["items_set"])
@@ -2264,11 +2264,11 @@ def percentile_cont(column: ColumnLike, fraction: float) -> Column:
     """Compute the continuous percentile (interpolated) of a column.
 
     Args:
-        column: Column expression to compute percentile for
+        column: :class:`Column` expression to compute percentile for
         fraction: Percentile fraction (0.0 to 1.0, e.g., 0.5 for median)
 
     Returns:
-        Column expression for percentile_cont aggregate
+        :class:`Column` expression for percentile_cont aggregate
 
     Example:
         >>> # Note: percentile_cont() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2278,8 +2278,8 @@ def percentile_cont(column: ColumnLike, fraction: float) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("price", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.percentile_cont(col("price"), 0.5).alias("median_price"))
         >>> results = df.collect()
         >>> 100.0 <= results[0]["median_price"] <= 200.0
@@ -2295,11 +2295,11 @@ def percentile_disc(column: ColumnLike, fraction: float) -> Column:
     """Compute the discrete percentile (actual value) of a column.
 
     Args:
-        column: Column expression to compute percentile for
+        column: :class:`Column` expression to compute percentile for
         fraction: Percentile fraction (0.0 to 1.0, e.g., 0.5 for median)
 
     Returns:
-        Column expression for percentile_disc aggregate
+        :class:`Column` expression for percentile_disc aggregate
 
     Example:
         >>> # Note: percentile_disc() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2309,8 +2309,8 @@ def percentile_disc(column: ColumnLike, fraction: float) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("sales", [column("category", "TEXT"), column("price", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"category": "A", "price": 100.0}, {"category": "A", "price": 200.0}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().group_by("category").agg(F.percentile_disc(col("price"), 0.9).alias("p90_price"))
         >>> results = df.collect()
         >>> results[0]["p90_price"] in [100.0, 200.0]
@@ -2329,10 +2329,10 @@ def explode(column: ColumnLike) -> Column:
     similar to PySpark's explode() function.
 
     Args:
-        column: Column expression to explode (must be array or JSON)
+        column: :class:`Column` expression to explode (must be array or JSON)
 
     Returns:
-        Column expression for explode operation
+        :class:`Column` expression for explode operation
 
     Example:
         >>> # Note: explode() requires database-specific array/JSON support (PostgreSQL/MySQL)
@@ -2360,7 +2360,7 @@ def pow(base: ColumnLike, exp: ColumnLike) -> Column:
         exp: Exponent column expression
 
     Returns:
-        Column expression for pow (base^exp)
+        :class:`Column` expression for pow (base^exp)
 
     Example:
         >>> from moltres import connect, col
@@ -2368,8 +2368,8 @@ def pow(base: ColumnLike, exp: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("x", "REAL"), column("y", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 2.0, "y": 3.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 2.0, "y": 3.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.pow(col("x"), col("y")).alias("power"))
         >>> results = df.collect()
         >>> results[0]["power"]
@@ -2387,7 +2387,7 @@ def power(base: ColumnLike, exp: ColumnLike) -> Column:
         exp: Exponent column expression
 
     Returns:
-        Column expression for power (base^exp)
+        :class:`Column` expression for power (base^exp)
 
     Example:
         >>> from moltres import connect, col
@@ -2395,8 +2395,8 @@ def power(base: ColumnLike, exp: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("x", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 3.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 3.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.power(col("x"), F.lit(2)).alias("power"))
         >>> results = df.collect()
         >>> results[0]["power"]
@@ -2413,7 +2413,7 @@ def asin(column: ColumnLike) -> Column:
         column: Numeric column (values should be in range [-1, 1])
 
     Returns:
-        Column expression for asin (result in radians)
+        :class:`Column` expression for asin (result in radians)
 
     Example:
         >>> from moltres import connect, col
@@ -2421,8 +2421,8 @@ def asin(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("ratio", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"ratio": 0.5}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"ratio": 0.5}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.asin(col("ratio")).alias("asin_value"))
         >>> results = df.collect()
         >>> import builtins
@@ -2440,7 +2440,7 @@ def acos(column: ColumnLike) -> Column:
         column: Numeric column (values should be in range [-1, 1])
 
     Returns:
-        Column expression for acos (result in radians)
+        :class:`Column` expression for acos (result in radians)
 
     Example:
         >>> from moltres import connect, col
@@ -2448,8 +2448,8 @@ def acos(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("ratio", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"ratio": 0.5}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"ratio": 0.5}], _database=db).insert_into("data")
         >>> # Calculate arccosine
         >>> df = db.table("data").select(F.acos(col("ratio")).alias("acos_value"))
         >>> results = df.collect()
@@ -2468,7 +2468,7 @@ def atan(column: ColumnLike) -> Column:
         column: Numeric column
 
     Returns:
-        Column expression for atan (result in radians)
+        :class:`Column` expression for atan (result in radians)
 
     Example:
         >>> from moltres import connect, col
@@ -2476,8 +2476,8 @@ def atan(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("slope", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"slope": 1.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"slope": 1.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.atan(col("slope")).alias("atan_value"))
         >>> results = df.collect()
         >>> import builtins
@@ -2496,7 +2496,7 @@ def atan2(y: ColumnLike, x: ColumnLike) -> Column:
         x: X coordinate column expression
 
     Returns:
-        Column expression for atan2 (result in radians, range [-π, π])
+        :class:`Column` expression for atan2 (result in radians, range [-π, π])
 
     Example:
         >>> # Note: atan2() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2506,8 +2506,8 @@ def atan2(y: ColumnLike, x: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("y", "REAL"), column("x", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"y": 1.0, "x": 1.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"y": 1.0, "x": 1.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.atan2(col("y"), col("x")).alias("angle"))
         >>> results = df.collect()
         >>> -3.15 <= results[0]["angle"] <= 3.15
@@ -2524,7 +2524,7 @@ def signum(column: ColumnLike) -> Column:
         column: Numeric column
 
     Returns:
-        Column expression for signum (-1 if negative, 0 if zero, 1 if positive)
+        :class:`Column` expression for signum (-1 if negative, 0 if zero, 1 if positive)
 
     Example:
         >>> from moltres import connect, col
@@ -2532,8 +2532,8 @@ def signum(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": -5.0}, {"value": 0.0}, {"value": 5.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": -5.0}, {"value": 0.0}, {"value": 5.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.signum(col("value")).alias("sign"))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["value"] if "value" in x else 0)
@@ -2555,7 +2555,7 @@ def sign(column: ColumnLike) -> Column:
         column: Numeric column
 
     Returns:
-        Column expression for sign (-1 if negative, 0 if zero, 1 if positive)
+        :class:`Column` expression for sign (-1 if negative, 0 if zero, 1 if positive)
 
     Example:
         >>> from moltres import connect, col
@@ -2563,8 +2563,8 @@ def sign(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": -5.0}, {"value": 0.0}, {"value": 5.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": -5.0}, {"value": 0.0}, {"value": 5.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.sign(col("value")).alias("sign"))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["value"] if "value" in x else 0)
@@ -2586,7 +2586,7 @@ def log2(column: ColumnLike) -> Column:
         column: Numeric column (must be positive)
 
     Returns:
-        Column expression for log2
+        :class:`Column` expression for log2
 
     Example:
         >>> # Note: log2() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2596,8 +2596,8 @@ def log2(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 8.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 8.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.log2(col("value")).alias("log2_val"))
         >>> results = df.collect()
         >>> results[0]["log2_val"]
@@ -2615,7 +2615,7 @@ def hypot(x: ColumnLike, y: ColumnLike) -> Column:
         y: Y coordinate column expression
 
     Returns:
-        Column expression for hypot
+        :class:`Column` expression for hypot
 
     Example:
         >>> from moltres import connect, col
@@ -2623,8 +2623,8 @@ def hypot(x: ColumnLike, y: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("x", "REAL"), column("y", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 3.0, "y": 4.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 3.0, "y": 4.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.hypot(col("x"), col("y")).alias("hypotenuse"))
         >>> results = df.collect()
         >>> results[0]["hypotenuse"]
@@ -2641,7 +2641,7 @@ def initcap(column: ColumnLike) -> Column:
         column: String column expression
 
     Returns:
-        Column expression for initcap
+        :class:`Column` expression for initcap
 
     Example:
         >>> # Note: initcap() requires database-specific support (PostgreSQL)
@@ -2651,8 +2651,8 @@ def initcap(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("postgresql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("name", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"name": "hello world"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"name": "hello world"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.initcap(col("name")).alias("capitalized"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> results[0]["capitalized"]  # doctest: +SKIP
@@ -2670,7 +2670,7 @@ def instr(column: ColumnLike, substring: ColumnLike) -> Column:
         substring: Substring to search for (column expression or literal)
 
     Returns:
-        Column expression for instr (1-based position, or 0 if not found)
+        :class:`Column` expression for instr (1-based position, or 0 if not found)
 
     Example:
         >>> # Note: instr() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2680,8 +2680,8 @@ def instr(column: ColumnLike, substring: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"text": "hello world"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"text": "hello world"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.instr(col("text"), "world").alias("pos"))
         >>> results = df.collect()
         >>> results[0]["pos"] > 0
@@ -2700,7 +2700,7 @@ def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
         pos: Starting position for search (default: 1)
 
     Returns:
-        Column expression for locate (1-based position, or 0 if not found)
+        :class:`Column` expression for locate (1-based position, or 0 if not found)
 
     Example:
         >>> # Note: locate() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2710,8 +2710,8 @@ def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"text": "hello world"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"text": "hello world"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.locate("world", col("text")).alias("pos"))
         >>> results = df.collect()
         >>> results[0]["pos"] > 0
@@ -2730,7 +2730,7 @@ def translate(column: ColumnLike, from_chars: str, to_chars: str) -> Column:
         to_chars: Replacement characters (must be same length as from_chars)
 
     Returns:
-        Column expression for translate
+        :class:`Column` expression for translate
 
     Example:
         >>> # Note: translate() requires database-specific support (PostgreSQL)
@@ -2740,8 +2740,8 @@ def translate(column: ColumnLike, from_chars: str, to_chars: str) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("postgresql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"text": "abc"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"text": "abc"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.translate(col("text"), "abc", "xyz").alias("translated"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> results[0]["translated"]  # doctest: +SKIP
@@ -2761,7 +2761,7 @@ def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  #
         format: Optional format string (if None, uses default parsing)
 
     Returns:
-        Column expression for to_timestamp
+        :class:`Column` expression for to_timestamp
 
     Example:
         >>> # Note: to_timestamp() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2771,8 +2771,8 @@ def to_timestamp(column: ColumnLike, format: Optional[str] = None) -> Column:  #
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("date_str", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"date_str": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"date_str": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.to_timestamp(col("date_str"), "yyyy-MM-dd HH:mm:ss").alias("timestamp"))
         >>> results = df.collect()
         >>> from datetime import datetime
@@ -2793,7 +2793,7 @@ def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = 
         format: Optional format string for parsing date strings
 
     Returns:
-        Column expression for unix_timestamp
+        :class:`Column` expression for unix_timestamp
 
     Example:
         >>> # Note: unix_timestamp() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2803,8 +2803,8 @@ def unix_timestamp(column: Optional[ColumnLike] = None, format: Optional[str] = 
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "TIMESTAMP")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.unix_timestamp(col("created_at")).alias("unix_ts"))
         >>> results = df.collect()
         >>> isinstance(results[0]["unix_ts"], (int, float))
@@ -2826,7 +2826,7 @@ def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  
         format: Optional format string (if None, uses default format)
 
     Returns:
-        Column expression for from_unixtime
+        :class:`Column` expression for from_unixtime
 
     Example:
         >>> # Note: from_unixtime() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2836,8 +2836,8 @@ def from_unixtime(column: ColumnLike, format: Optional[str] = None) -> Column:  
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("unix_time", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"unix_time": 1705312200}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"unix_time": 1705312200}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.from_unixtime(col("unix_time"), "yyyy-MM-dd HH:mm:ss").alias("timestamp"))
         >>> results = df.collect()
         >>> isinstance(results[0]["timestamp"], str)
@@ -2857,7 +2857,7 @@ def date_trunc(unit: str, column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for date_trunc
+        :class:`Column` expression for date_trunc
 
     Example:
         >>> # Note: date_trunc() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2867,8 +2867,8 @@ def date_trunc(unit: str, column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "TIMESTAMP")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15 10:30:00"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.date_trunc("month", col("created_at")).alias("month_start"))
         >>> results = df.collect()
         >>> isinstance(results[0]["month_start"], (str, type(None)))
@@ -2885,7 +2885,7 @@ def quarter(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for quarter (1, 2, 3, or 4)
+        :class:`Column` expression for quarter (1, 2, 3, or 4)
 
     Example:
         >>> # Note: quarter() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2895,8 +2895,8 @@ def quarter(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-03-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-03-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.quarter(col("created_at")).alias("q"))
         >>> results = df.collect()
         >>> 1 <= results[0]["q"] <= 4
@@ -2913,7 +2913,7 @@ def weekofyear(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for weekofyear
+        :class:`Column` expression for weekofyear
 
     Example:
         >>> # Note: weekofyear() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2923,8 +2923,8 @@ def weekofyear(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.weekofyear(col("created_at")).alias("week"))
         >>> results = df.collect()
         >>> 1 <= results[0]["week"] <= 53
@@ -2941,7 +2941,7 @@ def week(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for week
+        :class:`Column` expression for week
 
     Example:
         >>> # Note: week() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2951,8 +2951,8 @@ def week(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.week(col("created_at")).alias("week"))
         >>> results = df.collect()
         >>> 1 <= results[0]["week"] <= 53
@@ -2969,7 +2969,7 @@ def dayofyear(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for dayofyear
+        :class:`Column` expression for dayofyear
 
     Example:
         >>> # Note: dayofyear() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -2979,8 +2979,8 @@ def dayofyear(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.dayofyear(col("created_at")).alias("day_of_year"))
         >>> results = df.collect()
         >>> 1 <= results[0]["day_of_year"] <= 366
@@ -2997,7 +2997,7 @@ def last_day(column: ColumnLike) -> Column:
         column: Date or timestamp column
 
     Returns:
-        Column expression for last_day
+        :class:`Column` expression for last_day
 
     Example:
         >>> # Note: last_day() requires database-specific support (PostgreSQL/MySQL/DuckDB)
@@ -3007,8 +3007,8 @@ def last_day(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("created_at", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"created_at": "2024-01-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.last_day(col("created_at")).alias("last_day"))
         >>> results = df.collect()
         >>> from datetime import date
@@ -3027,7 +3027,7 @@ def months_between(date1: ColumnLike, date2: ColumnLike) -> Column:
         date2: Second date column
 
     Returns:
-        Column expression for months_between (can be fractional)
+        :class:`Column` expression for months_between (can be fractional)
 
     Example:
         >>> # Note: months_between() requires database-specific support (PostgreSQL/MySQL/DuckDB)
@@ -3037,8 +3037,8 @@ def months_between(date1: ColumnLike, date2: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("start_date", "DATE"), column("end_date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"start_date": "2024-01-15", "end_date": "2024-03-15"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"start_date": "2024-01-15", "end_date": "2024-03-15"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.months_between(col("end_date"), col("start_date")).alias("months"))
         >>> results = df.collect()
         >>> results[0]["months"] >= 0
@@ -3052,10 +3052,10 @@ def first_value(column: ColumnLike) -> Column:
     """Get the first value in a window (window function).
 
     Args:
-        column: Column expression to get the first value from
+        column: :class:`Column` expression to get the first value from
 
     Returns:
-        Column expression for first_value() window function
+        :class:`Column` expression for first_value() window function
 
     Example:
         >>> from moltres import connect, col
@@ -3063,8 +3063,8 @@ def first_value(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("sales", [column("id", "INTEGER"), column("category", "TEXT"), column("amount", "REAL"), column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "amount": 100.0, "date": "2024-01-01"}, {"id": 2, "category": "A", "amount": 200.0, "date": "2024-01-02"}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "amount": 100.0, "date": "2024-01-01"}, {"id": 2, "category": "A", "amount": 200.0, "date": "2024-01-02"}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().withColumn("first_amount", F.first_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["id"])
@@ -3081,10 +3081,10 @@ def last_value(column: ColumnLike) -> Column:
     """Get the last value in a window (window function).
 
     Args:
-        column: Column expression to get the last value from
+        column: :class:`Column` expression to get the last value from
 
     Returns:
-        Column expression for last_value() window function
+        :class:`Column` expression for last_value() window function
 
     Example:
         >>> from moltres import connect, col
@@ -3092,8 +3092,8 @@ def last_value(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("sales", [column("id", "INTEGER"), column("category", "TEXT"), column("amount", "REAL"), column("date", "DATE")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "category": "A", "amount": 100.0, "date": "2024-01-01"}, {"id": 2, "category": "A", "amount": 200.0, "date": "2024-01-02"}], _database=db).insert_into("sales")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "category": "A", "amount": 100.0, "date": "2024-01-01"}, {"id": 2, "category": "A", "amount": 200.0, "date": "2024-01-02"}], _database=db).insert_into("sales")
         >>> df = db.table("sales").select().withColumn("last_amount", F.last_value(col("amount")).over(partition_by=col("category"), order_by=col("date")))
         >>> results = df.collect()
         >>> sorted_results = sorted(results, key=lambda x: x["id"])
@@ -3114,7 +3114,7 @@ def array_append(column: ColumnLike, element: ColumnLike) -> Column:
         element: Element to append (column expression or literal)
 
     Returns:
-        Column expression for array_append
+        :class:`Column` expression for array_append
 
     Example:
         >>> # Note: array_append() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3142,7 +3142,7 @@ def array_prepend(column: ColumnLike, element: ColumnLike) -> Column:
         element: Element to prepend (column expression or literal)
 
     Returns:
-        Column expression for array_prepend
+        :class:`Column` expression for array_prepend
 
     Example:
         >>> # Note: array_prepend() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3170,7 +3170,7 @@ def array_remove(column: ColumnLike, element: ColumnLike) -> Column:
         element: Element to remove (column expression or literal)
 
     Returns:
-        Column expression for array_remove
+        :class:`Column` expression for array_remove
 
     Example:
         >>> # Note: array_remove() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3197,7 +3197,7 @@ def array_distinct(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_distinct
+        :class:`Column` expression for array_distinct
 
     Example:
         >>> # Note: array_distinct() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3224,7 +3224,7 @@ def array_sort(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_sort
+        :class:`Column` expression for array_sort
 
     Example:
         >>> # Note: array_sort() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3251,7 +3251,7 @@ def array_max(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_max
+        :class:`Column` expression for array_max
 
     Example:
         >>> # Note: array_max() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3278,7 +3278,7 @@ def array_min(column: ColumnLike) -> Column:
         column: Array column expression
 
     Returns:
-        Column expression for array_min
+        :class:`Column` expression for array_min
 
     Example:
         >>> # Note: array_min() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3305,7 +3305,7 @@ def array_sum(column: ColumnLike) -> Column:
         column: Array column expression (must contain numeric elements)
 
     Returns:
-        Column expression for array_sum
+        :class:`Column` expression for array_sum
 
     Example:
         >>> # Note: array_sum() requires database-specific array support (DuckDB/PostgreSQL/MySQL)
@@ -3333,7 +3333,7 @@ def json_tuple(column: ColumnLike, *paths: str) -> Column:
         *paths: JSON path expressions (e.g., "$.key1", "$.key2")
 
     Returns:
-        Column expression for json_tuple (returns array of values)
+        :class:`Column` expression for json_tuple (returns array of values)
 
     Example:
         >>> # Note: json_tuple() requires database-specific JSON support (PostgreSQL/MySQL)
@@ -3343,8 +3343,8 @@ def json_tuple(column: ColumnLike, *paths: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("json_data", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_data": '{"name": "Alice", "age": 30}'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.json_tuple(col("json_data"), "$.name", "$.age").alias("tuple"))
         >>> results = df.collect()
         >>> len(results[0]["tuple"])
@@ -3364,7 +3364,7 @@ def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
         schema: Optional schema string (for validation)
 
     Returns:
-        Column expression for from_json
+        :class:`Column` expression for from_json
 
     Example:
         >>> # Note: from_json() requires database-specific JSON support (PostgreSQL/MySQL)
@@ -3374,8 +3374,8 @@ def from_json(column: ColumnLike, schema: Optional[str] = None) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("json_str", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_str": '{"name": "Alice"}'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_str": '{"name": "Alice"}'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.from_json(col("json_str")).alias("json_obj"))
         >>> results = df.collect()
         >>> isinstance(results[0]["json_obj"], dict)
@@ -3391,10 +3391,10 @@ def to_json(column: ColumnLike) -> Column:
     """Convert a column to a JSON string.
 
     Args:
-        column: Column expression to convert
+        column: :class:`Column` expression to convert
 
     Returns:
-        Column expression for to_json
+        :class:`Column` expression for to_json
 
     Example:
         >>> # Note: to_json() requires database-specific JSON support (PostgreSQL/MySQL)
@@ -3404,8 +3404,8 @@ def to_json(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("value", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 42}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 42}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.to_json(col("value")).alias("json_str"))
         >>> results = df.collect()
         >>> # DuckDB returns JSON as the actual value type, not a string
@@ -3423,7 +3423,7 @@ def json_array_length(column: ColumnLike) -> Column:
         column: JSON array column expression
 
     Returns:
-        Column expression for json_array_length
+        :class:`Column` expression for json_array_length
 
     Example:
         >>> # Note: json_array_length() requires database-specific JSON support
@@ -3433,8 +3433,8 @@ def json_array_length(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("json_array", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"json_array": '[1, 2, 3]'}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"json_array": '[1, 2, 3]'}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.json_array_length(col("json_array")).alias("length"))
         >>> results = df.collect()
         >>> results[0]["length"]
@@ -3451,7 +3451,7 @@ def rand(seed: Optional[int] = None) -> Column:
         seed: Optional random seed (not all databases support this)
 
     Returns:
-        Column expression for rand
+        :class:`Column` expression for rand
 
     Example:
         >>> # Note: rand() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -3461,8 +3461,8 @@ def rand(seed: Optional[int] = None) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.rand().alias("random"))
         >>> results = df.collect()
         >>> 0.0 <= results[0]["random"] <= 1.0
@@ -3483,7 +3483,7 @@ def randn(seed: Optional[int] = None) -> Column:
         seed: Optional random seed (not all databases support this)
 
     Returns:
-        Column expression for randn
+        :class:`Column` expression for randn
 
     Example:
         >>> # Note: randn() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -3493,8 +3493,8 @@ def randn(seed: Optional[int] = None) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.randn().alias("random_normal"))
         >>> results = df.collect()
         >>> isinstance(results[0]["random_normal"], (int, float))
@@ -3510,10 +3510,10 @@ def hash(*columns: ColumnLike) -> Column:
     """Compute a hash value for one or more columns.
 
     Args:
-        *columns: Column expressions to hash
+        *columns: :class:`Column` expressions to hash
 
     Returns:
-        Column expression for hash
+        :class:`Column` expression for hash
 
     Example:
         >>> # Note: hash() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -3523,8 +3523,8 @@ def hash(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.hash(col("id"), col("name")).alias("hash_val"))
         >>> results = df.collect()
         >>> isinstance(results[0]["hash_val"], (int, str))
@@ -3540,10 +3540,10 @@ def md5(column: ColumnLike) -> Column:
     """Compute the MD5 hash of a column.
 
     Args:
-        column: Column expression to hash
+        column: :class:`Column` expression to hash
 
     Returns:
-        Column expression for md5 (returns hex string)
+        :class:`Column` expression for md5 (returns hex string)
 
     Example:
         >>> # Note: md5() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -3553,8 +3553,8 @@ def md5(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("password", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"password": "secret"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"password": "secret"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.md5(col("password")).alias("md5_hash"))
         >>> results = df.collect()
         >>> len(results[0]["md5_hash"]) == 32
@@ -3568,10 +3568,10 @@ def sha1(column: ColumnLike) -> Column:
     """Compute the SHA-1 hash of a column.
 
     Args:
-        column: Column expression to hash
+        column: :class:`Column` expression to hash
 
     Returns:
-        Column expression for sha1 (returns hex string)
+        :class:`Column` expression for sha1 (returns hex string)
 
     Example:
         >>> # Note: sha1() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -3581,8 +3581,8 @@ def sha1(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("password", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"password": "secret"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"password": "secret"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.sha1(col("password")).alias("sha1_hash"))
         >>> results = df.collect()
         >>> len(results[0]["sha1_hash"]) == 40
@@ -3596,11 +3596,11 @@ def sha2(column: ColumnLike, num_bits: int = 256) -> Column:
     """Compute the SHA-2 hash of a column.
 
     Args:
-        column: Column expression to hash
+        column: :class:`Column` expression to hash
         num_bits: Number of bits (224, 256, 384, or 512, default: 256)
 
     Returns:
-        Column expression for sha2 (returns hex string)
+        :class:`Column` expression for sha2 (returns hex string)
 
     Example:
         >>> # Note: sha2() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -3610,8 +3610,8 @@ def sha2(column: ColumnLike, num_bits: int = 256) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("password", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"password": "secret"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"password": "secret"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.sha2(col("password"), 256).alias("sha2_hash"))
         >>> results = df.collect()
         >>> len(results[0]["sha2_hash"]) == 64
@@ -3627,10 +3627,10 @@ def base64(column: ColumnLike) -> Column:
     """Encode a column to base64.
 
     Args:
-        column: Column expression to encode
+        column: :class:`Column` expression to encode
 
     Returns:
-        Column expression for base64 encoding
+        :class:`Column` expression for base64 encoding
 
     Example:
         >>> # Note: base64() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -3640,8 +3640,8 @@ def base64(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"text": "hello"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"text": "hello"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.base64(col("text")).alias("encoded"))
         >>> results = df.collect()
         >>> isinstance(results[0]["encoded"], str)
@@ -3658,7 +3658,7 @@ def monotonically_increasing_id() -> Column:
     or will generate IDs based on row order.
 
     Returns:
-        Column expression for monotonically_increasing_id
+        :class:`Column` expression for monotonically_increasing_id
 
     Example:
         >>> from moltres import connect, col
@@ -3667,8 +3667,8 @@ def monotonically_increasing_id() -> Column:
         >>> from moltres.expressions.window import Window
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice"}, {"name": "Bob"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}, {"name": "Bob"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(col("name"), F.monotonically_increasing_id().over(partition_by=None, order_by=col("name")).alias("id"))
         >>> results = df.collect()
         >>> results[0]["id"] >= 1
@@ -3682,10 +3682,10 @@ def crc32(column: ColumnLike) -> Column:
     """Compute the CRC32 checksum of a column.
 
     Args:
-        column: Column expression to compute checksum for
+        column: :class:`Column` expression to compute checksum for
 
     Returns:
-        Column expression for crc32
+        :class:`Column` expression for crc32
 
     Example:
         >>> # Note: crc32() requires database-specific support (MySQL)
@@ -3695,8 +3695,8 @@ def crc32(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("mysql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"text": "hello"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"text": "hello"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.crc32(col("text")).alias("checksum"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> isinstance(results[0]["checksum"], (int, str))  # doctest: +SKIP
@@ -3713,7 +3713,7 @@ def soundex(column: ColumnLike) -> Column:
         column: String column expression
 
     Returns:
-        Column expression for soundex
+        :class:`Column` expression for soundex
 
     Example:
         >>> # Note: soundex() requires database-specific support (PostgreSQL/MySQL)
@@ -3723,8 +3723,8 @@ def soundex(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("postgresql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("name", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"name": "Smith"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"name": "Smith"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.soundex(col("name")).alias("soundex_code"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> isinstance(results[0]["soundex_code"], str)  # doctest: +SKIP

@@ -25,7 +25,7 @@ class AsyncPandasGroupBy:
         """Apply aggregations using pandas-style dictionary syntax.
 
         Args:
-            **aggregations: Column names mapped to aggregation functions or dicts
+            **aggregations: :class:`Column` names mapped to aggregation functions or dicts
 
         Returns:
             AsyncPandasDataFrame with aggregated results
@@ -63,7 +63,7 @@ class AsyncPandasGroupBy:
     def _create_aggregation(
         self, column_name: str, func_name: str, alias: Optional[str] = None
     ) -> Column:
-        """Create an aggregation Column from a column name and function name.
+        """Create an aggregation :class:`Column` from a column name and function name.
 
         Args:
             column_name: Name of the column to aggregate
@@ -71,7 +71,7 @@ class AsyncPandasGroupBy:
             alias: Optional alias for the result column
 
         Returns:
-            Column expression for the aggregation
+            :class:`Column` expression for the aggregation
         """
         from .groupby_helpers import create_aggregation_from_string
 

@@ -208,7 +208,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
   - ✅ **File I/O** – Polars-style read/write operations: `db.scan_csv()`, `db.scan_json()`, `db.scan_jsonl()`, `db.scan_parquet()`, `db.scan_text()`, `df.write_csv()`, `df.write_json()`, `df.write_jsonl()`, `df.write_parquet()`
   - ✅ **Schema Properties** – `columns`, `width`, `height`, `schema` properties with lazy evaluation
   - ✅ Comprehensive test coverage (all tests passing)
-  - ✅ Example file (`examples/19_polars_interface.py`) and guide (`guides/10-polars-interface.md`)
+  - ✅ Example file (`docs/examples/19_polars_interface.py`) and guide (`guides/10-polars-interface.md`)
 
 ### Async Polars and Pandas DataFrames ✅ **COMPLETED**
 - ✅ **AsyncPolarsDataFrame** – Async version of Polars-style interface:
@@ -279,7 +279,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - ✅ Extended `AsyncDatabase.create_table()` and `AsyncDatabase.table()` for async support
 - ✅ Model reference storage in `TableHandle` and `AsyncTableHandle`
 - ✅ Comprehensive test suite (19 tests, all passing)
-- ✅ Example file (`examples/17_sqlalchemy_models.py`) with real outputs
+- ✅ Example file (`docs/examples/17_sqlalchemy_models.py`) with real outputs
 - ✅ README.md documentation with SQLAlchemy integration section
 - ✅ Full backward compatibility maintained
 - ✅ All mypy type errors fixed
@@ -303,7 +303,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - ✅ Column metadata introspection (`db.get_columns(table_name)`, etc.)
 - ✅ Enhanced `ColumnInfo` dataclass with full metadata (nullable, default, primary_key, precision, scale)
 - ✅ Comprehensive test coverage for both sync and async reflection methods
-- ✅ Example file demonstrating reflection features (`examples/14_reflection.py`)
+- ✅ Example file demonstrating reflection features (`docs/examples/14_reflection.py`)
 
 #### FILTER Clause for Conditional Aggregation
 - ✅ Extended `Expression` dataclass with `_filter` field for storing FILTER clause conditions
@@ -311,7 +311,7 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - ✅ Updated `ExpressionCompiler` to handle FILTER clause for all aggregation functions (sum, avg, count, min, max, count_distinct, collect_list, collect_set, corr, covar, stddev, variance)
 - ✅ Implemented dialect-specific support (PostgreSQL, MySQL 8.0+ use native FILTER; SQLite uses CASE WHEN fallback)
 - ✅ Added comprehensive test coverage (18 tests covering all aggregation functions, edge cases, and error handling)
-- ✅ Updated documentation with examples in `examples/05_groupby.py` and README.md
+- ✅ Updated documentation with examples in `docs/examples/05_groupby.py` and README.md
 
 ### v0.12.0
 

@@ -22,7 +22,7 @@ def compile_aggregation(
     Args:
         compiler: The ExpressionCompiler instance
         op: Operation name (e.g., "agg_sum", "agg_avg")
-        expression: Column expression to compile
+        expression: :class:`Column` expression to compile
 
     Returns:
         Compiled SQLAlchemy column element

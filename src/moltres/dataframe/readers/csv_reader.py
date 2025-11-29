@@ -20,16 +20,16 @@ def read_csv(
     schema: Optional[Sequence[ColumnDef]],
     options: Dict[str, object],
 ) -> Records:
-    """Read CSV file and return Records.
+    """Read CSV file and return :class:`Records`.
 
     Args:
         path: Path to CSV file
-        database: Database instance
+        database: :class:`Database` instance
         schema: Optional explicit schema
         options: Reader options (header, delimiter, inferSchema)
 
     Returns:
-        Records containing the CSV data
+        :class:`Records` containing the CSV data
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -249,12 +249,12 @@ def read_csv_stream(
 
     Args:
         path: Path to CSV file
-        database: Database instance
+        database: :class:`Database` instance
         schema: Optional explicit schema
         options: Reader options (header, delimiter, inferSchema, chunk_size)
 
     Returns:
-        Records with streaming generator
+        :class:`Records` with streaming generator
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -463,14 +463,14 @@ def read_csv_stream(
 def _create_records_from_data(
     database: "Database", rows: List[Dict[str, object]], schema: Optional[Sequence[ColumnDef]]
 ) -> Records:
-    """Create Records from materialized data."""
+    """Create :class:`Records` from materialized data."""
     return Records(_data=rows, _schema=schema, _database=database)
 
 
 def _create_records_from_schema(
     database: "Database", schema: Sequence[ColumnDef], rows: List[Dict[str, object]]
 ) -> Records:
-    """Create Records with explicit schema but no data."""
+    """Create :class:`Records` with explicit schema but no data."""
     return Records(_data=rows, _schema=schema, _database=database)
 
 
@@ -479,10 +479,10 @@ def _create_records_from_stream(
     chunk_generator: Callable[[], Iterator[List[Dict[str, object]]]],
     schema: Sequence[ColumnDef],
 ) -> Records:
-    """Create Records from streaming generator.
+    """Create :class:`Records` from streaming generator.
 
     Args:
-        database: Database instance
+        database: :class:`Database` instance
         chunk_generator: Callable that returns an iterator of chunks
         schema: Schema for the data
     """

@@ -398,7 +398,7 @@ def compile_create_index(
     Args:
         name: Index name
         table_name: Table name
-        columns: Column name(s) to index
+        columns: :class:`Column` name(s) to index
         unique: If True, create a UNIQUE index
         dialect: Dialect specification (used if engine is None)
         engine: Optional SQLAlchemy Engine. If None, creates a temporary engine for compilation.
@@ -623,14 +623,14 @@ def compile_insert_select(
 
 
 def _column_def_to_sqlalchemy(col_def: ColumnDef, sa_dialect: Any) -> Column:
-    """Convert a ColumnDef to a SQLAlchemy Column object.
+    """Convert a ColumnDef to a SQLAlchemy :class:`Column` object.
 
     Args:
         col_def: Moltres ColumnDef
         sa_dialect: SQLAlchemy dialect object
 
     Returns:
-        SQLAlchemy Column object
+        SQLAlchemy :class:`Column` object
     """
     from sqlalchemy import types as sa_types
 

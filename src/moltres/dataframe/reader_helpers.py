@@ -1,4 +1,4 @@
-"""Common helper functions for DataFrame reader implementations.
+"""Common helper functions for :class:`DataFrame` reader implementations.
 
 This module contains shared logic used by both DataLoader and AsyncDataLoader
 to reduce code duplication.

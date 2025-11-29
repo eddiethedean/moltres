@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Available for both Airflow and Prefect workflows
   - **Graceful Degradation** – Optional dependency handling with clear error messages when frameworks are not installed
   - Comprehensive test coverage (32 integration tests) with mock and real framework tests
-  - Example files (`examples/27_airflow_integration.py`, `examples/28_prefect_integration.py`)
+  - Example files (`docs/examples/27_airflow_integration.py`, `docs/examples/28_prefect_integration.py`)
   - Comprehensive guide (`guides/16-workflow-integration.md`) with detailed usage examples
   - Added `apache-airflow>=2.5.0` and `prefect>=2.0.0` to optional dependencies
 - **Pytest Integration** – Comprehensive testing utilities for Moltres DataFrames:
@@ -58,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `@pytest.mark.moltres_db("postgresql")` for database-specific tests
     - `@pytest.mark.moltres_performance` for performance tests
   - Comprehensive test suite with full feature coverage
-  - Example file (`examples/26_pytest_integration.py`) and guide (`guides/15-pytest-integration.md`)
+  - Example file (`docs/examples/26_pytest_integration.py`) and guide (`guides/15-pytest-integration.md`)
 - **dbt Integration** – Use Moltres DataFrames in dbt Python models:
   - **Adapter Functions** – Connect to databases from dbt configuration:
     - `get_moltres_connection()` to get Database instance from dbt config
@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `moltres_source()` to reference dbt sources
     - `moltres_var()` to access dbt variables
   - **dbt Macros** – SQL macros for common Moltres patterns
-  - Example file (`examples/29_dbt_integration.py`) and guide (`guides/17-dbt-integration.md`)
+  - Example file (`docs/examples/29_dbt_integration.py`) and guide (`guides/17-dbt-integration.md`)
   - Added `dbt-core>=1.5.0` to optional dependencies
 - **Streamlit Integration** – Comprehensive integration with Streamlit for building data applications:
   - **DataFrame Display Component** (`moltres_dataframe`) – Display Moltres DataFrames in Streamlit with automatic conversion and query information display
@@ -86,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Error Handling** (`display_moltres_error`) – Convert Moltres exceptions to user-friendly Streamlit error messages
   - **Graceful Degradation** – Optional dependency handling with clear error messages when Streamlit is not installed
   - Comprehensive test coverage using Streamlit's AppTest framework
-  - Example file (`examples/25_streamlit_integration.py`) and comprehensive guide (`guides/14-streamlit-integration.md`)
+  - Example file (`docs/examples/25_streamlit_integration.py`) and comprehensive guide (`guides/14-streamlit-integration.md`)
   - Added `streamlit>=1.28.0` to optional dependencies
 
 ### Fixed
@@ -140,7 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Schema Properties** – `columns`, `width`, `height`, `schema` properties with lazy evaluation
   - **Entry Points** – `db.table("name").polars()` and `df.polars()` for easy conversion
   - Comprehensive test coverage (all tests passing)
-  - Example file (`examples/19_polars_interface.py`) and comprehensive guide (`guides/10-polars-interface.md`)
+  - Example file (`docs/examples/19_polars_interface.py`) and comprehensive guide (`guides/10-polars-interface.md`)
 - **Async Polars DataFrame** – Async version of Polars-style interface (`AsyncPolarsDataFrame`):
   - Wraps `AsyncDataFrame` with Polars-style API
   - All database-interactive methods are `async` (`collect()`, `fetch()`, `height`, `schema`, `describe()`, `explain()`, `write_*`)
@@ -202,7 +202,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Results cached after first computation to avoid redundant queries
     - Warnings for expensive operations
   - Comprehensive test coverage (all tests passing)
-  - Updated examples (`examples/18_pandas_interface.py`) and documentation
+  - Updated examples (`docs/examples/18_pandas_interface.py`) and documentation
 - **Runnable Guide Documentation** – All guide code blocks are now fully runnable:
   - Created automated script (`scripts/make_guides_runnable.py`) to update code blocks
   - Updated 131 code blocks across 8 guides to use `sqlite:///:memory:`
@@ -242,7 +242,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `db.table("users")` – Still supported
     - All existing code continues to work unchanged
   - **Comprehensive test coverage** – 19 tests covering all integration features
-  - **Example file** – `examples/17_sqlalchemy_models.py` demonstrating usage
+  - **Example file** – `docs/examples/17_sqlalchemy_models.py` demonstrating usage
   - **Documentation** – README.md updated with SQLAlchemy integration section
 - **Explode compilation** – `explode()` now emits working SQL for SQLite (via `json_each`) and PostgreSQL (`jsonb_array_elements`), unlocking table-valued expansions for array/JSON columns on those dialects.
 
@@ -258,7 +258,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD** – All pre-commit CI checks now pass with Python 3.11 (ruff, mypy, tests, documentation validation)
 
 ### Changed
-- **Type-checking polish** – records/dataframe helpers and examples were tightened so `mypy` passes across `src/` and `examples/`, including forward-declared pandas/polars types and stricter Records typing.
+- **Type-checking polish** – records/dataframe helpers and examples were tightened so `mypy` passes across `src/` and `docs/examples/`, including forward-declared pandas/polars types and stricter Records typing.
 - **Documentation improvements** – All guide code blocks updated to be fully runnable with SQLite in-memory databases for easy setup and testing.
 - **Error handling** – Enhanced error messages in pandas-style interface with column validation and typo suggestions for better user experience.
 - **Type safety** – Improved type annotations throughout async DataFrame implementations, removing unused type ignore comments and fixing all mypy errors
@@ -330,7 +330,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `await async_db.create_index(...)`
     - `await async_db.drop_index(...)`
   - **Comprehensive Test Coverage** - 41 tests covering all constraint types, indexes, edge cases, and async operations
-  - **Example Updates** - Updated `examples/09_table_operations.py` with constraint and index examples
+  - **Example Updates** - Updated `docs/examples/09_table_operations.py` with constraint and index examples
 
 ### Changed
 - **DDL Compilation** - Refactored all DDL compilation to use SQLAlchemy objects instead of raw SQL strings:

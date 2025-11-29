@@ -1,4 +1,4 @@
-"""Async grouped DataFrame operations."""
+"""Async grouped :class:`DataFrame` operations."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class AsyncGroupedDataFrame:
-    """Represents a grouped DataFrame for async aggregation operations."""
+    """Represents a grouped :class:`DataFrame` for async aggregation operations."""
 
     def __init__(
         self,
@@ -29,7 +29,7 @@ class AsyncGroupedDataFrame:
 
         Args:
             *aggregates: Aggregation expressions. Can be:
-                - Column expressions (e.g., sum(col("amount")))
+                - :class:`Column` expressions (e.g., sum(col("amount")))
                 - String column names (e.g., "amount" - defaults to sum())
                 - Dictionary mapping column names to aggregation functions
                   (e.g., {"amount": "sum", "price": "avg"})
@@ -40,7 +40,7 @@ class AsyncGroupedDataFrame:
         Example:
             >>> from moltres import col
             >>> from moltres.expressions import functions as F
-            >>> # Using Column expressions
+            >>> # Using :class:`Column` expressions
             >>> await df.group_by("category").agg(F.sum(col("amount")).alias("total"))
 
             >>> # Using string column names (defaults to sum)
@@ -82,14 +82,14 @@ class AsyncGroupedDataFrame:
 
     @staticmethod
     def _create_aggregation_from_string(column_name: str, func_name: str) -> Column:
-        """Create an aggregation Column from a column name and function name string.
+        """Create an aggregation :class:`Column` from a column name and function name string.
 
         Args:
             column_name: Name of the column to aggregate
             func_name: Name of the aggregation function (e.g., "sum", "avg", "min", "max", "count")
 
         Returns:
-            Column expression for the aggregation
+            :class:`Column` expression for the aggregation
 
         Raises:
             ValueError: If the function name is not recognized
@@ -104,7 +104,7 @@ class AsyncGroupedDataFrame:
         """Pivot the grouped data on a column.
 
         Args:
-            pivot_col: Column to pivot on (values become column headers)
+            pivot_col: :class:`Column` to pivot on (values become column headers)
             values: Optional list of specific values to pivot (if None, must be provided later or discovered)
 
         Returns:
@@ -131,7 +131,7 @@ class AsyncGroupedDataFrame:
 
 
 class AsyncPivotedGroupedDataFrame:
-    """Represents an async DataFrame grouped by columns with a pivot operation applied.
+    """Represents an async :class:`DataFrame` grouped by columns with a pivot operation applied.
 
     This is returned by AsyncGroupedDataFrame.pivot() and provides aggregation methods
     that will create pivoted columns.
@@ -156,7 +156,7 @@ class AsyncPivotedGroupedDataFrame:
 
         Args:
             *aggregations: One or more aggregation expressions. Can be:
-                - Column expressions (e.g., sum(col("amount")))
+                - :class:`Column` expressions (e.g., sum(col("amount")))
                 - String column names (e.g., "amount" - defaults to sum())
                 - Dictionary mapping column names to aggregation functions
                   (e.g., {"amount": "sum", "price": "avg"})
@@ -174,7 +174,7 @@ class AsyncPivotedGroupedDataFrame:
             >>> # Using string column name
             >>> await df.group_by("category").pivot("status").agg("amount")
 
-            >>> # Using Column expression
+            >>> # Using :class:`Column` expression
             >>> await df.group_by("category").pivot("status").agg(F.sum(col("amount")))
 
             >>> # With specific pivot values
@@ -254,10 +254,10 @@ class AsyncPivotedGroupedDataFrame:
         """Extract the column name from an aggregation expression.
 
         Args:
-            agg_expr: Aggregation Column expression (e.g., sum(col("amount")))
+            agg_expr: Aggregation :class:`Column` expression (e.g., sum(col("amount")))
 
         Returns:
-            Column name string (e.g., "amount")
+            :class:`Column` name string (e.g., "amount")
 
         Raises:
             ValueError: If the column cannot be extracted
@@ -271,7 +271,7 @@ class AsyncPivotedGroupedDataFrame:
         """Extract the aggregation function name from an aggregation expression.
 
         Args:
-            agg_expr: Aggregation Column expression (e.g., sum(col("amount")))
+            agg_expr: Aggregation :class:`Column` expression (e.g., sum(col("amount")))
 
         Returns:
             Aggregation function name (e.g., "sum")
@@ -282,14 +282,14 @@ class AsyncPivotedGroupedDataFrame:
 
     @staticmethod
     def _create_aggregation_from_string(column_name: str, func_name: str) -> Column:
-        """Create an aggregation Column from a column name and function name string.
+        """Create an aggregation :class:`Column` from a column name and function name string.
 
         Args:
             column_name: Name of the column to aggregate
             func_name: Name of the aggregation function (e.g., "sum", "avg", "min", "max", "count")
 
         Returns:
-            Column expression for the aggregation
+            :class:`Column` expression for the aggregation
 
         Raises:
             ValueError: If the function name is not recognized
@@ -303,7 +303,7 @@ class AsyncPivotedGroupedDataFrame:
         """Validate that an expression is a valid aggregation.
 
         Args:
-            expr: Column expression to validate
+            expr: :class:`Column` expression to validate
 
         Returns:
             The validated column expression

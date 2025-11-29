@@ -1,4 +1,4 @@
-"""Validation utilities for pandas interface and DataFrame operations."""
+"""Validation utilities for pandas interface and :class:`DataFrame` operations."""
 
 from __future__ import annotations
 

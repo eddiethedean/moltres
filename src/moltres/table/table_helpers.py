@@ -1,6 +1,6 @@
 """Common helper functions for table implementations.
 
-This module contains shared logic used by both Database and AsyncDatabase
+This module contains shared logic used by both :class:`Database` and :class:`AsyncDatabase`
 to reduce code duplication.
 """
 
@@ -16,7 +16,7 @@ def build_table_names_query(dialect: "DialectSpec", schema: Optional[str] = None
     """Build SQL query to get table names for a given dialect.
 
     Args:
-        dialect: Database dialect specification
+        dialect: :class:`Database` dialect specification
         schema: Optional schema name
 
     Returns:
@@ -45,7 +45,7 @@ def build_view_names_query(dialect: "DialectSpec", schema: Optional[str] = None)
     """Build SQL query to get view names for a given dialect.
 
     Args:
-        dialect: Database dialect specification
+        dialect: :class:`Database` dialect specification
         schema: Optional schema name
 
     Returns:
@@ -74,7 +74,7 @@ def build_columns_query(
     """Build SQL query to get column information for a given dialect.
 
     Args:
-        dialect: Database dialect specification
+        dialect: :class:`Database` dialect specification
         table_name: Name of the table
         schema: Optional schema name
 
@@ -137,7 +137,7 @@ def extract_table_names_from_result(rows: List[dict], dialect: "DialectSpec") ->
 
     Args:
         rows: List of result row dictionaries
-        dialect: Database dialect specification
+        dialect: :class:`Database` dialect specification
 
     Returns:
         List of table name strings
@@ -157,7 +157,7 @@ def extract_view_names_from_result(rows: List[dict], dialect: "DialectSpec") -> 
 
     Args:
         rows: List of result row dictionaries
-        dialect: Database dialect specification
+        dialect: :class:`Database` dialect specification
 
     Returns:
         List of view name strings

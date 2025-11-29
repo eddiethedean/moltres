@@ -12,43 +12,43 @@ from ..expressions.column import Column
 
 
 class BaseColumnWrapper:
-    """Base class for column wrappers that add accessors to Column expressions.
+    """Base class for column wrappers that add accessors to :class:`Column` expressions.
 
-    This class provides common functionality for wrapping Column expressions
+    This class provides common functionality for wrapping :class:`Column` expressions
     and forwarding operators and methods. Subclasses should:
     1. Call super().__init__(column) in their __init__
     2. Add their specific accessors (str, dt, etc.) after calling super().__init__
 
     Example:
         >>> class MyColumnWrapper(BaseColumnWrapper):
-        ...     def __init__(self, column: Column):
+        ...     def __init__(self, column: :class:`Column`):
         ...         super().__init__(column)
         ...         # Add custom accessors here
         ...         self.str = StringAccessor(column)
     """
 
     def __init__(self, column: Column):
-        """Initialize with a Column expression.
+        """Initialize with a :class:`Column` expression.
 
         Args:
-            column: The Column expression to wrap
+            column: The :class:`Column` expression to wrap
         """
         self._column = column
 
     def __getattr__(self, name: str) -> Any:
-        """Delegate attribute access to the wrapped Column.
+        """Delegate attribute access to the wrapped :class:`Column`.
 
-        This allows the wrapper to behave like a Column for
+        This allows the wrapper to behave like a :class:`Column` for
         most operations (comparisons, arithmetic, etc.).
 
         Args:
             name: Attribute name
 
         Returns:
-            Attribute value from the wrapped Column
+            Attribute value from the wrapped :class:`Column`
 
         Raises:
-            AttributeError: If the attribute doesn't exist on the Column
+            AttributeError: If the attribute doesn't exist on the :class:`Column`
         """
         # Check if Column has the attribute before accessing
         # This is safer than direct getattr to avoid infinite recursion

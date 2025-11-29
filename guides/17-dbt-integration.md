@@ -116,7 +116,7 @@ Configure dbt profiles as usual. Moltres will automatically extract connection d
 
 ## Examples
 
-See `examples/29_dbt_integration.py` for comprehensive examples.
+See `docs/examples/29_dbt_integration.py` for comprehensive examples.
 
 ## See Also
 

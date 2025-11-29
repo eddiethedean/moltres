@@ -1,4 +1,4 @@
-"""Async lazy DataFrame representation."""
+"""Async lazy :class:`DataFrame` representation."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class AsyncDataFrame(DataFrameHelpersMixin):
-    """Async lazy DataFrame representation."""
+    """Async lazy :class:`DataFrame` representation."""
 
     plan: LogicalPlan
     database: Optional["AsyncDatabase"] = None
@@ -77,8 +77,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         Args:
             select_stmt: SQLAlchemy Select statement to convert
-            database: Optional AsyncDatabase instance to attach to the DataFrame.
-                     If provided, allows the DataFrame to be executed with collect().
+            database: Optional :class:`AsyncDatabase` instance to attach to the :class:`DataFrame`.
+                     If provided, allows the :class:`DataFrame` to be executed with collect().
 
         Returns:
             AsyncDataFrame that can be further chained with Moltres operations
@@ -109,10 +109,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return cls(plan=plan, database=database)
 
     def select(self, *columns: Union[Column, str]) -> "AsyncDataFrame":
-        """Select columns from the DataFrame.
+        """Select columns from the :class:`DataFrame`.
 
         Args:
-            *columns: Column names or Column expressions to select.
+            *columns: :class:`Column` names or :class:`Column` expressions to select.
                      Use "*" to select all columns (same as empty select).
                      Can combine "*" with other columns: select("*", col("new_col"))
 
@@ -126,8 +126,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> async def example():
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("email", "TEXT")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db)
             ...     await records.insert_into("users")
             ...     # Select specific columns
             ...     table_handle = await db.table("users")
@@ -219,7 +219,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         """Select columns using SQL expressions (async version).
 
         This method allows you to write SQL expressions directly instead of
-        building Column objects manually, similar to PySpark's selectExpr().
+        building :class:`Column` objects manually, similar to PySpark's selectExpr().
 
         Args:
             *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
@@ -234,8 +234,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> async def example():
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL"), column("name", "TEXT")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records = AsyncRecords(_data=[{"id": 1, "amount": 100.0, "name": "Alice"}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records = :class:`AsyncRecords`(_data=[{"id": 1, "amount": 100.0, "name": "Alice"}], _database=db)
             ...     await records.insert_into("orders")
             ...     # With expressions and aliases
             ...     table_handle = await db.table("orders")
@@ -278,8 +278,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         """Filter rows based on a predicate.
 
         Args:
-            predicate: Column expression or SQL string representing the filter condition.
-                      Can be a Column object or a SQL string like "age > 18".
+            predicate: :class:`Column` expression or SQL string representing the filter condition.
+                      Can be a :class:`Column` object or a SQL string like "age > 18".
 
         Returns:
             New AsyncDataFrame with filtered rows
@@ -291,10 +291,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> async def example():
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("age", "INTEGER")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice", "age": 25}, {"id": 2, "name": "Bob", "age": 17}], _database=db)
             ...     await records.insert_into("users")
-            ...     # Filter by condition using Column
+            ...     # Filter by condition using :class:`Column`
             ...     table_handle = await db.table("users")
             ...     df = table_handle.select().where(col("age") >= 18)
             ...     results = await df.collect()
@@ -336,15 +336,15 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         ] = None,
         how: str = "inner",
     ) -> "AsyncDataFrame":
-        """Join with another DataFrame.
+        """Join with another :class:`DataFrame`.
 
         Args:
-            other: Another DataFrame to join with
+            other: Another :class:`DataFrame` to join with
             on: Join condition - can be:
                 - A single column name (assumes same name in both DataFrames): ``on="order_id"``
                 - A sequence of column names (assumes same names in both): ``on=["col1", "col2"]``
                 - A sequence of (left_column, right_column) tuples: ``on=[("id", "customer_id")]``
-                - A Column expression (PySpark-style): ``on=[col("left_col") == col("right_col")]``
+                - A :class:`Column` expression (PySpark-style): ``on=[col("left_col") == col("right_col")]``
                 - A single Column expression: ``on=col("left_col") == col("right_col")``
             how: Join type ("inner", "left", "right", "full", "cross")
 
@@ -359,10 +359,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("customers", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             ...     await db.create_table("orders", [column("id", "INTEGER"), column("customer_id", "INTEGER"), column("amount", "REAL")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records1 = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records1 = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice"}], _database=db)
             ...     await records1.insert_into("customers")
-            ...     records2 = AsyncRecords(_data=[{"id": 1, "customer_id": 1, "amount": 100.0}], _database=db)
+            ...     records2 = :class:`AsyncRecords`(_data=[{"id": 1, "customer_id": 1, "amount": 100.0}], _database=db)
             ...     await records2.insert_into("orders")
             ...     # PySpark-style join
             ...     customers_table = await db.table("customers")
@@ -404,16 +404,16 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         )
 
     def crossJoin(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
-        """Perform a cross join (Cartesian product) with another DataFrame.
+        """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
 
         Args:
-            other: Another DataFrame to cross join with
+            other: Another :class:`DataFrame` to cross join with
 
         Returns:
-            New DataFrame containing the Cartesian product of rows
+            New :class:`DataFrame` containing the Cartesian product of rows
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same AsyncDatabase
+            RuntimeError: If DataFrames are not bound to the same :class:`AsyncDatabase`
         """
         return self.join(other, how="cross")
 
@@ -423,22 +423,22 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
     ) -> "AsyncDataFrame":
-        """Perform a semi-join: return rows from this DataFrame where a matching row exists in other.
+        """Perform a semi-join: return rows from this :class:`DataFrame` where a matching row exists in other.
 
         This is equivalent to filtering with EXISTS subquery.
 
         Args:
-            other: Another DataFrame to semi-join with (used as EXISTS subquery)
+            other: Another :class:`DataFrame` to semi-join with (used as EXISTS subquery)
             on: Join condition - can be:
                 - A single column name (assumes same name in both DataFrames)
                 - A sequence of column names (assumes same names in both)
                 - A sequence of (left_column, right_column) tuples
 
         Returns:
-            New DataFrame containing rows from this DataFrame that have matches in other
+            New :class:`DataFrame` containing rows from this :class:`DataFrame` that have matches in other
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same AsyncDatabase
+            RuntimeError: If DataFrames are not bound to the same :class:`AsyncDatabase`
         """
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before semi_join")
@@ -457,22 +457,22 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
     ) -> "AsyncDataFrame":
-        """Perform an anti-join: return rows from this DataFrame where no matching row exists in other.
+        """Perform an anti-join: return rows from this :class:`DataFrame` where no matching row exists in other.
 
         This is equivalent to filtering with NOT EXISTS subquery.
 
         Args:
-            other: Another DataFrame to anti-join with (used as NOT EXISTS subquery)
+            other: Another :class:`DataFrame` to anti-join with (used as NOT EXISTS subquery)
             on: Join condition - can be:
                 - A single column name (assumes same name in both DataFrames)
                 - A sequence of column names (assumes same names in both)
                 - A sequence of (left_column, right_column) tuples
 
         Returns:
-            New DataFrame containing rows from this DataFrame that have no matches in other
+            New :class:`DataFrame` containing rows from this :class:`DataFrame` that have no matches in other
 
         Raises:
-            RuntimeError: If DataFrames are not bound to the same AsyncDatabase
+            RuntimeError: If DataFrames are not bound to the same :class:`AsyncDatabase`
         """
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before anti_join")
@@ -496,8 +496,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> async def example():
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("sales", [column("category", "TEXT"), column("amount", "REAL")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records = AsyncRecords(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}, {"category": "B", "amount": 150.0}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records = :class:`AsyncRecords`(_data=[{"category": "A", "amount": 100.0}, {"category": "A", "amount": 200.0}, {"category": "B", "amount": 150.0}], _database=db)
             ...     await records.insert_into("sales")
             ...     table_handle = await db.table("sales")
             ...     df = table_handle.select()
@@ -521,8 +521,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         """Sort rows by one or more columns.
 
         Args:
-            *columns: Column expressions or column names to sort by. Use .asc() or .desc() for sort order.
-                     Can be strings (column names) or Column objects.
+            *columns: :class:`Column` expressions or column names to sort by. Use .asc() or .desc() for sort order.
+                     Can be strings (column names) or :class:`Column` objects.
 
         Returns:
             New AsyncDataFrame with sorted rows
@@ -533,7 +533,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> df = await db.table("users").select().order_by("name")
             >>> # SQL: SELECT * FROM users ORDER BY name
 
-            >>> # Sort ascending with Column object
+            >>> # Sort ascending with :class:`Column` object
             >>> df = await db.table("users").select().order_by(col("name"))
             >>> # SQL: SELECT * FROM users ORDER BY name
 
@@ -541,7 +541,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> df = await db.table("orders").select().order_by(col("amount").desc())
             >>> # SQL: SELECT * FROM orders ORDER BY amount DESC
 
-            >>> # Multiple sort columns (mixed string and Column)
+            >>> # Multiple sort columns (mixed string and :class:`Column`)
             >>> df = (
             ...     await db.table("sales")
             ...     .select()
@@ -564,7 +564,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return self._with_plan(operators.limit(self.plan, count))
 
     def sample(self, fraction: float, seed: Optional[int] = None) -> "AsyncDataFrame":
-        """Sample a fraction of rows from the DataFrame.
+        """Sample a fraction of rows from the :class:`DataFrame`.
 
         Args:
             fraction: Fraction of rows to sample (0.0 to 1.0)
@@ -581,7 +581,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return self._with_plan(operators.sample(self.plan, fraction, seed))
 
     def union(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
-        """Union this DataFrame with another DataFrame (distinct rows only)."""
+        """Union this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only)."""
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before union")
         if self.database is not other.database:
@@ -590,7 +590,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return AsyncDataFrame(plan=plan, database=self.database)
 
     def unionAll(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
-        """Union this DataFrame with another DataFrame (all rows, including duplicates)."""
+        """Union this :class:`DataFrame` with another :class:`DataFrame` (all rows, including duplicates)."""
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before union")
         if self.database is not other.database:
@@ -599,7 +599,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return AsyncDataFrame(plan=plan, database=self.database)
 
     def intersect(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
-        """Intersect this DataFrame with another DataFrame (distinct rows only)."""
+        """Intersect this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only)."""
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before intersect")
         if self.database is not other.database:
@@ -608,7 +608,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return AsyncDataFrame(plan=plan, database=self.database)
 
     def except_(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
-        """Return rows in this DataFrame that are not in another DataFrame (distinct rows only)."""
+        """Return rows in this :class:`DataFrame` that are not in another :class:`DataFrame` (distinct rows only)."""
         if self.database is None or other.database is None:
             raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before except")
         if self.database is not other.database:
@@ -617,7 +617,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return AsyncDataFrame(plan=plan, database=self.database)
 
     def cte(self, name: str) -> "AsyncDataFrame":
-        """Create a Common Table Expression (CTE) from this DataFrame.
+        """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
             name: Name for the CTE
@@ -629,22 +629,22 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return AsyncDataFrame(plan=plan, database=self.database)
 
     def distinct(self) -> "AsyncDataFrame":
-        """Return a new DataFrame with distinct rows."""
+        """Return a new :class:`DataFrame` with distinct rows."""
         return self._with_plan(operators.distinct(self.plan))
 
     def dropDuplicates(self, subset: Optional[Sequence[str]] = None) -> "AsyncDataFrame":
-        """Return a new DataFrame with duplicate rows removed."""
+        """Return a new :class:`DataFrame` with duplicate rows removed."""
         if subset is None:
             return self.distinct()
         # Simplified implementation
         return self.group_by(*subset).agg()
 
     def withColumn(self, colName: str, col_expr: Union[Column, str]) -> "AsyncDataFrame":
-        """Add or replace a column in the DataFrame.
+        """Add or replace a column in the :class:`DataFrame`.
 
         Args:
             colName: Name of the column to add or replace
-            col_expr: Column expression or column name
+            col_expr: :class:`Column` expression or column name
 
         Returns:
             New AsyncDataFrame with the added/replaced column
@@ -716,10 +716,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
     def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> "AsyncDataFrame":
-        """Add or replace multiple columns in the DataFrame.
+        """Add or replace multiple columns in the :class:`DataFrame`.
 
         Args:
-            cols_map: Dictionary mapping column names to Column expressions or column names
+            cols_map: Dictionary mapping column names to :class:`Column` expressions or column names
 
         Returns:
             New AsyncDataFrame with the added/replaced columns
@@ -729,8 +729,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = await connect("sqlite:///:memory:")
             >>> await db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
             >>> df = await db.table("orders").select()
             >>> # Add multiple columns at once
             >>> df2 = await df.withColumns({
@@ -751,7 +751,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return result_df
 
     def withColumnRenamed(self, existing: str, new: str) -> "AsyncDataFrame":
-        """Rename a column in the DataFrame."""
+        """Rename a column in the :class:`DataFrame`."""
         from ..logical.plan import Project
         from dataclasses import replace as dataclass_replace
 
@@ -774,10 +774,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             return self._with_plan(operators.project(self.plan, (existing_col,)))
 
     def drop(self, *cols: Union[str, Column]) -> "AsyncDataFrame":
-        """Drop one or more columns from the DataFrame.
+        """Drop one or more columns from the :class:`DataFrame`.
 
         Args:
-            *cols: Column names or Column objects to drop
+            *cols: :class:`Column` names or :class:`Column` objects to drop
 
         Returns:
             New AsyncDataFrame with the specified columns removed
@@ -785,7 +785,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         Example:
             >>> # Drop by string column name
             >>> await df.drop("col1", "col2").collect()
-            >>> # Drop by Column object
+            >>> # Drop by :class:`Column` object
             >>> await df.drop(col("col1"), col("col2")).collect()
             >>> # Mixed usage
             >>> await df.drop("col1", col("col2")).collect()
@@ -818,7 +818,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             return self
 
     async def show(self, n: int = 20, truncate: bool = True) -> None:
-        """Print the first n rows of the DataFrame."""
+        """Print the first n rows of the :class:`DataFrame`."""
         rows = await self.limit(n).collect()
         # collect() with stream=False returns a list, not an iterator
         if not isinstance(rows, list):
@@ -877,7 +877,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         """Count distinct values in column(s).
 
         Args:
-            column: Column name to count. If None, counts distinct values for all columns.
+            column: :class:`Column` name to count. If None, counts distinct values for all columns.
 
         Returns:
             If column is specified: integer count of distinct values.
@@ -889,8 +889,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = await connect("sqlite:///:memory:")
             >>> await db.create_table("users", [column("id", "INTEGER"), column("country", "TEXT"), column("age", "INTEGER")]).collect()
-            >>> from moltres.io.records import Records
-            >>> _ = Records(_data=[{"id": 1, "country": "USA", "age": 25}, {"id": 2, "country": "USA", "age": 30}, {"id": 3, "country": "UK", "age": 25}], _database=db).insert_into("users")
+            >>> from moltres.io.records import :class:`Records`
+            >>> _ = :class:`Records`(_data=[{"id": 1, "country": "USA", "age": 25}, {"id": 2, "country": "USA", "age": 30}, {"id": 3, "country": "UK", "age": 25}], _database=db).insert_into("users")
             >>> df = await db.table("users").select()
             >>> # Count distinct values in a column
             >>> await df.nunique("country")
@@ -933,7 +933,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             return counts
 
     async def count(self) -> int:
-        """Return the number of rows in the DataFrame."""
+        """Return the number of rows in the :class:`DataFrame`."""
         from ..expressions.functions import count as count_func
 
         count_col = count_func("*").alias("count")
@@ -1018,7 +1018,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     # ---------------------------------------------------------------- execution
     def to_sql(self) -> str:
-        """Compile the DataFrame plan to SQL."""
+        """Compile the :class:`DataFrame` plan to SQL."""
         from sqlalchemy.sql import Select
 
         stmt = (
@@ -1038,8 +1038,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         Args:
             dialect: Optional SQL dialect name (e.g., "postgresql", "mysql", "sqlite").
-                    If not provided, uses the dialect from the attached AsyncDatabase,
-                    or defaults to "ansi" if no AsyncDatabase is attached.
+                    If not provided, uses the dialect from the attached :class:`AsyncDatabase`,
+                    or defaults to "ansi" if no :class:`AsyncDatabase` is attached.
 
         Returns:
             SQLAlchemy Select statement that can be executed with any SQLAlchemy connection
@@ -1086,7 +1086,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         List[Any],
         AsyncIterator[List[Any]],
     ]:
-        """Collect DataFrame results asynchronously.
+        """Collect :class:`DataFrame` results asynchronously.
 
         Args:
             stream: If True, return an async iterator of row chunks. If False (default),
@@ -1099,7 +1099,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             If stream=True and model attached: AsyncIterator of row chunks (each chunk is a list of model instances).
 
         Raises:
-            RuntimeError: If DataFrame is not bound to an AsyncDatabase
+            RuntimeError: If :class:`DataFrame` is not bound to an :class:`AsyncDatabase`
             ImportError: If model is attached but Pydantic or SQLModel is not installed
 
         Example:
@@ -1109,8 +1109,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> async def example():
             ...     db = await async_connect("sqlite+aiosqlite:///:memory:")
             ...     await db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            ...     from moltres.io.records import AsyncRecords
-            ...     records = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            ...     from moltres.io.records import :class:`AsyncRecords`
+            ...     records = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice"}], _database=db)
             ...     await records.insert_into("users")
             ...     table_handle = await db.table("users")
             ...     df = table_handle.select()
@@ -1341,10 +1341,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             filescan: FileScan logical plan node
 
         Returns:
-            AsyncRecords object with _generator set (streaming mode)
+            :class:`AsyncRecords` object with _generator set (streaming mode)
 
         Note:
-            This method returns AsyncRecords with a generator, allowing chunked processing
+            This method returns :class:`AsyncRecords` with a generator, allowing chunked processing
             without loading the entire file into memory. Use this for large files.
         """
         if self.database is None:
@@ -1377,16 +1377,16 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     @property
     def write(self) -> "AsyncDataFrameWriter":
-        """Return an AsyncDataFrameWriter for writing this DataFrame to a table."""
+        """Return an AsyncDataFrameWriter for writing this :class:`DataFrame` to a table."""
         from .async_writer import AsyncDataFrameWriter
 
         return AsyncDataFrameWriter(self)
 
     @property
     def columns(self) -> List[str]:
-        """Return a list of column names in this DataFrame.
+        """Return a list of column names in this :class:`DataFrame`.
 
-        Similar to PySpark's DataFrame.columns property, this extracts column
+        Similar to PySpark's :class:`DataFrame`.columns property, this extracts column
         names from the logical plan without requiring query execution.
 
         Returns:
@@ -1405,9 +1405,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     @property
     def schema(self) -> List["ColumnInfo"]:
-        """Return the schema of this DataFrame as a list of ColumnInfo objects.
+        """Return the schema of this :class:`DataFrame` as a list of ColumnInfo objects.
 
-        Similar to PySpark's DataFrame.schema property, this extracts column
+        Similar to PySpark's :class:`DataFrame`.schema property, this extracts column
         names and types from the logical plan without requiring query execution.
 
         Returns:
@@ -1431,7 +1431,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
     def dtypes(self) -> List[Tuple[str, str]]:
         """Return a list of tuples containing column names and their data types.
 
-        Similar to PySpark's DataFrame.dtypes property, this returns a list
+        Similar to PySpark's :class:`DataFrame`.dtypes property, this returns a list
         of (column_name, type_name) tuples.
 
         Returns:
@@ -1449,10 +1449,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return [(col_info.name, col_info.type_name) for col_info in schema]
 
     def printSchema(self) -> None:
-        """Print the schema of this DataFrame in a tree format.
+        """Print the schema of this :class:`DataFrame` in a tree format.
 
-        Similar to PySpark's DataFrame.printSchema() method, this prints
-        a formatted representation of the DataFrame's schema.
+        Similar to PySpark's :class:`DataFrame`.printSchema() method, this prints
+        a formatted representation of the :class:`DataFrame`'s schema.
 
         Example:
             >>> df = await db.table("users").select()
@@ -1478,17 +1478,17 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         """Enable bracket notation column access (e.g., df["col"], df[["col1", "col2"]]).
 
         Supports:
-        - df['col'] - Returns Column expression with string/date accessors
+        - df['col'] - Returns :class:`Column` expression with string/date accessors
         - df[['col1', 'col2']] - Returns new AsyncDataFrame with selected columns
-        - df[df['age'] > 25] - Boolean indexing (filtering via Column condition)
+        - df[df['age'] > 25] - Boolean indexing (filtering via :class:`Column` condition)
 
         Args:
-            key: Column name(s) or boolean Column condition
+            key: :class:`Column` name(s) or boolean :class:`Column` condition
 
         Returns:
             - For single column string: PySparkColumn (with .str and .dt accessors)
             - For list of columns: AsyncDataFrame with selected columns
-            - For boolean Column condition: AsyncDataFrame with filtered rows
+            - For boolean :class:`Column` condition: AsyncDataFrame with filtered rows
 
         Example:
             >>> df = await db.table("users").select()
@@ -1540,10 +1540,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         columns via dot notation, similar to PySpark's API.
 
         Args:
-            name: Column name to access
+            name: :class:`Column` name to access
 
         Returns:
-            Column object for the specified column name
+            :class:`Column` object for the specified column name
 
         Raises:
             AttributeError: If the attribute doesn't exist and isn't a valid column name

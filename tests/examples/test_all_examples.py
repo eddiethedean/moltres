@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 # Get the examples directory
-EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+EXAMPLES_DIR = Path(__file__).parent.parent.parent / "docs" / "examples"
 
 
 def load_example_module(example_file: str):

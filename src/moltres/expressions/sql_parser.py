@@ -1,4 +1,4 @@
-"""SQL expression parser for converting SQL strings to Column expressions."""
+"""SQL expression parser for converting SQL strings to :class:`Column` expressions."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ FUNCTION_MAP: dict[str, Callable[..., Column]] = {
 
 
 class SQLParser:
-    """Parser for SQL expressions that converts them to Column expressions."""
+    """Parser for SQL expressions that converts them to :class:`Column` expressions."""
 
     def __init__(self, available_columns: Optional[Set[str]] = None):
         """Initialize the parser.
@@ -60,13 +60,13 @@ class SQLParser:
         self.expr = ""
 
     def parse(self, expr_str: str) -> Column:
-        """Parse a SQL expression string into a Column expression.
+        """Parse a SQL expression string into a :class:`Column` expression.
 
         Args:
             expr_str: SQL expression string (e.g., "amount * 1.1 as with_tax")
 
         Returns:
-            Column expression
+            :class:`Column` expression
 
         Raises:
             ValueError: If the expression cannot be parsed
@@ -414,7 +414,7 @@ class SQLParser:
         return args
 
     def _parse_function(self, func_name: str, args: list[Column]) -> Column:
-        """Parse a function call and convert to Column expression."""
+        """Parse a function call and convert to :class:`Column` expression."""
         if func_name in FUNCTION_MAP:
             func = FUNCTION_MAP[func_name]
             if len(args) == 1:
@@ -466,7 +466,7 @@ class SQLParser:
 
 
 def parse_sql_expr(expr_str: str, available_columns: Optional[Set[str]] = None) -> Column:
-    """Parse a SQL expression string into a Column expression.
+    """Parse a SQL expression string into a :class:`Column` expression.
 
     This is the main entry point for parsing SQL expressions.
 
@@ -475,11 +475,11 @@ def parse_sql_expr(expr_str: str, available_columns: Optional[Set[str]] = None) 
         available_columns: Optional set of available column names for validation
 
     Returns:
-        Column expression
+        :class:`Column` expression
 
     Example:
         >>> parse_sql_expr("amount * 1.1 as with_tax")
-        Column(...)  # Equivalent to (col("amount") * 1.1).alias("with_tax")
+        :class:`Column`(...)  # Equivalent to (col("amount") * 1.1).alias("with_tax")
 
     Raises:
         ValueError: If the expression cannot be parsed

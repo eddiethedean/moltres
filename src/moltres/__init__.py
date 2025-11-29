@@ -1,4 +1,25 @@
-"""Public Moltres API."""
+"""Public Moltres API.
+
+This module provides the main entry points for using Moltres:
+
+- :func:`connect` - Create a synchronous database connection
+- :func:`async_connect` - Create an asynchronous database connection
+- :class:`Database` - Main database interface for querying and table operations
+- :class:`AsyncDatabase` - Async version of :class:`Database`
+- :func:`col` - Create column expressions
+- :func:`lit` - Create literal values
+- :func:`column` - Define table columns for schema creation
+
+Example:
+    Basic usage::
+
+        from moltres import connect, col
+        from moltres.expressions import functions as F
+
+        db = connect("sqlite:///example.db")
+        df = db.table("users").select().where(col("age") > 25)
+        results = df.collect()
+"""
 
 from __future__ import annotations
 
@@ -130,10 +151,10 @@ def connect(
     session: object | None = None,
     **options: object,
 ) -> Database:
-    """Connect to a SQL database and return a ``Database`` handle.
+    """Connect to a SQL database and return a :class:`Database` handle.
 
     Configuration can be provided via arguments or environment variables:
-    - MOLTRES_DSN: Database connection string (if dsn is None)
+    - MOLTRES_DSN: :class:`Database` connection string (if dsn is None)
     - MOLTRES_ECHO: Enable SQLAlchemy echo mode (true/false)
     - MOLTRES_FETCH_FORMAT: "records", "pandas", or "polars"
     - MOLTRES_DIALECT: Override SQL dialect detection
@@ -144,7 +165,7 @@ def connect(
     - MOLTRES_POOL_PRE_PING: Enable connection health checks (true/false)
 
     Args:
-        dsn: Database connection string. Examples:
+        dsn: :class:`Database` connection string. Examples:
             - SQLite: "sqlite:///path/to/database.db"
             - PostgreSQL: "postgresql://user:pass@host:port/dbname"
             - MySQL: "mysql://user:pass@host:port/dbname"
@@ -176,7 +197,7 @@ def connect(
             - future: Use SQLAlchemy 2.0 style (default: True)
 
     Returns:
-        Database instance for querying and table operations
+        :class:`Database`: Database instance for querying and table operations
 
     Raises:
         ValueError: If neither dsn, engine, nor session is provided and MOLTRES_DSN is not set
@@ -188,8 +209,8 @@ def connect(
         >>> db = connect("sqlite:///:memory:")
         >>> from moltres.table.schema import column
         >>> _ = db.create_table("users", [column("id", "INTEGER"), column("active", "BOOLEAN")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
         >>> df = db.table("users").select().where(col("active") == True)
         >>> results = df.collect()
         >>> len(results)
@@ -270,7 +291,7 @@ def async_connect(
     session: object | None = None,
     **options: object,
 ) -> AsyncDatabase:
-    """Connect to a SQL database asynchronously and return an ``AsyncDatabase`` handle.
+    """Connect to a SQL database asynchronously and return an :class:`AsyncDatabase` handle.
 
     This function requires async dependencies. Install with:
     - `pip install moltres[async]` - for core async support (aiofiles)
@@ -279,7 +300,7 @@ def async_connect(
     - `pip install moltres[async-sqlite]` - for SQLite async support (includes async + aiosqlite)
 
     Configuration can be provided via arguments or environment variables:
-    - MOLTRES_DSN: Database connection string (if dsn is None)
+    - MOLTRES_DSN: :class:`Database` connection string (if dsn is None)
     - MOLTRES_ECHO: Enable SQLAlchemy echo mode (true/false)
     - MOLTRES_FETCH_FORMAT: "records", "pandas", or "polars"
     - MOLTRES_DIALECT: Override SQL dialect detection
@@ -290,7 +311,7 @@ def async_connect(
     - MOLTRES_POOL_PRE_PING: Enable connection health checks (true/false)
 
     Args:
-        dsn: Database connection string. Examples:
+        dsn: :class:`Database` connection string. Examples:
             - SQLite: "sqlite+aiosqlite:///path/to/database.db"
             - PostgreSQL: "postgresql+asyncpg://user:pass@host:port/dbname"
             - MySQL: "mysql+aiomysql://user:pass@host:port/dbname"
@@ -322,7 +343,7 @@ def async_connect(
                             Ignored if engine is provided.
 
     Returns:
-        AsyncDatabase instance for async querying and table operations
+        :class:`AsyncDatabase`: :class:`AsyncDatabase` instance for async querying and table operations
 
     Raises:
         ImportError: If async dependencies are not installed
@@ -337,8 +358,8 @@ def async_connect(
         ...     db = async_connect("sqlite+aiosqlite:///:memory:")
         ...     from moltres.table.schema import column
         ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
-        ...     from moltres.io.records import AsyncRecords
-        ...     records = AsyncRecords(_data=[{"id": 1}], _database=db)
+        ...     from moltres.io.records import :class:`AsyncRecords`
+        ...     records = :class:`AsyncRecords`(_data=[{"id": 1}], _database=db)
         ...     await records.insert_into("users")
         ...     table_handle = await db.table("users")
         ...     df = table_handle.select()

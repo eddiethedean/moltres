@@ -53,7 +53,7 @@ db = connect("sqlite:///example.db")
 df = (
     db.table("orders")
     .select()
-    .join(db.table("customers"), on="customer_id")
+    .join(db.table("customers").select(), on=[col("orders.customer_id") == col("customers.id")])
     .where(col("active") == True)
     .group_by("country")
     .agg(F.sum(col("amount")).alias("total_amount"))
@@ -90,9 +90,9 @@ db.delete("users", where=col("email").is_null())
 
 ### Framework Integrations
 
-- **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/examples/22_fastapi_integration.py)** - Error handling, dependency injection
-- **[Django Integration](https://github.com/eddiethedean/moltres/blob/main/examples/23_django_integration.py)** - Middleware, template tags, management commands
-- **[Streamlit Integration](https://github.com/eddiethedean/moltres/blob/main/examples/25_streamlit_integration.py)** - Components, caching, query visualization
+- **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/docs/examples/22_fastapi_integration.py)** - Error handling, dependency injection
+- **[Django Integration](https://github.com/eddiethedean/moltres/blob/main/docs/examples/23_django_integration.py)** - Middleware, template tags, management commands
+- **[Streamlit Integration](https://github.com/eddiethedean/moltres/blob/main/docs/examples/25_streamlit_integration.py)** - Components, caching, query visualization
 - **[SQLModel & Pydantic](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models
 
 ## 🛠️ Supported Operations

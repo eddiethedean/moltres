@@ -4,7 +4,7 @@ This module provides helper functions and utilities to make Moltres
 more user-friendly and robust when used with Streamlit applications.
 
 Key features:
-- DataFrame display components with query information
+- :class:`DataFrame` display components with query information
 - Interactive query builder widget
 - Caching utilities for query results
 - Session state helpers for database connections
@@ -48,13 +48,13 @@ def moltres_dataframe(
     show_query_info: bool = True,
     **kwargs: Any,
 ) -> None:
-    """Display a Moltres DataFrame in Streamlit with optional query information.
+    """Display a Moltres :class:`DataFrame` in Streamlit with optional query information.
 
-    This function automatically collects the DataFrame results and displays them
+    This function automatically collects the :class:`DataFrame` results and displays them
     using Streamlit's dataframe component, with optional query information display.
 
     Args:
-        df: Moltres DataFrame (sync or async) to display
+        df: Moltres :class:`DataFrame` (sync or async) to display
         show_query_info: If True, display query SQL and row count information
         **kwargs: Additional arguments passed to st.dataframe() (height, width, use_container_width, etc.)
 
@@ -117,10 +117,10 @@ def query_builder(db: "Database") -> Optional["DataFrame"]:
     including table selection, column selection, filtering, and ordering.
 
     Args:
-        db: Moltres Database instance
+        db: Moltres :class:`Database` instance
 
     Returns:
-        DataFrame if a query was built, None otherwise
+        :class:`DataFrame` if a query was built, None otherwise
 
     Example:
         >>> import streamlit as st
@@ -277,7 +277,7 @@ def invalidate_query_cache(query_sql: str) -> None:
 
 
 def get_db_from_session(key: str = "db") -> "Database":
-    """Get or create a Database instance from Streamlit session state.
+    """Get or create a :class:`Database` instance from Streamlit session state.
 
     This helper manages database connections in Streamlit's session state,
     ensuring connections are reused across reruns and properly cleaned up.
@@ -286,7 +286,7 @@ def get_db_from_session(key: str = "db") -> "Database":
         key: Key to use in session state for storing the database connection
 
     Returns:
-        Database instance
+        :class:`Database` instance
 
     Example:
         >>> import streamlit as st
@@ -325,11 +325,11 @@ def init_db_connection(dsn: str, key: str = "db") -> "Database":
     """Initialize a database connection in Streamlit session state.
 
     Args:
-        dsn: Database connection string
+        dsn: :class:`Database` connection string
         key: Key to use in session state for storing the database connection
 
     Returns:
-        Database instance
+        :class:`Database` instance
 
     Example:
         >>> import streamlit as st
@@ -393,7 +393,7 @@ def visualize_query(
     Streamlit expanders for SQL, query plan, and performance metrics.
 
     Args:
-        df: Moltres DataFrame (sync or async) to visualize
+        df: Moltres :class:`DataFrame` (sync or async) to visualize
         show_sql: If True, display the SQL query
         show_plan: If True, display the query execution plan
         show_metrics: If True, display performance metrics (execution time, row count)

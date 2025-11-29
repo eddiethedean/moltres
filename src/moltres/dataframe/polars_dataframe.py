@@ -37,7 +37,7 @@ from .polars_operations import sql_type_to_polars_dtype
 
 @dataclass(frozen=True)
 class PolarsDataFrame(InterfaceCommonMixin):
-    """Polars-style interface wrapper around Moltres DataFrame.
+    """Polars-style interface wrapper around Moltres :class:`DataFrame`.
 
     Provides familiar Polars LazyFrame API methods while maintaining lazy evaluation
     and SQL pushdown execution. All operations remain lazy until collect() is called.
@@ -46,8 +46,8 @@ class PolarsDataFrame(InterfaceCommonMixin):
         >>> df = db.table('users').polars()
         >>> # Polars-style operations
         >>> df.filter(col('age') > 25).select(['id', 'name'])
-        >>> # Returns actual Polars DataFrame
-        >>> result = df.collect()  # pl.DataFrame
+        >>> # Returns actual Polars :class:`DataFrame`
+        >>> result = df.collect()  # pl.:class:`DataFrame`
     """
 
     _df: DataFrame
@@ -66,24 +66,24 @@ class PolarsDataFrame(InterfaceCommonMixin):
 
     @classmethod
     def from_dataframe(cls, df: DataFrame) -> "PolarsDataFrame":
-        """Create a PolarsDataFrame from a regular DataFrame.
+        """Create a :class:`PolarsDataFrame` from a regular :class:`DataFrame`.
 
         Args:
-            df: The DataFrame to wrap
+            df: The :class:`DataFrame` to wrap
 
         Returns:
-            PolarsDataFrame wrapping the provided DataFrame
+            :class:`PolarsDataFrame` wrapping the provided :class:`DataFrame`
         """
         return cls(_df=df)
 
     def _with_dataframe(self, df: DataFrame) -> "PolarsDataFrame":
-        """Create a new PolarsDataFrame with a different underlying DataFrame.
+        """Create a new :class:`PolarsDataFrame` with a different underlying :class:`DataFrame`.
 
         Args:
-            df: The new underlying DataFrame
+            df: The new underlying :class:`DataFrame`
 
         Returns:
-            New PolarsDataFrame instance
+            New :class:`PolarsDataFrame` instance
         """
         # Clear caches when creating new DataFrame instance
         return PolarsDataFrame(_df=df, _height_cache=None, _schema_cache=None)
@@ -91,7 +91,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
     def _validate_columns_exist(
         self, column_names: Sequence[str], operation: str = "operation"
     ) -> None:
-        """Validate that all specified columns exist in the DataFrame.
+        """Validate that all specified columns exist in the :class:`DataFrame`.
 
         Args:
             column_names: List of column names to validate
@@ -157,7 +157,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         Note:
             Getting row count requires executing a COUNT query,
             which can be expensive for large datasets. The result is cached
-            for the lifetime of this DataFrame instance.
+            for the lifetime of this :class:`DataFrame` instance.
 
         Warning:
             This operation executes a SQL query. For large tables, consider
@@ -234,10 +234,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
             return []
 
     def lazy(self) -> "PolarsDataFrame":
-        """Return self (for API compatibility, PolarsDataFrame is already lazy).
+        """Return self (for API compatibility, :class:`PolarsDataFrame` is already lazy).
 
         Returns:
-            Self (PolarsDataFrame is always lazy)
+            Self (:class:`PolarsDataFrame` is always lazy)
 
         Example:
             >>> df.lazy()  # Returns self
@@ -248,10 +248,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Select columns/expressions (Polars-style).
 
         Args:
-            *exprs: Column names or Column expressions to select
+            *exprs: :class:`Column` names or :class:`Column` expressions to select
 
         Returns:
-            PolarsDataFrame with selected columns
+            :class:`PolarsDataFrame` with selected columns
 
         Example:
             >>> df.select('id', 'name')
@@ -271,10 +271,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Filter rows (Polars-style, uses 'filter' instead of 'where').
 
         Args:
-            predicate: Column expression for filtering condition
+            predicate: :class:`Column` expression for filtering condition
 
         Returns:
-            Filtered PolarsDataFrame
+            Filtered :class:`PolarsDataFrame`
 
         Example:
             >>> df.filter(col('age') > 25)
@@ -287,10 +287,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Add or modify columns (Polars primary method for adding columns).
 
         Args:
-            *exprs: Column expressions or (name, expression) tuples
+            *exprs: :class:`Column` expressions or (name, expression) tuples
 
         Returns:
-            PolarsDataFrame with new/modified columns
+            :class:`PolarsDataFrame` with new/modified columns
 
         Example:
             >>> df.with_columns((col('amount') * 1.1).alias('with_tax'))
@@ -324,10 +324,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Add or modify a single column (alias for with_columns with one expression).
 
         Args:
-            expr: Column expression or (name, expression) tuple
+            expr: :class:`Column` expression or (name, expression) tuple
 
         Returns:
-            PolarsDataFrame with new/modified column
+            :class:`PolarsDataFrame` with new/modified column
 
         Example:
             >>> df.with_column((col('amount') * 1.1).alias('with_tax'))
@@ -338,10 +338,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Drop columns (Polars-style).
 
         Args:
-            *columns: Column names to drop
+            *columns: :class:`Column` names to drop
 
         Returns:
-            PolarsDataFrame with dropped columns
+            :class:`PolarsDataFrame` with dropped columns
 
         Example:
             >>> df.drop('col1', 'col2')
@@ -379,7 +379,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             mapping: Dictionary mapping old names to new names
 
         Returns:
-            PolarsDataFrame with renamed columns
+            :class:`PolarsDataFrame` with renamed columns
 
         Example:
             >>> df.rename({'old_name': 'new_name'})
@@ -397,11 +397,11 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Sort by columns (Polars-style).
 
         Args:
-            *columns: Column names or Column expressions to sort by
+            *columns: :class:`Column` names or :class:`Column` expressions to sort by
             descending: Sort order - single bool or sequence of bools for each column
 
         Returns:
-            Sorted PolarsDataFrame
+            Sorted :class:`PolarsDataFrame`
 
         Example:
             >>> df.sort('age')
@@ -444,7 +444,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             n: Number of rows to return
 
         Returns:
-            PolarsDataFrame with limited rows
+            :class:`PolarsDataFrame` with limited rows
 
         Example:
             >>> df.limit(10)
@@ -459,7 +459,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             n: Number of rows to return (default: 5)
 
         Returns:
-            PolarsDataFrame with first n rows
+            :class:`PolarsDataFrame` with first n rows
 
         Example:
             >>> df.head(10)  # First 10 rows
@@ -473,7 +473,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             n: Number of rows to return (default: 5)
 
         Returns:
-            PolarsDataFrame with last n rows
+            :class:`PolarsDataFrame` with last n rows
 
         Note:
             This is a simplified implementation. For proper tail() behavior with lazy
@@ -517,7 +517,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             seed: Random seed for reproducibility
 
         Returns:
-            Sampled PolarsDataFrame
+            Sampled :class:`PolarsDataFrame`
 
         Example:
             >>> df.sample(fraction=0.1, seed=42)
@@ -538,7 +538,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Group rows by one or more columns (Polars-style).
 
         Args:
-            *columns: Column name(s) to group by
+            *columns: :class:`Column` name(s) to group by
 
         Returns:
             PolarsGroupBy object for aggregation
@@ -569,18 +569,18 @@ class PolarsDataFrame(InterfaceCommonMixin):
         right_on: Optional[Union[str, Sequence[str]]] = None,
         suffix: str = "_right",
     ) -> "PolarsDataFrame":
-        """Join with another PolarsDataFrame (Polars-style).
+        """Join with another :class:`PolarsDataFrame` (Polars-style).
 
         Args:
-            other: Right DataFrame to join with
-            on: Column name(s) to join on (must exist in both DataFrames)
+            other: Right :class:`DataFrame` to join with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
             how: Type of join ('inner', 'left', 'right', 'outer', 'anti', 'semi')
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
-            suffix: Suffix to append to overlapping column names from right DataFrame
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
+            suffix: Suffix to append to overlapping column names from right :class:`DataFrame`
 
         Returns:
-            Joined PolarsDataFrame
+            Joined :class:`PolarsDataFrame`
 
         Example:
             >>> df1.join(df2, on='id')
@@ -633,16 +633,16 @@ class PolarsDataFrame(InterfaceCommonMixin):
         left_on: Optional[Union[str, Sequence[str]]] = None,
         right_on: Optional[Union[str, Sequence[str]]] = None,
     ) -> "PolarsDataFrame":
-        """Semi-join: filter rows in left DataFrame that have matches in right DataFrame.
+        """Semi-join: filter rows in left :class:`DataFrame` that have matches in right :class:`DataFrame`.
 
         Args:
-            other: Right DataFrame to join with
-            on: Column name(s) to join on (must exist in both DataFrames)
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
+            other: Right :class:`DataFrame` to join with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
 
         Returns:
-            PolarsDataFrame with rows from left that have matches in right
+            :class:`PolarsDataFrame` with rows from left that have matches in right
 
         Example:
             >>> df1.semi_join(df2, on='id')
@@ -658,16 +658,16 @@ class PolarsDataFrame(InterfaceCommonMixin):
         left_on: Optional[Union[str, Sequence[str]]] = None,
         right_on: Optional[Union[str, Sequence[str]]] = None,
     ) -> "PolarsDataFrame":
-        """Anti-join: filter rows in left DataFrame that don't have matches in right DataFrame.
+        """Anti-join: filter rows in left :class:`DataFrame` that don't have matches in right :class:`DataFrame`.
 
         Args:
-            other: Right DataFrame to join with
-            on: Column name(s) to join on (must exist in both DataFrames)
-            left_on: Column name(s) in left DataFrame
-            right_on: Column name(s) in right DataFrame
+            other: Right :class:`DataFrame` to join with
+            on: :class:`Column` name(s) to join on (must exist in both DataFrames)
+            left_on: :class:`Column` name(s) in left :class:`DataFrame`
+            right_on: :class:`Column` name(s) in right :class:`DataFrame`
 
         Returns:
-            PolarsDataFrame with rows from left that don't have matches in right
+            :class:`PolarsDataFrame` with rows from left that don't have matches in right
 
         Example:
             >>> df1.anti_join(df2, on='id')
@@ -682,11 +682,11 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Remove duplicate rows (Polars-style).
 
         Args:
-            subset: Column name(s) to consider for duplicates (None means all columns)
+            subset: :class:`Column` name(s) to consider for duplicates (None means all columns)
             keep: Which duplicate to keep ('first' or 'last')
 
         Returns:
-            PolarsDataFrame with duplicates removed
+            :class:`PolarsDataFrame` with duplicates removed
 
         Example:
             >>> df.unique()
@@ -733,7 +733,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Remove duplicate rows (alias for unique()).
 
         Returns:
-            PolarsDataFrame with duplicates removed
+            :class:`PolarsDataFrame` with duplicates removed
 
         Example:
             >>> df.distinct()
@@ -744,10 +744,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Drop rows with null values (Polars-style).
 
         Args:
-            subset: Column name(s) to check for nulls (None means all columns)
+            subset: :class:`Column` name(s) to check for nulls (None means all columns)
 
         Returns:
-            PolarsDataFrame with null rows removed
+            :class:`PolarsDataFrame` with null rows removed
 
         Example:
             >>> df.drop_nulls()
@@ -769,10 +769,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
             value: Value to fill nulls with
             strategy: Fill strategy (e.g., 'forward', 'backward') - not fully supported
             limit: Maximum number of consecutive nulls to fill - not fully supported
-            subset: Column name(s) to fill nulls in (None means all columns)
+            subset: :class:`Column` name(s) to fill nulls in (None means all columns)
 
         Returns:
-            PolarsDataFrame with nulls filled
+            :class:`PolarsDataFrame` with nulls filled
 
         Example:
             >>> df.fill_null(0)
@@ -792,22 +792,22 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Polars-style column access.
 
         Supports:
-        - df['col'] - Returns Column expression for filtering/expressions
-        - df[['col1', 'col2']] - Returns new PolarsDataFrame with selected columns
-        - df[df['age'] > 25] - Boolean indexing (filtering via Column condition)
+        - df['col'] - Returns :class:`Column` expression for filtering/expressions
+        - df[['col1', 'col2']] - Returns new :class:`PolarsDataFrame` with selected columns
+        - df[df['age'] > 25] - Boolean indexing (filtering via :class:`Column` condition)
 
         Args:
-            key: Column name(s) or boolean Column condition
+            key: :class:`Column` name(s) or boolean :class:`Column` condition
 
         Returns:
-            - For single column string: Column expression
-            - For list of columns: PolarsDataFrame with selected columns
-            - For boolean Column condition: PolarsDataFrame with filtered rows
+            - For single column string: :class:`Column` expression
+            - For list of columns: :class:`PolarsDataFrame` with selected columns
+            - For boolean :class:`Column` condition: :class:`PolarsDataFrame` with filtered rows
 
         Example:
-            >>> df['age']  # Returns Column expression
-            >>> df[['id', 'name']]  # Returns PolarsDataFrame
-            >>> df[df['age'] > 25]  # Returns filtered PolarsDataFrame
+            >>> df['age']  # Returns :class:`Column` expression
+            >>> df[['id', 'name']]  # Returns :class:`PolarsDataFrame`
+            >>> df[df['age'] > 25]  # Returns filtered :class:`PolarsDataFrame`
         """
         # Single column string: df['col'] - return PolarsColumn with str/dt accessors
         if isinstance(key, str):
@@ -843,18 +843,18 @@ class PolarsDataFrame(InterfaceCommonMixin):
     def collect(
         self, stream: bool = False
     ) -> Union["pl.DataFrame", Iterator["pl.DataFrame"], List[Dict[str, Any]]]:
-        """Collect results as Polars DataFrame.
+        """Collect results as Polars :class:`DataFrame`.
 
         Args:
-            stream: If True, return an iterator of Polars DataFrame chunks.
-                   If False (default), return a single Polars DataFrame.
+            stream: If True, return an iterator of Polars :class:`DataFrame` chunks.
+                   If False (default), return a single Polars :class:`DataFrame`.
 
         Returns:
-            If stream=False: Polars DataFrame (if polars installed) or list of dicts
-            If stream=True: Iterator of Polars DataFrame chunks
+            If stream=False: Polars :class:`DataFrame` (if polars installed) or list of dicts
+            If stream=True: Iterator of Polars :class:`DataFrame` chunks
 
         Example:
-            >>> pdf = df.collect()  # Returns pl.DataFrame
+            >>> pdf = df.collect()  # Returns pl.:class:`DataFrame`
             >>> for chunk in df.collect(stream=True):  # Streaming
             ...     process(chunk)
         """
@@ -888,14 +888,14 @@ class PolarsDataFrame(InterfaceCommonMixin):
             return pl.DataFrame(results)
 
     def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
-        """Convert PolarsDataFrame's logical plan to a SQLAlchemy Select statement.
+        """Convert :class:`PolarsDataFrame`'s logical plan to a SQLAlchemy Select statement.
 
-        This method delegates to the underlying DataFrame's to_sqlalchemy() method,
-        allowing you to use PolarsDataFrame with existing SQLAlchemy infrastructure.
+        This method delegates to the underlying :class:`DataFrame`'s to_sqlalchemy() method,
+        allowing you to use :class:`PolarsDataFrame` with existing SQLAlchemy infrastructure.
 
         Args:
             dialect: Optional SQL dialect name. If not provided, uses the dialect
-                    from the attached Database, or defaults to "ansi"
+                    from the attached :class:`Database`, or defaults to "ansi"
 
         Returns:
             SQLAlchemy Select statement that can be executed with any SQLAlchemy connection
@@ -920,10 +920,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
             n: Number of rows to fetch
 
         Returns:
-            Polars DataFrame with first n rows
+            Polars :class:`DataFrame` with first n rows
 
         Example:
-            >>> df.fetch(10)  # First 10 rows as Polars DataFrame
+            >>> df.fetch(10)  # First 10 rows as Polars :class:`DataFrame`
         """
         limited_df = self.limit(n)
         return limited_df.collect()
@@ -934,7 +934,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         mode: str = "overwrite",
         **options: object,
     ) -> None:
-        """Write this PolarsDataFrame to a CSV file (Polars-style).
+        """Write this :class:`PolarsDataFrame` to a CSV file (Polars-style).
 
         Args:
             path: Path to write the CSV file
@@ -956,7 +956,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         mode: str = "overwrite",
         **options: object,
     ) -> None:
-        """Write this PolarsDataFrame to a JSON file (Polars-style).
+        """Write this :class:`PolarsDataFrame` to a JSON file (Polars-style).
 
         Args:
             path: Path to write the JSON file
@@ -977,7 +977,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         mode: str = "overwrite",
         **options: object,
     ) -> None:
-        """Write this PolarsDataFrame to a JSONL file (Polars-style).
+        """Write this :class:`PolarsDataFrame` to a JSONL file (Polars-style).
 
         Args:
             path: Path to write the JSONL file
@@ -998,7 +998,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         mode: str = "overwrite",
         **options: object,
     ) -> None:
-        """Write this PolarsDataFrame to a Parquet file (Polars-style).
+        """Write this :class:`PolarsDataFrame` to a Parquet file (Polars-style).
 
         Args:
             path: Path to write the Parquet file
@@ -1024,10 +1024,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Explode array/JSON columns into multiple rows (Polars-style).
 
         Args:
-            columns: Column name(s) to explode
+            columns: :class:`Column` name(s) to explode
 
         Returns:
-            PolarsDataFrame with exploded rows
+            :class:`PolarsDataFrame` with exploded rows
 
         Example:
             >>> df.explode('tags')
@@ -1050,10 +1050,10 @@ class PolarsDataFrame(InterfaceCommonMixin):
         For now, we'll use explode as the implementation.
 
         Args:
-            columns: Column name(s) to unnest
+            columns: :class:`Column` name(s) to unnest
 
         Returns:
-            PolarsDataFrame with unnested columns
+            :class:`PolarsDataFrame` with unnested columns
 
         Example:
             >>> df.unnest('struct_col')
@@ -1068,16 +1068,16 @@ class PolarsDataFrame(InterfaceCommonMixin):
         columns: Optional[str] = None,
         aggregate_function: Optional[str] = None,
     ) -> "PolarsDataFrame":
-        """Pivot DataFrame (Polars-style).
+        """Pivot :class:`DataFrame` (Polars-style).
 
         Args:
-            values: Column(s) to aggregate
-            index: Column(s) to use as index (rows)
-            columns: Column to use as columns (pivot column)
+            values: :class:`Column`(s) to aggregate
+            index: :class:`Column`(s) to use as index (rows)
+            columns: :class:`Column` to use as columns (pivot column)
             aggregate_function: Aggregation function (e.g., 'sum', 'mean', 'count')
 
         Returns:
-            Pivoted PolarsDataFrame
+            Pivoted :class:`PolarsDataFrame`
 
         Example:
             >>> df.pivot(values='amount', index='category', columns='status', aggregate_function='sum')
@@ -1108,16 +1108,16 @@ class PolarsDataFrame(InterfaceCommonMixin):
         variable_name: str = "variable",
         value_name: str = "value",
     ) -> "PolarsDataFrame":
-        """Melt DataFrame from wide to long format (Polars-style).
+        """Melt :class:`DataFrame` from wide to long format (Polars-style).
 
         Args:
-            id_vars: Column(s) to use as identifier variables
-            value_vars: Column(s) to unpivot (if None, unpivot all except id_vars)
+            id_vars: :class:`Column`(s) to use as identifier variables
+            value_vars: :class:`Column`(s) to unpivot (if None, unpivot all except id_vars)
             variable_name: Name for the variable column
             value_name: Name for the value column
 
         Returns:
-            Melted PolarsDataFrame
+            Melted :class:`PolarsDataFrame`
 
         Example:
             >>> df.melt(id_vars=['id'], value_vars=['col1', 'col2'])
@@ -1130,14 +1130,14 @@ class PolarsDataFrame(InterfaceCommonMixin):
         )
 
     def slice(self, offset: int, length: Optional[int] = None) -> "PolarsDataFrame":
-        """Slice DataFrame (Polars-style).
+        """Slice :class:`DataFrame` (Polars-style).
 
         Args:
             offset: Starting row index
             length: Number of rows to return (if None, returns all remaining rows)
 
         Returns:
-            Sliced PolarsDataFrame
+            Sliced :class:`PolarsDataFrame`
 
         Example:
             >>> df.slice(10, 5)  # Rows 10-14
@@ -1167,7 +1167,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             offset: Starting offset
 
         Returns:
-            Sampled PolarsDataFrame
+            Sampled :class:`PolarsDataFrame`
 
         Example:
             >>> df.gather_every(10)  # Every 10th row
@@ -1191,7 +1191,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             method: Interpolation method ('linear', 'nearest', etc.)
 
         Returns:
-            PolarsDataFrame with interpolated values
+            :class:`PolarsDataFrame` with interpolated values
 
         Note:
             Full interpolation support depends on database capabilities.
@@ -1219,7 +1219,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             interpolation: Interpolation method (not used, for API compatibility)
 
         Returns:
-            PolarsDataFrame with quantile values
+            :class:`PolarsDataFrame` with quantile values
 
         Note:
             Quantile computation requires database-specific functions.
@@ -1258,7 +1258,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         """Compute descriptive statistics (Polars-style).
 
         Returns:
-            PolarsDataFrame with statistics (count, mean, std, min, max, etc.)
+            :class:`PolarsDataFrame` with statistics (count, mean, std, min, max, etc.)
 
         Note:
             Standard deviation (std) may not be available in all databases
@@ -1332,7 +1332,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             rechunk: If True, rechunk the result (not used, for API compatibility)
 
         Returns:
-            Concatenated PolarsDataFrame
+            Concatenated :class:`PolarsDataFrame`
 
         Example:
             >>> df1.concat(df2)  # Vertical concatenation
@@ -1367,7 +1367,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             *others: Other PolarsDataFrames to stack horizontally
 
         Returns:
-            Horizontally stacked PolarsDataFrame
+            Horizontally stacked :class:`PolarsDataFrame`
 
         Example:
             >>> df1.hstack(df2)  # Combine columns from df1 and df2
@@ -1394,7 +1394,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             *others: Other PolarsDataFrames to stack vertically
 
         Returns:
-            Vertically stacked PolarsDataFrame
+            Vertically stacked :class:`PolarsDataFrame`
 
         Example:
             >>> df1.vstack(df2)  # Same as df1.concat(df2)
@@ -1407,14 +1407,14 @@ class PolarsDataFrame(InterfaceCommonMixin):
         *,
         distinct: bool = True,
     ) -> "PolarsDataFrame":
-        """Union with another PolarsDataFrame (Polars-style).
+        """Union with another :class:`PolarsDataFrame` (Polars-style).
 
         Args:
-            other: Another PolarsDataFrame to union with
+            other: Another :class:`PolarsDataFrame` to union with
             distinct: If True, return distinct rows only (default: True)
 
         Returns:
-            Unioned PolarsDataFrame
+            Unioned :class:`PolarsDataFrame`
 
         Example:
             >>> df1.union(df2)  # Union distinct
@@ -1430,13 +1430,13 @@ class PolarsDataFrame(InterfaceCommonMixin):
         self,
         other: "PolarsDataFrame",
     ) -> "PolarsDataFrame":
-        """Intersect with another PolarsDataFrame (Polars-style).
+        """Intersect with another :class:`PolarsDataFrame` (Polars-style).
 
         Args:
-            other: Another PolarsDataFrame to intersect with
+            other: Another :class:`PolarsDataFrame` to intersect with
 
         Returns:
-            Intersected PolarsDataFrame (common rows only)
+            Intersected :class:`PolarsDataFrame` (common rows only)
 
         Example:
             >>> df1.intersect(df2)  # Common rows
@@ -1448,13 +1448,13 @@ class PolarsDataFrame(InterfaceCommonMixin):
         self,
         other: "PolarsDataFrame",
     ) -> "PolarsDataFrame":
-        """Return rows in this DataFrame that are not in another (Polars-style).
+        """Return rows in this :class:`DataFrame` that are not in another (Polars-style).
 
         Args:
-            other: Another PolarsDataFrame to exclude from
+            other: Another :class:`PolarsDataFrame` to exclude from
 
         Returns:
-            PolarsDataFrame with rows in this but not in other
+            :class:`PolarsDataFrame` with rows in this but not in other
 
         Example:
             >>> df1.difference(df2)  # Rows in df1 but not in df2
@@ -1466,13 +1466,13 @@ class PolarsDataFrame(InterfaceCommonMixin):
         self,
         other: "PolarsDataFrame",
     ) -> "PolarsDataFrame":
-        """Perform a cross join (Cartesian product) with another PolarsDataFrame (Polars-style).
+        """Perform a cross join (Cartesian product) with another :class:`PolarsDataFrame` (Polars-style).
 
         Args:
-            other: Another PolarsDataFrame to cross join with
+            other: Another :class:`PolarsDataFrame` to cross join with
 
         Returns:
-            Cross-joined PolarsDataFrame
+            Cross-joined :class:`PolarsDataFrame`
 
         Example:
             >>> df1.cross_join(df2)  # Cartesian product
@@ -1494,7 +1494,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
 
         Returns:
-            PolarsDataFrame with selected expressions
+            :class:`PolarsDataFrame` with selected expressions
 
         Example:
             >>> df.select_expr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
@@ -1516,7 +1516,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             mapping: Dictionary mapping old column names to new names
 
         Returns:
-            PolarsDataFrame with renamed columns
+            :class:`PolarsDataFrame` with renamed columns
 
         Example:
             >>> df.with_columns_renamed({"old_name": "new_name"})
@@ -1535,7 +1535,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             offset: Starting offset for row numbers (default: 0)
 
         Returns:
-            PolarsDataFrame with row number column
+            :class:`PolarsDataFrame` with row number column
 
         Example:
             >>> df.with_row_count("row_id")
@@ -1565,7 +1565,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
             *contexts: Context DataFrames to add
 
         Returns:
-            PolarsDataFrame with context
+            :class:`PolarsDataFrame` with context
 
         Example:
             >>> df.with_context(context_df)
@@ -1582,7 +1582,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
                         If not provided, computes common statistics.
 
         Returns:
-            PolarsDataFrame with summary statistics
+            :class:`PolarsDataFrame` with summary statistics
 
         Example:
             >>> df.summary()
@@ -1599,13 +1599,13 @@ class PolarsDataFrame(InterfaceCommonMixin):
         self,
         name: str,
     ) -> "PolarsDataFrame":
-        """Create a Common Table Expression (CTE) from this DataFrame.
+        """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
             name: Name for the CTE
 
         Returns:
-            PolarsDataFrame representing the CTE
+            :class:`PolarsDataFrame` representing the CTE
 
         Example:
             >>> cte_df = df.filter(col("age") > 25).cte("adults")
@@ -1625,11 +1625,11 @@ class PolarsDataFrame(InterfaceCommonMixin):
 
         Args:
             name: Name for the recursive CTE
-            recursive: PolarsDataFrame representing the recursive part
+            recursive: :class:`PolarsDataFrame` representing the recursive part
             union_all: If True, use UNION ALL; if False, use UNION (distinct)
 
         Returns:
-            PolarsDataFrame representing the recursive CTE
+            :class:`PolarsDataFrame` representing the recursive CTE
 
         Example:
             >>> initial = db.table("seed").polars()

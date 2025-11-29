@@ -1,4 +1,4 @@
-"""String functions for DataFrame operations."""
+"""String functions for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ def upper(column: ColumnLike) -> Column:
     """Convert a string column to uppercase.
 
     Args:
-        column: Column to convert to uppercase
+        column: :class:`Column` to convert to uppercase
 
     Returns:
-        Column expression for uppercase string
+        :class:`Column` expression for uppercase string
 
     Example:
         >>> from moltres import connect, col
@@ -22,8 +22,8 @@ def upper(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.upper(col("name")).alias("name_upper"))
         >>> results = df.collect()
         >>> results[0]["name_upper"]
@@ -37,10 +37,10 @@ def lower(column: ColumnLike) -> Column:
     """Convert a string column to lowercase.
 
     Args:
-        column: Column to convert to lowercase
+        column: :class:`Column` to convert to lowercase
 
     Returns:
-        Column expression for lowercase string
+        :class:`Column` expression for lowercase string
 
     Example:
         >>> from moltres import connect, col
@@ -48,8 +48,8 @@ def lower(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "ALICE"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "ALICE"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.lower(col("name")).alias("name_lower"))
         >>> results = df.collect()
         >>> results[0]["name_lower"]
@@ -63,12 +63,12 @@ def substring(column: ColumnLike, pos: int, len: Optional[int] = None) -> Column
     """Extract a substring from a column.
 
     Args:
-        column: Column to extract substring from
+        column: :class:`Column` to extract substring from
         pos: Starting position (1-indexed)
         len: Length of substring (optional, if None returns rest of string)
 
     Returns:
-        Column expression for substring
+        :class:`Column` expression for substring
 
     Example:
         >>> from moltres import connect, col
@@ -76,8 +76,8 @@ def substring(column: ColumnLike, pos: int, len: Optional[int] = None) -> Column
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.substring(col("name"), 1, 3).alias("substr"))
         >>> results = df.collect()
         >>> results[0]["substr"]
@@ -93,10 +93,10 @@ def trim(column: ColumnLike) -> Column:
     """Remove leading and trailing whitespace from a column.
 
     Args:
-        column: Column to trim
+        column: :class:`Column` to trim
 
     Returns:
-        Column expression for trim
+        :class:`Column` expression for trim
 
     Example:
         >>> from moltres import connect, col
@@ -104,8 +104,8 @@ def trim(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "  Alice  "}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "  Alice  "}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.trim(col("name")).alias("trimmed"))
         >>> results = df.collect()
         >>> results[0]["trimmed"]
@@ -119,10 +119,10 @@ def ltrim(column: ColumnLike) -> Column:
     """Remove leading whitespace from a column.
 
     Args:
-        column: Column to trim
+        column: :class:`Column` to trim
 
     Returns:
-        Column expression for ltrim
+        :class:`Column` expression for ltrim
 
     Example:
         >>> from moltres import connect, col
@@ -130,8 +130,8 @@ def ltrim(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "  Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "  Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.ltrim(col("name")).alias("trimmed"))
         >>> results = df.collect()
         >>> results[0]["trimmed"]
@@ -145,10 +145,10 @@ def rtrim(column: ColumnLike) -> Column:
     """Remove trailing whitespace from a column.
 
     Args:
-        column: Column to trim
+        column: :class:`Column` to trim
 
     Returns:
-        Column expression for rtrim
+        :class:`Column` expression for rtrim
 
     Example:
         >>> from moltres import connect, col
@@ -156,8 +156,8 @@ def rtrim(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice  "}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice  "}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.rtrim(col("name")).alias("trimmed"))
         >>> results = df.collect()
         >>> results[0]["trimmed"]
@@ -171,12 +171,12 @@ def regexp_extract(column: ColumnLike, pattern: str, group_idx: int = 0) -> Colu
     """Extract a regex pattern from a column.
 
     Args:
-        column: Column to extract from
+        column: :class:`Column` to extract from
         pattern: Regular expression pattern
         group_idx: Capture group index (default: 0)
 
     Returns:
-        Column expression for regexp_extract
+        :class:`Column` expression for regexp_extract
     """
     return Column(op="regexp_extract", args=(ensure_column(column), pattern, group_idx))
 
@@ -185,12 +185,12 @@ def regexp_replace(column: ColumnLike, pattern: str, replacement: str) -> Column
     """Replace regex pattern matches in a column.
 
     Args:
-        column: Column to replace in
+        column: :class:`Column` to replace in
         pattern: Regular expression pattern
         replacement: Replacement string
 
     Returns:
-        Column expression for regexp_replace
+        :class:`Column` expression for regexp_replace
     """
     return Column(op="regexp_replace", args=(ensure_column(column), pattern, replacement))
 
@@ -199,11 +199,11 @@ def split(column: ColumnLike, delimiter: str) -> Column:
     """Split a column by delimiter.
 
     Args:
-        column: Column to split
+        column: :class:`Column` to split
         delimiter: Delimiter string
 
     Returns:
-        Column expression for split (returns array)
+        :class:`Column` expression for split (returns array)
     """
     return Column(op="split", args=(ensure_column(column), delimiter))
 
@@ -212,12 +212,12 @@ def replace(column: ColumnLike, search: str, replacement: str) -> Column:
     """Replace occurrences of a string in a column.
 
     Args:
-        column: Column to replace in
+        column: :class:`Column` to replace in
         search: String to search for
         replacement: Replacement string
 
     Returns:
-        Column expression for replace
+        :class:`Column` expression for replace
 
     Example:
         >>> from moltres import connect, col
@@ -225,8 +225,8 @@ def replace(column: ColumnLike, search: str, replacement: str) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("email", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"email": "alice@old.com"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"email": "alice@old.com"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.replace(col("email"), "old", "new").alias("new_email"))
         >>> results = df.collect()
         >>> results[0]["new_email"]
@@ -240,10 +240,10 @@ def length(column: ColumnLike) -> Column:
     """Get the length of a string column.
 
     Args:
-        column: Column to get length of
+        column: :class:`Column` to get length of
 
     Returns:
-        Column expression for length
+        :class:`Column` expression for length
 
     Example:
         >>> from moltres import connect, col
@@ -251,8 +251,8 @@ def length(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.length(col("name")).alias("name_length"))
         >>> results = df.collect()
         >>> results[0]["name_length"]
@@ -266,12 +266,12 @@ def lpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
     """Left pad a string column to a specified length.
 
     Args:
-        column: Column to pad
+        column: :class:`Column` to pad
         length: Target length
         pad: Padding character (default: space)
 
     Returns:
-        Column expression for lpad
+        :class:`Column` expression for lpad
 
     Example:
         >>> from moltres import connect, col
@@ -279,8 +279,8 @@ def lpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("code", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"code": "123"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"code": "123"}], _database=db).insert_into("users")
         >>> # Note: lpad() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.lpad(col("code"), 5, "0")
         >>> db.close()
@@ -292,12 +292,12 @@ def rpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
     """Right pad a string column to a specified length.
 
     Args:
-        column: Column to pad
+        column: :class:`Column` to pad
         length: Target length
         pad: Padding character (default: space)
 
     Returns:
-        Column expression for rpad
+        :class:`Column` expression for rpad
 
     Example:
         >>> from moltres import connect, col
@@ -305,8 +305,8 @@ def rpad(column: ColumnLike, length: int, pad: str = " ") -> Column:  # noqa: A0
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("code", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"code": "123"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"code": "123"}], _database=db).insert_into("users")
         >>> # Note: rpad() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.rpad(col("code"), 5, "0")
         >>> db.close()
@@ -318,10 +318,10 @@ def concat(*columns: ColumnLike) -> Column:
     """Concatenate multiple columns or strings.
 
     Args:
-        *columns: Column expressions or literal values to concatenate
+        *columns: :class:`Column` expressions or literal values to concatenate
 
     Returns:
-        Column expression for concatenated result
+        :class:`Column` expression for concatenated result
 
     Example:
         >>> from moltres import connect, col
@@ -329,8 +329,8 @@ def concat(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("first_name", "TEXT"), column("last_name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"first_name": "John", "last_name": "Doe"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"first_name": "John", "last_name": "Doe"}], _database=db).insert_into("users")
         >>> # Concatenate columns
         >>> df = db.table("users").select(F.concat(col("first_name"), F.lit(" "), col("last_name")).alias("full_name"))
         >>> results = df.collect()
@@ -350,7 +350,7 @@ def initcap(column: ColumnLike) -> Column:
         column: String column expression
 
     Returns:
-        Column expression for initcap
+        :class:`Column` expression for initcap
 
     Example:
         >>> # Note: initcap() requires database-specific support (PostgreSQL)
@@ -360,8 +360,8 @@ def initcap(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("postgresql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("name", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"name": "hello world"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"name": "hello world"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.initcap(col("name")).alias("capitalized"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> results[0]["capitalized"]  # doctest: +SKIP
@@ -379,7 +379,7 @@ def instr(column: ColumnLike, substring: ColumnLike) -> Column:
         substring: Substring to search for (column expression or literal)
 
     Returns:
-        Column expression for instr (1-based position, or 0 if not found)
+        :class:`Column` expression for instr (1-based position, or 0 if not found)
 
     Example:
         >>> # Note: instr() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -389,8 +389,8 @@ def instr(column: ColumnLike, substring: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"text": "hello world"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"text": "hello world"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.instr(col("text"), "world").alias("pos"))
         >>> results = df.collect()
         >>> results[0]["pos"] > 0
@@ -409,7 +409,7 @@ def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
         pos: Starting position for search (default: 1)
 
     Returns:
-        Column expression for locate (1-based position, or 0 if not found)
+        :class:`Column` expression for locate (1-based position, or 0 if not found)
 
     Example:
         >>> # Note: locate() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -419,8 +419,8 @@ def locate(substring: ColumnLike, column: ColumnLike, pos: int = 1) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"text": "hello world"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"text": "hello world"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.locate("world", col("text")).alias("pos"))
         >>> results = df.collect()
         >>> results[0]["pos"] > 0
@@ -439,7 +439,7 @@ def translate(column: ColumnLike, from_chars: str, to_chars: str) -> Column:
         to_chars: Replacement characters (must be same length as from_chars)
 
     Returns:
-        Column expression for translate
+        :class:`Column` expression for translate
 
     Example:
         >>> # Note: translate() requires database-specific support (PostgreSQL)
@@ -449,8 +449,8 @@ def translate(column: ColumnLike, from_chars: str, to_chars: str) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("postgresql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"text": "abc"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"text": "abc"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.translate(col("text"), "abc", "xyz").alias("translated"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> results[0]["translated"]  # doctest: +SKIP

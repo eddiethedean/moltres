@@ -1,4 +1,9 @@
-"""Records class for file read operations."""
+"""Records container for file data operations.
+
+This module provides the :class:`Records` and :class:`AsyncRecords` classes,
+which are containers for file data that can be materialized or streaming.
+:class:`Records` is designed for file reads and can be used with SQL insert operations.
+"""
 
 from __future__ import annotations
 
@@ -31,14 +36,14 @@ _convert_dataframe_to_rows = convert_dataframe_to_rows
 
 
 def _dataframe_to_records(df: Any, database: Optional["Database"] = None) -> "Records":
-    """Convert pandas/polars DataFrame or polars LazyFrame to Records with lazy conversion.
+    """Convert pandas/polars :class:`DataFrame` or polars LazyFrame to :class:`Records` with lazy conversion.
 
     Args:
-        df: pandas DataFrame, polars DataFrame, or polars LazyFrame
+        df: pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
         database: Optional database reference
 
     Returns:
-        Records object with lazy DataFrame conversion
+        :class:`Records` object with lazy :class:`DataFrame` conversion
     """
     # Extract schema if possible
     schema = extract_schema_from_dataframe(df)
@@ -56,13 +61,13 @@ def _dataframe_to_records(df: Any, database: Optional["Database"] = None) -> "Re
 class Records(Sequence[Mapping[str, object]]):
     """Container for file data that can be materialized or streaming.
 
-    Records is NOT a DataFrame - it does not support SQL operations.
+    :class:`Records` is NOT a :class:`DataFrame` - it does not support SQL operations.
     It is designed for file reads and can be used with SQL insert operations.
 
     Attributes:
         _data: Materialized list of row dictionaries (for small files)
         _generator: Callable that returns an iterator of row chunks (for large files)
-        _dataframe: Optional pandas/polars DataFrame or polars LazyFrame for lazy conversion
+        _dataframe: Optional pandas/polars :class:`DataFrame` or polars LazyFrame for lazy conversion
         _schema: Optional schema information
         _database: Optional database reference for insert operations
     """
@@ -77,19 +82,19 @@ class Records(Sequence[Mapping[str, object]]):
     def from_list(
         cls, data: List[dict[str, object]], database: Optional["Database"] = None
     ) -> "Records":
-        """Create Records from a list of dictionaries.
+        """Create :class:`Records` from a list of dictionaries.
 
-        This is the recommended way to create Records from Python data.
+        This is the recommended way to create :class:`Records` from Python data.
 
         Args:
             data: List of row dictionaries
             database: Optional database reference for insert operations
 
         Returns:
-            Records object
+            :class:`Records` object
 
         Example:
-            >>> records = Records.from_list(
+            >>> records = :class:`Records`.from_list(
             ...     [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
             ...     database=db
             ... )
@@ -101,19 +106,19 @@ class Records(Sequence[Mapping[str, object]]):
     def from_dicts(
         cls, *dicts: dict[str, object], database: Optional["Database"] = None
     ) -> "Records":
-        """Create Records from multiple dictionary arguments.
+        """Create :class:`Records` from multiple dictionary arguments.
 
-        Convenience method for creating Records from individual row dictionaries.
+        Convenience method for creating :class:`Records` from individual row dictionaries.
 
         Args:
             *dicts: Individual row dictionaries
             database: Optional database reference for insert operations
 
         Returns:
-            Records object
+            :class:`Records` object
 
         Example:
-            >>> records = Records.from_dicts(
+            >>> records = :class:`Records`.from_dicts(
             ...     {"id": 1, "name": "Alice"},
             ...     {"id": 2, "name": "Bob"},
             ...     database=db
@@ -124,25 +129,25 @@ class Records(Sequence[Mapping[str, object]]):
 
     @classmethod
     def from_dataframe(cls, df: Any, database: Optional["Database"] = None) -> "Records":
-        """Create Records from pandas/polars DataFrame or polars LazyFrame.
+        """Create :class:`Records` from pandas/polars :class:`DataFrame` or polars LazyFrame.
 
         Args:
-            df: pandas DataFrame, polars DataFrame, or polars LazyFrame
+            df: pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
             database: Optional database reference for insert operations
 
         Returns:
-            Records object with lazy DataFrame conversion
+            :class:`Records` object with lazy :class:`DataFrame` conversion
 
         Example:
             >>> import pandas as pd
-            >>> df = pd.DataFrame([{"id": 1, "name": "Alice"}])
-            >>> records = Records.from_dataframe(df, database=db)
+            >>> df = pd.:class:`DataFrame`([{"id": 1, "name": "Alice"}])
+            >>> records = :class:`Records`.from_dataframe(df, database=db)
             >>> records.insert_into("users")
         """
         return _dataframe_to_records(df, database=database)
 
     def __iter__(self) -> Iterator[dict[str, object]]:
-        """Make Records directly iterable."""
+        """Make :class:`Records` directly iterable."""
         if self._data is not None:
             # Materialized mode - iterate over data
             for row in self._data:
@@ -252,17 +257,17 @@ class Records(Sequence[Mapping[str, object]]):
         """Select specific columns from records (in-memory operation).
 
         Args:
-            *columns: Column names to select. Must be strings.
+            *columns: :class:`Column` names to select. Must be strings.
 
         Returns:
-            New Records instance with only the selected columns
+            New :class:`Records` instance with only the selected columns
 
         Raises:
             ValueError: If no columns provided or column doesn't exist
-            RuntimeError: If Records is empty
+            RuntimeError: If :class:`Records` is empty
 
         Example:
-            >>> records = Records(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
+            >>> records = :class:`Records`(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
             >>> selected = records.select("id", "name")
             >>> list(selected)
             [{"id": 1, "name": "Alice"}]
@@ -312,14 +317,14 @@ class Records(Sequence[Mapping[str, object]]):
             new_name: New name for the column (required if columns is a string)
 
         Returns:
-            New Records instance with renamed columns
+            New :class:`Records` instance with renamed columns
 
         Raises:
             ValueError: If column doesn't exist or new name conflicts with existing column
-            RuntimeError: If Records is empty
+            RuntimeError: If :class:`Records` is empty
 
         Example:
-            >>> records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> records = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db)
             >>> renamed = records.rename({"id": "user_id", "name": "user_name"})
             >>> list(renamed)
             [{"user_id": 1, "user_name": "Alice"}]
@@ -439,7 +444,7 @@ class Records(Sequence[Mapping[str, object]]):
         """Return first row or None if empty.
 
         Returns:
-            First row dictionary or None if Records is empty
+            First row dictionary or None if :class:`Records` is empty
         """
         rows = self.rows()
         return rows[0] if rows else None
@@ -448,7 +453,7 @@ class Records(Sequence[Mapping[str, object]]):
         """Return last row or None if empty.
 
         Returns:
-            Last row dictionary or None if Records is empty
+            Last row dictionary or None if :class:`Records` is empty
         """
         rows = self.rows()
         return rows[-1] if rows else None
@@ -457,7 +462,7 @@ class Records(Sequence[Mapping[str, object]]):
         """Insert records into a table.
 
         Args:
-            table: Table name (str) or TableHandle
+            table: Table name (str) or :class:`TableHandle`
 
         Returns:
             Number of rows inserted
@@ -466,7 +471,7 @@ class Records(Sequence[Mapping[str, object]]):
             RuntimeError: If no database is attached
 
         Note:
-            For DataFrame-based operations, consider creating a DataFrame from the data
+            For :class:`DataFrame`-based operations, consider creating a :class:`DataFrame` from the data
             and using df.write.insertInto() instead.
         """
         if self._database is None:
@@ -506,7 +511,7 @@ class Records(Sequence[Mapping[str, object]]):
 class AsyncRecords:
     """Async container for file data that can be materialized or streaming.
 
-    AsyncRecords is NOT an AsyncDataFrame - it does not support SQL operations.
+    :class:`AsyncRecords` is NOT an AsyncDataFrame - it does not support SQL operations.
     It is designed for file reads and can be used with SQL insert operations.
 
     Attributes:
@@ -522,7 +527,7 @@ class AsyncRecords:
     _database: Optional["AsyncDatabase"] = None
 
     async def __aiter__(self) -> AsyncIterator[dict[str, object]]:
-        """Make AsyncRecords directly async iterable."""
+        """Make :class:`AsyncRecords` directly async iterable."""
         if self._data is not None:
             # Materialized mode - iterate over data
             for row in self._data:
@@ -569,17 +574,17 @@ class AsyncRecords:
         """Select specific columns from records (in-memory operation).
 
         Args:
-            *columns: Column names to select. Must be strings.
+            *columns: :class:`Column` names to select. Must be strings.
 
         Returns:
-            New AsyncRecords instance with only the selected columns
+            New :class:`AsyncRecords` instance with only the selected columns
 
         Raises:
             ValueError: If no columns provided or column doesn't exist
-            RuntimeError: If AsyncRecords is empty
+            RuntimeError: If :class:`AsyncRecords` is empty
 
         Example:
-            >>> records = AsyncRecords(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
+            >>> records = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
             >>> selected = await records.select("id", "name")
             >>> async for row in selected:
             ...     print(row)
@@ -630,14 +635,14 @@ class AsyncRecords:
             new_name: New name for the column (required if columns is a string)
 
         Returns:
-            New AsyncRecords instance with renamed columns
+            New :class:`AsyncRecords` instance with renamed columns
 
         Raises:
             ValueError: If column doesn't exist or new name conflicts with existing column
-            RuntimeError: If AsyncRecords is empty
+            RuntimeError: If :class:`AsyncRecords` is empty
 
         Example:
-            >>> records = AsyncRecords(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> records = :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice"}], _database=db)
             >>> renamed = await records.rename({"id": "user_id", "name": "user_name"})
             >>> async for row in renamed:
             ...     print(row)
@@ -754,7 +759,7 @@ class AsyncRecords:
         """Return first row or None if empty.
 
         Returns:
-            First row dictionary or None if AsyncRecords is empty
+            First row dictionary or None if :class:`AsyncRecords` is empty
         """
         rows = await self.rows()
         return rows[0] if rows else None
@@ -763,7 +768,7 @@ class AsyncRecords:
         """Return last row or None if empty.
 
         Returns:
-            Last row dictionary or None if AsyncRecords is empty
+            Last row dictionary or None if :class:`AsyncRecords` is empty
         """
         rows = await self.rows()
         return rows[-1] if rows else None
@@ -781,7 +786,7 @@ class AsyncRecords:
             RuntimeError: If no database is attached
 
         Note:
-            For DataFrame-based operations, consider creating a DataFrame from the data
+            For :class:`DataFrame`-based operations, consider creating a :class:`DataFrame` from the data
             and using df.write.insertInto() instead.
         """
         if self._database is None:
@@ -819,20 +824,20 @@ class AsyncRecords:
 
 @dataclass
 class LazyRecords(Sequence[Mapping[str, object]]):
-    """Lazy wrapper for Records that materializes on-demand.
+    """Lazy wrapper for :class:`Records` that materializes on-demand.
 
     LazyRecords wraps a read operation and delays materialization until needed.
     It can be materialized explicitly with .collect() or automatically when:
     - Sequence operations are used (__len__, __getitem__, __iter__)
     - insert_into() is called
-    - Used as argument to DataFrame operations
+    - Used as argument to :class:`DataFrame` operations
 
     Attributes:
-        _read_func: Callable that returns Records when called (the read operation)
-        _database: Database reference
+        _read_func: Callable that returns :class:`Records` when called (the read operation)
+        _database: :class:`Database` reference
         _schema: Optional schema information
         _options: Read options
-        _materialized: Cached materialized Records (None until materialized)
+        _materialized: Cached materialized :class:`Records` (None until materialized)
     """
 
     _read_func: Callable[[], Records]
@@ -842,10 +847,10 @@ class LazyRecords(Sequence[Mapping[str, object]]):
     _materialized: Optional[Records] = None
 
     def collect(self) -> Records:
-        """Explicitly materialize and return Records.
+        """Explicitly materialize and return :class:`Records`.
 
         Returns:
-            Materialized Records object
+            Materialized :class:`Records` object
         """
         if self._materialized is None:
             self._materialized = self._read_func()
@@ -904,13 +909,13 @@ class LazyRecords(Sequence[Mapping[str, object]]):
         """Select specific columns from records (auto-materializes).
 
         Args:
-            *columns: Column names to select. Must be strings.
+            *columns: :class:`Column` names to select. Must be strings.
 
         Returns:
-            New Records with selected columns (materialized)
+            New :class:`Records` with selected columns (materialized)
 
         Example:
-            >>> lazy_records = LazyRecords(_read_func=lambda: Records(_data=[{"id": 1, "name": "Alice"}]))
+            >>> lazy_records = LazyRecords(_read_func=lambda: :class:`Records`(_data=[{"id": 1, "name": "Alice"}]))
             >>> selected = lazy_records.select("id")
             >>> list(selected)
             [{"id": 1}]
@@ -927,10 +932,10 @@ class LazyRecords(Sequence[Mapping[str, object]]):
             new_name: New name for the column (required if columns is a string)
 
         Returns:
-            New Records with renamed columns (materialized)
+            New :class:`Records` with renamed columns (materialized)
 
         Example:
-            >>> lazy_records = LazyRecords(_read_func=lambda: Records(_data=[{"id": 1}]))
+            >>> lazy_records = LazyRecords(_read_func=lambda: :class:`Records`(_data=[{"id": 1}]))
             >>> renamed = lazy_records.rename("id", "user_id")
             >>> list(renamed)
             [{"user_id": 1}]
@@ -979,7 +984,7 @@ class LazyRecords(Sequence[Mapping[str, object]]):
         """Insert records into a table (auto-materializes).
 
         Args:
-            table: Table name (str) or TableHandle
+            table: Table name (str) or :class:`TableHandle`
 
         Returns:
             Number of rows inserted
@@ -992,20 +997,20 @@ class LazyRecords(Sequence[Mapping[str, object]]):
 
 @dataclass
 class AsyncLazyRecords:
-    """Async lazy wrapper for AsyncRecords that materializes on-demand.
+    """Async lazy wrapper for :class:`AsyncRecords` that materializes on-demand.
 
     AsyncLazyRecords wraps an async read operation and delays materialization until needed.
     It can be materialized explicitly with await .collect() or automatically when:
     - Async iteration is used (__aiter__)
     - insert_into() is called
-    - Used as argument to async DataFrame operations
+    - Used as argument to async :class:`DataFrame` operations
 
     Attributes:
-        _read_func: Async callable (coroutine) that returns AsyncRecords when awaited
-        _database: AsyncDatabase reference
+        _read_func: Async callable (coroutine) that returns :class:`AsyncRecords` when awaited
+        _database: :class:`AsyncDatabase` reference
         _schema: Optional schema information
         _options: Read options
-        _materialized: Cached materialized AsyncRecords (None until materialized)
+        _materialized: Cached materialized :class:`AsyncRecords` (None until materialized)
     """
 
     _read_func: Callable[[], Any]  # Returns a coroutine that returns AsyncRecords
@@ -1015,10 +1020,10 @@ class AsyncLazyRecords:
     _materialized: Optional[AsyncRecords] = None
 
     async def collect(self) -> AsyncRecords:
-        """Explicitly materialize and return AsyncRecords.
+        """Explicitly materialize and return :class:`AsyncRecords`.
 
         Returns:
-            Materialized AsyncRecords object
+            Materialized :class:`AsyncRecords` object
         """
         if self._materialized is None:
             self._materialized = await self._read_func()
@@ -1064,13 +1069,13 @@ class AsyncLazyRecords:
         """Select specific columns from records (auto-materializes).
 
         Args:
-            *columns: Column names to select. Must be strings.
+            *columns: :class:`Column` names to select. Must be strings.
 
         Returns:
-            New AsyncRecords with selected columns
+            New :class:`AsyncRecords` with selected columns
 
         Example:
-            >>> async_lazy_records = AsyncLazyRecords(_read_func=lambda: AsyncRecords(_data=[{"id": 1, "name": "Alice"}]))
+            >>> async_lazy_records = AsyncLazyRecords(_read_func=lambda: :class:`AsyncRecords`(_data=[{"id": 1, "name": "Alice"}]))
             >>> selected = await async_lazy_records.select("id")
             >>> async for row in selected:
             ...     print(row)
@@ -1088,10 +1093,10 @@ class AsyncLazyRecords:
             new_name: New name for the column (required if columns is a string)
 
         Returns:
-            New AsyncRecords with renamed columns
+            New :class:`AsyncRecords` with renamed columns
 
         Example:
-            >>> async_lazy_records = AsyncLazyRecords(_read_func=lambda: AsyncRecords(_data=[{"id": 1}]))
+            >>> async_lazy_records = AsyncLazyRecords(_read_func=lambda: :class:`AsyncRecords`(_data=[{"id": 1}]))
             >>> renamed = await async_lazy_records.rename("id", "user_id")
             >>> async for row in renamed:
             ...     print(row)

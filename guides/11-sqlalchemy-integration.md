@@ -291,7 +291,7 @@ async def example():
 
 ## Examples
 
-See [`examples/20_sqlalchemy_integration.py`](../examples/20_sqlalchemy_integration.py) for comprehensive examples of all integration patterns.
+See [`docs/examples/20_sqlalchemy_integration.py`](../docs/examples/20_sqlalchemy_integration.py) for comprehensive examples of all integration patterns.
 
 ## Summary
 

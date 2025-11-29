@@ -14,13 +14,13 @@ def read_table(
     """Read a table from the database.
 
     Args:
-        db: Database connection
+        db: :class:`Database` connection
         table_name: Name of the table to read
         columns: Optional list of column names to select. If None, selects all columns.
 
     Returns:
         Query results in the format specified by the database's fetch_format
-        (list of dicts, pandas DataFrame, or polars DataFrame)
+        (list of dicts, pandas :class:`DataFrame`, or polars :class:`DataFrame`)
     """
     handle = db.table(table_name)
     df = handle.select()
@@ -35,13 +35,13 @@ def read_sql(
     """Execute a raw SQL query and return results.
 
     Args:
-        db: Database connection
+        db: :class:`Database` connection
         sql: SQL query string
         params: Optional parameter dictionary for parameterized queries
 
     Returns:
         Query results in the format specified by the database's fetch_format
-        (list of dicts, pandas DataFrame, or polars DataFrame)
+        (list of dicts, pandas :class:`DataFrame`, or polars :class:`DataFrame`)
 
     Raises:
         ExecutionError: If SQL execution fails

@@ -22,7 +22,7 @@ def compile_string_operation(
     Args:
         compiler: The ExpressionCompiler instance
         op: Operation name (e.g., "concat", "upper", "lower")
-        expression: Column expression to compile
+        expression: :class:`Column` expression to compile
 
     Returns:
         Compiled SQLAlchemy column element, or None if not handled

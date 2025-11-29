@@ -1,4 +1,4 @@
-"""Miscellaneous functions for DataFrame operations."""
+"""Miscellaneous functions for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class When:
             value: Default value if no conditions match
 
         Returns:
-            Column expression for the complete CASE WHEN statement
+            :class:`Column` expression for the complete CASE WHEN statement
         """
         return Column(op="case_when", args=(tuple(self._conditions), ensure_column(value)))
 
@@ -40,7 +40,7 @@ def lit(value: Union[bool, int, float, str, None]) -> Column:
         value: The literal value (bool, int, float, str, or None)
 
     Returns:
-        Column expression representing the literal value
+        :class:`Column` expression representing the literal value
 
     Example:
         >>> from moltres import connect, col
@@ -48,8 +48,8 @@ def lit(value: Union[bool, int, float, str, None]) -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> from moltres.table.schema import column
         >>> _ = db.create_table("test", [column("x", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"x": 10}], _database=db).insert_into("test")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"x": 10}], _database=db).insert_into("test")
         >>> # Use lit() to create literal values in expressions
         >>> df = db.table("test").select((col("x") + F.lit(5)).alias("x_plus_5"))
         >>> results = df.collect()
@@ -69,10 +69,10 @@ def coalesce(*columns: ColumnLike) -> Column:
     """Return the first non-null value from multiple columns.
 
     Args:
-        *columns: Column expressions to check
+        *columns: :class:`Column` expressions to check
 
     Returns:
-        Column expression for the first non-null value
+        :class:`Column` expression for the first non-null value
 
     Example:
         >>> from moltres import connect, col
@@ -80,8 +80,8 @@ def coalesce(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "INTEGER"), column("b", "INTEGER"), column("c", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": None, "b": None, "c": 5}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": None, "b": None, "c": 5}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.coalesce(col("a"), col("b"), col("c")).alias("first_non_null"))
         >>> results = df.collect()
         >>> results[0]["first_non_null"]
@@ -97,10 +97,10 @@ def greatest(*columns: ColumnLike) -> Column:
     """Get the greatest value from multiple columns.
 
     Args:
-        *columns: Column expressions to compare
+        *columns: :class:`Column` expressions to compare
 
     Returns:
-        Column expression for the greatest value
+        :class:`Column` expression for the greatest value
 
     Example:
         >>> from moltres import connect, col
@@ -108,8 +108,8 @@ def greatest(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "REAL"), column("b", "REAL"), column("c", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
         >>> # Note: greatest() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.greatest(col("a"), col("b"), col("c"))
         >>> db.close()
@@ -123,10 +123,10 @@ def least(*columns: ColumnLike) -> Column:
     """Get the least value from multiple columns.
 
     Args:
-        *columns: Column expressions to compare
+        *columns: :class:`Column` expressions to compare
 
     Returns:
-        Column expression for the least value
+        :class:`Column` expression for the least value
 
     Example:
         >>> from moltres import connect, col
@@ -134,8 +134,8 @@ def least(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("a", "REAL"), column("b", "REAL"), column("c", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"a": 10.0, "b": 20.0, "c": 15.0}], _database=db).insert_into("data")
         >>> # Note: least() requires database-specific support (not available in SQLite)
         >>> # For PostgreSQL/MySQL: F.least(col("a"), col("b"), col("c"))
         >>> db.close()
@@ -161,8 +161,8 @@ def when(condition: Column, value: ColumnLike) -> When:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("age", "INTEGER")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"age": 20}, {"age": 15}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"age": 20}, {"age": 15}], _database=db).insert_into("users")
         >>> df = db.table("users").select(col("age"), F.when(col("age") >= 18, "adult").otherwise("minor").alias("status"))
         >>> results = df.collect()
         >>> results[0]["status"]
@@ -181,7 +181,7 @@ def isnan(column: ColumnLike) -> Column:
         column: Numeric column to check
 
     Returns:
-        Column expression for isnan
+        :class:`Column` expression for isnan
 
     Example:
         >>> from moltres import connect, col
@@ -189,8 +189,8 @@ def isnan(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 1.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 1.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.isnan(col("value")))
         >>> results = df.collect()
         >>> # isnan returns 1 for NaN, 0 for non-NaN
@@ -205,10 +205,10 @@ def isnull(column: ColumnLike) -> Column:
     """Check if a column value is NULL (alias for is_null()).
 
     Args:
-        column: Column to check
+        column: :class:`Column` to check
 
     Returns:
-        Column expression for isnull (same as is_null())
+        :class:`Column` expression for isnull (same as is_null())
 
     Example:
         >>> from moltres import connect, col
@@ -216,8 +216,8 @@ def isnull(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.isnull(col("name")))
         >>> results = df.collect()
         >>> # isnull returns 1 for NULL, 0 for non-NULL
@@ -234,10 +234,10 @@ def isnotnull(column: ColumnLike) -> Column:
     """Check if a column value is NOT NULL (alias for is_not_null()).
 
     Args:
-        column: Column to check
+        column: :class:`Column` to check
 
     Returns:
-        Column expression for isnotnull (same as is_not_null())
+        :class:`Column` expression for isnotnull (same as is_not_null())
 
     Example:
         >>> from moltres import connect, col
@@ -245,8 +245,8 @@ def isnotnull(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("users", [column("name", "TEXT")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": None}, {"name": "Alice"}], _database=db).insert_into("users")
         >>> df = db.table("users").select(F.isnotnull(col("name")))
         >>> results = df.collect()
         >>> # isnotnull returns 1 for non-NULL, 0 for NULL
@@ -266,7 +266,7 @@ def isinf(column: ColumnLike) -> Column:
         column: Numeric column to check
 
     Returns:
-        Column expression for isinf
+        :class:`Column` expression for isinf
 
     Example:
         >>> from moltres import connect, col
@@ -274,8 +274,8 @@ def isinf(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("value", "REAL")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"value": 1.0}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"value": 1.0}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.isinf(col("value")))
         >>> results = df.collect()
         >>> # isinf returns 1 for infinite, 0 for finite
@@ -287,13 +287,13 @@ def isinf(column: ColumnLike) -> Column:
 
 
 def scalar_subquery(subquery: "DataFrame") -> Column:
-    """Use a DataFrame as a scalar subquery in SELECT clause.
+    """Use a :class:`DataFrame` as a scalar subquery in SELECT clause.
 
     Args:
-        subquery: DataFrame representing the subquery (must return a single row/column)
+        subquery: :class:`DataFrame` representing the subquery (must return a single row/column)
 
     Returns:
-        Column expression for scalar subquery
+        :class:`Column` expression for scalar subquery
 
     Example:
         >>> # Note: scalar_subquery() requires database-specific support
@@ -304,9 +304,9 @@ def scalar_subquery(subquery: "DataFrame") -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("amount", "REAL")]).collect()
         >>> _ = db.create_table("customers", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"amount": 100.0}, {"amount": 200.0}], _database=db).insert_into("orders")
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"amount": 100.0}, {"amount": 200.0}], _database=db).insert_into("orders")
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
         >>> max_order = db.table("orders").select(F.max(col("amount")))
         >>> df = db.table("customers").select(col("name"), F.scalar_subquery(max_order).alias("max_order_amount"))
         >>> results = df.collect()
@@ -323,10 +323,10 @@ def exists(subquery: "DataFrame") -> Column:
     """Check if a subquery returns any rows (EXISTS clause).
 
     Args:
-        subquery: DataFrame representing the subquery to check
+        subquery: :class:`DataFrame` representing the subquery to check
 
     Returns:
-        Column expression for EXISTS clause
+        :class:`Column` expression for EXISTS clause
 
     Example:
         >>> # Note: exists() requires database-specific support
@@ -337,9 +337,9 @@ def exists(subquery: "DataFrame") -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("status", "TEXT")]).collect()
         >>> _ = db.create_table("customers", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"status": "active"}], _database=db).insert_into("orders")
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"status": "active"}], _database=db).insert_into("orders")
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
         >>> active_orders = db.table("orders").select().where(col("status") == "active")
         >>> df = db.table("customers").select().where(F.exists(active_orders))
         >>> results = df.collect()
@@ -356,10 +356,10 @@ def not_exists(subquery: "DataFrame") -> Column:
     """Check if a subquery returns no rows (NOT EXISTS clause).
 
     Args:
-        subquery: DataFrame representing the subquery to check
+        subquery: :class:`DataFrame` representing the subquery to check
 
     Returns:
-        Column expression for NOT EXISTS clause
+        :class:`Column` expression for NOT EXISTS clause
 
     Example:
         >>> # Note: not_exists() requires database-specific support
@@ -370,9 +370,9 @@ def not_exists(subquery: "DataFrame") -> Column:
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("orders", [column("status", "TEXT")]).collect()
         >>> _ = db.create_table("customers", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"status": "active"}], _database=db).insert_into("orders")
-        >>> _ = Records(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"status": "active"}], _database=db).insert_into("orders")
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}], _database=db).insert_into("customers")
         >>> inactive_orders = db.table("orders").select().where(col("status") == "inactive")
         >>> df = db.table("customers").select().where(F.not_exists(inactive_orders))
         >>> results = df.collect()
@@ -392,10 +392,10 @@ def explode(column: ColumnLike) -> Column:
     similar to PySpark's explode() function.
 
     Args:
-        column: Column expression to explode (must be array or JSON)
+        column: :class:`Column` expression to explode (must be array or JSON)
 
     Returns:
-        Column expression for explode operation
+        :class:`Column` expression for explode operation
 
     Example:
         >>> # Note: explode() requires database-specific array/JSON support (PostgreSQL/MySQL)
@@ -422,7 +422,7 @@ def rand(seed: Optional[int] = None) -> Column:
         seed: Optional random seed (not all databases support this)
 
     Returns:
-        Column expression for rand
+        :class:`Column` expression for rand
 
     Example:
         >>> # Note: rand() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -432,8 +432,8 @@ def rand(seed: Optional[int] = None) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.rand().alias("random"))
         >>> results = df.collect()
         >>> 0.0 <= results[0]["random"] <= 1.0
@@ -454,7 +454,7 @@ def randn(seed: Optional[int] = None) -> Column:
         seed: Optional random seed (not all databases support this)
 
     Returns:
-        Column expression for randn
+        :class:`Column` expression for randn
 
     Example:
         >>> # Note: randn() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -464,8 +464,8 @@ def randn(seed: Optional[int] = None) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.randn().alias("random_normal"))
         >>> results = df.collect()
         >>> isinstance(results[0]["random_normal"], (int, float))
@@ -481,10 +481,10 @@ def hash(*columns: ColumnLike) -> Column:
     """Compute a hash value for one or more columns.
 
     Args:
-        *columns: Column expressions to hash
+        *columns: :class:`Column` expressions to hash
 
     Returns:
-        Column expression for hash
+        :class:`Column` expression for hash
 
     Example:
         >>> # Note: hash() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -494,8 +494,8 @@ def hash(*columns: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.hash(col("id"), col("name")).alias("hash_val"))
         >>> results = df.collect()
         >>> isinstance(results[0]["hash_val"], (int, str))
@@ -511,10 +511,10 @@ def md5(column: ColumnLike) -> Column:
     """Compute the MD5 hash of a column.
 
     Args:
-        column: Column expression to hash
+        column: :class:`Column` expression to hash
 
     Returns:
-        Column expression for md5 (returns hex string)
+        :class:`Column` expression for md5 (returns hex string)
 
     Example:
         >>> # Note: md5() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -524,8 +524,8 @@ def md5(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("password", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"password": "secret"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"password": "secret"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.md5(col("password")).alias("md5_hash"))
         >>> results = df.collect()
         >>> len(results[0]["md5_hash"]) == 32
@@ -539,10 +539,10 @@ def sha1(column: ColumnLike) -> Column:
     """Compute the SHA-1 hash of a column.
 
     Args:
-        column: Column expression to hash
+        column: :class:`Column` expression to hash
 
     Returns:
-        Column expression for sha1 (returns hex string)
+        :class:`Column` expression for sha1 (returns hex string)
 
     Example:
         >>> # Note: sha1() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -552,8 +552,8 @@ def sha1(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("password", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"password": "secret"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"password": "secret"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.sha1(col("password")).alias("sha1_hash"))
         >>> results = df.collect()
         >>> len(results[0]["sha1_hash"]) == 40
@@ -567,11 +567,11 @@ def sha2(column: ColumnLike, num_bits: int = 256) -> Column:
     """Compute the SHA-2 hash of a column.
 
     Args:
-        column: Column expression to hash
+        column: :class:`Column` expression to hash
         num_bits: Number of bits (224, 256, 384, or 512, default: 256)
 
     Returns:
-        Column expression for sha2 (returns hex string)
+        :class:`Column` expression for sha2 (returns hex string)
 
     Example:
         >>> # Note: sha2() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -581,8 +581,8 @@ def sha2(column: ColumnLike, num_bits: int = 256) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("password", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"password": "secret"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"password": "secret"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.sha2(col("password"), 256).alias("sha2_hash"))
         >>> results = df.collect()
         >>> len(results[0]["sha2_hash"]) == 64
@@ -598,10 +598,10 @@ def base64(column: ColumnLike) -> Column:
     """Encode a column to base64.
 
     Args:
-        column: Column expression to encode
+        column: :class:`Column` expression to encode
 
     Returns:
-        Column expression for base64 encoding
+        :class:`Column` expression for base64 encoding
 
     Example:
         >>> # Note: base64() requires database-specific support (PostgreSQL/MySQL) (DuckDB/PostgreSQL/MySQL)
@@ -611,8 +611,8 @@ def base64(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column
         >>> db = connect("duckdb:///:memory:")
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"text": "hello"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"text": "hello"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(F.base64(col("text")).alias("encoded"))
         >>> results = df.collect()
         >>> isinstance(results[0]["encoded"], str)
@@ -629,7 +629,7 @@ def monotonically_increasing_id() -> Column:
     or will generate IDs based on row order.
 
     Returns:
-        Column expression for monotonically_increasing_id
+        :class:`Column` expression for monotonically_increasing_id
 
     Example:
         >>> from moltres import connect, col
@@ -638,8 +638,8 @@ def monotonically_increasing_id() -> Column:
         >>> from moltres.expressions.window import Window
         >>> db = connect("sqlite:///:memory:")
         >>> _ = db.create_table("data", [column("name", "TEXT")]).collect()
-        >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"name": "Alice"}, {"name": "Bob"}], _database=db).insert_into("data")
+        >>> from moltres.io.records import :class:`Records`
+        >>> _ = :class:`Records`(_data=[{"name": "Alice"}, {"name": "Bob"}], _database=db).insert_into("data")
         >>> df = db.table("data").select(col("name"), F.monotonically_increasing_id().over(partition_by=None, order_by=col("name")).alias("id"))
         >>> results = df.collect()
         >>> results[0]["id"] >= 1
@@ -653,10 +653,10 @@ def crc32(column: ColumnLike) -> Column:
     """Compute the CRC32 checksum of a column.
 
     Args:
-        column: Column expression to compute checksum for
+        column: :class:`Column` expression to compute checksum for
 
     Returns:
-        Column expression for crc32
+        :class:`Column` expression for crc32
 
     Example:
         >>> # Note: crc32() requires database-specific support (MySQL)
@@ -666,8 +666,8 @@ def crc32(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("mysql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("text", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"text": "hello"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"text": "hello"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.crc32(col("text")).alias("checksum"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> isinstance(results[0]["checksum"], (int, str))  # doctest: +SKIP
@@ -684,7 +684,7 @@ def soundex(column: ColumnLike) -> Column:
         column: String column expression
 
     Returns:
-        Column expression for soundex
+        :class:`Column` expression for soundex
 
     Example:
         >>> # Note: soundex() requires database-specific support (PostgreSQL/MySQL)
@@ -694,8 +694,8 @@ def soundex(column: ColumnLike) -> Column:
         >>> from moltres.table.schema import column  # doctest: +SKIP
         >>> db = connect("postgresql://...")  # doctest: +SKIP
         >>> _ = db.create_table("data", [column("name", "TEXT")]).collect()  # doctest: +SKIP
-        >>> from moltres.io.records import Records  # doctest: +SKIP
-        >>> _ = Records(_data=[{"name": "Smith"}], _database=db).insert_into("data")  # doctest: +SKIP
+        >>> from moltres.io.records import :class:`Records`  # doctest: +SKIP
+        >>> _ = :class:`Records`(_data=[{"name": "Smith"}], _database=db).insert_into("data")  # doctest: +SKIP
         >>> df = db.table("data").select(F.soundex(col("name")).alias("soundex_code"))  # doctest: +SKIP
         >>> results = df.collect()  # doctest: +SKIP
         >>> isinstance(results[0]["soundex_code"], str)  # doctest: +SKIP

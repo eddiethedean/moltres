@@ -1,4 +1,4 @@
-"""Format-specific readers for DataFrame operations."""
+"""Format-specific readers for :class:`DataFrame` operations."""
 
 from __future__ import annotations
 

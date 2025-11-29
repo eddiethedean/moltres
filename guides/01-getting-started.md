@@ -21,7 +21,7 @@ pip install moltres[pandas,polars]
 
 Moltres works with any SQLAlchemy-compatible database. Here's how to connect:
 
-**See also:** [Connection examples](https://github.com/eddiethedean/moltres/blob/main/examples/01_connecting.py)
+**See also:** [Connection examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/01_connecting.py)
 
 ```python
 from moltres import connect
@@ -96,7 +96,7 @@ print(f"Inserted {result} rows")
 
 ## Your First Query
 
-**See also:** [DataFrame basics examples](https://github.com/eddiethedean/moltres/blob/main/examples/02_dataframe_basics.py)
+**See also:** [DataFrame basics examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/02_dataframe_basics.py)
 
 ```python
 from moltres import connect
@@ -276,7 +276,7 @@ print(results)
 
 ### Aggregations
 
-**See also:** [GroupBy and aggregation examples](https://github.com/eddiethedean/moltres/blob/main/examples/05_groupby.py)
+**See also:** [GroupBy and aggregation examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/05_groupby.py)
 
 ```python
 from moltres import connect
@@ -329,7 +329,7 @@ print(results)
 
 ### Joins
 
-**See also:** [Join examples](https://github.com/eddiethedean/moltres/blob/main/examples/04_joins.py)
+**See also:** [Join examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/04_joins.py)
 
 ```python
 from moltres import connect

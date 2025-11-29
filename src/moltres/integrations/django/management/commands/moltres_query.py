@@ -1,4 +1,4 @@
-"""Django management command for executing Moltres DataFrame operations.
+"""Django management command for executing Moltres :class:`DataFrame` operations.
 
 This command allows executing Moltres queries from the Django command line,
 useful for data exploration, debugging, and one-off operations.
@@ -126,7 +126,7 @@ class Command(BaseCommand):
         """Execute a Moltres query string.
 
         Args:
-            db: Moltres Database instance
+            db: Moltres :class:`Database` instance
             query_str: Query string to execute
 
         Returns:
@@ -223,7 +223,7 @@ class Command(BaseCommand):
         """Start interactive query mode.
 
         Args:
-            db: Moltres Database instance
+            db: Moltres :class:`Database` instance
             output_format: Output format for results
         """
         self.stdout.write(self.style.SUCCESS("Moltres Interactive Query Mode"))

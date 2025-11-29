@@ -32,7 +32,7 @@ class WhenBuilder:
             value: Default value if no conditions match
 
         Returns:
-            Column expression representing the CASE WHEN statement
+            :class:`Column` expression representing the CASE WHEN statement
         """
         self._otherwise = ensure_column(value)
         # Build the CASE expression

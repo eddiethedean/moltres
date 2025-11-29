@@ -21,14 +21,14 @@ except ImportError:
 
 
 def get_moltres_connection(dbt_config: Any, profile_name: Optional[str] = None) -> "Database":
-    """Get a Moltres Database instance from dbt configuration.
+    """Get a Moltres :class:`Database` instance from dbt configuration.
 
     Args:
         dbt_config: dbt config object (from model() function)
         profile_name: Optional profile name (uses default if not provided)
 
     Returns:
-        Database instance configured from dbt connection
+        :class:`Database` instance configured from dbt connection
 
     Example:
         >>> def model(dbt, session):
@@ -186,7 +186,7 @@ def _get_connection_string_from_env(profile_name: str, target_name: str) -> Opti
 
 
 def moltres_dbt_adapter(dbt: Any, session: Any = None) -> "Database":
-    """Get Moltres Database instance from dbt context.
+    """Get Moltres :class:`Database` instance from dbt context.
 
     This is a convenience function that extracts the database connection
     from the dbt context provided to Python models.
@@ -196,7 +196,7 @@ def moltres_dbt_adapter(dbt: Any, session: Any = None) -> "Database":
         session: Optional session (not used, kept for compatibility)
 
     Returns:
-        Database instance
+        :class:`Database` instance
 
     Example:
         >>> def model(dbt, session):

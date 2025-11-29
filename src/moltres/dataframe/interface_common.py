@@ -1,7 +1,7 @@
-"""Common methods shared across Pandas and Polars DataFrame interfaces.
+"""Common methods shared across Pandas and Polars :class:`DataFrame` interfaces.
 
 This module provides shared implementations for methods that are duplicated
-across PandasDataFrame, PolarsDataFrame, AsyncPandasDataFrame, and AsyncPolarsDataFrame.
+across :class:`PandasDataFrame`, :class:`PolarsDataFrame`, AsyncPandasDataFrame, and AsyncPolarsDataFrame.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ class DataFrameProtocol(Protocol):
     """Protocol defining the interface that _df must implement."""
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
-        """Print the first n rows of the DataFrame."""
+        """Print the first n rows of the :class:`DataFrame`."""
         ...
 
     def take(self, num: int) -> List[Dict[str, object]]:
@@ -28,7 +28,7 @@ class DataFrameProtocol(Protocol):
         ...
 
     def printSchema(self) -> None:
-        """Print the schema of this DataFrame in a tree format."""
+        """Print the schema of this :class:`DataFrame` in a tree format."""
         ...
 
 
@@ -36,7 +36,7 @@ class AsyncDataFrameProtocol(Protocol):
     """Protocol defining the interface that async _df must implement."""
 
     async def show(self, n: int = 20, truncate: bool = True) -> None:
-        """Print the first n rows of the DataFrame (async)."""
+        """Print the first n rows of the :class:`DataFrame` (async)."""
         ...
 
     async def take(self, num: int) -> List[Dict[str, object]]:
@@ -48,12 +48,12 @@ class AsyncDataFrameProtocol(Protocol):
         ...
 
     def printSchema(self) -> None:
-        """Print the schema of this DataFrame in a tree format."""
+        """Print the schema of this :class:`DataFrame` in a tree format."""
         ...
 
 
 class InterfaceCommonMixin:
-    """Mixin providing common methods for Pandas/Polars DataFrame interfaces.
+    """Mixin providing common methods for Pandas/Polars :class:`DataFrame` interfaces.
 
     This mixin can be used by both sync and async interface classes to eliminate
     code duplication in common methods like show(), take(), first(), summary(), printSchema().
@@ -64,7 +64,7 @@ class InterfaceCommonMixin:
     _df: DataFrameProtocol
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
-        """Print the first n rows of the DataFrame.
+        """Print the first n rows of the :class:`DataFrame`.
 
         Args:
             n: Number of rows to show (default: 20)
@@ -93,7 +93,7 @@ class InterfaceCommonMixin:
         """Return the first row as a dictionary, or None if empty.
 
         Returns:
-            First row as a dictionary, or None if DataFrame is empty
+            First row as a dictionary, or None if :class:`DataFrame` is empty
 
         Example:
             >>> row = df.first()
@@ -101,7 +101,7 @@ class InterfaceCommonMixin:
         return self._df.first()
 
     def printSchema(self) -> None:
-        """Print the schema of this DataFrame in a tree format.
+        """Print the schema of this :class:`DataFrame` in a tree format.
 
         Example:
             >>> df.printSchema()
@@ -110,7 +110,7 @@ class InterfaceCommonMixin:
 
 
 class AsyncInterfaceCommonMixin:
-    """Mixin providing common async methods for Pandas/Polars DataFrame interfaces.
+    """Mixin providing common async methods for Pandas/Polars :class:`DataFrame` interfaces.
 
     This mixin provides async versions of common methods for async interface classes.
     """
@@ -120,7 +120,7 @@ class AsyncInterfaceCommonMixin:
     _df: AsyncDataFrameProtocol
 
     async def show(self, n: int = 20, truncate: bool = True) -> None:
-        """Print the first n rows of the DataFrame (async).
+        """Print the first n rows of the :class:`DataFrame` (async).
 
         Args:
             n: Number of rows to show (default: 20)
@@ -149,7 +149,7 @@ class AsyncInterfaceCommonMixin:
         """Return the first row as a dictionary, or None if empty (async).
 
         Returns:
-            First row as a dictionary, or None if DataFrame is empty
+            First row as a dictionary, or None if :class:`DataFrame` is empty
 
         Example:
             >>> row = await df.first()
@@ -157,7 +157,7 @@ class AsyncInterfaceCommonMixin:
         return await self._df.first()
 
     def printSchema(self) -> None:
-        """Print the schema of this DataFrame in a tree format.
+        """Print the schema of this :class:`DataFrame` in a tree format.
 
         Example:
             >>> df.printSchema()

@@ -14,7 +14,7 @@ from ..expressions.column import Column, col
 def create_aggregation_from_string(
     column_name: str, func_name: str, alias: Optional[str] = None
 ) -> Column:
-    """Create an aggregation Column from a column name and function name string.
+    """Create an aggregation :class:`Column` from a column name and function name string.
 
     This is a shared helper used by all GroupBy implementations.
 
@@ -25,7 +25,7 @@ def create_aggregation_from_string(
               or generates a descriptive alias for pandas-style.
 
     Returns:
-        Column expression for the aggregation
+        :class:`Column` expression for the aggregation
 
     Raises:
         ValueError: If the function name is not recognized
@@ -72,7 +72,7 @@ def validate_aggregation(expr: Column) -> Column:
     """Validate that an expression is a valid aggregation.
 
     Args:
-        expr: Column expression to validate
+        expr: :class:`Column` expression to validate
 
     Returns:
         The validated column expression
@@ -92,10 +92,10 @@ def extract_value_column(agg_expr: Column) -> str:
     """Extract the column name from an aggregation expression.
 
     Args:
-        agg_expr: Aggregation Column expression (e.g., sum(col("amount")))
+        agg_expr: Aggregation :class:`Column` expression (e.g., sum(col("amount")))
 
     Returns:
-        Column name string (e.g., "amount")
+        :class:`Column` name string (e.g., "amount")
 
     Raises:
         ValueError: If the column cannot be extracted
@@ -126,7 +126,7 @@ def extract_agg_func(agg_expr: Column) -> str:
     """Extract the aggregation function name from an aggregation expression.
 
     Args:
-        agg_expr: Aggregation Column expression (e.g., sum(col("amount")))
+        agg_expr: Aggregation :class:`Column` expression (e.g., sum(col("amount")))
 
     Returns:
         Aggregation function name (e.g., "sum")
@@ -152,22 +152,22 @@ def extract_agg_func(agg_expr: Column) -> str:
 def normalize_aggregations(
     aggregations: tuple, alias_with_column_name: bool = True, allow_empty: bool = False
 ) -> list[Column]:
-    """Normalize aggregation expressions to Column objects.
+    """Normalize aggregation expressions to :class:`Column` objects.
 
     Handles multiple input formats:
-    - Column expressions (passed through)
+    - :class:`Column` expressions (passed through)
     - String column names (converted to sum(col(name)).alias(name))
     - Dictionary mapping column names to function names
 
     Args:
-        aggregations: Tuple of aggregation expressions (Column, str, or dict)
+        aggregations: Tuple of aggregation expressions (:class:`Column`, str, or dict)
         alias_with_column_name: If True, alias string aggregations with column name.
                                If False, let the aggregation function generate its own alias.
         allow_empty: If True, allow empty aggregations (returns empty list).
                     If False, raise ValueError when no aggregations provided.
 
     Returns:
-        List of normalized Column expressions
+        List of normalized :class:`Column` expressions
 
     Raises:
         ValueError: If no aggregations provided (when allow_empty=False) or invalid types

@@ -50,7 +50,7 @@ def check_connection_health(
     """Check database connection health.
 
     Args:
-        database: Database instance (Database or AsyncDatabase)
+        database: :class:`Database` instance (:class:`Database` or :class:`AsyncDatabase`)
         timeout: Maximum time to wait for health check
 
     Returns:
@@ -100,7 +100,7 @@ async def check_connection_health_async(
     """Check async database connection health.
 
     Args:
-        database: AsyncDatabase instance
+        database: :class:`AsyncDatabase` instance
         timeout: Maximum time to wait for health check
 
     Returns:
@@ -148,7 +148,7 @@ def check_pool_health(
     """Check connection pool health.
 
     Args:
-        database: Database instance with connection manager
+        database: :class:`Database` instance with connection manager
 
     Returns:
         HealthCheckResult indicating pool health
@@ -237,7 +237,7 @@ def validate_configuration(
     """Validate database configuration.
 
     Args:
-        database: Database instance
+        database: :class:`Database` instance
 
     Returns:
         HealthCheckResult indicating configuration validity
