@@ -14,6 +14,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from moltres import col, column, connect
+from moltres.integrations.data_quality import DataQualityCheck
+from moltres.io.records import Records
+
 # Check if Airflow is available
 try:
     from airflow import AirflowException
@@ -29,10 +33,6 @@ except ImportError:
 
 # Airflow 3.0+ requires Python 3.10+
 PYTHON_310_PLUS = sys.version_info >= (3, 10)
-
-from moltres import col, column, connect
-from moltres.integrations.data_quality import DataQualityCheck
-from moltres.io.records import Records
 
 
 @pytest.fixture
