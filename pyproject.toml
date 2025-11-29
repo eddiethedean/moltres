@@ -247,11 +247,19 @@ module = [
     "pytest.*",
     "_pytest",
     "_pytest.*",
-    ".*pytest.*",
 ]
 ignore_errors = true
 follow_imports = "skip"
 disallow_untyped_decorators = false
+
+# docket (prefect dependency) uses Python 3.10+ syntax (pattern matching)
+[[tool.mypy.overrides]]
+module = [
+    "docket",
+    "docket.*",
+]
+ignore_errors = true
+follow_imports = "skip"
 
 # Note: pyarrow type stubs are provided in tests/stubs/pyarrow/
 # The stubs directory is automatically discovered by mypy via mypy_path
