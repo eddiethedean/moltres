@@ -340,18 +340,18 @@ if PREFECT_AVAILABLE:
 
 else:
     # Create stub functions when Prefect is not available
-    # These are redefinitions when prefect is available, but mypy needs to allow this
-    def moltres_query(*args: Any, **kwargs: Any) -> Any:
+    # These are redefinitions when prefect is available - ignore type checking
+    def moltres_query(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
         raise ImportError(
             "Prefect is required for moltres_query. Install with: pip install prefect"
         )
 
-    def moltres_to_table(*args: Any, **kwargs: Any) -> Any:
+    def moltres_to_table(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
         raise ImportError(
             "Prefect is required for moltres_to_table. Install with: pip install prefect"
         )
 
-    def moltres_data_quality(*args: Any, **kwargs: Any) -> Any:
+    def moltres_data_quality(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
         raise ImportError(
             "Prefect is required for moltres_data_quality. Install with: pip install prefect"
         )
