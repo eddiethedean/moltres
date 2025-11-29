@@ -211,12 +211,29 @@ check_untyped_defs = false
 module = "moltres.integrations.django.templatetags.*"
 disallow_untyped_decorators = false
 
-# dbt is an optional dependency without type stubs
+# Optional dependencies without type stubs
 [[tool.mypy.overrides]]
 module = [
     "moltres.integrations.dbt.*",
     "dbt",
     "dbt.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "moltres.integrations.prefect.*",
+    "prefect",
+    "prefect.*",
+]
+ignore_missing_imports = true
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = [
+    "moltres.integrations.airflow.*",
+    "airflow",
+    "airflow.*",
 ]
 ignore_missing_imports = true
 

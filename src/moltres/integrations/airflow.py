@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 
 try:
     from airflow import AirflowException
-    from airflow.models.baseoperator import BaseOperator  # type: ignore[import-not-found]
+    from airflow.models.baseoperator import BaseOperator
     from airflow.utils.context import Context
 
     AIRFLOW_AVAILABLE = True

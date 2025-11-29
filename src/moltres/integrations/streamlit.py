@@ -146,7 +146,7 @@ def query_builder(db: "Database") -> Optional["DataFrame"]:
         return None
 
     # Table selection
-    selected_table = st.selectbox("Select Table", tables)
+    selected_table: str = st.selectbox("Select Table", tables)
 
     if not selected_table:
         return None
