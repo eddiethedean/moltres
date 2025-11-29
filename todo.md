@@ -189,6 +189,26 @@ This file tracks planned features, improvements, and tasks for Moltres.
 
 ## ✅ Recently Completed
 
+### Documentation Organization & Read the Docs Optimization ✅ **COMPLETED**
+- ✅ **Examples Directory Reorganization** – Moved example directories to `docs/` for better organization:
+  - ✅ Moved `example_data/` → `docs/example_data/`
+  - ✅ Moved `example_output/` → `docs/example_output/`
+  - ✅ Moved `examples/` → `docs/examples/`
+  - ✅ Updated all references throughout codebase (guides, documentation, CHANGELOG, etc.)
+  - ✅ Updated test files to use new `docs/examples/` path
+  - ✅ Updated example files to use relative paths from `__file__` for data/output directories
+- ✅ **Docstring Optimization for Read the Docs** – Enhanced all docstrings for optimal Read the Docs deployment:
+  - ✅ Added Sphinx cross-references (`:class:`, `:func:`, `:meth:`) throughout codebase
+  - ✅ Ensured Google-style format consistency across all modules
+  - ✅ Added proper type annotations in Returns sections with Sphinx references
+  - ✅ Completed Args/Returns/Raises sections for all public API functions and classes
+  - ✅ Enhanced module-level docstrings with comprehensive descriptions
+  - ✅ Updated 948+ docstrings across 133 source files
+  - ✅ Created helper scripts for docstring management (`scripts/update_docstrings_for_rtd.py`, `scripts/find_missing_docstrings.py`)
+- ✅ **README Quick Start Example Fix** – Fixed join example in README:
+  - ✅ Added `.select()` to `db.table("customers")` before joining (TableHandle must be converted to DataFrame)
+  - ✅ Fixed join condition to use proper column references: `on=[col("orders.customer_id") == col("customers.id")]`
+
 ### Polars-Style Interface ✅ **COMPLETED**
 - ✅ **Polars LazyFrame API** – Comprehensive Polars-style interface (`PolarsDataFrame`):
   - ✅ **Lazy Evaluation** – All operations build logical plans that execute only on `collect()` or `fetch()`
