@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2025-11-29
+
+### Changed
+- **Documentation Organization** – Moved example directories to `docs/` for better organization:
+  - `example_data/` → `docs/example_data/`
+  - `example_output/` → `docs/example_output/`
+  - `examples/` → `docs/examples/`
+  - Updated all references throughout codebase, guides, and documentation
+  - Updated test files to use new `docs/examples/` path
+  - Example files now use relative paths from `__file__` for data/output directories
+- **Docstring Optimization for Read the Docs** – Enhanced all docstrings for optimal Read the Docs deployment:
+  - Added Sphinx cross-references (`:class:`, `:func:`, `:meth:`) throughout codebase
+  - Ensured Google-style format consistency across all modules
+  - Added proper type annotations in Returns sections with Sphinx references
+  - Completed Args/Returns/Raises sections for all public API functions and classes
+  - Enhanced module-level docstrings with comprehensive descriptions
+  - Updated 948+ docstrings across 133 source files
+  - Created helper scripts for docstring management (`scripts/update_docstrings_for_rtd.py`, `scripts/find_missing_docstrings.py`)
+
+### Fixed
+- **CI Workflow** – Updated CI workflow to check `docs/examples/` instead of `examples/` directory
+- **README Quick Start Example** – Fixed join example in README:
+  - Added `.select()` to `db.table("customers")` before joining (TableHandle must be converted to DataFrame)
+  - Fixed join condition to use proper column references: `on=[col("orders.customer_id") == col("customers.id")]`
+
+## [0.19.0] - 2025-11-27
+
 ### Added
 - **Airflow/Prefect Workflow Orchestration Integration** – Comprehensive integrations with Apache Airflow and Prefect for workflow orchestration:
   - **Airflow Operators** – Custom operators for executing Moltres operations in Airflow DAGs:
