@@ -21,8 +21,3 @@ formats:
   # Enable additional formats if desired (pdf, epub)
   - htmlzip
 
-search:
-  ranking:
-    algorithm: basic
-
-
