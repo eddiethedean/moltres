@@ -69,6 +69,11 @@ class TestDbtHelpers:
         # Create mock dbt context
         mock_dbt = MagicMock()
         mock_dbt.config = MagicMock()
+        
+        # Mock dbt.ref() to return an object with a proper identifier attribute
+        mock_relation = MagicMock()
+        mock_relation.identifier = "test_model"  # Return actual string identifier
+        mock_dbt.ref.return_value = mock_relation
 
         # Test referencing
         # Note: In real usage, dbt would handle the model name resolution
@@ -93,6 +98,11 @@ class TestDbtHelpers:
         # Create mock dbt context
         mock_dbt = MagicMock()
         mock_dbt.config = MagicMock()
+        
+        # Mock dbt.source() to return an object with a proper identifier attribute
+        mock_relation = MagicMock()
+        mock_relation.identifier = "source_table"  # Return actual string identifier
+        mock_dbt.source.return_value = mock_relation
 
         df = moltres_source(mock_dbt, "raw", "source_table", db)
         assert df is not None

@@ -56,7 +56,7 @@ pandas = ["pandas>=2.1"]
 sqlmodel = ["sqlmodel>=0.0.14"]
 django = ["django>=3.2"]
 streamlit = ["streamlit>=1.28.0"]
-airflow = ["apache-airflow>=2.5.0"]
+airflow = ["apache-airflow>=3.0.0"]  # Airflow 3.x supports SQLAlchemy 2.0+
 prefect = ["prefect>=2.0.0"]
 dbt = ["dbt-core>=1.5.0"]
 async = ["aiofiles>=23.0", "greenlet>=3.0.0"]
@@ -93,7 +93,9 @@ dev = [
     "uvicorn>=0.23.0",
     "django>=3.2",
     "streamlit>=1.28.0",
-    "apache-airflow>=2.5.0",
+    # Note: apache-airflow>=3.0.0 is required for SQLAlchemy 2.0+ compatibility
+    # Older Airflow versions (< 3.0.0) require SQLAlchemy < 2.0, which conflicts with moltres
+    "apache-airflow>=3.0.0",
     "prefect>=2.0.0",
     "dbt-core>=1.5.0",
 ]

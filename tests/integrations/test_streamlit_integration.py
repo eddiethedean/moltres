@@ -71,12 +71,14 @@ class TestDataFrameDisplay:
 
     def test_moltres_dataframe_basic(self, db, db_path):
         """Test basic DataFrame display."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import moltres_dataframe
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 df = db.table("users").select()
 moltres_dataframe(df, show_query_info=False)
 """
@@ -88,12 +90,14 @@ moltres_dataframe(df, show_query_info=False)
 
     def test_moltres_dataframe_with_query_info(self, db, db_path):
         """Test DataFrame display with query information."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import moltres_dataframe
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 df = db.table("users").select()
 moltres_dataframe(df, show_query_info=True)
 """
@@ -107,12 +111,14 @@ moltres_dataframe(df, show_query_info=True)
 
     def test_moltres_dataframe_with_kwargs(self, db, db_path):
         """Test DataFrame display with additional kwargs."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import moltres_dataframe
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 df = db.table("users").select()
 moltres_dataframe(df, height=400, use_container_width=True)
 """
@@ -124,12 +130,14 @@ moltres_dataframe(df, height=400, use_container_width=True)
 
     def test_moltres_dataframe_error_handling(self, db_path):
         """Test DataFrame display error handling."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import moltres_dataframe
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 # Try to query non-existent table
 df = db.table("nonexistent").select()
 moltres_dataframe(df)
@@ -147,12 +155,14 @@ class TestQueryBuilder:
 
     def test_query_builder_basic(self, db, db_path):
         """Test basic query builder."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import query_builder
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 df = query_builder(db)
 if df:
     st.write("Query built successfully")
@@ -169,12 +179,14 @@ if df:
     def test_query_builder_no_tables(self, tmp_path):
         """Test query builder with no tables."""
         empty_db_path = tmp_path / "empty.db"
+        # Convert path to string and escape backslashes for Windows compatibility
+        empty_db_path_str = str(empty_db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import query_builder
 
-db = connect("sqlite:///{empty_db_path}")
+db = connect("sqlite:///{empty_db_path_str}")
 df = query_builder(db)
 """
         at = AppTest.from_string(app_code)
@@ -190,12 +202,14 @@ class TestCaching:
 
     def test_cached_query_decorator(self, db, db_path):
         """Test cached_query decorator."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import cached_query
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 
 @cached_query(ttl=3600)
 def get_users():
@@ -263,6 +277,8 @@ class TestSessionStateHelpers:
         test_db.close()
 
         # Now test the Streamlit app
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres.integrations.streamlit import get_db_from_session
@@ -270,7 +286,7 @@ from moltres.integrations.streamlit import get_db_from_session
 # Set default DSN in session state for testing
 if "db" not in st.session_state:
     from moltres.integrations.streamlit import init_db_connection
-    db = init_db_connection("sqlite:///{db_path}")
+    db = init_db_connection("sqlite:///{db_path_str}")
 else:
     db = get_db_from_session()
 
@@ -286,11 +302,13 @@ st.dataframe(df.collect())
 
     def test_init_db_connection(self, db_path):
         """Test initializing database connection."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres.integrations.streamlit import init_db_connection
 
-db = init_db_connection("sqlite:///{db_path}")
+db = init_db_connection("sqlite:///{db_path_str}")
 st.write("Database initialized")
 """
         at = AppTest.from_string(app_code)
@@ -306,12 +324,14 @@ class TestQueryVisualization:
 
     def test_visualize_query_sql_only(self, db, db_path):
         """Test query visualization with SQL only."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import visualize_query
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 df = db.table("users").select()
 visualize_query(df, show_sql=True, show_plan=False, show_metrics=False)
 """
@@ -325,12 +345,14 @@ visualize_query(df, show_sql=True, show_plan=False, show_metrics=False)
 
     def test_visualize_query_with_plan(self, db, db_path):
         """Test query visualization with plan."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import visualize_query
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 df = db.table("users").select()
 visualize_query(df, show_sql=True, show_plan=True, show_metrics=False)
 """
@@ -342,12 +364,14 @@ visualize_query(df, show_sql=True, show_plan=True, show_metrics=False)
 
     def test_visualize_query_with_metrics(self, db, db_path):
         """Test query visualization with metrics."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect
 from moltres.integrations.streamlit import visualize_query
 
-db = connect("sqlite:///{db_path}")
+db = connect("sqlite:///{db_path_str}")
 df = db.table("users").select()
 visualize_query(df, show_sql=True, show_plan=True, show_metrics=True)
 """
@@ -432,6 +456,8 @@ class TestIntegration:
 
     def test_full_workflow(self, db, db_path):
         """Test a full workflow using Streamlit integration."""
+        # Convert path to string and escape backslashes for Windows compatibility
+        db_path_str = str(db_path).replace("\\", "/")
         app_code = f"""
 import streamlit as st
 from moltres import connect, col
@@ -443,7 +469,7 @@ from moltres.integrations.streamlit import (
 )
 
 # Initialize database
-db = init_db_connection("sqlite:///{db_path}")
+db = init_db_connection("sqlite:///{db_path_str}")
 
 # Create a query
 df = db.table("users").select().where(col("age") > 25)
