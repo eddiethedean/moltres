@@ -94,6 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cleanup Regression Test** – Fixed parallel execution issues in cleanup regression test by using unique database paths and working directories per test execution
 - **Documentation Example Validation** – Fixed syntax errors in documentation examples by properly formatting async/await code blocks and shell command examples
 - **CI Configuration** – Configured mypy to only check `src` directory (excluding examples) to prevent CI failures while maintaining strict type checking for source code
+- **Pre-Commit Script** – Simplified `scripts/pre_commit_ci_checks.py` to run the exact same commands as CI (using Python 3.11), removing custom error parsing logic and ensuring local checks match CI behavior
+- **dbt Integration Type Hints** – Fixed mypy type checking errors in dbt integration by correcting type ignore comments for optional dependency handling
 
 ## [0.19.0] - 2025-11-27
 
