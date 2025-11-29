@@ -9,6 +9,7 @@ This module tests all Airflow integration features:
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -25,6 +26,9 @@ except ImportError:
     AirflowException = None  # type: ignore[assignment, misc]
     DAG = None  # type: ignore[assignment, misc]
     Context = None  # type: ignore[assignment, misc]
+
+# Airflow 3.0+ requires Python 3.10+
+PYTHON_310_PLUS = sys.version_info >= (3, 10)
 
 from moltres import col, column, connect
 from moltres.integrations.data_quality import DataQualityCheck
@@ -58,7 +62,10 @@ def mock_context():
     return context
 
 
-@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason="Airflow not installed")
+@pytest.mark.skipif(
+    not AIRFLOW_AVAILABLE or not PYTHON_310_PLUS,
+    reason="Airflow not installed or Python < 3.10 (Airflow 3.0+ requires Python 3.10+)",
+)
 class TestMoltresQueryOperator:
     """Test MoltresQueryOperator."""
 
@@ -206,7 +213,10 @@ class TestMoltresQueryOperator:
             )
 
 
-@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason="Airflow not installed")
+@pytest.mark.skipif(
+    not AIRFLOW_AVAILABLE or not PYTHON_310_PLUS,
+    reason="Airflow not installed or Python < 3.10 (Airflow 3.0+ requires Python 3.10+)",
+)
 class TestMoltresToTableOperator:
     """Test MoltresToTableOperator."""
 
@@ -273,7 +283,10 @@ class TestMoltresToTableOperator:
             operator.execute(mock_context)
 
 
-@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason="Airflow not installed")
+@pytest.mark.skipif(
+    not AIRFLOW_AVAILABLE or not PYTHON_310_PLUS,
+    reason="Airflow not installed or Python < 3.10 (Airflow 3.0+ requires Python 3.10+)",
+)
 class TestMoltresDataQualityOperator:
     """Test MoltresDataQualityOperator."""
 
@@ -407,7 +420,10 @@ class TestMoltresDataQualityOperator:
         assert len(report.results) == 1
 
 
-@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason="Airflow not installed")
+@pytest.mark.skipif(
+    not AIRFLOW_AVAILABLE or not PYTHON_310_PLUS,
+    reason="Airflow not installed or Python < 3.10 (Airflow 3.0+ requires Python 3.10+)",
+)
 class TestETLPipeline:
     """Test ETLPipeline class."""
 
