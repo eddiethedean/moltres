@@ -220,5 +220,16 @@ module = [
 ]
 ignore_missing_imports = true
 
+# pytest uses Python 3.10+ syntax (pattern matching) internally
+# We need to ignore syntax errors from pytest when checking Python 3.9 compatibility
+[[tool.mypy.overrides]]
+module = [
+    "pytest",
+    "pytest.*",
+    "_pytest",
+    "_pytest.*",
+]
+ignore_errors = true
+
 # Note: pyarrow type stubs are provided in tests/stubs/pyarrow/
 # The stubs directory is automatically discovered by mypy via mypy_path
