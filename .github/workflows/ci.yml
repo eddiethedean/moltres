@@ -35,8 +35,8 @@ jobs:
 
       - name: Run Ruff
         run: |
-          ruff check src examples tests
-          ruff format --check src examples tests
+          ruff check src docs/examples tests
+          ruff format --check src docs/examples tests
 
       - name: Run mypy
         run: mypy src
