@@ -29,7 +29,7 @@ try:
     PYTEST_AVAILABLE = True
 except ImportError:
     PYTEST_AVAILABLE = False
-    pytest = None  # type: ignore[assignment]
+    pytest = None
 
 
 def _check_pytest_available() -> None:
@@ -211,12 +211,12 @@ if PYTEST_AVAILABLE:
     moltres_async_db = pytest.fixture(scope="function")(_moltres_async_db_fixture)
 else:
     # Create no-op fixtures when pytest is not available
-    def moltres_db(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+    def moltres_db(*args: Any, **kwargs: Any) -> Any:
         raise ImportError(
             "pytest is required for moltres_db fixture. Install with: pip install pytest"
         )
 
-    def moltres_async_db(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+    def moltres_async_db(*args: Any, **kwargs: Any) -> Any:
         raise ImportError(
             "pytest is required for moltres_async_db fixture. Install with: pip install pytest"
         )
@@ -515,7 +515,7 @@ if PYTEST_AVAILABLE:
     test_data = pytest.fixture(scope="function")(_test_data_fixture)
 else:
 
-    def test_data(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+    def test_data(*args: Any, **kwargs: Any) -> Any:
         raise ImportError(
             "pytest is required for test_data fixture. Install with: pip install pytest"
         )

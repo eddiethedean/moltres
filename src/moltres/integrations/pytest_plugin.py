@@ -14,7 +14,7 @@ try:
     PYTEST_AVAILABLE = True
 except ImportError:
     PYTEST_AVAILABLE = False
-    pytest = None  # type: ignore[assignment]
+    pytest = None
 
 
 class QueryLogger:
