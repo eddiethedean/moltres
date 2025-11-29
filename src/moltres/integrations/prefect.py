@@ -340,6 +340,7 @@ if PREFECT_AVAILABLE:
 
 else:
     # Create stub functions when Prefect is not available
+    # These are redefinitions when prefect is available, but mypy needs to allow this
     def moltres_query(*args: Any, **kwargs: Any) -> Any:
         raise ImportError(
             "Prefect is required for moltres_query. Install with: pip install prefect"
