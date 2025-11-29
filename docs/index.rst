@@ -3,35 +3,53 @@ Moltres Documentation
 
 Moltres is **the missing DataFrame layer for SQL in Python**.
 It provides a PySpark-style DataFrame API that compiles to SQL and executes directly
-in your database with full SQL CRUD support.
+in your database with full SQL CRUD support and optional pandas/polars result formats.
+
+Use these docs to:
+
+- Understand Moltres concepts and architecture
+- Follow step‑by‑step guides and recipes
+- Explore framework and tooling integrations
+- Look up the full, generated API reference
 
 .. note::
 
-   This site is the primary reference for Moltres. Start with :doc:`guides/getting-started`
-   and then explore the guides, examples, and full API reference.
+   **New to Moltres?** Start with :doc:`guides/getting-started`, then explore the
+   “Guides & How‑To” and “Integrations” sections below. The API reference is designed
+   for day‑to‑day lookups once you are familiar with the basics.
 
 
-Getting Started
-===============
+Quick navigation
+----------------
+
+- :doc:`guides/getting-started`
+- :doc:`EXAMPLES`
+- :doc:`api/dataframe`
+- :doc:`guides/performance-optimization`
+- :doc:`WHY_MOLTRES`
+
+
+Getting started & migration
+===========================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Getting Started
+   :caption: Getting started & migration
 
    guides/getting-started
    guides/migrating-from-pandas
    guides/migrating-from-pyspark
 
 
-User Guides
-===========
+Guides & how-to
+===============
 
 .. toctree::
    :maxdepth: 2
-   :caption: User Guides
+   :caption: Guides & how-to
 
-   guides/performance-optimization
    guides/common-patterns
+   guides/performance-optimization
    guides/error-handling
    guides/advanced-topics
    guides/best-practices
@@ -39,7 +57,7 @@ User Guides
    guides/polars-interface
 
 
-Framework & Tooling Integrations
+Framework & tooling integrations
 ================================
 
 .. toctree::
@@ -55,12 +73,12 @@ Framework & Tooling Integrations
    guides/dbt-integration
 
 
-Concepts, Operations, and Internals
+Concepts, operations, and internals
 ===================================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Concepts & Operations
+   :caption: Concepts & operations
 
    WHY_MOLTRES
    moltres-design-notes
@@ -77,12 +95,12 @@ Concepts, Operations, and Internals
    FAQ
 
 
-API Reference
+API reference
 =============
 
 .. toctree::
    :maxdepth: 2
-   :caption: API Reference
+   :caption: API reference
 
    api/dataframe
    api/expressions
@@ -96,5 +114,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
