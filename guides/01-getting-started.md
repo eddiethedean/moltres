@@ -21,7 +21,7 @@ pip install moltres[pandas,polars]
 
 Moltres works with any SQLAlchemy-compatible database. Here's how to connect:
 
-**See also:** [Connection examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/01_connecting.py)
+**See also:** [Connection examples](https://moltres.readthedocs.io/en/latest/examples/01_connecting.html)
 
 ```python
 from moltres import connect
@@ -96,7 +96,7 @@ print(f"Inserted {result} rows")
 
 ## Your First Query
 
-**See also:** [DataFrame basics examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/02_dataframe_basics.py)
+**See also:** [DataFrame basics examples](https://moltres.readthedocs.io/en/latest/examples/02_dataframe_basics.html)
 
 ```python
 from moltres import connect
@@ -276,7 +276,7 @@ print(results)
 
 ### Aggregations
 
-**See also:** [GroupBy and aggregation examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/05_groupby.py)
+**See also:** [GroupBy and aggregation examples](https://moltres.readthedocs.io/en/latest/examples/05_groupby.html)
 
 ```python
 from moltres import connect
@@ -329,7 +329,7 @@ print(results)
 
 ### Joins
 
-**See also:** [Join examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/04_joins.py)
+**See also:** [Join examples](https://moltres.readthedocs.io/en/latest/examples/04_joins.html)
 
 ```python
 from moltres import connect
@@ -443,10 +443,10 @@ print(f"Deleted {result} rows")
 
 ## Next Steps
 
-- **Learn more**: Check out the [Common Patterns Guide](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md)
-- **Optimize**: Read the [Performance Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)
-- **Migrate**: If coming from Pandas, see [Migration from Pandas](https://github.com/eddiethedean/moltres/blob/main/guides/02-migrating-from-pandas.md)
-- **Examples**: Explore the [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) in the repository
+- **Learn more**: Check out the [Common Patterns Guide](https://moltres.readthedocs.io/en/latest/guides/common-patterns.html)
+- **Optimize**: Read the [Performance Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Migrate**: If coming from Pandas, see [Migration from Pandas](https://moltres.readthedocs.io/en/latest/guides/migrating-from-pandas.html)
+- **Examples**: Explore the [examples overview](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)
 
 ## Common Pitfalls
 
@@ -457,8 +457,8 @@ print(f"Deleted {result} rows")
 
 ## Getting Help
 
-- **Documentation**: See [docs directory](https://github.com/eddiethedean/moltres/tree/main/docs) for detailed documentation
-- **Examples**: Check [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for working code samples
-- **Troubleshooting**: See [Troubleshooting Guide](https://github.com/eddiethedean/moltres/blob/main/docs/TROUBLESHOOTING.md) for common issues
-- **FAQ**: Check [FAQ](https://github.com/eddiethedean/moltres/blob/main/docs/FAQ.md) for frequently asked questions
+- **Documentation**: See the [Moltres docs](https://moltres.readthedocs.io/en/latest/) for detailed documentation
+- **Examples**: Check the [examples overview](https://moltres.readthedocs.io/en/latest/EXAMPLES.html) for working code samples
+- **Troubleshooting**: See the [Troubleshooting Guide](https://moltres.readthedocs.io/en/latest/TROUBLESHOOTING.html) for common issues
+- **FAQ**: Check the [FAQ](https://moltres.readthedocs.io/en/latest/FAQ.html) for frequently asked questions
 

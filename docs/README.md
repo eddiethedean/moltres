@@ -111,3 +111,9 @@ You can add documentation building to your CI/CD pipeline to catch issues early:
     make html
 ```
 
+## Ongoing Docs Maintenance
+
+- Run `make html` before committing significant docs changes.
+- Treat **autodoc import failures** (e.g. failing to import `moltres.*`) as bugs to fix or mock.
+- Watch for `toc.not_included` warnings and either add docs to a toctree or explicitly archive them.
+- Keep examples and guides in sync with `src/moltres/**`, `examples/**`, and integration modules under `src/moltres/integrations/**`.

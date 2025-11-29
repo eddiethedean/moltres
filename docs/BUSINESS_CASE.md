@@ -1,5 +1,12 @@
 # Business Case: Moltres - The Missing DataFrame Layer for SQL in Python
 
+```{admonition} Archived
+:class: warning
+
+This document captures a historical business case for Moltres.
+It is kept for maintainers and is not part of the primary user docs.
+```
+
 **Document Version:** 1.0  
 **Date:** 2024  
 **Prepared by:** Moltres Development Team

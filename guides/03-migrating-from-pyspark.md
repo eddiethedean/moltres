@@ -521,7 +521,7 @@ async def process_streaming(df):
 
 ## Next Steps
 
-- **Performance**: See [Performance Optimization Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)
-- **Patterns**: Check [Common Patterns Guide](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md)
-- **Best Practices**: Read [Best Practices Guide](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)
+- **Performance**: See [Performance Optimization Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Patterns**: Check [Common Patterns Guide](https://moltres.readthedocs.io/en/latest/guides/common-patterns.html)
+- **Best Practices**: Read [Best Practices Guide](https://moltres.readthedocs.io/en/latest/guides/best-practices.html)
 

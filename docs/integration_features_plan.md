@@ -1,5 +1,12 @@
 # Moltres Integration Features Plan
 
+```{admonition} Archived
+:class: warning
+
+This document describes historical integration planning for Moltres.
+It is kept for maintainers and is not part of the primary user docs.
+```
+
 ## Overview
 This plan outlines the implementation of integration features for four popular Python packages: Django, Streamlit, Pytest, and Airflow/Prefect. These integrations will make Moltres more user-friendly and robust when used with these frameworks, following the pattern established by the FastAPI integration.
 

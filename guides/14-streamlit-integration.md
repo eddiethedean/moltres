@@ -463,7 +463,7 @@ Invalidate cache for a specific query (clears all caches).
 
 ## See Also
 
-- [Moltres Documentation](https://github.com/eddiethedean/moltres)
+- [Moltres Documentation](https://moltres.readthedocs.io/en/latest/)
 - [Streamlit Documentation](https://docs.streamlit.io/)
-- [Example: Streamlit Integration](../docs/examples/25_streamlit_integration.py)
+- [Example: Streamlit Integration](https://moltres.readthedocs.io/en/latest/examples/25_streamlit_integration.html)
 

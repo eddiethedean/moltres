@@ -1,5 +1,12 @@
 # Preliminary Project Scope Statement: Moltres Development Acceleration
 
+```{admonition} Archived
+:class: warning
+
+This scope statement is an early planning document.
+It is kept for maintainers and is not part of the primary user docs.
+```
+
 **Project Name:** Moltres - The Missing DataFrame Layer for SQL in Python  
 **Document Version:** 1.0 (Preliminary)  
 **Prepared by:** [Name], [Role]   

@@ -2,6 +2,8 @@ Engine API
 ==========
 
 Connection and execution management.
+Use these helpers when you need lower-level control than the high-level
+`Database` and `TableHandle` APIs.
 
 Database
 -------

@@ -162,7 +162,7 @@ df_clean = (
 
 Analyze user cohorts:
 
-**See also:** [Window function examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/11_window_functions.py) for advanced analytics
+**See also:** [Window function examples](https://moltres.readthedocs.io/en/latest/examples/11_window_functions.html) for advanced analytics
 
 ```python
 from moltres import col, connect
@@ -307,7 +307,7 @@ results = ranked_products.collect()
 
 Complete ETL workflow:
 
-**See also:** [File reading examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/07_file_reading.py) and [File writing examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/08_file_writing.py)
+**See also:** [File reading examples](https://moltres.readthedocs.io/en/latest/examples/07_file_reading.html) and [File writing examples](https://moltres.readthedocs.io/en/latest/examples/08_file_writing.html)
 
 ```python
 from moltres import col, connect
@@ -511,7 +511,7 @@ results = pivot.collect()
 
 Insert new records or update existing:
 
-**See also:** [Table operations and CRUD examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/09_table_operations.py)
+**See also:** [Table operations and CRUD examples](https://moltres.readthedocs.io/en/latest/examples/09_table_operations.html)
 
 ```python
 from moltres import col, connect
@@ -615,7 +615,7 @@ update_with_audit(
 
 ## Next Steps
 
-- **Performance**: See [Performance Optimization Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)
-- **Best Practices**: Read [Best Practices Guide](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)
-- **Examples**: Check [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for more patterns
+- **Performance**: See [Performance Optimization Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Best Practices**: Read [Best Practices Guide](https://moltres.readthedocs.io/en/latest/guides/best-practices.html)
+- **Examples**: Check the [examples overview](https://moltres.readthedocs.io/en/latest/EXAMPLES.html) for more patterns
 

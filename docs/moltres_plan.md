@@ -1,5 +1,11 @@
-
 # Moltres Package Plan
+
+```{admonition} Archived
+:class: warning
+
+This document outlines an early package and architecture plan for Moltres.
+It is kept for maintainers and is not part of the primary user docs.
+```
 
 ## 1. Name
 **Moltres** – inspired by the legendary fire Pokémon, evoking speed, power, and a spark-like DataFrame API.

@@ -83,9 +83,7 @@ Concepts, operations, and internals
    WHY_MOLTRES
    moltres-design-notes
    PERFORMANCE
-   PERFORMANCE_SLA
    RUNTIME_SUPPORT
-   RUNTIME_MATRIX
    SECURITY
    TESTING
    DEBUGGING
@@ -93,6 +91,34 @@ Concepts, operations, and internals
    TROUBLESHOOTING
    EXAMPLES
    FAQ
+
+
+Internal and archive docs
+=========================
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Internal & archive
+
+   BUSINESS_CASE
+   PROJECT_CHARTER
+   PROJECT_SCOPE_STATEMENT
+   moltres_plan
+   moltres_advocacy
+   integration_features_plan
+   PRIORITY_IMPLEMENTATION
+   MIGRATION_GUIDE
+   MIGRATION_SPARK
+   MOLTRES_VS_PYSPARK_COMPARISON
+   PYSPARK_FEATURE_COMPARISON
+   PYSPARK_INTERFACE_AUDIT
+   PYSPARK_MIGRATION_INCONSISTENCIES
+   PERFORMANCE_SLA
+   RUNTIME_MATRIX
+   TEST_HARNESSES
+   OPS_RUNBOOKS
+   IMPROVE_PYTEST_GREEN_LIGHT
+   RELEASE_PROCESS
 
 
 API reference

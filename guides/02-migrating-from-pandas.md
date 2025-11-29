@@ -373,7 +373,7 @@ df_pandas = pd.DataFrame(results)
 
 Moltres also provides a pandas-style interface for easier migration:
 
-**See also:** [Pandas interface examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/18_pandas_interface.py), [Pandas/Polars integration examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/15_pandas_polars_dataframes.py), and the [Pandas Interface Guide](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)
+**See also:** [Pandas interface examples](https://moltres.readthedocs.io/en/latest/examples/18_pandas_interface.html), [Pandas/Polars integration examples](https://moltres.readthedocs.io/en/latest/examples/15_pandas_polars_dataframes.html), and the [Pandas Interface Guide](https://moltres.readthedocs.io/en/latest/guides/pandas-interface.html)
 
 ```python
 from moltres import connect
@@ -528,7 +528,7 @@ df.select(F.upper(col("name")).alias("name_upper"))
 
 ## Next Steps
 
-- **Performance**: See [Performance Optimization Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)
-- **Patterns**: Check [Common Patterns Guide](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md)
-- **Best Practices**: Read [Best Practices Guide](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)
+- **Performance**: See [Performance Optimization Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Patterns**: Check [Common Patterns Guide](https://moltres.readthedocs.io/en/latest/guides/common-patterns.html)
+- **Best Practices**: Read [Best Practices Guide](https://moltres.readthedocs.io/en/latest/guides/best-practices.html)
 

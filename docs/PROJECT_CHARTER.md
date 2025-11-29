@@ -1,5 +1,12 @@
 # Project Charter: Moltres Development Acceleration
 
+```{admonition} Archived
+:class: warning
+
+This charter describes the original Moltres project framing.
+It is kept for maintainers and is not part of the primary user docs.
+```
+
 **Project Name:** Moltres - The Missing DataFrame Layer for SQL in Python  
 **Charter Version:** 1.0  
 **Date:** 2024  

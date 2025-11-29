@@ -1,6 +1,13 @@
 # 🐦🔥 Moltres: The Missing DataFrame Layer for SQL in Python  
 *A modern DataFrame interface with real SQL CRUD execution*
 
+```{admonition} Archived
+:class: warning
+
+This document captures early advocacy material for Moltres.
+It is kept for maintainers and is not part of the primary user docs.
+```
+
 ## 🌟 Overview
 
 **Moltres fills a major, long-standing gap in the Python data ecosystem:**  

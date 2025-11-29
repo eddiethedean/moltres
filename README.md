@@ -84,17 +84,17 @@ db.delete("users", where=col("email").is_null())
 
 ## 📖 Documentation
 
-- **[Getting Started Guide](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md)** - Step-by-step introduction
-- **[Examples Directory](https://github.com/eddiethedean/moltres/tree/main/examples)** - 29 comprehensive examples
-- **[User Guides](https://github.com/eddiethedean/moltres/tree/main/guides)** - Complete guides for all features
-- **[API Reference](https://github.com/eddiethedean/moltres/tree/main/docs/api)** - Complete API documentation
+- **[Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)** - Step-by-step introduction
+- **[Examples Directory](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - 29 comprehensive examples
+- **[User Guides](https://moltres.readthedocs.io/en/latest/#guides-how-to)** - Complete guides for all features
+- **[API Reference](https://moltres.readthedocs.io/en/latest/api/dataframe.html)** - Complete API documentation
 
 ### Framework Integrations
 
-- **[FastAPI Integration](https://github.com/eddiethedean/moltres/blob/main/docs/examples/22_fastapi_integration.py)** - Error handling, dependency injection
-- **[Django Integration](https://github.com/eddiethedean/moltres/blob/main/docs/examples/23_django_integration.py)** - Middleware, template tags, management commands
-- **[Streamlit Integration](https://github.com/eddiethedean/moltres/blob/main/docs/examples/25_streamlit_integration.py)** - Components, caching, query visualization
-- **[SQLModel & Pydantic](https://github.com/eddiethedean/moltres/blob/main/guides/12-sqlmodel-integration.md)** - Type-safe models
+- **[FastAPI Integration](https://moltres.readthedocs.io/en/latest/examples/22_fastapi_integration.html)** - Error handling, dependency injection
+- **[Django Integration](https://moltres.readthedocs.io/en/latest/examples/23_django_integration.html)** - Middleware, template tags, management commands
+- **[Streamlit Integration](https://moltres.readthedocs.io/en/latest/examples/25_streamlit_integration.html)** - Components, caching, query visualization
+- **[SQLModel & Pydantic](https://moltres.readthedocs.io/en/latest/guides/sqlmodel-integration.html)** - Type-safe models
 
 ## 🛠️ Supported Operations
 
@@ -119,7 +119,7 @@ ruff check . && ruff format . && mypy src
 
 ## 🤝 Contributing
 
-Contributions are welcome! See [`CONTRIBUTING.md`](https://github.com/eddiethedean/moltres/blob/main/CONTRIBUTING.md) for guidelines.
+Contributions are welcome! See [`CONTRIBUTING.md`](https://moltres.readthedocs.io/en/latest/CONTRIBUTING.html) for guidelines.
 
 ## 📄 License
 

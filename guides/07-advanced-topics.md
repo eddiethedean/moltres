@@ -17,7 +17,7 @@ Advanced features and techniques for power users.
 
 Moltres supports full async/await for all operations.
 
-**See also:** [Async DataFrame examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/03_async_dataframe.py)
+**See also:** [Async DataFrame examples](https://moltres.readthedocs.io/en/latest/examples/03_async_dataframe.html)
 
 ### Basic Async Usage
 
@@ -86,7 +86,7 @@ async def update_users():
 
 Process datasets larger than memory using streaming.
 
-**See also:** [Async DataFrame examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/03_async_dataframe.py) and [File reading examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/07_file_reading.py)
+**See also:** [Async DataFrame examples](https://moltres.readthedocs.io/en/latest/examples/03_async_dataframe.html) and [File reading examples](https://moltres.readthedocs.io/en/latest/examples/07_file_reading.html)
 
 ### Streaming Reads
 
@@ -251,7 +251,7 @@ df = db.table("users").select(
 
 Ensure data consistency with transactions.
 
-**See also:** [Transaction examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/13_transactions.py)
+**See also:** [Transaction examples](https://moltres.readthedocs.io/en/latest/examples/13_transactions.html)
 
 ### Basic Transactions
 
@@ -319,7 +319,7 @@ with db.transaction() as outer:
 
 Programmatically manage database schemas.
 
-**See also:** [Schema reflection examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/14_reflection.py)
+**See also:** [Schema reflection examples](https://moltres.readthedocs.io/en/latest/examples/14_reflection.html)
 
 ### Reflecting Existing Schemas
 
@@ -398,7 +398,7 @@ def migrate_schema(db, table_name, new_columns):
 
 Integrate with existing SQLAlchemy code.
 
-**See also:** [SQLAlchemy model integration examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/17_sqlalchemy_models.py)
+**See also:** [SQLAlchemy model integration examples](https://moltres.readthedocs.io/en/latest/examples/17_sqlalchemy_models.html)
 
 ### Using SQLAlchemy Models
 
@@ -465,7 +465,7 @@ results = df.collect()
 
 Advanced analytical queries with window functions.
 
-**See also:** [Window function examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/11_window_functions.py)
+**See also:** [Window function examples](https://moltres.readthedocs.io/en/latest/examples/11_window_functions.html)
 
 ### Ranking
 
@@ -586,7 +586,7 @@ df = (
 
 Use Common Table Expressions for complex queries.
 
-**See also:** [SQL operations and CTE examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/12_sql_operations.py)
+**See also:** [SQL operations and CTE examples](https://moltres.readthedocs.io/en/latest/examples/12_sql_operations.html)
 
 ### Simple CTE
 
@@ -755,7 +755,7 @@ result = records.insert_into("users")  # Efficiently batched
 
 ## Next Steps
 
-- **Performance**: See [Performance Optimization Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)
-- **Patterns**: Check [Common Patterns Guide](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md)
-- **Best Practices**: Read [Best Practices Guide](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)
+- **Performance**: See [Performance Optimization Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Patterns**: Check [Common Patterns Guide](https://moltres.readthedocs.io/en/latest/guides/common-patterns.html)
+- **Best Practices**: Read [Best Practices Guide](https://moltres.readthedocs.io/en/latest/guides/best-practices.html)
 

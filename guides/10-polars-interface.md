@@ -11,7 +11,7 @@ Moltres offers a Polars-style interface via the `.polars()` method that returns 
 - Data inspection methods (`schema`, `columns`, `width`, `height`)
 - All operations execute in SQL with lazy evaluation
 
-**See also:** [Polars interface examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/19_polars_interface.py)
+**See also:** [Polars interface examples](https://moltres.readthedocs.io/en/latest/examples/19_polars_interface.html)
 
 ## Getting Started
 
@@ -746,7 +746,7 @@ df.with_row_count("row_id", offset=10)
 
 ## See Also
 
-- [Polars interface examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/19_polars_interface.py)
-- [Pandas interface guide](https://github.com/eddiethedean/moltres/blob/main/guides/09-pandas-interface.md)
-- [Main documentation](https://github.com/eddiethedean/moltres/blob/main/README.md)
+- [Polars interface examples](https://moltres.readthedocs.io/en/latest/examples/19_polars_interface.html)
+- [Pandas interface guide](https://moltres.readthedocs.io/en/latest/guides/pandas-interface.html)
+- [Main documentation](https://moltres.readthedocs.io/en/latest/)
 

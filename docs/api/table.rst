@@ -1,7 +1,8 @@
 Table API
-==========
+=========
 
-Table operations for CRUD (Create, Read, Update, Delete) and schema management.
+Table handles are the entry point for **CRUD** operations and schema management.
+They provide eager helpers for inserts, updates, deletes, and DDL.
 
 TableHandle
 -----------

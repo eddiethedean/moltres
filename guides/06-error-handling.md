@@ -735,12 +735,12 @@ If you encounter errors:
 2. **Enable SQL logging**: Set `echo=True` to see generated SQL
 3. **Check query plan**: Use `df.explain()` to understand the query
 4. **Validate inputs**: Ensure table/column names are correct
-5. **Check documentation**: See `docs/TROUBLESHOOTING.md` for common issues
-6. **Review examples**: Check [examples directory](https://github.com/eddiethedean/moltres/tree/main/examples) for working code
+5. **Check documentation**: See the [Troubleshooting Guide](https://moltres.readthedocs.io/en/latest/TROUBLESHOOTING.html) for common issues
+6. **Review examples**: Check the [examples overview](https://moltres.readthedocs.io/en/latest/EXAMPLES.html) for working code
 
 ## Next Steps
 
-- **Best Practices**: See [Best Practices Guide](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)
-- **Performance**: Read [Performance Optimization Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)
-- **Troubleshooting**: Check [Troubleshooting Guide](https://github.com/eddiethedean/moltres/blob/main/docs/TROUBLESHOOTING.md) for more solutions
+- **Best Practices**: See [Best Practices Guide](https://moltres.readthedocs.io/en/latest/guides/best-practices.html)
+- **Performance**: Read [Performance Optimization Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Troubleshooting**: Check [Troubleshooting Guide](https://moltres.readthedocs.io/en/latest/TROUBLESHOOTING.html) for more solutions
 

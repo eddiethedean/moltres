@@ -1,6 +1,9 @@
 Expressions API
 ===============
 
+Expressions power the column-level operations used in the DataFrame API.
+These modules define columns, functions, and window operations that compile to SQL.
+
 Column Expressions
 ------------------
 

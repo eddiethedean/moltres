@@ -572,7 +572,7 @@ results2 = benchmark_query(df2)
 
 ## Next Steps
 
-- **Patterns**: See [Common Patterns Guide](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md) for optimized patterns
-- **Best Practices**: Read [Best Practices Guide](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md)
-- **Troubleshooting**: Check [Troubleshooting Guide](https://github.com/eddiethedean/moltres/blob/main/docs/TROUBLESHOOTING.md) for performance issues
+- **Patterns**: See [Common Patterns Guide](https://moltres.readthedocs.io/en/latest/guides/common-patterns.html) for optimized patterns
+- **Best Practices**: Read [Best Practices Guide](https://moltres.readthedocs.io/en/latest/guides/best-practices.html)
+- **Troubleshooting**: Check [Troubleshooting Guide](https://moltres.readthedocs.io/en/latest/TROUBLESHOOTING.html) for performance issues
 

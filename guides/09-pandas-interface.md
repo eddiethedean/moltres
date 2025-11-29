@@ -11,7 +11,7 @@ Moltres offers a pandas-style interface via the `.pandas()` method that returns 
 - Data inspection methods (`dtypes`, `shape`, `head()`, `tail()`, etc.)
 - All operations execute in SQL with lazy evaluation
 
-**See also:** [Pandas interface examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/18_pandas_interface.py)
+**See also:** [Pandas interface examples](https://moltres.readthedocs.io/en/latest/examples/18_pandas_interface.html)
 
 ## Getting Started
 
@@ -133,7 +133,7 @@ print(f"Found {len(results)} users age 30")
 - Support for both `=` and `==` for equality
 - Column names must match your schema
 
-**See also:** [Query examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/18_pandas_interface.py#L122)
+**See also:** [Query examples](https://moltres.readthedocs.io/en/latest/examples/18_pandas_interface.html#querying-with-query)
 
 ## String Accessor
 
@@ -619,7 +619,7 @@ df.query("nonexistent > 5")  # Raises ValidationError with suggestion
 
 ## Examples
 
-**See also:** [Complete pandas interface example](https://github.com/eddiethedean/moltres/blob/main/docs/examples/18_pandas_interface.py)
+**See also:** [Complete pandas interface example](https://moltres.readthedocs.io/en/latest/examples/18_pandas_interface.html)
 
 ```python
 from moltres import connect
@@ -735,8 +735,8 @@ result = cte_df.collect()
 
 ## Next Steps
 
-- **Migration**: See [Migrating from Pandas Guide](https://github.com/eddiethedean/moltres/blob/main/guides/02-migrating-from-pandas.md) for detailed migration patterns
-- **Examples**: Check [Pandas interface examples](https://github.com/eddiethedean/moltres/blob/main/docs/examples/18_pandas_interface.py) for more code samples
-- **Performance**: Read [Performance Optimization Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md) for efficiency tips
-- **Best Practices**: See [Best Practices Guide](https://github.com/eddiethedean/moltres/blob/main/guides/08-best-practices.md) for coding standards
+- **Migration**: See [Migrating from Pandas Guide](https://moltres.readthedocs.io/en/latest/guides/migrating-from-pandas.html) for detailed migration patterns
+- **Examples**: Check [Pandas interface examples](https://moltres.readthedocs.io/en/latest/examples/18_pandas_interface.html) for more code samples
+- **Performance**: Read [Performance Optimization Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html) for efficiency tips
+- **Best Practices**: See [Best Practices Guide](https://moltres.readthedocs.io/en/latest/guides/best-practices.html) for coding standards
 

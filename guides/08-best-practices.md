@@ -674,7 +674,7 @@ summary = user_orders.group_by("users.id").agg(
 
 ## Next Steps
 
-- **Getting Started**: See [Getting Started Guide](https://github.com/eddiethedean/moltres/blob/main/guides/01-getting-started.md)
-- **Performance**: Read [Performance Optimization Guide](https://github.com/eddiethedean/moltres/blob/main/guides/04-performance-optimization.md)
-- **Patterns**: Check [Common Patterns Guide](https://github.com/eddiethedean/moltres/blob/main/guides/05-common-patterns.md)
+- **Getting Started**: See [Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)
+- **Performance**: Read [Performance Optimization Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Patterns**: Check [Common Patterns Guide](https://moltres.readthedocs.io/en/latest/guides/common-patterns.html)
 
