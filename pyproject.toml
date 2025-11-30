@@ -8,7 +8,7 @@ version = "0.19.2"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
-license = "MIT"
+license = {text = "MIT License"}
 requires-python = ">=3.9"
 keywords = [
     "dataframe",

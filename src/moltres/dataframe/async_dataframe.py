@@ -16,6 +16,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
     overload,
 )
 
@@ -138,82 +139,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             ...     await db.close()
             ...     # asyncio.run(example())  # doctest: +SKIP
         """
-        if not columns:
-            return self
+        from .dataframe_operations import build_select_operation
 
-        # Handle "*" as special case
-        if len(columns) == 1 and isinstance(columns[0], str) and columns[0] == "*":
-            return self
-
-        # Check if "*" is in the columns (only check string elements, not Column objects)
-        has_star = any(isinstance(col, str) and col == "*" for col in columns)
-
-        # Import Column at the top of the method
-        from ..expressions.column import Column
-
-        # Normalize all columns first and check for explode
-        normalized_columns = []
-        explode_column = None
-
-        for col_expr in columns:
-            if isinstance(col_expr, str) and col_expr == "*":
-                # Handle "*" separately - add star column
-                star_col = Column(op="star", args=(), _alias=None)
-                normalized_columns.append(star_col)
-                continue
-
-            normalized = self._normalize_projection(col_expr)
-
-            # Check if this is an explode() column
-            if isinstance(normalized, Column) and normalized.op == "explode":
-                if explode_column is not None:
-                    raise ValueError(
-                        "Multiple explode() columns are not supported. "
-                        "Only one explode() can be used per select() operation."
-                    )
-                explode_column = normalized
-            else:
-                normalized_columns.append(normalized)
-
-        # If we have an explode column, we need to handle it specially
-        if explode_column is not None:
-            # Extract the column being exploded and the alias
-            exploded_column = explode_column.args[0] if explode_column.args else None
-            if not isinstance(exploded_column, Column):
-                raise ValueError("explode() requires a Column expression")
-
-            alias = explode_column._alias or "value"
-
-            # Create Explode logical plan
-            exploded_plan = operators.explode(self.plan, exploded_column, alias=alias)
-
-            # Create Project on top of Explode
-            # If we have "*", we want all columns from the exploded result
-            # Otherwise, we want the exploded column (with alias) plus any other specified columns
-            project_columns = []
-
-            if has_star:
-                # Select all columns from exploded result (including the exploded column)
-                star_col = Column(op="star", args=(), _alias=None)
-                project_columns.append(star_col)
-                # Also add any other explicitly specified columns
-                for col in normalized_columns:
-                    if col.op != "star":
-                        project_columns.append(col)
-            else:
-                # Add the exploded column with its alias first
-                exploded_result_col = Column(op="column", args=(alias,), _alias=None)
-                project_columns.append(exploded_result_col)
-                # Add any other columns
-                project_columns.extend(normalized_columns)
-
-            return self._with_plan(operators.project(exploded_plan, tuple(project_columns)))
-
-        # No explode columns, normal projection
-        if has_star and not normalized_columns:
-            return self  # Only "*", same as empty select
-
-        return self._with_plan(operators.project(self.plan, tuple(normalized_columns)))
+        result = build_select_operation(self, columns)
+        return self._with_plan(result.plan) if result.should_apply else self
 
     def selectExpr(self, *exprs: str) -> "AsyncDataFrame":
         """Select columns using SQL expressions (async version).
@@ -305,26 +234,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             ...     await db.close()
             ...     # asyncio.run(example())  # doctest: +SKIP
         """
-        # If predicate is a string, parse it into a Column expression
-        if isinstance(predicate, str):
-            from ..expressions.sql_parser import parse_sql_expr
+        from .dataframe_operations import build_where_operation
 
-            # Get available column names from the DataFrame for context
-            available_columns: Optional[Set[str]] = None
-            try:
-                # Try to extract column names from the current plan
-                if hasattr(self.plan, "projections"):
-                    available_columns = set()
-                    for proj in self.plan.projections:
-                        if isinstance(proj, Column) and proj.op == "column" and proj.args:
-                            available_columns.add(str(proj.args[0]))
-            except Exception:
-                # If we can't extract columns, that's okay - parser will still work
-                pass
-
-            predicate = parse_sql_expr(predicate, available_columns)
-
-        return self._with_plan(operators.filter(self.plan, predicate))
+        return self._with_plan(build_where_operation(self, predicate))
 
     filter = where
 
@@ -378,30 +290,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             ...     await db.close()
             ...     # asyncio.run(example())  # doctest: +SKIP
         """
-        if self.database is None or other.database is None:
-            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before joining")
-        if self.database is not other.database:
-            raise ValueError("Cannot join DataFrames from different AsyncDatabase instances")
+        from .dataframe_operations import join_dataframes
 
-        # Cross joins don't require an 'on' clause
-        if how.lower() == "cross":
-            normalized_on = None
-            condition = None
-        else:
-            normalized_condition = self._normalize_join_condition(on)
-            if isinstance(normalized_condition, Column):
-                # PySpark-style Column expression
-                normalized_on = None
-                condition = normalized_condition
-            else:
-                # Tuple-based join (backward compatible)
-                normalized_on = normalized_condition
-                condition = None
-        return self._with_plan(
-            operators.join(
-                self.plan, other.plan, how=how.lower(), on=normalized_on, condition=condition
-            )
-        )
+        return join_dataframes(self, other, on=on, how=how, lateral=False, hints=None)
 
     def crossJoin(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
         """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
@@ -440,16 +331,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         Raises:
             RuntimeError: If DataFrames are not bound to the same :class:`AsyncDatabase`
         """
-        if self.database is None or other.database is None:
-            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before semi_join")
-        if self.database is not other.database:
-            raise ValueError("Cannot semi_join DataFrames from different AsyncDatabase instances")
-        normalized_condition = self._normalize_join_condition(on)
-        if isinstance(normalized_condition, Column):
-            raise ValueError("semi_join does not support Column expressions, use tuple syntax")
-        normalized_on = normalized_condition
-        plan = operators.semi_join(self.plan, other.plan, on=normalized_on)
-        return AsyncDataFrame(plan=plan, database=self.database)
+        from .dataframe_operations import semi_join_dataframes
+
+        return semi_join_dataframes(self, other, on=on)
 
     def anti_join(
         self,
@@ -474,16 +358,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         Raises:
             RuntimeError: If DataFrames are not bound to the same :class:`AsyncDatabase`
         """
-        if self.database is None or other.database is None:
-            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before anti_join")
-        if self.database is not other.database:
-            raise ValueError("Cannot anti_join DataFrames from different AsyncDatabase instances")
-        normalized_condition = self._normalize_join_condition(on)
-        if isinstance(normalized_condition, Column):
-            raise ValueError("anti_join does not support Column expressions, use tuple syntax")
-        normalized_on = normalized_condition
-        plan = operators.anti_join(self.plan, other.plan, on=normalized_on)
-        return AsyncDataFrame(plan=plan, database=self.database)
+        from .dataframe_operations import anti_join_dataframes
+
+        return anti_join_dataframes(self, other, on=on)
 
     def group_by(self, *columns: Union[Column, str]) -> "AsyncGroupedDataFrame":
         """Group by the specified columns.
@@ -549,19 +426,18 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             ... )
             >>> # SQL: SELECT * FROM sales ORDER BY region, amount DESC
         """
-        sort_orders = tuple(
-            self._normalize_sort_expression(self._normalize_projection(col)) for col in columns
-        )
-        return self._with_plan(operators.order_by(self.plan, sort_orders))
+        from .dataframe_operations import build_order_by_operation
+
+        return self._with_plan(build_order_by_operation(self, columns))
 
     orderBy = order_by
     sort = order_by  # PySpark-style alias
 
     def limit(self, count: int) -> "AsyncDataFrame":
         """Limit the number of rows returned."""
-        if count < 0:
-            raise ValueError("limit() requires a non-negative integer")
-        return self._with_plan(operators.limit(self.plan, count))
+        from .dataframe_operations import build_limit_operation
+
+        return self._with_plan(build_limit_operation(self.plan, count))
 
     def sample(self, fraction: float, seed: Optional[int] = None) -> "AsyncDataFrame":
         """Sample a fraction of rows from the :class:`DataFrame`.
@@ -578,43 +454,33 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> # SQL (PostgreSQL): SELECT * FROM users TABLESAMPLE BERNOULLI(10)
             >>> # SQL (SQLite): SELECT * FROM users ORDER BY RANDOM() LIMIT (COUNT(*) * 0.1)
         """
-        return self._with_plan(operators.sample(self.plan, fraction, seed))
+        from .dataframe_operations import build_sample_operation
+
+        return self._with_plan(build_sample_operation(self.plan, fraction, seed))
 
     def union(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
         """Union this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only)."""
-        if self.database is None or other.database is None:
-            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before union")
-        if self.database is not other.database:
-            raise ValueError("Cannot union DataFrames from different AsyncDatabase instances")
-        plan = operators.union(self.plan, other.plan, distinct=True)
-        return AsyncDataFrame(plan=plan, database=self.database)
+        from .dataframe_operations import union_dataframes
+
+        return union_dataframes(self, other, distinct=True)
 
     def unionAll(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
         """Union this :class:`DataFrame` with another :class:`DataFrame` (all rows, including duplicates)."""
-        if self.database is None or other.database is None:
-            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before union")
-        if self.database is not other.database:
-            raise ValueError("Cannot union DataFrames from different AsyncDatabase instances")
-        plan = operators.union(self.plan, other.plan, distinct=False)
-        return AsyncDataFrame(plan=plan, database=self.database)
+        from .dataframe_operations import union_dataframes
+
+        return union_dataframes(self, other, distinct=False)
 
     def intersect(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
         """Intersect this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only)."""
-        if self.database is None or other.database is None:
-            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before intersect")
-        if self.database is not other.database:
-            raise ValueError("Cannot intersect DataFrames from different AsyncDatabase instances")
-        plan = operators.intersect(self.plan, other.plan, distinct=True)
-        return AsyncDataFrame(plan=plan, database=self.database)
+        from .dataframe_operations import intersect_dataframes
+
+        return intersect_dataframes(self, other, distinct=True)
 
     def except_(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
         """Return rows in this :class:`DataFrame` that are not in another :class:`DataFrame` (distinct rows only)."""
-        if self.database is None or other.database is None:
-            raise RuntimeError("Both DataFrames must be bound to an AsyncDatabase before except")
-        if self.database is not other.database:
-            raise ValueError("Cannot except DataFrames from different AsyncDatabase instances")
-        plan = operators.except_(self.plan, other.plan, distinct=True)
-        return AsyncDataFrame(plan=plan, database=self.database)
+        from .dataframe_operations import except_dataframes
+
+        return except_dataframes(self, other, distinct=True)
 
     def cte(self, name: str) -> "AsyncDataFrame":
         """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
@@ -625,8 +491,102 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         Returns:
             New AsyncDataFrame representing the CTE
         """
-        plan = operators.cte(self.plan, name)
-        return AsyncDataFrame(plan=plan, database=self.database)
+        from .dataframe_operations import cte_dataframe
+
+        return cte_dataframe(self, name)
+
+    def recursive_cte(
+        self, name: str, recursive: "AsyncDataFrame", union_all: bool = False
+    ) -> "AsyncDataFrame":
+        """Create a Recursive Common Table Expression (WITH RECURSIVE) from this :class:`DataFrame`.
+
+        Args:
+            name: Name for the recursive CTE
+            recursive: :class:`AsyncDataFrame` representing the recursive part (references the CTE)
+            union_all: If True, use UNION ALL; if False, use UNION (distinct)
+
+        Returns:
+            New AsyncDataFrame representing the recursive CTE
+
+        Example:
+            >>> # Fibonacci sequence example
+            >>> from moltres.expressions import functions as F
+            >>> initial = await db.table("seed").select(F.lit(1).alias("n"), F.lit(1).alias("fib"))
+            >>> recursive = initial.select(...)  # Recursive part
+            >>> fib_cte = initial.recursive_cte("fib", recursive)
+        """
+        from .dataframe_operations import recursive_cte_dataframe
+
+        return recursive_cte_dataframe(self, name, recursive, union_all)
+
+    def explode(self, column: Union[Column, str], alias: str = "value") -> "AsyncDataFrame":
+        """Explode an array/JSON column into multiple rows (one row per element).
+
+        Args:
+            column: :class:`Column` expression or column name to explode (must be array or JSON)
+            alias: Alias for the exploded value column (default: "value")
+
+        Returns:
+            New AsyncDataFrame with exploded rows
+
+        Example:
+            >>> from moltres import async_connect, col
+            >>> from moltres.table.schema import column
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> # Note: explode() requires array/JSON support which varies by database
+            >>> # This example shows the API usage pattern
+            >>> await db.create_table("users", [column("id", "INTEGER"), column("tags", "TEXT")]).collect()
+            >>> from moltres.io.records import AsyncRecords
+            >>> _ = await AsyncRecords(_data=[{"id": 1, "tags": '["python", "sql"]'}], _database=db).insert_into("users")
+            >>> # Explode a JSON array column (database-specific support required)
+            >>> table_handle = await db.table("users")
+            >>> df = table_handle.select()
+            >>> exploded = df.explode(col("tags"), alias="tag")
+            >>> # Each row in exploded will have one tag per row
+            >>> # Note: Actual execution depends on database JSON/array support
+            >>> await db.close()
+        """
+        from .dataframe_operations import explode_dataframe
+
+        return explode_dataframe(self, column, alias)
+
+    def pivot(
+        self,
+        pivot_column: str,
+        value_column: str,
+        agg_func: str = "sum",
+        pivot_values: Optional[Sequence[str]] = None,
+    ) -> "AsyncDataFrame":
+        """Pivot the :class:`DataFrame` to reshape data from long to wide format.
+
+        Args:
+            pivot_column: :class:`Column` to pivot on (values become column headers)
+            value_column: :class:`Column` containing values to aggregate
+            agg_func: Aggregation function to apply (default: "sum")
+            pivot_values: Optional list of specific values to pivot (if None, uses all distinct values)
+
+        Returns:
+            New AsyncDataFrame with pivoted data
+
+        Example:
+            >>> from moltres import async_connect
+            >>> from moltres.table.schema import column
+            >>> db = await async_connect("sqlite+aiosqlite:///:memory:")
+            >>> await db.create_table("sales", [column("date", "TEXT"), column("product", "TEXT"), column("amount", "REAL")]).collect()
+            >>> from moltres.io.records import AsyncRecords
+            >>> _ = await AsyncRecords(_data=[{"date": "2024-01-01", "product": "A", "amount": 100.0}, {"date": "2024-01-01", "product": "B", "amount": 200.0}, {"date": "2024-01-02", "product": "A", "amount": 150.0}], _database=db).insert_into("sales")
+            >>> # Pivot sales data by product
+            >>> table_handle = await db.table("sales")
+            >>> df = table_handle.select("date", "product", "amount")
+            >>> pivoted = df.pivot(pivot_column="product", value_column="amount", agg_func="sum")
+            >>> results = await pivoted.collect()
+            >>> len(results) > 0
+            True
+            >>> await db.close()
+        """
+        from .dataframe_operations import pivot_dataframe
+
+        return pivot_dataframe(self, pivot_column, value_column, agg_func, pivot_values)
 
     def distinct(self) -> "AsyncDataFrame":
         """Return a new :class:`DataFrame` with distinct rows."""
@@ -942,7 +902,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         if not isinstance(results, list):
             raise TypeError("count() requires collect() to return a list, not an iterator")
         if results:
-            return int(results[0].get("count", 0))  # type: ignore[call-overload, no-any-return]
+            count_value = results[0].get("count", 0)
+            return int(count_value) if isinstance(count_value, (int, float, str)) else 0
         return 0
 
     async def describe(self, *cols: str) -> "AsyncDataFrame":
@@ -1145,7 +1106,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
                 plan = await self._materialize_filescan(self.plan)
 
                 async def stream_gen() -> AsyncIterator[Union[List[Dict[str, object]], List[Any]]]:
-                    async for chunk in self.database.execute_plan_stream(plan):  # type: ignore[union-attr]
+                    if self.database is None:
+                        raise RuntimeError("Cannot stream without an attached AsyncDatabase")
+                    async for chunk in self.database.execute_plan_stream(plan):
                         yield _convert_rows(chunk)
 
                 return stream_gen()
@@ -1166,7 +1129,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
                 raise RuntimeError("Cannot collect a plan without an attached AsyncDatabase")
 
             async def stream_gen() -> AsyncIterator[Union[List[Dict[str, object]], List[Any]]]:
-                async for chunk in self.database.execute_plan_stream(plan):  # type: ignore[union-attr]
+                if self.database is None:
+                    raise RuntimeError("Cannot stream without an attached AsyncDatabase")
+                async for chunk in self.database.execute_plan_stream(plan):
                     yield _convert_rows(chunk)
 
             return stream_gen()
@@ -1332,7 +1297,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         )
 
         # AsyncRecords.rows() returns a coroutine, so we need to await it
-        return await records.rows()  # type: ignore[no-any-return]
+        from typing import cast
+        return cast("list[dict[str, object]]", await records.rows())
 
     async def _read_file_streaming(self, filescan: FileScan) -> "AsyncRecords":
         """Read a file in streaming mode (chunked, safe for large files).
@@ -1352,7 +1318,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         from .file_io_helpers import route_file_read_streaming
 
-        return await route_file_read_streaming(  # type: ignore[no-any-return]
+        result = await route_file_read_streaming(
             format_name=filescan.format,
             path=filescan.path,
             database=self.database,
@@ -1361,6 +1327,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             column_name=filescan.column_name,
             async_mode=True,
         )
+        return cast("AsyncRecords", result)
 
     @property
     def na(self) -> "AsyncNullHandling":
@@ -1500,7 +1467,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         try:
             from .pyspark_column import PySparkColumn
         except ImportError:
-            PySparkColumn = None  # type: ignore
+            PySparkColumn = None  # type: ignore[assignment]
 
         # Single column string: df['col'] - return Column-like object with accessors
         if isinstance(key, str):

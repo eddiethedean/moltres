@@ -6,7 +6,7 @@ the sync and async :class:`DataFrame` implementations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Protocol, Sequence, Tuple, Union
 
 from ..expressions.column import Column, col
 from ..logical import operators
@@ -23,6 +23,27 @@ class DataFrameHelpersProtocol(Protocol):
 
     database: Optional[Union["Database", "AsyncDatabase"]]
     plan: LogicalPlan
+
+    def _normalize_projection(self, expr: Union[Column, str]) -> Column:
+        """Normalize a projection expression to a Column."""
+        ...
+
+    def _normalize_sort_expression(self, expr: Column) -> SortOrder:
+        """Normalize a sort expression to a SortOrder."""
+        ...
+
+    def _normalize_join_condition(
+        self,
+        on: Optional[
+            Union[str, Sequence[str], Sequence[Tuple[str, str]], Column, Sequence[Column]]
+        ],
+    ) -> Union[Sequence[Tuple[str, str]], Column]:
+        """Normalize join condition."""
+        ...
+
+    def _with_plan(self, plan: LogicalPlan) -> Any:
+        """Create a new DataFrame with the given plan."""
+        ...
 
 
 class DataFrameHelpersMixin:

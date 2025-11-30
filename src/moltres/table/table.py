@@ -26,6 +26,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    cast,
     overload,
     Sequence,
     Type,
@@ -301,7 +302,7 @@ class Database:
         from ..config import create_config
 
         # Type ignore needed because mypy doesn't understand **options unpacking
-        config = create_config(engine=engine, **options)  # type: ignore[arg-type]
+        config = create_config(engine=engine, **options)
         return cls(config=config)
 
     @classmethod
@@ -466,7 +467,7 @@ class Database:
         """
         ...
 
-    def table(  # type: ignore[misc]
+    def table(
         self, name_or_model: Union[str, Type["DeclarativeBase"], Type[Any]]
     ) -> TableHandle:
         """Get a handle to a table in the database.
@@ -509,21 +510,21 @@ class Database:
 
         # Check if argument is a SQLModel model
         if is_sqlmodel_model(name_or_model):
-            sqlmodel_class: Type[Any] = name_or_model  # type: ignore[assignment]
+            sqlmodel_class: Type[Any] = cast(Type[Any], name_or_model)
             table_name = get_sqlmodel_table_name(sqlmodel_class)
             # Validate table name format
             quote_identifier(table_name, self._dialect.quote_char)
             return TableHandle(name=table_name, database=self, model=sqlmodel_class)
         # Check if argument is a SQLAlchemy model
         elif is_sqlalchemy_model(name_or_model):
-            sa_model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
+            sa_model_class: Type["DeclarativeBase"] = cast(Type["DeclarativeBase"], name_or_model)
             table_name = get_model_table_name(sa_model_class)
             # Validate table name format
             quote_identifier(table_name, self._dialect.quote_char)
             return TableHandle(name=table_name, database=self, model=sa_model_class)
         else:
             # Type narrowing: after model checks, this must be str
-            table_name = name_or_model  # type: ignore[assignment]
+            table_name = cast(str, name_or_model)
             if not table_name:
                 raise ValidationError("Table name cannot be empty")
             # Validate table name format
@@ -806,13 +807,11 @@ class Database:
             >>> df = db.scan_csv("data.csv", header=True)
             >>> results = df.collect()
         """
+        from .table_operations_helpers import build_scan_loader_chain
 
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
-        return loader.csv(path).polars()
+        loader = build_scan_loader_chain(self.read, schema, **options)
+        from ..dataframe.polars_dataframe import PolarsDataFrame
+        return cast("PolarsDataFrame", loader.csv(path).polars())
 
     def scan_json(
         self,
@@ -836,13 +835,11 @@ class Database:
             >>> df = db.scan_json("data.json")
             >>> results = df.collect()
         """
+        from .table_operations_helpers import build_scan_loader_chain
 
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
-        return loader.json(path).polars()
+        loader = build_scan_loader_chain(self.read, schema, **options)
+        from ..dataframe.polars_dataframe import PolarsDataFrame
+        return cast("PolarsDataFrame", loader.json(path).polars())
 
     def scan_jsonl(
         self,
@@ -866,13 +863,11 @@ class Database:
             >>> df = db.scan_jsonl("data.jsonl")
             >>> results = df.collect()
         """
+        from .table_operations_helpers import build_scan_loader_chain
 
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
-        return loader.jsonl(path).polars()
+        loader = build_scan_loader_chain(self.read, schema, **options)
+        from ..dataframe.polars_dataframe import PolarsDataFrame
+        return cast("PolarsDataFrame", loader.jsonl(path).polars())
 
     def scan_parquet(
         self,
@@ -899,13 +894,11 @@ class Database:
             >>> df = db.scan_parquet("data.parquet")
             >>> results = df.collect()
         """
+        from .table_operations_helpers import build_scan_loader_chain
 
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
-        return loader.parquet(path).polars()
+        loader = build_scan_loader_chain(self.read, schema, **options)
+        from ..dataframe.polars_dataframe import PolarsDataFrame
+        return cast("PolarsDataFrame", loader.parquet(path).polars())
 
     def scan_text(
         self,
@@ -931,13 +924,11 @@ class Database:
             >>> df = db.scan_text("data.txt", column_name="line")
             >>> results = df.collect()
         """
+        from .table_operations_helpers import build_scan_loader_chain
 
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
-        return loader.text(path, column_name=column_name).polars()
+        loader = build_scan_loader_chain(self.read, schema, **options)
+        from ..dataframe.polars_dataframe import PolarsDataFrame
+        return cast("PolarsDataFrame", loader.text(path, column_name=column_name).polars())
 
     # -------------------------------------------------------------- DDL operations
     @overload
@@ -966,7 +957,7 @@ class Database:
         """Create a lazy create table operation from SQLAlchemy model class."""
         ...
 
-    def create_table(  # type: ignore[misc]
+    def create_table(
         self,
         name_or_model: Union[str, Type["DeclarativeBase"]],
         columns: Optional[Sequence[ColumnDef]] = None,
@@ -1011,50 +1002,29 @@ class Database:
             True
             >>> db.close()
         """
-        from ..utils.exceptions import ValidationError
         from .actions import CreateTableOperation
-        from .sqlalchemy_integration import (
-            is_sqlalchemy_model,
-            model_to_schema,
+        from .batch import get_active_batch
+        from .table_operations_helpers import build_create_table_params
+
+        params = build_create_table_params(
+            name_or_model,
+            columns,
+            if_not_exists=if_not_exists,
+            temporary=temporary,
+            constraints=constraints,
         )
 
-        # Check if first argument is a SQLAlchemy model
-        if is_sqlalchemy_model(name_or_model):
-            # Model-based creation
-            model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
-            schema = model_to_schema(model_class)
-
-            op = CreateTableOperation(
-                database=self,
-                name=schema.name,
-                columns=schema.columns,
-                if_not_exists=if_not_exists,
-                temporary=temporary,
-                constraints=schema.constraints,
-                model=model_class,
-            )
-        else:
-            # Traditional string + columns creation
-            table_name: str = name_or_model  # type: ignore[assignment]
-            if columns is None:
-                raise ValidationError("columns parameter is required when creating table from name")
-
-            # Validate early (at operation creation time)
-            if not columns:
-                raise ValidationError(f"Cannot create table '{table_name}' with no columns")
-
-            op = CreateTableOperation(
-                database=self,
-                name=table_name,
-                columns=columns,
-                if_not_exists=if_not_exists,
-                temporary=temporary,
-                constraints=constraints or (),
-            )
+        op = CreateTableOperation(
+            database=self,
+            name=params.name,
+            columns=params.columns,
+            if_not_exists=params.if_not_exists,
+            temporary=params.temporary,
+            constraints=params.constraints,
+            model=params.model,
+        )
 
         # Add to active batch if one exists
-        from .batch import get_active_batch
-
         batch = get_active_batch()
         if batch is not None:
             batch.add(op)

@@ -49,56 +49,47 @@ class DataFrameWriter:
 
     def mode(self, mode: str) -> "DataFrameWriter":
         """Set the write mode (append, overwrite, ignore, error_if_exists)."""
-        normalized = mode.strip().lower().replace(" ", "").replace("-", "").replace("_", "")
-        if normalized == "errorifexists":
-            normalized = "error_if_exists"
-        elif normalized == "ignore":
-            normalized = "ignore"
-        elif normalized not in {"append", "overwrite"}:
-            if normalized != "error_if_exists":
-                raise ValueError(
-                    f"Invalid mode '{mode}'. Must be one of: append, overwrite, ignore, error_if_exists"
-                )
-        self._mode = normalized
-        return self
+        from .writer_helpers import build_mode_setter
+
+        return build_mode_setter(self, mode)
 
     def option(self, key: str, value: object) -> "DataFrameWriter":
         """Set a write option (e.g., header=True for CSV, compression='gzip' for Parquet)."""
-        self._options[key] = value
-        return self
+        from .writer_helpers import build_option_setter
+
+        return build_option_setter(self, key, value)
 
     def options(self, *args: Mapping[str, object], **kwargs: object) -> "DataFrameWriter":
         """Set multiple write options at once."""
-        if len(args) > 1:
-            raise TypeError("options() accepts at most one positional mapping argument")
-        if args:
-            for key, value in args[0].items():
-                self._options[str(key)] = value
-        for key, value in kwargs.items():
-            self._options[key] = value
-        return self
+        from .writer_helpers import build_options_setter
+
+        return build_options_setter(self, *args, **kwargs)
 
     def format(self, format_name: str) -> "DataFrameWriter":
         """Specify the output format for save()."""
-        self._format = format_name.strip().lower()
-        return self
+        from .writer_helpers import build_format_setter
+
+        return build_format_setter(self, format_name)
 
     def stream(self, enabled: bool = True) -> "DataFrameWriter":
         """Enable or disable streaming mode (chunked writing for large DataFrames)."""
-        self._stream_override = bool(enabled)
-        return self
+        from .writer_helpers import build_stream_setter
+
+        return build_stream_setter(self, enabled)
 
     def partitionBy(self, *columns: str) -> "DataFrameWriter":
         """Partition data by the given columns when writing to files."""
-        self._partition_by = columns if columns else None
-        return self
+        from .writer_helpers import build_partition_by_setter
+
+        return build_partition_by_setter(self, *columns)
 
     partition_by = partitionBy
 
     def schema(self, schema: Sequence[ColumnDef]) -> "DataFrameWriter":
         """Set an explicit schema for the target table."""
-        self._schema = schema
-        return self
+        from .writer_helpers import build_schema_setter
+
+        return build_schema_setter(self, schema)
 
     def primaryKey(self, *columns: str) -> "DataFrameWriter":
         """Specify primary key columns for the target table.
@@ -109,28 +100,25 @@ class DataFrameWriter:
         Returns:
             Self for method chaining
         """
-        self._primary_key = columns if columns else None
-        return self
+        from .writer_helpers import build_primary_key_setter
+
+        return build_primary_key_setter(self, *columns)
 
     primary_key = primaryKey
 
     def bucketBy(self, num_buckets: int, *columns: str) -> "DataFrameWriter":
         """PySpark-compatible bucketing hook (metadata only for now)."""
-        if num_buckets <= 0:
-            raise ValueError("num_buckets must be a positive integer")
-        if not columns:
-            raise ValueError("bucketBy() requires at least one column name")
-        self._bucket_by = (num_buckets, tuple(columns))
-        return self
+        from .writer_helpers import build_bucket_by_setter
+
+        return build_bucket_by_setter(self, num_buckets, *columns)
 
     bucket_by = bucketBy
 
     def sortBy(self, *columns: str) -> "DataFrameWriter":
         """PySpark-compatible sortBy hook (metadata only for now)."""
-        if not columns:
-            raise ValueError("sortBy() requires at least one column name")
-        self._sort_by = tuple(columns)
-        return self
+        from .writer_helpers import build_sort_by_setter
+
+        return build_sort_by_setter(self, *columns)
 
     sort_by = sortBy
 

@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Dict, Optional, Sequence, cast
 
 from ..io.records import LazyRecords, Records
-from ..logical.operators import file_scan
 from ..table.schema import ColumnDef
 from .dataframe import DataFrame
 from .readers import (
@@ -35,18 +34,21 @@ class DataLoader:
 
     def stream(self, enabled: bool = True) -> "DataLoader":
         """Enable or disable streaming mode (chunked reading for large files)."""
-        self._options["stream"] = enabled
-        return self
+        from .reader_helpers import build_stream_setter
+
+        return cast("DataLoader", build_stream_setter(self, enabled))
 
     def schema(self, schema: Sequence[ColumnDef]) -> "DataLoader":
         """Set an explicit schema for the data source."""
-        self._schema = schema
-        return self
+        from .reader_helpers import build_schema_setter
+
+        return cast("DataLoader", build_schema_setter(self, schema))
 
     def option(self, key: str, value: object) -> "DataLoader":
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
-        self._options[key] = value
-        return self
+        from .reader_helpers import build_option_setter
+
+        return cast("DataLoader", build_option_setter(self, key, value))
 
     def options(self, **options: object) -> "DataLoader":
         """Set multiple read options at once (PySpark-compatible).
@@ -60,8 +62,9 @@ class DataLoader:
         Example:
             >>> df = db.read.options(header=True, delimiter=",").csv("data.csv")
         """
-        self._options.update(options)
-        return self
+        from .reader_helpers import build_options_setter
+
+        return cast("DataLoader", build_options_setter(self, **options))
 
     def table(self, name: str) -> DataFrame:
         """Read from a database table as a :class:`DataFrame`.
@@ -114,13 +117,9 @@ class DataLoader:
             >>> os.unlink(csv_path)
             >>> db.close()
         """
-        plan = file_scan(
-            path=path,
-            format="csv",
-            schema=self._schema,
-            options=self._options,
-        )
-        return DataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_dataframe
+
+        return build_file_scan_dataframe(self, path, "csv")
 
     def json(self, path: str) -> DataFrame:
         """Read a JSON file (array of objects) as a :class:`DataFrame`.
@@ -150,13 +149,9 @@ class DataLoader:
             >>> os.unlink(json_path)
             >>> db.close()
         """
-        plan = file_scan(
-            path=path,
-            format="json",
-            schema=self._schema,
-            options=self._options,
-        )
-        return DataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_dataframe
+
+        return build_file_scan_dataframe(self, path, "json")
 
     def jsonl(self, path: str) -> DataFrame:
         """Read a JSONL file (one JSON object per line) as a :class:`DataFrame`.
@@ -189,13 +184,9 @@ class DataLoader:
             >>> os.unlink(jsonl_path)
             >>> db.close()
         """
-        plan = file_scan(
-            path=path,
-            format="jsonl",
-            schema=self._schema,
-            options=self._options,
-        )
-        return DataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_dataframe
+
+        return build_file_scan_dataframe(self, path, "jsonl")
 
     def parquet(self, path: str) -> DataFrame:
         """Read a Parquet file as a :class:`DataFrame`.
@@ -231,13 +222,9 @@ class DataLoader:
             ... except ImportError:
             ...     pass  # Skip if pandas/pyarrow not available
         """
-        plan = file_scan(
-            path=path,
-            format="parquet",
-            schema=self._schema,
-            options=self._options,
-        )
-        return DataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_dataframe
+
+        return build_file_scan_dataframe(self, path, "parquet")
 
     def text(self, path: str, column_name: str = "value") -> DataFrame:
         """Read a text file as a single column (one line per row) as a :class:`DataFrame`.
@@ -268,14 +255,9 @@ class DataLoader:
             >>> os.unlink(text_path)
             >>> db.close()
         """
-        plan = file_scan(
-            path=path,
-            format="text",
-            schema=self._schema,
-            options=self._options,
-            column_name=column_name,
-        )
-        return DataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_dataframe
+
+        return build_file_scan_dataframe(self, path, "text", column_name=column_name)
 
     def textFile(self, path: str, column_name: str = "value") -> DataFrame:
         """Read a text file as a single column (PySpark-compatible alias for text()).
@@ -354,18 +336,21 @@ class RecordsLoader:
 
     def stream(self, enabled: bool = True) -> "RecordsLoader":
         """Enable or disable streaming mode (chunked reading for large files)."""
-        self._options["stream"] = enabled
-        return self
+        from .reader_helpers import build_stream_setter
+
+        return cast("RecordsLoader", build_stream_setter(self, enabled))
 
     def schema(self, schema: Sequence[ColumnDef]) -> "RecordsLoader":
         """Set an explicit schema for the data source."""
-        self._schema = schema
-        return self
+        from .reader_helpers import build_schema_setter
+
+        return cast("RecordsLoader", build_schema_setter(self, schema))
 
     def option(self, key: str, value: object) -> "RecordsLoader":
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
-        self._options[key] = value
-        return self
+        from .reader_helpers import build_option_setter
+
+        return cast("RecordsLoader", build_option_setter(self, key, value))
 
     def options(self, **options: object) -> "RecordsLoader":
         """Set multiple read options at once (PySpark-compatible).
@@ -376,8 +361,9 @@ class RecordsLoader:
         Returns:
             Self for method chaining
         """
-        self._options.update(options)
-        return self
+        from .reader_helpers import build_options_setter
+
+        return cast("RecordsLoader", build_options_setter(self, **options))
 
     def csv(self, path: str) -> LazyRecords:
         """Read a CSV file as LazyRecords.

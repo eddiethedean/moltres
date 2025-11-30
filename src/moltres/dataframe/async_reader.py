@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+from typing import cast, TYPE_CHECKING, Any, Dict, Optional, Sequence
 
 from ..io.records import AsyncLazyRecords, AsyncRecords
-from ..logical.operators import file_scan
 from ..table.schema import ColumnDef
 from .async_dataframe import AsyncDataFrame
 from .readers.async_csv_reader import read_csv, read_csv_stream
@@ -43,18 +42,21 @@ class AsyncDataLoader:
 
     def stream(self, enabled: bool = True) -> "AsyncDataLoader":
         """Enable or disable streaming mode (chunked reading for large files)."""
-        self._options["stream"] = enabled
-        return self
+        from .reader_helpers import build_stream_setter
+
+        return cast("AsyncDataLoader", build_stream_setter(self, enabled))
 
     def schema(self, schema: Sequence[ColumnDef]) -> "AsyncDataLoader":
         """Set an explicit schema for the data source."""
-        self._schema = schema
-        return self
+        from .reader_helpers import build_schema_setter
+
+        return cast("AsyncDataLoader", build_schema_setter(self, schema))
 
     def option(self, key: str, value: object) -> "AsyncDataLoader":
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
-        self._options[key] = value
-        return self
+        from .reader_helpers import build_option_setter
+
+        return cast("AsyncDataLoader", build_option_setter(self, key, value))
 
     def options(self, **options: object) -> "AsyncDataLoader":
         """Set multiple read options at once (PySpark-compatible).
@@ -68,8 +70,9 @@ class AsyncDataLoader:
         Example:
             >>> df = await db.read.options(header=True, delimiter=",").csv("data.csv")
         """
-        self._options.update(options)
-        return self
+        from .reader_helpers import build_options_setter
+
+        return cast("AsyncDataLoader", build_options_setter(self, **options))
 
     async def table(self, name: str) -> AsyncDataFrame:
         """Read from a database table as an AsyncDataFrame.
@@ -89,13 +92,9 @@ class AsyncDataLoader:
         Returns:
             AsyncDataFrame containing the CSV data (lazy, materialized on .collect())
         """
-        plan = file_scan(
-            path=path,
-            format="csv",
-            schema=self._schema,
-            options=self._options,
-        )
-        return AsyncDataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_async_dataframe
+
+        return build_file_scan_async_dataframe(self, path, "csv")
 
     async def json(self, path: str) -> AsyncDataFrame:
         """Read a JSON file (array of objects) as an AsyncDataFrame.
@@ -106,13 +105,9 @@ class AsyncDataLoader:
         Returns:
             AsyncDataFrame containing the JSON data (lazy, materialized on .collect())
         """
-        plan = file_scan(
-            path=path,
-            format="json",
-            schema=self._schema,
-            options=self._options,
-        )
-        return AsyncDataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_async_dataframe
+
+        return build_file_scan_async_dataframe(self, path, "json")
 
     async def jsonl(self, path: str) -> AsyncDataFrame:
         """Read a JSONL file (one JSON object per line) as an AsyncDataFrame.
@@ -123,13 +118,9 @@ class AsyncDataLoader:
         Returns:
             AsyncDataFrame containing the JSONL data (lazy, materialized on .collect())
         """
-        plan = file_scan(
-            path=path,
-            format="jsonl",
-            schema=self._schema,
-            options=self._options,
-        )
-        return AsyncDataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_async_dataframe
+
+        return build_file_scan_async_dataframe(self, path, "jsonl")
 
     async def parquet(self, path: str) -> AsyncDataFrame:
         """Read a Parquet file as an AsyncDataFrame.
@@ -143,13 +134,9 @@ class AsyncDataLoader:
         Raises:
             RuntimeError: If pandas or pyarrow are not installed
         """
-        plan = file_scan(
-            path=path,
-            format="parquet",
-            schema=self._schema,
-            options=self._options,
-        )
-        return AsyncDataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_async_dataframe
+
+        return build_file_scan_async_dataframe(self, path, "parquet")
 
     async def text(self, path: str, column_name: str = "value") -> AsyncDataFrame:
         """Read a text file as a single column (one line per row) as an AsyncDataFrame.
@@ -161,14 +148,9 @@ class AsyncDataLoader:
         Returns:
             AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
         """
-        plan = file_scan(
-            path=path,
-            format="text",
-            schema=self._schema,
-            options=self._options,
-            column_name=column_name,
-        )
-        return AsyncDataFrame(plan=plan, database=self._database)
+        from .reader_helpers import build_file_scan_async_dataframe
+
+        return build_file_scan_async_dataframe(self, path, "text", column_name=column_name)
 
     async def textFile(self, path: str, column_name: str = "value") -> AsyncDataFrame:
         """Read a text file as a single column (PySpark-compatible alias for text()).
@@ -252,18 +234,21 @@ class AsyncRecordsLoader:
 
     def stream(self, enabled: bool = True) -> "AsyncRecordsLoader":
         """Enable or disable streaming mode (chunked reading for large files)."""
-        self._options["stream"] = enabled
-        return self
+        from .reader_helpers import build_stream_setter
+
+        return cast("AsyncRecordsLoader", build_stream_setter(self, enabled))
 
     def schema(self, schema: Sequence[ColumnDef]) -> "AsyncRecordsLoader":
         """Set an explicit schema for the data source."""
-        self._schema = schema
-        return self
+        from .reader_helpers import build_schema_setter
+
+        return cast("AsyncRecordsLoader", build_schema_setter(self, schema))
 
     def option(self, key: str, value: object) -> "AsyncRecordsLoader":
         """Set a read option (e.g., header=True for CSV, multiline=True for JSON)."""
-        self._options[key] = value
-        return self
+        from .reader_helpers import build_option_setter
+
+        return cast("AsyncRecordsLoader", build_option_setter(self, key, value))
 
     def options(self, **options: object) -> "AsyncRecordsLoader":
         """Set multiple read options at once (PySpark-compatible).
@@ -274,8 +259,9 @@ class AsyncRecordsLoader:
         Returns:
             Self for method chaining
         """
-        self._options.update(options)
-        return self
+        from .reader_helpers import build_options_setter
+
+        return cast("AsyncRecordsLoader", build_options_setter(self, **options))
 
     def csv(self, path: str) -> AsyncLazyRecords:
         """Read a CSV file as AsyncLazyRecords.
@@ -365,8 +351,8 @@ class AsyncRecordsLoader:
         async def read_func() -> AsyncRecords:
             stream = self._options.get("stream", False)
             if stream:
-                return await read_parquet_stream(path, self._database, self._schema, self._options)  # type: ignore[no-any-return]
-            return await read_parquet(path, self._database, self._schema, self._options)  # type: ignore[no-any-return]
+                return cast("AsyncRecords", await read_parquet_stream(path, self._database, self._schema, self._options))
+            return cast("AsyncRecords", await read_parquet(path, self._database, self._schema, self._options))
 
         return AsyncLazyRecords(
             _read_func=read_func,

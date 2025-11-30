@@ -14,6 +14,7 @@ from typing import (
     Sequence,
     Tuple,
     Union,
+    cast,
     overload,
 )
 
@@ -256,15 +257,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.select('id', 'name')
             >>> df.select(col('id'), (col('amount') * 1.1).alias('with_tax'))
         """
-        # Validate column names if they're strings
-        str_columns = [e for e in exprs if isinstance(e, str)]
-        if str_columns:
-            self._validate_columns_exist(str_columns, "select")
+        from .polars_dataframe_helpers import build_polars_select_operation
 
-        # Use underlying AsyncDataFrame's select
-        selected_cols = [col(e) if isinstance(e, str) else e for e in exprs]
-        result_df = self._df.select(*selected_cols)
-        return self._with_dataframe(result_df)
+        result_df = build_polars_select_operation(self, *exprs)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def filter(self, predicate: Column) -> "AsyncPolarsDataFrame":
         """Filter rows (Polars-style, uses 'filter' instead of 'where').
@@ -279,8 +275,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.filter(col('age') > 25)
             >>> df.filter((col('age') > 25) & (col('active') == True))
         """
-        result_df = self._df.where(predicate)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_filter_operation
+
+        result_df = build_polars_filter_operation(self, predicate)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def with_columns(self, *exprs: Union[Column, Tuple[str, Column]]) -> "AsyncPolarsDataFrame":
         """Add or modify columns (Polars primary method for adding columns).
@@ -295,29 +293,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.with_columns((col('amount') * 1.1).alias('with_tax'))
             >>> df.with_columns(('with_tax', col('amount') * 1.1))
         """
-        result_df = self._df
-        for expr in exprs:
-            if isinstance(expr, tuple) and len(expr) == 2:
-                # (name, expression) tuple
-                col_name, col_expr = expr
-                if isinstance(col_expr, str):
-                    col_expr = col(col_expr)
-                result_df = result_df.withColumn(col_name, col_expr)
-            elif isinstance(expr, Column):
-                # Column expression with alias
-                if expr.alias_name:
-                    result_df = result_df.withColumn(expr.alias_name, expr)
-                else:
-                    raise ValueError(
-                        "Column expression in with_columns() must have an alias, "
-                        "or use tuple (name, expression) format"
-                    )
-            else:
-                raise TypeError(
-                    f"with_columns() expects Column expressions or (name, Column) tuples, "
-                    f"got {type(expr)}"
-                )
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_with_columns_operation
+
+        result_df = build_polars_with_columns_operation(self, *exprs)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def with_column(self, expr: Union[Column, Tuple[str, Column]]) -> "AsyncPolarsDataFrame":
         """Add or modify a single column (alias for with_columns with one expression).
@@ -345,31 +324,15 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.drop('col1', 'col2')
         """
+        from .polars_dataframe_helpers import build_polars_drop_operation
+
         if not columns:
             return self
 
-        # Validate columns exist
-        str_columns = [c for c in columns if isinstance(c, str)]
-        if str_columns:
-            self._validate_columns_exist(str_columns, "drop")
-
-        # If the underlying AsyncDataFrame is a TableScan, we need to select columns first
-        # to create a Project operation, then drop will work
-        from ..logical.plan import TableScan
-
-        if isinstance(self._df.plan, TableScan):
-            # Get all columns and select them to create a Project
-            all_columns = self.columns
-            # Select all columns except the ones to drop
-            cols_to_keep = [col for col in all_columns if col not in str_columns]
-            if cols_to_keep:
-                result_df = self._df.select(*cols_to_keep)
-            else:
-                # All columns were dropped - return empty select
-                result_df = self._df.select()
-        else:
-            result_df = self._df.drop(*columns)
-        return self._with_dataframe(result_df)
+        result_df = build_polars_drop_operation(self, *columns)
+        if result_df is None:
+            return self
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def rename(self, mapping: Dict[str, str]) -> "AsyncPolarsDataFrame":
         """Rename columns (Polars-style).
@@ -383,10 +346,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.rename({'old_name': 'new_name'})
         """
-        result_df = self._df
-        for old_name, new_name in mapping.items():
-            result_df = result_df.withColumnRenamed(old_name, new_name)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_rename_operation
+
+        result_df = build_polars_rename_operation(self, mapping)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def sort(
         self,
@@ -406,35 +369,15 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.sort('age')
             >>> df.sort('age', 'name', descending=[True, False])
         """
+        from .polars_dataframe_helpers import build_polars_sort_operation
+
         if not columns:
             return self
 
-        # Validate column names if they're strings
-        str_columns = [c for c in columns if isinstance(c, str)]
-        if str_columns:
-            self._validate_columns_exist(str_columns, "sort")
-
-        # Normalize descending parameter
-        if isinstance(descending, bool):
-            descending_list = [descending] * len(columns)
-        else:
-            descending_list = list(descending)
-            if len(descending_list) != len(columns):
-                raise ValueError("descending must have same length as columns")
-
-        # Build order_by list
-        from ..expressions.column import col
-
-        order_by_cols = []
-        for col_expr, desc in zip(columns, descending_list):
-            if isinstance(col_expr, str):
-                col_expr = col(col_expr)
-            if desc:
-                col_expr = col_expr.desc()
-            order_by_cols.append(col_expr)
-
-        result_df = self._df.order_by(*order_by_cols)
-        return self._with_dataframe(result_df)
+        result_df = build_polars_sort_operation(self, *columns, descending=descending)
+        if result_df is None:
+            return self
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def limit(self, n: int) -> "AsyncPolarsDataFrame":
         """Limit number of rows.
@@ -448,8 +391,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.limit(10)
         """
-        result_df = self._df.limit(n)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_limit_operation
+
+        result_df = build_polars_limit_operation(self, n)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def head(self, n: int = 5) -> "AsyncPolarsDataFrame":
         """Return the first n rows.
@@ -483,24 +428,12 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.tail(10)  # Last 10 rows
         """
-        # To get last n rows with lazy evaluation, we:
-        # 1. Sort by all columns in descending order
-        # 2. Limit to n rows
-        # Note: This doesn't preserve original order, but provides last n rows
+        from .polars_dataframe_helpers import build_polars_tail_operation
 
-        cols = self.columns
-        if not cols:
+        result_df = build_polars_tail_operation(self, n)
+        if result_df is None:
             return self
-
-        # Sort by all columns in descending order, then limit
-        from ..expressions.column import col
-
-        sorted_df = self._df
-        for col_name in cols:
-            sorted_df = sorted_df.order_by(col(col_name).desc())
-
-        limited_df = sorted_df.limit(n)
-        return self._with_dataframe(limited_df)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def sample(
         self,
@@ -522,16 +455,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.sample(fraction=0.1, seed=42)
             >>> df.sample(n=100, seed=42)
         """
-        if n is not None:
-            # When n is provided, sample all rows (fraction=1.0) then limit to n
-            # This provides random sampling of n rows
-            sampled_df = self._df.sample(fraction=1.0, seed=seed)
-            result_df = sampled_df.limit(n)
-        elif fraction is not None:
-            result_df = self._df.sample(fraction=fraction, seed=seed)
-        else:
-            raise ValueError("Either 'fraction' or 'n' must be provided to sample()")
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_sample_operation
+
+        result_df = build_polars_sample_operation(self, fraction=fraction, n=n, seed=seed)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def group_by(self, *columns: Union[str, Column]) -> "AsyncPolarsGroupBy":
         """Group rows by one or more columns (Polars-style).
@@ -585,45 +512,12 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df1.join(df2, on='id')
             >>> df1.join(df2, left_on='customer_id', right_on='id', how='left')
         """
-        from .polars_operations import normalize_join_how, prepare_polars_join_keys
+        from .polars_dataframe_helpers import build_polars_join_operation
 
-        # Normalize how parameter
-        join_how = normalize_join_how(how)
-
-        # Determine join keys
-        join_on = prepare_polars_join_keys(
-            on=on,
-            left_on=left_on,
-            right_on=right_on,
-            left_columns=self.columns,
-            right_columns=other.columns,
-            left_validate_fn=self._validate_columns_exist,
-            right_validate_fn=other._validate_columns_exist,
+        result_df = build_polars_join_operation(
+            self, other, on=on, how=how, left_on=left_on, right_on=right_on
         )
-
-        # Handle anti and semi joins (Polars-specific)
-        # These methods require tuple syntax, not Column expressions
-        if join_how == "anti":
-            # Anti-join: rows in left that don't have matches in right
-            # Use the AsyncDataFrame's anti_join method
-            # Convert join_on to the format expected by anti_join (list of tuples)
-            on_param: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = (
-                join_on if isinstance(join_on, list) else None
-            )
-            result_df = self._df.anti_join(other._df, on=on_param)
-            return self._with_dataframe(result_df)
-        elif join_how == "semi":
-            # Semi-join: rows in left that have matches in right (no right columns)
-            # Use the AsyncDataFrame's semi_join method
-            on_param_semi: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = (
-                join_on if isinstance(join_on, list) else None
-            )
-            result_df = self._df.semi_join(other._df, on=on_param_semi)
-            return self._with_dataframe(result_df)
-
-        # Perform standard join
-        result_df = self._df.join(other._df, on=join_on, how=join_how)
-        return self._with_dataframe(result_df)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def semi_join(
         self,
@@ -691,42 +585,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.unique()
             >>> df.unique(subset=['col1', 'col2'])
         """
-        if subset is None:
-            # Remove duplicates on all columns
-            result_df = self._df.distinct()
-        else:
-            # Validate subset columns exist
-            if isinstance(subset, str):
-                subset_cols = [subset]
-            else:
-                subset_cols = list(subset)
+        from .polars_dataframe_helpers import build_polars_unique_operation
 
-            self._validate_columns_exist(subset_cols, "unique")
-
-            # For subset-based deduplication, use GROUP BY
-            grouped = self._df.group_by(*subset_cols)
-
-            # Get all column names
-            all_cols = self.columns
-            other_cols = [col for col in all_cols if col not in subset_cols]
-
-            from ..expressions import functions as F
-
-            if not other_cols:
-                # If only grouping columns, distinct works fine
-                result_df = self._df.distinct()
-            else:
-                # Build aggregations for non-grouped columns
-                agg_exprs = []
-                for col_name in other_cols:
-                    if keep == "last":
-                        agg_exprs.append(F.max(col(col_name)).alias(col_name))
-                    else:  # keep == "first"
-                        agg_exprs.append(F.min(col(col_name)).alias(col_name))
-
-                result_df = grouped.agg(*agg_exprs)
-
-        return self._with_dataframe(result_df)
+        result_df = build_polars_unique_operation(self, subset=subset, keep=keep)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def distinct(self) -> "AsyncPolarsDataFrame":
         """Remove duplicate rows (alias for unique()).
@@ -754,8 +616,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.drop_nulls()
             >>> df.drop_nulls(subset=['col1', 'col2'])
         """
-        result_df = self._df.dropna(subset=subset)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_drop_nulls_operation
+
+        result_df = build_polars_drop_nulls_operation(self, subset=subset)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def fill_null(
         self,
@@ -779,13 +643,12 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.fill_null(0)
             >>> df.fill_null(value='unknown', subset=['name'])
         """
-        if strategy is not None:
-            raise NotImplementedError("fill_null with strategy is not yet implemented")
-        if limit is not None:
-            raise NotImplementedError("fill_null with limit is not yet implemented")
+        from .polars_dataframe_helpers import build_polars_fill_null_operation
 
-        result_df = self._df.fillna(value=value, subset=subset)
-        return self._with_dataframe(result_df)
+        result_df = build_polars_fill_null_operation(
+            self, value=value, strategy=strategy, limit=limit, subset=subset
+        )
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def __getitem__(
         self, key: Union[str, Sequence[str], Column]
@@ -868,7 +731,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
                 except ImportError:
                     # Fall back to list of dicts if polars not available
                     async for chunk in await self._df.collect(stream=True):
-                        yield chunk  # type: ignore
+                        yield chunk
                     return
 
                 async for chunk in await self._df.collect(stream=True):
@@ -1008,15 +871,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.explode('tags')
             >>> df.explode(['tags', 'categories'])
         """
-        if isinstance(columns, str):
-            columns = [columns]
-        self._validate_columns_exist(columns, "explode")
+        from .polars_dataframe_helpers import build_polars_explode_operation
 
-        # Explode the first column (Polars supports multiple, but we'll do one at a time)
-        result_df = self._df
-        for col_name in columns:
-            result_df = result_df.explode(col(col_name), alias=col_name)  # type: ignore[operator]
-        return self._with_dataframe(result_df)
+        result_df = build_polars_explode_operation(self, columns)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def unnest(self, columns: Union[str, Sequence[str]]) -> "AsyncPolarsDataFrame":
         """Unnest struct columns (Polars-style).
@@ -1057,24 +915,13 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.pivot(values='amount', index='category', columns='status', aggregate_function='sum')
         """
-        if columns is None:
-            raise ValueError("pivot() requires 'columns' parameter")
+        from .polars_dataframe_helpers import build_polars_pivot_operation
+
         if aggregate_function is None:
             aggregate_function = "sum"
 
-        # Use underlying AsyncDataFrame's pivot method
-        # Note: DataFrame.pivot has different signature, so we need to adapt
-        if isinstance(values, (list, tuple)) and len(values) > 0:
-            value_col: str = str(values[0])
-        else:
-            value_col = str(values)
-        result_df = self._df.pivot(  # type: ignore[operator]
-            pivot_column=columns,
-            value_column=value_col,
-            agg_func=aggregate_function,
-            pivot_values=None,
-        )
-        return self._with_dataframe(result_df)
+        result_df = build_polars_pivot_operation(self, values, columns, aggregate_function)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def melt(
         self,
@@ -1118,21 +965,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.slice(10, 5)  # Rows 10-14
             >>> df.slice(10)  # All rows from 10 onwards
         """
-        if length is None:
-            # Return all rows from offset onwards
-            # We can use limit with a large number, but better to use offset
-            # For now, we'll use order_by + limit (requires a sort key)
-            # Actually, SQL LIMIT with OFFSET is what we need
-            result_df = self._df.limit(offset + 1000000)  # Large number as workaround
-            # Better approach: add offset support to AsyncDataFrame
-            # For now, this is a limitation
-            return self._with_dataframe(result_df)
-        else:
-            # Use limit with offset calculation
-            # We need to skip 'offset' rows and take 'length' rows
-            # This requires OFFSET support in AsyncDataFrame
-            result_df = self._df.limit(offset + length)
-            return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_slice_operation
+
+        result_df = build_polars_slice_operation(self, offset, length)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def gather_every(self, n: int, offset: int = 0) -> "AsyncPolarsDataFrame":
         """Sample every nth row (Polars-style).
@@ -1148,16 +984,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df.gather_every(10)  # Every 10th row
             >>> df.gather_every(5, offset=2)  # Every 5th row starting from row 2
         """
-        # This requires row number window function and modulo operation
-        from ..expressions import functions as F
+        from .polars_dataframe_helpers import build_polars_gather_every_operation
 
-        # Add row number, filter by modulo, then remove row number
-        # Use over() with empty partition/order for global row number
-        row_num_col = F.row_number().over()
-        df_with_row_num = self.with_columns(row_num_col.alias("__row_num__"))
-        filtered_df = df_with_row_num.filter((col("__row_num__") - offset) % n == 0)
-        result_df = filtered_df.drop("__row_num__")
-        return result_df
+        result_df = build_polars_gather_every_operation(self, n, offset)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def interpolate(self, method: str = "linear") -> "AsyncPolarsDataFrame":
         """Interpolate missing values (Polars-style).
@@ -1242,28 +1072,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> stats = await df.describe()
         """
-        from ..expressions import functions as F
+        from .polars_dataframe_helpers import build_polars_describe_operation
 
-        numeric_cols = [c for c in self.columns if self._is_numeric_column(c)]
-        if not numeric_cols:
-            return self
-
-        stats_exprs = []
-        for col_name in numeric_cols:
-            col_expr = col(col_name)
-            stats_exprs.extend(
-                [
-                    F.count(col_expr).alias(f"{col_name}_count"),
-                    F.avg(col_expr).alias(f"{col_name}_mean"),
-                    F.min(col_expr).alias(f"{col_name}_min"),
-                    F.max(col_expr).alias(f"{col_name}_max"),
-                ]
-            )
-            # Note: stddev is omitted as it's not supported by all databases (e.g., SQLite)
-            # Users can compute stddev manually if needed for their database
-
-        result_df = self._df.select(*stats_exprs)
-        return self._with_dataframe(result_df)
+        result_df = build_polars_describe_operation(self)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     async def explain(self, format: str = "string") -> str:
         """Explain the query plan (Polars-style, async).
@@ -1315,24 +1127,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df1.concat(df2)  # Vertical concatenation
             >>> df1.concat(df2, df3, how="vertical")
         """
-        if not others:
-            return self
+        from .polars_dataframe_helpers import build_polars_concat_operation
 
-        result_df = self._df
-        for other in others:
-            if how == "vertical":
-                # Vertical concatenation (union all)
-                result_df = result_df.unionAll(other._df)
-            elif how == "diagonal":
-                # Diagonal concatenation (union all with different schemas)
-                # For now, same as vertical
-                result_df = result_df.unionAll(other._df)
-            else:
-                raise ValueError(
-                    f"Invalid 'how' parameter: {how}. Must be 'vertical' or 'diagonal'"
-                )
-
-        return self._with_dataframe(result_df)
+        result_df = build_polars_concat_operation(self, [other._df for other in others], how=how)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def hstack(
         self,
@@ -1349,17 +1147,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df1.hstack(df2)  # Combine columns from df1 and df2
         """
-        if not others:
-            return self
+        from .polars_dataframe_helpers import build_polars_hstack_operation
 
-        # Horizontal stacking means combining columns side by side
-        # This is similar to a cross join but without the cartesian product
-        # For now, we'll use a cross join as the implementation
-        result_df = self._df
-        for other in others:
-            result_df = result_df.crossJoin(other._df)
-
-        return self._with_dataframe(result_df)
+        result_df = build_polars_hstack_operation(self, [other._df for other in others])
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def vstack(
         self,
@@ -1397,11 +1188,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> df1.union(df2)  # Union distinct
             >>> df1.union(df2, distinct=False)  # Union all
         """
-        if distinct:
-            result_df = self._df.union(other._df)
-        else:
-            result_df = self._df.unionAll(other._df)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_union_operation
+
+        result_df = build_polars_union_operation(self, other._df, distinct=distinct)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def intersect(
         self,
@@ -1418,8 +1208,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df1.intersect(df2)  # Common rows
         """
-        result_df = self._df.intersect(other._df)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_intersect_operation
+
+        result_df = build_polars_intersect_operation(self, other._df)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def difference(
         self,
@@ -1436,8 +1228,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df1.difference(df2)  # Rows in df1 but not in df2
         """
-        result_df = self._df.except_(other._df)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_difference_operation
+
+        result_df = build_polars_difference_operation(self, other._df)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def cross_join(
         self,
@@ -1454,8 +1248,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df1.cross_join(df2)  # Cartesian product
         """
-        result_df = self._df.crossJoin(other._df)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_cross_join_operation
+
+        result_df = build_polars_cross_join_operation(self, other._df)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     # ========================================================================
     # SQL Expression Selection
@@ -1476,8 +1272,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.select_expr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
         """
-        result_df = self._df.selectExpr(*exprs)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_select_expr_operation
+
+        result_df = build_polars_select_expr_operation(self, *exprs)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     # ========================================================================
     # Common Table Expressions (CTEs)
@@ -1565,8 +1363,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> await df.summary()
             >>> await df.summary("count", "mean", "max")
         """
-        result_df = await self._df.summary(*statistics)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_summary_operation
+
+        result_df = await build_polars_summary_operation(self, *statistics)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     # ========================================================================
     # Common Table Expressions (CTEs) - Moltres-specific but Polars-style API
@@ -1588,8 +1388,10 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> cte_df = df.filter(col("age") > 25).cte("adults")
             >>> result = await cte_df.select().collect()
         """
-        result_df = self._df.cte(name)
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_cte_operation
+
+        result_df = build_polars_cte_operation(self, name)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def with_recursive(
         self,
@@ -1613,5 +1415,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> recursive = initial.select(...)  # Recursive part
             >>> fib_cte = initial.with_recursive("fib", recursive)
         """
-        result_df = self._df.recursive_cte(name, recursive._df, union_all=union_all)  # type: ignore[operator]
-        return self._with_dataframe(result_df)
+        from .polars_dataframe_helpers import build_polars_recursive_cte_operation
+
+        result_df = build_polars_recursive_cte_operation(self, name, recursive, union_all=union_all)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))

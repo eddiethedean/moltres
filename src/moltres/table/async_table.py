@@ -16,6 +16,7 @@ from typing import (
     List,
     Optional,
     Union,
+    cast,
     overload,
     Sequence,
     Type,
@@ -49,7 +50,7 @@ if TYPE_CHECKING:
 try:
     from sqlalchemy.ext.asyncio.engine import AsyncConnection
 except ImportError:
-    AsyncConnection = None  # type: ignore[assignment, misc]
+    AsyncConnection = None  # type: ignore[assignment]
 
 from ..engine.async_connection import AsyncConnectionManager
 from ..engine.async_execution import AsyncQueryExecutor, AsyncQueryResult
@@ -211,7 +212,7 @@ class AsyncDatabase:
         from ..config import create_config
 
         # Type ignore needed because mypy doesn't understand **options unpacking
-        config = create_config(engine=engine, **options)  # type: ignore[arg-type]
+        config = create_config(engine=engine, **options)
         return cls(config=config)
 
     @classmethod
@@ -313,7 +314,7 @@ class AsyncDatabase:
         """Get a handle to a table in the database from SQLAlchemy model class."""
         ...
 
-    async def table(  # type: ignore[misc]
+    async def table(
         self, name_or_model: Union[str, Type["DeclarativeBase"], Type[Any]]
     ) -> AsyncTableHandle:
         """Get a handle to a table in the database.
@@ -360,21 +361,21 @@ class AsyncDatabase:
 
         # Check if argument is a SQLModel model
         if is_sqlmodel_model(name_or_model):
-            sqlmodel_class: Type[Any] = name_or_model  # type: ignore[assignment]
+            sqlmodel_class: Type[Any] = cast(Type[Any], name_or_model)
             table_name = get_sqlmodel_table_name(sqlmodel_class)
             # Validate table name format
             quote_identifier(table_name, self._dialect.quote_char)
             return AsyncTableHandle(name=table_name, database=self, model=sqlmodel_class)
         # Check if argument is a SQLAlchemy model
         elif is_sqlalchemy_model(name_or_model):
-            sa_model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
+            sa_model_class: Type["DeclarativeBase"] = cast(Type["DeclarativeBase"], name_or_model)
             table_name = get_model_table_name(sa_model_class)
             # Validate table name format
             quote_identifier(table_name, self._dialect.quote_char)
             return AsyncTableHandle(name=table_name, database=self, model=sa_model_class)
         else:
             # Type narrowing: after model checks, this must be str
-            table_name = name_or_model  # type: ignore[assignment]
+            table_name = cast(str, name_or_model)
             if not table_name:
                 raise ValidationError("Table name cannot be empty")
             # Validate table name format
@@ -470,14 +471,13 @@ class AsyncDatabase:
             >>> df = await db.scan_csv("data.csv", header=True)
             >>> results = await df.collect()
         """
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
+        from .table_operations_helpers import build_scan_loader_chain
+
+        loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.csv(path)
-        result = df.polars()  # type: ignore[operator]
-        return result  # type: ignore[no-any-return]
+        result = df.polars()
+        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+        return cast("AsyncPolarsDataFrame", result)
 
     async def scan_json(
         self,
@@ -501,14 +501,13 @@ class AsyncDatabase:
             >>> df = await db.scan_json("data.json")
             >>> results = await df.collect()
         """
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
+        from .table_operations_helpers import build_scan_loader_chain
+
+        loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.json(path)
-        result = df.polars()  # type: ignore[operator]
-        return result  # type: ignore[no-any-return]
+        result = df.polars()
+        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+        return cast("AsyncPolarsDataFrame", result)
 
     async def scan_jsonl(
         self,
@@ -532,14 +531,13 @@ class AsyncDatabase:
             >>> df = await db.scan_jsonl("data.jsonl")
             >>> results = await df.collect()
         """
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
+        from .table_operations_helpers import build_scan_loader_chain
+
+        loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.jsonl(path)
-        result = df.polars()  # type: ignore[operator]
-        return result  # type: ignore[no-any-return]
+        result = df.polars()
+        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+        return cast("AsyncPolarsDataFrame", result)
 
     async def scan_parquet(
         self,
@@ -566,14 +564,13 @@ class AsyncDatabase:
             >>> df = await db.scan_parquet("data.parquet")
             >>> results = await df.collect()
         """
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
+        from .table_operations_helpers import build_scan_loader_chain
+
+        loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.parquet(path)
-        result = df.polars()  # type: ignore[operator]
-        return result  # type: ignore[no-any-return]
+        result = df.polars()
+        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+        return cast("AsyncPolarsDataFrame", result)
 
     async def scan_text(
         self,
@@ -599,14 +596,13 @@ class AsyncDatabase:
             >>> df = await db.scan_text("data.txt", column_name="line")
             >>> results = await df.collect()
         """
-        loader = self.read
-        if schema:
-            loader = loader.schema(schema)
-        if options:
-            loader = loader.options(**options)
+        from .table_operations_helpers import build_scan_loader_chain
+
+        loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.text(path, column_name=column_name)
-        result = df.polars()  # type: ignore[operator]
-        return result  # type: ignore[no-any-return]
+        result = df.polars()
+        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+        return cast("AsyncPolarsDataFrame", result)
 
     # -------------------------------------------------------------- DDL operations
     @overload
@@ -635,7 +631,7 @@ class AsyncDatabase:
         """Create a lazy async create table operation from SQLAlchemy model class."""
         ...
 
-    def create_table(  # type: ignore[misc]
+    def create_table(
         self,
         name_or_model: Union[str, Type["DeclarativeBase"]],
         columns: Optional[Sequence[ColumnDef]] = None,
@@ -695,46 +691,26 @@ class AsyncDatabase:
             >>> op = db.create_table(User)
             >>> table = await op.collect()
         """
-        from ..utils.exceptions import ValidationError
         from .async_actions import AsyncCreateTableOperation
-        from .sqlalchemy_integration import (
-            is_sqlalchemy_model,
-            model_to_schema,
+        from .table_operations_helpers import build_create_table_params
+
+        params = build_create_table_params(
+            name_or_model,
+            columns,
+            if_not_exists=if_not_exists,
+            temporary=temporary,
+            constraints=constraints,
         )
 
-        # Check if first argument is a SQLAlchemy model
-        if is_sqlalchemy_model(name_or_model):
-            # Model-based creation
-            model_class: Type["DeclarativeBase"] = name_or_model  # type: ignore[assignment]
-            schema = model_to_schema(model_class)
-
-            return AsyncCreateTableOperation(
-                database=self,
-                name=schema.name,
-                columns=schema.columns,
-                if_not_exists=if_not_exists,
-                temporary=temporary,
-                constraints=schema.constraints,
-                model=model_class,
-            )
-        else:
-            # Traditional string + columns creation
-            table_name: str = name_or_model  # type: ignore[assignment]
-            if columns is None:
-                raise ValidationError("columns parameter is required when creating table from name")
-
-            # Validate early (at operation creation time)
-            if not columns:
-                raise ValidationError(f"Cannot create table '{table_name}' with no columns")
-
-            return AsyncCreateTableOperation(
-                database=self,
-                name=table_name,
-                columns=columns,
-                if_not_exists=if_not_exists,
-                temporary=temporary,
-                constraints=constraints or (),
-            )
+        return AsyncCreateTableOperation(
+            database=self,
+            name=params.name,
+            columns=params.columns,
+            if_not_exists=params.if_not_exists,
+            temporary=params.temporary,
+            constraints=params.constraints,
+            model=params.model,
+        )
 
     def drop_table(self, name: str, *, if_exists: bool = True) -> "AsyncDropTableOperation":
         """Create a lazy async drop table operation.
@@ -870,7 +846,7 @@ class AsyncDatabase:
 
                 def _inspect_sync(sync_conn: Any) -> List[str]:
                     inspector = sa_inspect(sync_conn)
-                    return inspector.get_table_names(schema=schema)  # type: ignore[no-any-return]
+                    return cast("list[str]", inspector.get_table_names(schema=schema))
 
                 return await conn.run_sync(_inspect_sync)
         except Exception as e:
@@ -910,7 +886,7 @@ class AsyncDatabase:
 
                 def _inspect_sync(sync_conn: Any) -> List[str]:
                     inspector = sa_inspect(sync_conn)
-                    return inspector.get_view_names(schema=schema)  # type: ignore[no-any-return]
+                    return cast("list[str]", inspector.get_view_names(schema=schema))
 
                 return await conn.run_sync(_inspect_sync)
         except Exception as e:
@@ -957,7 +933,7 @@ class AsyncDatabase:
 
                 def _inspect_sync(sync_conn: Any) -> List[Dict[str, Any]]:
                     inspector = sa_inspect(sync_conn)
-                    return inspector.get_columns(table_name)  # type: ignore[no-any-return]
+                    return cast("list[dict[str, Any]]", inspector.get_columns(table_name))
 
                 columns = await conn.run_sync(_inspect_sync)
         except Exception as e:

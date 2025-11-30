@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import (
+    cast,
     TYPE_CHECKING,
     Any,
     Dict,
@@ -12,7 +13,6 @@ from typing import (
     Literal,
     Optional,
     Sequence,
-    Set,
     Tuple,
     Union,
     overload,
@@ -27,7 +27,7 @@ from .interface_common import InterfaceCommonMixin
 try:
     from .pandas_column import PandasColumn
 except ImportError:
-    PandasColumn = None  # type: ignore
+    PandasColumn = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -206,21 +206,10 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df.query("name in ['Alice', 'Bob']")
             >>> df.query("age = 30")  # Both = and == work
         """
+        from .pandas_dataframe_helpers import build_pandas_query_operation
 
-        from .pandas_operations import parse_query_expression
-
-        # Get available column names for context and validation
-        available_columns: Optional[Set[str]] = None
-        try:
-            available_columns = set(self.columns)
-        except Exception:
-            pass
-
-        # Parse query string to Column expression
-        predicate = parse_query_expression(expr, available_columns, self._df.plan)
-
-        # Apply filter
-        return self._with_dataframe(self._df.where(predicate))
+        result_df = build_pandas_query_operation(self, expr)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def groupby(self, by: Union[str, Sequence[str]], *args: Any, **kwargs: Any) -> "PandasGroupBy":
         """Group rows by one or more columns (pandas-style).
@@ -280,25 +269,12 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df1.merge(df2, left_on='customer_id', right_on='id')
             >>> df1.merge(df2, on='id', how='left')
         """
-        from .pandas_operations import normalize_merge_how, prepare_merge_keys
+        from .pandas_dataframe_helpers import build_pandas_merge_operation
 
-        # Normalize how parameter
-        join_how = normalize_merge_how(how)
-
-        # Determine join keys
-        join_on = prepare_merge_keys(
-            on=on,
-            left_on=left_on,
-            right_on=right_on,
-            left_columns=self.columns,
-            right_columns=right.columns,
-            left_validate_fn=self._validate_columns_exist,
-            right_validate_fn=right._validate_columns_exist,
+        result_df = build_pandas_merge_operation(
+            self, right, on=on, left_on=left_on, right_on=right_on, how=how
         )
-
-        # Perform join
-        result_df = self._df.join(right._df, on=join_on, how=join_how)
-        return self._with_dataframe(result_df)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def crossJoin(self, other: "PandasDataFrame") -> "PandasDataFrame":
         """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
@@ -314,8 +290,10 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df2 = db.table("table2").pandas()
             >>> df_cross = df1.crossJoin(df2)
         """
-        result_df = self._df.crossJoin(other._df)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_cross_join_operation
+
+        result_df = build_pandas_cross_join_operation(self, other)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     cross_join = crossJoin  # Alias for consistency
 
@@ -339,32 +317,10 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df.sort_values('age')
             >>> df.sort_values(['age', 'name'], ascending=[False, True])
         """
-        if isinstance(by, str):
-            columns = [by]
-            ascending_list = [ascending] if isinstance(ascending, bool) else list(ascending)
-        else:
-            columns = list(by)
-            if isinstance(ascending, bool):
-                ascending_list = [ascending] * len(columns)
-            else:
-                ascending_list = list(ascending)
-                if len(ascending_list) != len(columns):
-                    raise ValueError("ascending must have same length as by")
+        from .pandas_dataframe_helpers import build_pandas_sort_values_operation
 
-        # Validate columns exist
-        self._validate_columns_exist(columns, "sort_values")
-
-        # Build order_by list - use Column expressions with .desc() for descending
-        order_by_cols = []
-        for col_name, asc in zip(columns, ascending_list):
-            col_expr = col(col_name)
-            if not asc:
-                # Descending order
-                col_expr = col_expr.desc()
-            order_by_cols.append(col_expr)
-
-        result_df = self._df.order_by(*order_by_cols)
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_sort_values_operation(self, by, ascending)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def rename(self, columns: Dict[str, str], **kwargs: Any) -> "PandasDataFrame":
         """Rename columns (pandas-style).
@@ -379,10 +335,10 @@ class PandasDataFrame(InterfaceCommonMixin):
         Example:
             >>> df.rename(columns={'old_name': 'new_name'})
         """
-        result_df = self._df
-        for old_name, new_name in columns.items():
-            result_df = result_df.withColumnRenamed(old_name, new_name)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_rename_operation
+
+        result_df = build_pandas_rename_operation(self, columns)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def drop(
         self, columns: Optional[Union[str, Sequence[str]]] = None, **kwargs: Any
@@ -400,16 +356,13 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df.drop(columns=['col1', 'col2'])
             >>> df.drop(columns='col1')
         """
+        from .pandas_dataframe_helpers import build_pandas_drop_operation
+
         if columns is None:
             return self
 
-        if isinstance(columns, str):
-            cols_to_drop = [columns]
-        else:
-            cols_to_drop = list(columns)
-
-        result_df = self._df.drop(*cols_to_drop)
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_drop_operation(self, columns)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def drop_duplicates(
         self, subset: Optional[Union[str, Sequence[str]]] = None, **kwargs: Any
@@ -428,56 +381,11 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df.drop_duplicates()
             >>> df.drop_duplicates(subset=['col1', 'col2'])
         """
+        from .pandas_dataframe_helpers import build_pandas_drop_duplicates_operation
+
         keep = kwargs.get("keep", "first")
-
-        if subset is None:
-            # Remove duplicates on all columns
-            result_df = self._df.distinct()
-        else:
-            # Validate subset columns exist
-            if isinstance(subset, str):
-                subset_cols = [subset]
-            else:
-                subset_cols = list(subset)
-
-            # Validate columns exist
-            self._validate_columns_exist(subset_cols, "drop_duplicates")
-
-            # For subset-based deduplication, we need to:
-            # 1. Group by subset columns
-            # 2. Select all columns, taking first/last from each group
-            # This is complex in SQL - we'll use a window function approach if possible
-            # For now, we'll use GROUP BY with MIN/MAX on non-grouped columns
-
-            # Get all column names
-            all_cols = self.columns
-            other_cols = [col for col in all_cols if col not in subset_cols]
-
-            # Group by subset columns
-            grouped = self._df.group_by(*subset_cols)
-
-            # Build aggregations: use MIN/MAX for all non-grouped columns
-            from ..expressions import functions as F
-
-            # GroupBy automatically includes grouping columns, so we only need to aggregate others
-            if not other_cols:
-                # If only grouping columns, distinct works fine
-                result_df = self._df.distinct()
-            else:
-                # Build aggregations for non-grouped columns only
-                # GroupBy automatically includes grouping columns in result
-                agg_exprs = []
-                for col_name in other_cols:
-                    if keep == "last":
-                        agg_exprs.append(F.max(col(col_name)).alias(col_name))
-                    else:  # keep == "first"
-                        agg_exprs.append(F.min(col(col_name)).alias(col_name))
-
-                # GroupBy includes grouping columns automatically, so we only pass aggregations
-                # The result will have grouping columns + aggregated columns
-                result_df = grouped.agg(*agg_exprs)
-
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_drop_duplicates_operation(self, subset, keep)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def select(self, *columns: Union[str, Column]) -> "PandasDataFrame":
         """Select columns from the :class:`DataFrame` (pandas-style wrapper).
@@ -491,17 +399,10 @@ class PandasDataFrame(InterfaceCommonMixin):
         Example:
             >>> df.select('id', 'name')
         """
-        # Validate column names if they're strings
-        str_columns = [c for c in columns if isinstance(c, str)]
-        if str_columns:
-            self._validate_columns_exist(str_columns, "select")
+        from .pandas_dataframe_helpers import build_pandas_select_operation
 
-        # Use underlying DataFrame's select
-        from ..expressions.column import col
-
-        selected_cols = [col(c) if isinstance(c, str) else c for c in columns]
-        result_df = self._df.select(*selected_cols)
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_select_operation(self, *columns)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def assign(self, **kwargs: Union[Column, Any]) -> "PandasDataFrame":
         """Assign new columns (pandas-style).
@@ -515,16 +416,10 @@ class PandasDataFrame(InterfaceCommonMixin):
         Example:
             >>> df.assign(total=df['amount'] * 1.1)
         """
-        result_df = self._df
-        for col_name, value in kwargs.items():
-            if isinstance(value, Column):
-                result_df = result_df.withColumn(col_name, value)
-            else:
-                # Literal value
-                from ..expressions import lit
+        from .pandas_dataframe_helpers import build_pandas_assign_operation
 
-                result_df = result_df.withColumn(col_name, lit(value))
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_assign_operation(self, **kwargs)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     @overload
     def collect(self, stream: Literal[False] = False) -> "pd.DataFrame": ...
@@ -1107,21 +1002,13 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df.sample(n=10, random_state=42)
             >>> df.sample(frac=0.1, random_state=42)
         """
+        from .pandas_dataframe_helpers import build_pandas_sample_operation
+
         if replace:
             raise NotImplementedError("Sampling with replacement is not yet supported")
 
-        if n is not None and frac is not None:
-            raise ValueError("Cannot specify both 'n' and 'frac'")
-
-        if n is not None:
-            # Sample n rows - use fraction=1.0 then limit
-            result_df = self._df.sample(fraction=1.0, seed=random_state).limit(n)
-        elif frac is not None:
-            result_df = self._df.sample(fraction=frac, seed=random_state)
-        else:
-            raise ValueError("Must specify either 'n' or 'frac'")
-
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_sample_operation(self, n=n, frac=frac, random_state=random_state)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def limit(self, n: int) -> "PandasDataFrame":
         """Limit number of rows (pandas-style alias).
@@ -1135,8 +1022,10 @@ class PandasDataFrame(InterfaceCommonMixin):
         Example:
             >>> df.limit(10)
         """
-        result_df = self._df.limit(n)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_limit_operation
+
+        result_df = build_pandas_limit_operation(self, n)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def append(
         self,
@@ -1159,9 +1048,10 @@ class PandasDataFrame(InterfaceCommonMixin):
         Example:
             >>> df1.append(df2)
         """
-        # Append is essentially union all
-        result_df = self._df.unionAll(other._df)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_append_operation
+
+        result_df = build_pandas_append_operation(self, other)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def concat(
         self,
@@ -1185,23 +1075,13 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> pd.concat([df1, df2])  # pandas style
             >>> df1.concat(df2)  # method style
         """
+        from .pandas_dataframe_helpers import build_pandas_concat_operation
+
         if not others:
             return self
 
-        if axis == 0 or axis == "index":
-            # Vertical concatenation (union all)
-            result_df = self._df
-            for other in others:
-                result_df = result_df.unionAll(other._df)
-            return self._with_dataframe(result_df)
-        elif axis == 1 or axis == "columns":
-            # Horizontal concatenation (cross join)
-            result_df = self._df
-            for other in others:
-                result_df = result_df.crossJoin(other._df)
-            return self._with_dataframe(result_df)
-        else:
-            raise ValueError(f"Invalid axis: {axis}. Must be 0, 1, 'index', or 'columns'")
+        result_df = build_pandas_concat_operation(self, others, axis=axis)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def isin(self, values: Union[Dict[str, Sequence[Any]], Sequence[Any]]) -> "PandasDataFrame":
         """Filter rows where values are in a sequence (pandas-style).
@@ -1331,8 +1211,10 @@ class PandasDataFrame(InterfaceCommonMixin):
         Example:
             >>> df.select_expr("id", "amount * 1.1 as with_tax", "UPPER(name) as name_upper")
         """
-        result_df = self._df.selectExpr(*exprs)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_select_expr_operation
+
+        result_df = build_pandas_select_expr_operation(self, *exprs)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def cte(self, name: str) -> "PandasDataFrame":
         """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
@@ -1347,8 +1229,10 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> cte_df = df.query('age > 25').cte('adults')
             >>> result = cte_df.collect()
         """
-        result_df = self._df.cte(name)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_cte_operation
+
+        result_df = build_pandas_cte_operation(self, name)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
     def summary(self, *statistics: str) -> "PandasDataFrame":
         """Compute summary statistics for numeric columns (pandas-style).
@@ -1364,8 +1248,10 @@ class PandasDataFrame(InterfaceCommonMixin):
             >>> df.summary()
             >>> df.summary("count", "mean", "max")
         """
-        result_df = self._df.summary(*statistics)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_summary_operation
+
+        result_df = build_pandas_summary_operation(self, *statistics)
+        return self._with_dataframe(cast(DataFrame, result_df))
 
 
 @dataclass(frozen=True)

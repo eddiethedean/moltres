@@ -27,6 +27,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
     overload,
 )
 
@@ -180,79 +181,10 @@ class DataFrame(DataFrameHelpersMixin):
             110.0
             >>> db.close()
         """
-        if not columns:
-            return self
+        from .dataframe_operations import build_select_operation
 
-        # Handle "*" as special case
-        if len(columns) == 1 and isinstance(columns[0], str) and columns[0] == "*":
-            return self
-
-        # Check if "*" is in the columns (only check string elements, not Column objects)
-        has_star = any(isinstance(col, str) and col == "*" for col in columns)
-
-        # Normalize all columns first and check for explode
-        normalized_columns = []
-        explode_column = None
-
-        for col_expr in columns:
-            if isinstance(col_expr, str) and col_expr == "*":
-                # Handle "*" separately - add star column
-                star_col = Column(op="star", args=(), _alias=None)
-                normalized_columns.append(star_col)
-                continue
-
-            normalized = self._normalize_projection(col_expr)
-
-            # Check if this is an explode() column
-            if isinstance(normalized, Column) and normalized.op == "explode":
-                if explode_column is not None:
-                    raise ValueError(
-                        "Multiple explode() columns are not supported. "
-                        "Only one explode() can be used per select() operation."
-                    )
-                explode_column = normalized
-            else:
-                normalized_columns.append(normalized)
-
-        # If we have an explode column, we need to handle it specially
-        if explode_column is not None:
-            # Extract the column being exploded and the alias
-            exploded_column = explode_column.args[0] if explode_column.args else None
-            if not isinstance(exploded_column, Column):
-                raise ValueError("explode() requires a Column expression")
-
-            alias = explode_column._alias or "value"
-
-            # Create Explode logical plan
-            exploded_plan = operators.explode(self.plan, exploded_column, alias=alias)
-
-            # Create Project on top of Explode
-            # If we have "*", we want all columns from the exploded result
-            # Otherwise, we want the exploded column (with alias) plus any other specified columns
-            project_columns = []
-
-            if has_star:
-                # Select all columns from exploded result (including the exploded column)
-                star_col = Column(op="star", args=(), _alias=None)
-                project_columns.append(star_col)
-                # Also add any other explicitly specified columns
-                for col in normalized_columns:
-                    if col.op != "star":
-                        project_columns.append(col)
-            else:
-                # Add the exploded column with its alias first
-                exploded_result_col = Column(op="column", args=(alias,), _alias=None)
-                project_columns.append(exploded_result_col)
-                # Add any other columns
-                project_columns.extend(normalized_columns)
-
-            return self._with_plan(operators.project(exploded_plan, tuple(project_columns)))
-
-        # No explode columns, normal projection
-        if has_star and not normalized_columns:
-            return self  # Only "*", same as empty select
-
-        return self._with_plan(operators.project(self.plan, tuple(normalized_columns)))
+        result = build_select_operation(self, columns)
+        return self._with_plan(result.plan) if result.should_apply else self
 
     def selectExpr(self, *exprs: str) -> "DataFrame":
         """Select columns using SQL expressions.
@@ -360,26 +292,9 @@ class DataFrame(DataFrameHelpersMixin):
             150.0
             >>> db.close()
         """
-        # If predicate is a string, parse it into a Column expression
-        if isinstance(predicate, str):
-            from ..expressions.sql_parser import parse_sql_expr
+        from .dataframe_operations import build_where_operation
 
-            # Get available column names from the DataFrame for context
-            available_columns: Optional[Set[str]] = None
-            try:
-                # Try to extract column names from the current plan
-                if hasattr(self.plan, "projections"):
-                    available_columns = set()
-                    for proj in self.plan.projections:
-                        if isinstance(proj, Column) and proj.op == "column" and proj.args:
-                            available_columns.add(str(proj.args[0]))
-            except Exception:
-                # If we can't extract columns, that's okay - parser will still work
-                pass
-
-            predicate = parse_sql_expr(predicate, available_columns)
-
-        return self._with_plan(operators.filter(self.plan, predicate))
+        return self._with_plan(build_where_operation(self, predicate))
 
     filter = where
 
@@ -419,9 +334,9 @@ class DataFrame(DataFrameHelpersMixin):
             50.0
             >>> db.close()
         """
-        if count < 0:
-            raise ValueError("limit count must be non-negative")
-        return self._with_plan(operators.limit(self.plan, count))
+        from .dataframe_operations import build_limit_operation
+
+        return self._with_plan(build_limit_operation(self.plan, count))
 
     def sample(self, fraction: float, seed: Optional[int] = None) -> "DataFrame":
         """Sample a fraction of rows from the :class:`DataFrame`.
@@ -447,7 +362,9 @@ class DataFrame(DataFrameHelpersMixin):
             True
             >>> db.close()
         """
-        return self._with_plan(operators.sample(self.plan, fraction, seed))
+        from .dataframe_operations import build_sample_operation
+
+        return self._with_plan(build_sample_operation(self.plan, fraction, seed))
 
     def order_by(self, *columns: Union[Column, str]) -> "DataFrame":
         """Sort rows by one or more columns.
@@ -491,12 +408,9 @@ class DataFrame(DataFrameHelpersMixin):
             100.0
             >>> db.close()
         """
-        if not columns:
-            return self
-        orders = tuple(
-            self._normalize_sort_expression(self._normalize_projection(col)) for col in columns
-        )
-        return self._with_plan(operators.order_by(self.plan, orders))
+        from .dataframe_operations import build_order_by_operation
+
+        return self._with_plan(build_order_by_operation(self, columns))
 
     orderBy = order_by  # PySpark-style alias
     sort = order_by  # PySpark-style alias
@@ -1717,7 +1631,8 @@ class DataFrame(DataFrameHelpersMixin):
             async_mode=False,
         )
 
-        return records.rows()  # type: ignore[no-any-return]
+        from typing import cast
+        return cast("list[dict[str, object]]", records.rows())
 
     def _read_file_streaming(self, filescan: FileScan) -> Records:
         """Read a file in streaming mode (chunked, safe for large files).
@@ -1737,7 +1652,8 @@ class DataFrame(DataFrameHelpersMixin):
 
         from .file_io_helpers import route_file_read_streaming
 
-        return route_file_read_streaming(  # type: ignore[no-any-return]
+        from ..io.records import Records
+        return cast("Records", route_file_read_streaming(
             format_name=filescan.format,
             path=filescan.path,
             database=self.database,
@@ -1745,7 +1661,7 @@ class DataFrame(DataFrameHelpersMixin):
             options=filescan.options,
             column_name=filescan.column_name,
             async_mode=False,
-        )
+        ))
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
         """Print the first n rows of the :class:`DataFrame`.
@@ -2022,7 +1938,8 @@ class DataFrame(DataFrameHelpersMixin):
         if not isinstance(results, list):
             raise TypeError("count() requires collect() to return a list, not an iterator")
         if results:
-            return int(results[0].get("count", 0))  # type: ignore[call-overload, no-any-return]
+            count_value = results[0].get("count", 0)
+            return int(count_value) if isinstance(count_value, (int, float, str)) else 0
         return 0
 
     def describe(self, *cols: str) -> "DataFrame":
@@ -2388,7 +2305,7 @@ class DataFrame(DataFrameHelpersMixin):
         try:
             from .pyspark_column import PySparkColumn
         except ImportError:
-            PySparkColumn = None  # type: ignore
+            PySparkColumn = None  # type: ignore[assignment]
 
         # Single column string: df['col'] - return Column-like object with accessors
         if isinstance(key, str):

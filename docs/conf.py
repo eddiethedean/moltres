@@ -130,5 +130,3 @@ intersphinx_mapping = {
 
 # TODO extension
 todo_include_todos = False
-
-

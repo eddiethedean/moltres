@@ -8,14 +8,36 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Sequence, TypeVar, cast
 
 from ..table.schema import ColumnDef
 
 if TYPE_CHECKING:
     from sqlalchemy.sql import Select
+    from typing import Protocol
 
 logger = logging.getLogger(__name__)
+
+# Type variable for generic Writer operations
+T = TypeVar("T", bound=Any)
+
+if TYPE_CHECKING:
+
+    class WriterProtocol(Protocol):
+        """Protocol defining the interface that Writer classes must implement."""
+
+        _mode: str
+        _options: Dict[str, object]
+        _format: Optional[str]
+        _stream_override: Optional[bool]
+        _partition_by: Optional[Sequence[str]]
+        _schema: Optional[Sequence[ColumnDef]]
+        _primary_key: Optional[Sequence[str]]
+        _bucket_by: Optional[tuple[int, Sequence[str]]]
+        _sort_by: Optional[Sequence[str]]
+
+else:
+    WriterProtocol = Any
 
 
 def infer_type_from_value(value: object) -> str:
@@ -277,3 +299,180 @@ def infer_or_get_schema(
 
     # Apply primary key flags if specified
     return apply_primary_key_to_schema(schema, primary_key)
+
+
+def build_mode_setter(writer: T, mode: str) -> T:
+    """Normalize and set write mode for a Writer.
+
+    Args:
+        writer: Writer instance
+        mode: Write mode string to normalize
+
+    Returns:
+        The same writer instance (for method chaining)
+
+    Raises:
+        ValueError: If mode is invalid
+    """
+    normalized = mode.strip().lower().replace(" ", "").replace("-", "").replace("_", "")
+    if normalized == "errorifexists":
+        normalized = "error_if_exists"
+    elif normalized == "ignore":
+        normalized = "ignore"
+    elif normalized not in {"append", "overwrite"}:
+        if normalized != "error_if_exists":
+            raise ValueError(
+                f"Invalid mode '{mode}'. Must be one of: append, overwrite, ignore, error_if_exists"
+            )
+    writer._mode = normalized
+    return writer
+
+
+def build_option_setter(writer: T, key: str, value: object) -> T:
+    """Set a single write option for a Writer.
+
+    Args:
+        writer: Writer instance
+        key: Option key
+        value: Option value
+
+    Returns:
+        The same writer instance (for method chaining)
+    """
+    writer._options[key] = value
+    return writer
+
+
+def build_options_setter(writer: T, *args: Mapping[str, object], **kwargs: object) -> T:
+    """Set multiple write options for a Writer.
+
+    Args:
+        writer: Writer instance
+        *args: Optional single positional mapping argument
+        **kwargs: Keyword arguments as options
+
+    Returns:
+        The same writer instance (for method chaining)
+
+    Raises:
+        TypeError: If more than one positional argument is provided
+    """
+    if len(args) > 1:
+        raise TypeError("options() accepts at most one positional mapping argument")
+    if args:
+        for key, value in args[0].items():
+            writer._options[str(key)] = value
+    for key, value in kwargs.items():
+        writer._options[key] = value
+    return writer
+
+
+def build_format_setter(writer: T, format_name: str) -> T:
+    """Set output format for a Writer.
+
+    Args:
+        writer: Writer instance
+        format_name: Format name to normalize
+
+    Returns:
+        The same writer instance (for method chaining)
+    """
+    writer._format = format_name.strip().lower()
+    return writer
+
+
+def build_stream_setter(writer: T, enabled: bool = True) -> T:
+    """Set streaming mode for a Writer.
+
+    Args:
+        writer: Writer instance
+        enabled: Whether streaming is enabled
+
+    Returns:
+        The same writer instance (for method chaining)
+    """
+    writer._stream_override = bool(enabled)
+    return writer
+
+
+def build_partition_by_setter(writer: T, *columns: str) -> T:
+    """Set partition columns for a Writer.
+
+    Args:
+        writer: Writer instance
+        *columns: Column names to partition by
+
+    Returns:
+        The same writer instance (for method chaining)
+    """
+    writer._partition_by = columns if columns else None
+    return writer
+
+
+def build_schema_setter(writer: T, schema: Sequence[ColumnDef]) -> T:
+    """Set explicit schema for a Writer.
+
+    Args:
+        writer: Writer instance
+        schema: Schema definition
+
+    Returns:
+        The same writer instance (for method chaining)
+    """
+    writer._schema = schema
+    return writer
+
+
+def build_primary_key_setter(writer: T, *columns: str) -> T:
+    """Set primary key columns for a Writer.
+
+    Args:
+        writer: Writer instance
+        *columns: Column names to use as primary key
+
+    Returns:
+        The same writer instance (for method chaining)
+    """
+    writer._primary_key = columns if columns else None
+    return writer
+
+
+def build_bucket_by_setter(writer: T, num_buckets: int, *columns: str) -> T:
+    """Set bucketing configuration for a Writer.
+
+    Args:
+        writer: Writer instance
+        num_buckets: Number of buckets
+        *columns: Column names to bucket by
+
+    Returns:
+        The same writer instance (for method chaining)
+
+    Raises:
+        ValueError: If num_buckets is invalid or no columns provided
+    """
+    if num_buckets <= 0:
+        raise ValueError("num_buckets must be a positive integer")
+    if not columns:
+        raise ValueError("bucketBy() requires at least one column name")
+    writer._bucket_by = (num_buckets, tuple(columns))
+    return writer
+
+
+def build_sort_by_setter(writer: T, *columns: str) -> T:
+    """Set sort columns for a Writer.
+
+    Args:
+        writer: Writer instance
+        *columns: Column names to sort by
+
+    Returns:
+        The same writer instance (for method chaining)
+
+    Raises:
+        ValueError: If no columns provided
+    """
+    if not columns:
+        raise ValueError("sortBy() requires at least one column name")
+    writer._sort_by = tuple(columns)
+    return writer

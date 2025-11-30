@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import (
+    cast,
     TYPE_CHECKING,
     Any,
     AsyncIterator,
@@ -13,7 +14,6 @@ from typing import (
     Literal,
     Optional,
     Sequence,
-    Set,
     Tuple,
     Union,
     overload,
@@ -28,7 +28,7 @@ from .interface_common import AsyncInterfaceCommonMixin
 try:
     from .pandas_column import PandasColumn
 except ImportError:
-    PandasColumn = None  # type: ignore
+    PandasColumn = None  # type: ignore[assignment]
 
 # Reuse the sync version's type mapping function
 from ..utils.inspector import sql_type_to_pandas_dtype
@@ -208,21 +208,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             >>> df.query("name in ['Alice', 'Bob']")
             >>> df.query("age = 30")  # Both = and == work
         """
+        from .pandas_dataframe_helpers import build_pandas_query_operation
 
-        from .pandas_operations import parse_query_expression
-
-        # Get available column names for context and validation
-        available_columns: Optional[Set[str]] = None
-        try:
-            available_columns = set(self.columns)
-        except Exception:
-            pass
-
-        # Parse query string to Column expression
-        predicate = parse_query_expression(expr, available_columns, self._df.plan)
-
-        # Apply filter
-        return self._with_dataframe(self._df.where(predicate))
+        result_df = build_pandas_query_operation(self, expr)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def groupby(
         self, by: Union[str, Sequence[str]], *args: Any, **kwargs: Any
@@ -284,25 +273,12 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             >>> df1.merge(df2, left_on='customer_id', right_on='id')
             >>> df1.merge(df2, on='id', how='left')
         """
-        from .pandas_operations import normalize_merge_how, prepare_merge_keys
+        from .pandas_dataframe_helpers import build_pandas_merge_operation
 
-        # Normalize how parameter
-        join_how = normalize_merge_how(how)
-
-        # Determine join keys
-        join_on = prepare_merge_keys(
-            on=on,
-            left_on=left_on,
-            right_on=right_on,
-            left_columns=self.columns,
-            right_columns=right.columns,
-            left_validate_fn=self._validate_columns_exist,
-            right_validate_fn=right._validate_columns_exist,
+        result_df = build_pandas_merge_operation(
+            self, right, on=on, left_on=left_on, right_on=right_on, how=how
         )
-
-        # Perform join
-        result_df = self._df.join(right._df, on=join_on, how=join_how)
-        return self._with_dataframe(result_df)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def crossJoin(self, other: "AsyncPandasDataFrame") -> "AsyncPandasDataFrame":
         """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
@@ -318,8 +294,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             >>> df2 = await db.table("table2").pandas()
             >>> df_cross = df1.crossJoin(df2)
         """
-        result_df = self._df.crossJoin(other._df)
-        return self._with_dataframe(result_df)
+        from .pandas_dataframe_helpers import build_pandas_cross_join_operation
+
+        result_df = build_pandas_cross_join_operation(self, other)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     cross_join = crossJoin  # Alias for consistency
 
@@ -335,17 +313,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.select('id', 'name')
         """
-        # Validate column names if they're strings
-        str_columns = [c for c in columns if isinstance(c, str)]
-        if str_columns:
-            self._validate_columns_exist(str_columns, "select")
+        from .pandas_dataframe_helpers import build_pandas_select_operation
 
-        # Use underlying AsyncDataFrame's select
-        from ..expressions.column import col
-
-        selected_cols = [col(c) if isinstance(c, str) else c for c in columns]
-        result_df = self._df.select(*selected_cols)
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_select_operation(self, *columns)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def assign(self, **kwargs: Union[Column, Any]) -> "AsyncPandasDataFrame":
         """Assign new columns (pandas-style).
@@ -359,16 +330,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.assign(total=df['amount'] * 1.1)
         """
-        result_df = self._df
-        for col_name, value in kwargs.items():
-            if isinstance(value, Column):
-                result_df = result_df.withColumn(col_name, value)
-            else:
-                # Literal value
-                from ..expressions import lit
+        from .pandas_dataframe_helpers import build_pandas_assign_operation
 
-                result_df = result_df.withColumn(col_name, lit(value))
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_assign_operation(self, **kwargs)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     @overload
     async def collect(self, stream: Literal[False] = False) -> "pd.DataFrame": ...
@@ -797,19 +762,17 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             >>> df.drop('col1', 'col2')
             >>> df.drop(['col1', 'col2'])
         """
+        from .pandas_dataframe_helpers import build_pandas_drop_operation
+
         if axis == 1 or axis == "index":
             raise NotImplementedError("Dropping rows by label is not supported in lazy evaluation")
         if axis != 0 and axis != "columns":
             raise ValueError(f"Invalid axis: {axis}. Must be 0 or 'columns'")
 
-        if isinstance(labels, str):
-            labels = [labels]
-
-        # Validate columns exist
-        self._validate_columns_exist(list(labels), "drop")
-
-        result_df = self._df.drop(*labels)
-        return self._with_dataframe(result_df)
+        # Normalize labels to columns parameter
+        columns = labels
+        result_df = build_pandas_drop_operation(self, columns)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def rename(
         self,
@@ -828,15 +791,15 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         Example:
             >>> df.rename({'old_name': 'new_name'})
         """
+        from .pandas_dataframe_helpers import build_pandas_rename_operation
+
+        # Normalize mapper to dict if it's callable
         if callable(mapper):
-            # Apply function to all column names
             old_names = self.columns
             mapper = {old: mapper(old) for old in old_names}
 
-        result_df = self._df
-        for old_name, new_name in mapper.items():
-            result_df = result_df.withColumnRenamed(old_name, new_name)
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_rename_operation(self, mapper)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def sort_values(
         self,
@@ -858,34 +821,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             >>> df.sort_values('age')
             >>> df.sort_values(['age', 'name'], ascending=[True, False])
         """
-        if isinstance(by, str):
-            by = [by]
-        else:
-            by = list(by)
+        from .pandas_dataframe_helpers import build_pandas_sort_values_operation
 
-        # Validate columns exist
-        self._validate_columns_exist(by, "sort_values")
-
-        # Normalize ascending parameter
-        if isinstance(ascending, bool):
-            ascending_list = [ascending] * len(by)
-        else:
-            ascending_list = list(ascending)
-            if len(ascending_list) != len(by):
-                raise ValueError("ascending must have same length as by")
-
-        # Build order_by list
-        from ..expressions.column import col
-
-        order_by_cols = []
-        for col_name, asc in zip(by, ascending_list):
-            col_expr = col(col_name)
-            if not asc:
-                col_expr = col_expr.desc()
-            order_by_cols.append(col_expr)
-
-        result_df = self._df.order_by(*order_by_cols)
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_sort_values_operation(self, by, ascending)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def drop_duplicates(
         self,
@@ -905,42 +844,10 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             >>> df.drop_duplicates()
             >>> df.drop_duplicates(subset=['col1', 'col2'])
         """
-        from ..expressions import functions as F
+        from .pandas_dataframe_helpers import build_pandas_drop_duplicates_operation
 
-        if subset is None:
-            # Remove duplicates on all columns
-            result_df = self._df.distinct()
-        else:
-            # Validate subset columns exist
-            if isinstance(subset, str):
-                subset_cols = [subset]
-            else:
-                subset_cols = list(subset)
-
-            self._validate_columns_exist(subset_cols, "drop_duplicates")
-
-            # For subset-based deduplication, use GROUP BY
-            grouped = self._df.group_by(*subset_cols)
-
-            # Get all column names
-            all_cols = self.columns
-            other_cols = [col for col in all_cols if col not in subset_cols]
-
-            if not other_cols:
-                # If only grouping columns, distinct works fine
-                result_df = self._df.distinct()
-            else:
-                # Build aggregations for non-grouped columns only
-                agg_exprs = []
-                for col_name in other_cols:
-                    if keep == "last":
-                        agg_exprs.append(F.max(col(col_name)).alias(col_name))
-                    else:  # keep == "first"
-                        agg_exprs.append(F.min(col(col_name)).alias(col_name))
-
-                result_df = grouped.agg(*agg_exprs)
-
-        return self._with_dataframe(result_df)
+        result_df = build_pandas_drop_duplicates_operation(self, subset, keep)
+        return self._with_dataframe(cast(AsyncDataFrame, result_df))
 
     def dropna(
         self,
@@ -1010,7 +917,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
 
         result_df = self._df
         for col_name in columns:
-            result_df = result_df.explode(col(col_name), alias=col_name)  # type: ignore[operator]
+            result_df = result_df.explode(col(col_name), alias=col_name)
         return self._with_dataframe(result_df)
 
     def pivot(
@@ -1047,7 +954,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
 
         result_df = self._df.pivot(
             pivot_column=columns,
-            value_column=value_col,  # type: ignore[operator]
+            value_column=value_col,
             agg_func=agg_func,
             pivot_values=None,
         )
