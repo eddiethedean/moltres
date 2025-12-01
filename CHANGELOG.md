@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.3] - 2025-11-30
+
+### Changed
+- **Type System Improvements** – Replaced `Any` types with specific types across the codebase:
+  - Added `FillValue` type alias for fill_null/fillna operations
+  - Replaced `database: Any` with `Union[Database, AsyncDatabase]` in file I/O helpers
+  - Added proper return type annotations for file I/O functions with overloads for type narrowing
+  - Updated fill_null/fillna methods to use `FillValue` instead of `Any`
+- **Pre-commit CI Checks** – Fixed script to remove non-existent `examples` directory from ruff checks
+
+### Fixed
+- **Type Checking** – Fixed all mypy type errors (135 source files now pass type checking)
+- **Type Annotations** – Improved type safety in file I/O helpers, DataFrame operations, and fill operations
+
 ## [0.19.2] - 2025-11-29
 
 ### Changed
