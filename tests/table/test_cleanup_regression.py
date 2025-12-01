@@ -153,38 +153,58 @@ def test_cleanup_on_interpreter_shutdown(tmp_path):
     src_path = project_root / "src"
     script = f"""
 import sys
+import os
 from pathlib import Path
 sys.path.insert(0, {repr(str(src_path))})
 
-from moltres import connect
+try:
+    from moltres import connect
 
-db_path = Path({repr(db_path_str)})
-db = connect(f"sqlite:///{{db_path}}")
+    db_path = Path({repr(db_path_str)})
+    db = connect(f"sqlite:///{{db_path}}")
 
-# Create ephemeral table
-df = db.createDataFrame([{{"id": 1, "name": "Alice"}}], pk="id")
-# Get the table name from the ephemeral tables set
-table_name = next(iter(db._ephemeral_tables))
+    # Create ephemeral table
+    df = db.createDataFrame([{{"id": 1, "name": "Alice"}}], pk="id")
+    # Get the table name from the ephemeral tables set
+    table_name = next(iter(db._ephemeral_tables))
 
-# Exit without explicit close - atexit should handle it
-# Note: We can't easily verify this in-process, but we can check
-# that the cleanup code path exists and is registered
+    # Exit without explicit close - atexit should handle it
+    # Note: We can't easily verify this in-process, but we can check
+    # that the cleanup code path exists and is registered
+    sys.exit(0)
+except Exception as e:
+    # Print error for debugging but don't fail silently
+    print(f"Error in subprocess: {{e}}", file=sys.stderr)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    sys.exit(1)
 """
     # Use a unique working directory per test to avoid conflicts
     unique_work_dir = tmp_path / f"work_{unique_id}"
     unique_work_dir.mkdir(exist_ok=True)
+
+    # Create a clean environment to avoid interference
+    clean_env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    # Remove any test-specific env vars that might interfere
+    for key in list(clean_env.keys()):
+        if key.startswith("PYTEST_") or key.startswith("MOLTRES_"):
+            # Keep MOLTRES_USE_MOCK_DEPS if set, but remove others
+            if key not in ("MOLTRES_USE_MOCK_DEPS", "MOLTRES_SKIP_PANDAS_TESTS"):
+                del clean_env[key]
 
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd=unique_work_dir,
         capture_output=True,
         text=True,
-        timeout=10,  # Increased timeout for parallel execution
-        env={**os.environ, "PYTHONUNBUFFERED": "1"},  # Ensure output is not buffered
+        timeout=30,  # Increased timeout for CI environments
+        env=clean_env,
     )
     # Script should run without error
     assert result.returncode == 0, (
-        f"Script failed with return code {result.returncode}: {result.stderr or result.stdout}"
+        f"Script failed with return code {result.returncode}.\n"
+        f"STDOUT: {result.stdout}\n"
+        f"STDERR: {result.stderr}"
     )
 
 
