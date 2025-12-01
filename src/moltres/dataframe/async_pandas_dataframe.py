@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import (
+    Type,
     cast,
     TYPE_CHECKING,
     Any,
@@ -21,17 +22,19 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical.plan import LogicalPlan
+from ..utils.inspector import sql_type_to_pandas_dtype
+from ..utils.typing import FillValue
 from .async_dataframe import AsyncDataFrame
 from .interface_common import AsyncInterfaceCommonMixin
 
 # Import PandasColumn wrapper for string accessor support
+PandasColumn: Optional[Type[Any]] = None
 try:
-    from .pandas_column import PandasColumn
-except ImportError:
-    PandasColumn = None  # type: ignore[assignment]
+    from .pandas_column import PandasColumn as _PandasColumn
 
-# Reuse the sync version's type mapping function
-from ..utils.inspector import sql_type_to_pandas_dtype
+    PandasColumn = _PandasColumn
+except ImportError:
+    pass
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -129,7 +132,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
 
     def __getitem__(
         self, key: Union[str, Sequence[str], Column]
-    ) -> Union["AsyncPandasDataFrame", Column, "PandasColumn"]:
+    ) -> Union["AsyncPandasDataFrame", Column, Any]:
         """Pandas-style column access.
 
         Supports:
@@ -872,7 +875,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
 
     def fillna(
         self,
-        value: Optional[Union[Any, Dict[str, Any]]] = None,
+        value: Optional[Union[FillValue, Dict[str, FillValue]]] = None,
         subset: Optional[Union[str, Sequence[str]]] = None,
     ) -> "AsyncPandasDataFrame":
         """Fill null values (pandas-style).
@@ -966,7 +969,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         index: Optional[Union[str, Sequence[str]]] = None,
         columns: Optional[str] = None,
         aggfunc: Union[str, Dict[str, str]] = "mean",
-        fill_value: Optional[Any] = None,
+        fill_value: Optional[FillValue] = None,
         margins: bool = False,
     ) -> "AsyncPandasDataFrame":
         """Create a pivot table (pandas-style).

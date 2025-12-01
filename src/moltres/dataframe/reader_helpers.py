@@ -6,7 +6,7 @@ to reduce code duplication.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Sequence, TypeVar
 
 from ..logical.operators import file_scan
 from ..table.schema import ColumnDef
@@ -96,7 +96,9 @@ def validate_format(format_name: str) -> str:
 # Builder helper functions for Loader classes
 
 
-def build_stream_setter(loader: Any, enabled: bool = True) -> Any:  # L - using Any for mypy compatibility
+def build_stream_setter(
+    loader: Any, enabled: bool = True
+) -> Any:  # Using Any for Protocol compatibility - LoaderProtocol cannot be used in TypeVar bounds
     """Set streaming mode option for a Loader.
 
     Args:
@@ -110,7 +112,9 @@ def build_stream_setter(loader: Any, enabled: bool = True) -> Any:  # L - using 
     return loader
 
 
-def build_schema_setter(loader: Any, schema: Sequence[ColumnDef]) -> Any:  # L - using Any for mypy compatibility
+def build_schema_setter(
+    loader: Any, schema: Sequence[ColumnDef]
+) -> Any:  # Using Any for Protocol compatibility - LoaderProtocol cannot be used in TypeVar bounds
     """Set explicit schema for a Loader.
 
     Args:
@@ -124,7 +128,9 @@ def build_schema_setter(loader: Any, schema: Sequence[ColumnDef]) -> Any:  # L -
     return loader
 
 
-def build_option_setter(loader: Any, key: str, value: object) -> Any:  # L - using Any for mypy compatibility
+def build_option_setter(
+    loader: Any, key: str, value: object
+) -> Any:  # Using Any for Protocol compatibility - LoaderProtocol cannot be used in TypeVar bounds
     """Set a single read option for a Loader.
 
     Args:
@@ -139,7 +145,9 @@ def build_option_setter(loader: Any, key: str, value: object) -> Any:  # L - usi
     return loader
 
 
-def build_options_setter(loader: Any, **options: object) -> Any:  # L - using Any for mypy compatibility
+def build_options_setter(
+    loader: Any, **options: object
+) -> Any:  # Using Any for Protocol compatibility - LoaderProtocol cannot be used in TypeVar bounds
     """Set multiple read options for a Loader.
 
     Args:

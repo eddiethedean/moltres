@@ -160,7 +160,10 @@ def build_pandas_merge_operation(
     )
 
     # Perform join
-    return cast(Union["DataFrame", "AsyncDataFrame"], left_pandas_df._df.join(right_pandas_df._df, on=join_on, how=join_how))
+    return cast(
+        Union["DataFrame", "AsyncDataFrame"],
+        left_pandas_df._df.join(right_pandas_df._df, on=join_on, how=join_how),
+    )
 
 
 def build_pandas_cross_join_operation(
@@ -176,7 +179,9 @@ def build_pandas_cross_join_operation(
     Returns:
         Resulting underlying DataFrame
     """
-    return cast(Union["DataFrame", "AsyncDataFrame"], left_pandas_df._df.crossJoin(right_pandas_df._df))
+    return cast(
+        Union["DataFrame", "AsyncDataFrame"], left_pandas_df._df.crossJoin(right_pandas_df._df)
+    )
 
 
 def build_pandas_rename_operation(
@@ -353,9 +358,15 @@ def build_pandas_sample_operation(
 
     if n is not None:
         # Sample n rows - use fraction=1.0 then limit
-        return cast(Union["DataFrame", "AsyncDataFrame"], pandas_df._df.sample(fraction=1.0, seed=random_state).limit(n))
+        return cast(
+            Union["DataFrame", "AsyncDataFrame"],
+            pandas_df._df.sample(fraction=1.0, seed=random_state).limit(n),
+        )
     elif frac is not None:
-        return cast(Union["DataFrame", "AsyncDataFrame"], pandas_df._df.sample(fraction=frac, seed=random_state))
+        return cast(
+            Union["DataFrame", "AsyncDataFrame"],
+            pandas_df._df.sample(fraction=frac, seed=random_state),
+        )
     else:
         raise ValueError("Must specify either 'n' or 'frac'")
 
@@ -373,7 +384,9 @@ def build_pandas_append_operation(
     Returns:
         Resulting underlying DataFrame (union all)
     """
-    return cast(Union["DataFrame", "AsyncDataFrame"], left_pandas_df._df.unionAll(right_pandas_df._df))
+    return cast(
+        Union["DataFrame", "AsyncDataFrame"], left_pandas_df._df.unionAll(right_pandas_df._df)
+    )
 
 
 def build_pandas_concat_operation(

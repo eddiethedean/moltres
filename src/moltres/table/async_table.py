@@ -47,10 +47,14 @@ if TYPE_CHECKING:
         TableSchema,
         UniqueConstraint,
     )
-try:
+if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio.engine import AsyncConnection
-except ImportError:
-    AsyncConnection = None  # type: ignore[assignment]
+else:
+    # Import at runtime - if not available, use Any as fallback type
+    try:
+        from sqlalchemy.ext.asyncio.engine import AsyncConnection
+    except ImportError:
+        from typing import Any as AsyncConnection  # type: ignore[assignment, misc]
 
 from ..engine.async_connection import AsyncConnectionManager
 from ..engine.async_execution import AsyncQueryExecutor, AsyncQueryResult
@@ -210,9 +214,10 @@ class AsyncDatabase:
             >>> await db.create_table("users", [column("id", "INTEGER")]).collect()
         """
         from ..config import create_config
+        from typing import cast, Any
 
-        # Type ignore needed because mypy doesn't understand **options unpacking
-        config = create_config(engine=engine, **options)
+        # Type cast needed because mypy doesn't understand **options unpacking
+        config = create_config(engine=engine, **cast(dict[str, Any], options))
         return cls(config=config)
 
     @classmethod
@@ -314,7 +319,7 @@ class AsyncDatabase:
         """Get a handle to a table in the database from SQLAlchemy model class."""
         ...
 
-    async def table(
+    async def table(  # type: ignore[misc]
         self, name_or_model: Union[str, Type["DeclarativeBase"], Type[Any]]
     ) -> AsyncTableHandle:
         """Get a handle to a table in the database.
@@ -476,7 +481,7 @@ class AsyncDatabase:
         loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.csv(path)
         result = df.polars()
-        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+
         return cast("AsyncPolarsDataFrame", result)
 
     async def scan_json(
@@ -506,7 +511,7 @@ class AsyncDatabase:
         loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.json(path)
         result = df.polars()
-        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+
         return cast("AsyncPolarsDataFrame", result)
 
     async def scan_jsonl(
@@ -536,7 +541,7 @@ class AsyncDatabase:
         loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.jsonl(path)
         result = df.polars()
-        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+
         return cast("AsyncPolarsDataFrame", result)
 
     async def scan_parquet(
@@ -569,7 +574,7 @@ class AsyncDatabase:
         loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.parquet(path)
         result = df.polars()
-        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+
         return cast("AsyncPolarsDataFrame", result)
 
     async def scan_text(
@@ -601,7 +606,7 @@ class AsyncDatabase:
         loader = build_scan_loader_chain(self.read, schema, **options)
         df = await loader.text(path, column_name=column_name)
         result = df.polars()
-        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+
         return cast("AsyncPolarsDataFrame", result)
 
     # -------------------------------------------------------------- DDL operations
@@ -631,7 +636,7 @@ class AsyncDatabase:
         """Create a lazy async create table operation from SQLAlchemy model class."""
         ...
 
-    def create_table(
+    def create_table(  # type: ignore[misc]
         self,
         name_or_model: Union[str, Type["DeclarativeBase"]],
         columns: Optional[Sequence[ColumnDef]] = None,

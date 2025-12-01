@@ -27,7 +27,6 @@ from typing import (
     Tuple,
     Type,
     Union,
-    cast,
     overload,
 )
 
@@ -1631,8 +1630,7 @@ class DataFrame(DataFrameHelpersMixin):
             async_mode=False,
         )
 
-        from typing import cast
-        return cast("list[dict[str, object]]", records.rows())
+        return records.rows()
 
     def _read_file_streaming(self, filescan: FileScan) -> Records:
         """Read a file in streaming mode (chunked, safe for large files).
@@ -1652,8 +1650,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         from .file_io_helpers import route_file_read_streaming
 
-        from ..io.records import Records
-        return cast("Records", route_file_read_streaming(
+        return route_file_read_streaming(
             format_name=filescan.format,
             path=filescan.path,
             database=self.database,
@@ -1661,7 +1658,7 @@ class DataFrame(DataFrameHelpersMixin):
             options=filescan.options,
             column_name=filescan.column_name,
             async_mode=False,
-        ))
+        )
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
         """Print the first n rows of the :class:`DataFrame`.
@@ -2302,17 +2299,20 @@ class DataFrame(DataFrameHelpersMixin):
             >>> df[df['age'] > 25]  # Returns filtered :class:`DataFrame`
         """
         # Import here to avoid circular imports
+        PySparkColumn: Optional[Type[Any]] = None
         try:
-            from .pyspark_column import PySparkColumn
+            from .pyspark_column import PySparkColumn as _PySparkColumn
+
+            PySparkColumn = _PySparkColumn
         except ImportError:
-            PySparkColumn = None  # type: ignore[assignment]
+            pass
 
         # Single column string: df['col'] - return Column-like object with accessors
         if isinstance(key, str):
             column_expr = col(key)
             # Wrap in PySparkColumn to enable .str and .dt accessors
             if PySparkColumn is not None:
-                return PySparkColumn(column_expr)
+                return PySparkColumn(column_expr)  # type: ignore[no-any-return]
             return column_expr
 
         # List of columns: df[['col1', 'col2']] - select columns

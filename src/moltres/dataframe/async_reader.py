@@ -351,8 +351,14 @@ class AsyncRecordsLoader:
         async def read_func() -> AsyncRecords:
             stream = self._options.get("stream", False)
             if stream:
-                return cast("AsyncRecords", await read_parquet_stream(path, self._database, self._schema, self._options))
-            return cast("AsyncRecords", await read_parquet(path, self._database, self._schema, self._options))
+                return cast(
+                    "AsyncRecords",
+                    await read_parquet_stream(path, self._database, self._schema, self._options),
+                )
+            return cast(
+                "AsyncRecords",
+                await read_parquet(path, self._database, self._schema, self._options),
+            )
 
         return AsyncLazyRecords(
             _read_func=read_func,

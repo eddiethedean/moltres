@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import (
+    Type,
     cast,
     TYPE_CHECKING,
     Any,
@@ -20,14 +21,18 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical.plan import LogicalPlan
+from ..utils.typing import FillValue
 from .dataframe import DataFrame
 from .interface_common import InterfaceCommonMixin
 
 # Import PandasColumn wrapper for string accessor support
+PandasColumn: Optional[Type[Any]] = None
 try:
-    from .pandas_column import PandasColumn
+    from .pandas_column import PandasColumn as _PandasColumn
+
+    PandasColumn = _PandasColumn
 except ImportError:
-    PandasColumn = None  # type: ignore[assignment]
+    pass
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -125,7 +130,7 @@ class PandasDataFrame(InterfaceCommonMixin):
 
     def __getitem__(
         self, key: Union[str, Sequence[str], Column]
-    ) -> Union["PandasDataFrame", Column, "PandasColumn"]:
+    ) -> Union["PandasDataFrame", Column, Any]:
         """Pandas-style column access.
 
         Supports:
@@ -924,7 +929,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         index: Optional[Union[str, Sequence[str]]] = None,
         columns: Optional[str] = None,
         aggfunc: Union[str, Dict[str, str]] = "mean",
-        fill_value: Optional[Any] = None,
+        fill_value: Optional[FillValue] = None,
         margins: bool = False,
     ) -> "PandasDataFrame":
         """Create a pivot table (pandas-style).

@@ -20,6 +20,7 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical.plan import LogicalPlan
+from ..utils.typing import FillValue
 from .dataframe import DataFrame
 from .interface_common import InterfaceCommonMixin
 
@@ -622,7 +623,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
 
     def fill_null(
         self,
-        value: Optional[Any] = None,
+        value: Optional[FillValue] = None,
         strategy: Optional[str] = None,
         limit: Optional[int] = None,
         subset: Optional[Union[str, Sequence[str]]] = None,
@@ -701,11 +702,15 @@ class PolarsDataFrame(InterfaceCommonMixin):
     def collect(self, stream: Literal[False] = False) -> "pl.DataFrame": ...
 
     @overload
-    def collect(self, stream: Literal[True]) -> Iterator["pl.DataFrame"]: ...
+    def collect(
+        self, stream: Literal[True]
+    ) -> Iterator[Union["pl.DataFrame", List[Dict[str, Any]]]]: ...
 
     def collect(
         self, stream: bool = False
-    ) -> Union["pl.DataFrame", Iterator["pl.DataFrame"], List[Dict[str, Any]]]:
+    ) -> Union[
+        "pl.DataFrame", Iterator[Union["pl.DataFrame", List[Dict[str, Any]]]], List[Dict[str, Any]]
+    ]:
         """Collect results as Polars :class:`DataFrame`.
 
         Args:
@@ -724,7 +729,7 @@ class PolarsDataFrame(InterfaceCommonMixin):
         # Collect results from underlying DataFrame
         if stream:
             # Streaming mode
-            def _stream_chunks() -> Iterator["pl.DataFrame"]:
+            def _stream_chunks() -> Iterator[Union["pl.DataFrame", List[Dict[str, Any]]]]:
                 try:
                     import polars as pl
                 except ImportError:

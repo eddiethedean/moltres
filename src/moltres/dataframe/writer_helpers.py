@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Sequence, TypeVar
 
 from ..table.schema import ColumnDef
 

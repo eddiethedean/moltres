@@ -20,6 +20,7 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical.plan import LogicalPlan
+from ..utils.typing import FillValue
 from .async_dataframe import AsyncDataFrame
 from .interface_common import AsyncInterfaceCommonMixin
 
@@ -623,7 +624,7 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
 
     def fill_null(
         self,
-        value: Optional[Any] = None,
+        value: Optional[FillValue] = None,
         strategy: Optional[str] = None,
         limit: Optional[int] = None,
         subset: Optional[Union[str, Sequence[str]]] = None,
@@ -702,11 +703,17 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
     async def collect(self, stream: Literal[False] = False) -> "pl.DataFrame": ...
 
     @overload
-    async def collect(self, stream: Literal[True]) -> AsyncIterator["pl.DataFrame"]: ...
+    async def collect(
+        self, stream: Literal[True]
+    ) -> AsyncIterator[Union["pl.DataFrame", List[Dict[str, Any]]]]: ...
 
     async def collect(
         self, stream: bool = False
-    ) -> Union["pl.DataFrame", AsyncIterator["pl.DataFrame"], List[Dict[str, Any]]]:
+    ) -> Union[
+        "pl.DataFrame",
+        AsyncIterator[Union["pl.DataFrame", List[Dict[str, Any]]]],
+        List[Dict[str, Any]],
+    ]:
         """Collect results as Polars :class:`DataFrame` (async).
 
         Args:
@@ -725,7 +732,9 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
         # Collect results from underlying AsyncDataFrame
         if stream:
             # Streaming mode
-            async def _stream_chunks() -> AsyncIterator["pl.DataFrame"]:
+            async def _stream_chunks() -> AsyncIterator[
+                Union["pl.DataFrame", List[Dict[str, Any]]]
+            ]:
                 try:
                     import polars as pl
                 except ImportError:
@@ -1363,10 +1372,9 @@ class AsyncPolarsDataFrame(AsyncInterfaceCommonMixin):
             >>> await df.summary()
             >>> await df.summary("count", "mean", "max")
         """
-        from .polars_dataframe_helpers import build_polars_summary_operation
-
-        result_df = await build_polars_summary_operation(self, *statistics)
-        return self._with_dataframe(cast(AsyncDataFrame, result_df))
+        # Call summary on the underlying AsyncDataFrame directly (it's async)
+        result_df = await self._df.summary(*statistics)
+        return self._with_dataframe(result_df)
 
     # ========================================================================
     # Common Table Expressions (CTEs) - Moltres-specific but Polars-style API

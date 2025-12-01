@@ -22,10 +22,11 @@ from typing import (
 
 from ..expressions.column import Column, col
 from ..logical.plan import TableScan
+from ..utils.typing import FillValue
 
-if TYPE_CHECKING:
-    from ..dataframe.dataframe import DataFrame
-    from ..dataframe.async_dataframe import AsyncDataFrame
+# Import at runtime for cast() calls
+from ..dataframe.dataframe import DataFrame
+from ..dataframe.async_dataframe import AsyncDataFrame
 
 # Type variable for generic Polars DataFrame operations - using Any bound for flexibility
 P = TypeVar("P", bound=Any)
@@ -36,12 +37,12 @@ if TYPE_CHECKING:
         """Protocol defining the interface that Polars DataFrame classes must implement."""
 
         _df: Union["DataFrame", "AsyncDataFrame"]
-        
+
         @property
         def columns(self) -> List[str]:
             """Get column names."""
             ...
-        
+
         # Schema can be either a property (sync) or async method (async)
         schema: Union[List[Tuple[str, str]], Any]
 
@@ -50,7 +51,7 @@ if TYPE_CHECKING:
         ) -> None:
             """Validate that all specified columns exist."""
             ...
-        
+
         def _with_dataframe(self, df: Union["DataFrame", "AsyncDataFrame"]) -> Any:
             """Create a new instance with a different underlying DataFrame."""
             ...
@@ -313,7 +314,9 @@ def build_polars_sample_operation(
         sampled_df = polars_df._df.sample(fraction=1.0, seed=seed)
         return cast(Union["DataFrame", "AsyncDataFrame"], sampled_df.limit(n))
     elif fraction is not None:
-        return cast(Union[DataFrame, AsyncDataFrame], polars_df._df.sample(fraction=fraction, seed=seed))
+        return cast(
+            Union[DataFrame, AsyncDataFrame], polars_df._df.sample(fraction=fraction, seed=seed)
+        )
     else:
         raise ValueError("Either 'fraction' or 'n' must be provided to sample()")
 
@@ -336,7 +339,7 @@ def build_polars_drop_nulls_operation(
 
 def build_polars_fill_null_operation(
     polars_df: Any,  # PolarsDataFrameProtocol - using Any for mypy compatibility
-    value: Optional[Any] = None,
+    value: Optional[FillValue] = None,
     strategy: Optional[str] = None,
     limit: Optional[int] = None,
     subset: Optional[Union[str, Sequence[str]]] = None,
@@ -418,12 +421,15 @@ def build_polars_pivot_operation(
     else:
         value_col = str(values)
 
-    return cast(Union[DataFrame, AsyncDataFrame], polars_df._df.pivot(
-        pivot_column=columns,
-        value_column=value_col,
-        agg_func=aggregate_function,
-        pivot_values=None,
-    ))
+    return cast(
+        Union[DataFrame, AsyncDataFrame],
+        polars_df._df.pivot(
+            pivot_column=columns,
+            value_column=value_col,
+            agg_func=aggregate_function,
+            pivot_values=None,
+        ),
+    )
 
 
 def build_polars_unique_operation(
@@ -495,7 +501,9 @@ def build_polars_union_operation(
     if distinct:
         return cast(Union[DataFrame, AsyncDataFrame], left_polars_df._df.union(right_polars_df._df))
     else:
-        return cast(Union[DataFrame, AsyncDataFrame], left_polars_df._df.unionAll(right_polars_df._df))
+        return cast(
+            Union[DataFrame, AsyncDataFrame], left_polars_df._df.unionAll(right_polars_df._df)
+        )
 
 
 def build_polars_intersect_operation(
@@ -650,7 +658,10 @@ def build_polars_recursive_cte_operation(
     Returns:
         Resulting underlying DataFrame
     """
-    return cast(Union["DataFrame", "AsyncDataFrame"], initial_polars_df._df.recursive_cte(name, recursive_polars_df._df, union_all=union_all))
+    return cast(
+        Union["DataFrame", "AsyncDataFrame"],
+        initial_polars_df._df.recursive_cte(name, recursive_polars_df._df, union_all=union_all),
+    )
 
 
 def build_polars_summary_operation(
@@ -714,16 +725,25 @@ def build_polars_join_operation(
         on_param: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = (
             join_on if isinstance(join_on, list) else None
         )
-        return cast(Union[DataFrame, AsyncDataFrame], left_polars_df._df.anti_join(right_polars_df._df, on=on_param))
+        return cast(
+            Union[DataFrame, AsyncDataFrame],
+            left_polars_df._df.anti_join(right_polars_df._df, on=on_param),
+        )
     elif join_how == "semi":
         # Semi-join: rows in left that have matches in right (no right columns)
         on_param_semi: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = (
             join_on if isinstance(join_on, list) else None
         )
-        return cast(Union[DataFrame, AsyncDataFrame], left_polars_df._df.semi_join(right_polars_df._df, on=on_param_semi))
+        return cast(
+            Union[DataFrame, AsyncDataFrame],
+            left_polars_df._df.semi_join(right_polars_df._df, on=on_param_semi),
+        )
 
     # Perform standard join
-    return cast(Union[DataFrame, AsyncDataFrame], left_polars_df._df.join(right_polars_df._df, on=join_on, how=join_how))
+    return cast(
+        Union[DataFrame, AsyncDataFrame],
+        left_polars_df._df.join(right_polars_df._df, on=join_on, how=join_how),
+    )
 
 
 def build_polars_slice_operation(

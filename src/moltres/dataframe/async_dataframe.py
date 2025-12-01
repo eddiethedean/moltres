@@ -1286,7 +1286,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         from .file_io_helpers import route_file_read
 
-        records = await route_file_read(
+        records = await route_file_read(  # type: ignore[misc]
             format_name=filescan.format,
             path=filescan.path,
             database=self.database,
@@ -1298,6 +1298,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         # AsyncRecords.rows() returns a coroutine, so we need to await it
         from typing import cast
+
         return cast("list[dict[str, object]]", await records.rows())
 
     async def _read_file_streaming(self, filescan: FileScan) -> "AsyncRecords":
@@ -1318,7 +1319,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         from .file_io_helpers import route_file_read_streaming
 
-        result = await route_file_read_streaming(
+        result = await route_file_read_streaming(  # type: ignore[misc]
             format_name=filescan.format,
             path=filescan.path,
             database=self.database,
@@ -1464,17 +1465,20 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             >>> df[df['age'] > 25]  # Returns filtered AsyncDataFrame
         """
         # Import here to avoid circular imports
+        PySparkColumn: Optional[Type[Any]] = None
         try:
-            from .pyspark_column import PySparkColumn
+            from .pyspark_column import PySparkColumn as _PySparkColumn
+
+            PySparkColumn = _PySparkColumn
         except ImportError:
-            PySparkColumn = None  # type: ignore[assignment]
+            pass
 
         # Single column string: df['col'] - return Column-like object with accessors
         if isinstance(key, str):
             column_expr = col(key)
             # Wrap in PySparkColumn to enable .str and .dt accessors
             if PySparkColumn is not None:
-                return PySparkColumn(column_expr)
+                return PySparkColumn(column_expr)  # type: ignore[no-any-return]
             return column_expr
 
         # List of columns: df[['col1', 'col2']] - select columns

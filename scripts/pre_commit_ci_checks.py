@@ -127,7 +127,7 @@ Examples:
     # 1. Run Ruff check (exact CI command)
     print_header("Ruff Linting")
     if not run_command(
-        ["ruff", "check", "src", "examples", "tests"],
+        ["ruff", "check", "src", "tests"],
         "Ruff linting",
     ):
         checks_failed.append("Ruff linting")
@@ -137,7 +137,7 @@ Examples:
     # 2. Run Ruff format check (exact CI command)
     print_header("Ruff Format Check")
     if not run_command(
-        ["ruff", "format", "--check", "src", "examples", "tests"],
+        ["ruff", "format", "--check", "src", "tests"],
         "Ruff format check",
     ):
         checks_failed.append("Ruff format check")

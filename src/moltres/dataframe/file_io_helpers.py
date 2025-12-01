@@ -6,22 +6,51 @@ appropriate reader functions.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Dict, Literal, Optional, Sequence, Union, cast, overload
 
 if TYPE_CHECKING:
+    from ..io.records import AsyncRecords, Records
+    from ..table.async_table import AsyncDatabase
     from ..table.schema import ColumnDef
+    from ..table.table import Database
+
+
+@overload
+def route_file_read(
+    format_name: str,
+    path: str,
+    database: "Database",
+    schema: Optional[Sequence["ColumnDef"]],
+    options: Dict[str, object],
+    column_name: Optional[str] = None,
+    *,
+    async_mode: Literal[False] = False,
+) -> "Records": ...
+
+
+@overload
+def route_file_read(
+    format_name: str,
+    path: str,
+    database: "AsyncDatabase",
+    schema: Optional[Sequence["ColumnDef"]],
+    options: Dict[str, object],
+    column_name: Optional[str] = None,
+    *,
+    async_mode: Literal[True],
+) -> "AsyncRecords": ...
 
 
 def route_file_read(
     format_name: str,
     path: str,
-    database: Any,
+    database: Union["Database", "AsyncDatabase"],
     schema: Optional[Sequence["ColumnDef"]],
     options: Dict[str, object],
     column_name: Optional[str] = None,
     *,
     async_mode: bool = False,
-) -> Any:
+) -> Union["Records", "AsyncRecords"]:
     """Route file read to the appropriate reader function based on format.
 
     Args:
@@ -41,19 +70,23 @@ def route_file_read(
         ImportError: If required dependencies are missing (e.g., pyarrow for parquet)
     """
     if async_mode:
-        return _route_async_file_read(format_name, path, database, schema, options, column_name)
+        return _route_async_file_read(
+            format_name, path, cast("AsyncDatabase", database), schema, options, column_name
+        )  # type: ignore[return-value]
     else:
-        return _route_sync_file_read(format_name, path, database, schema, options, column_name)
+        return _route_sync_file_read(
+            format_name, path, cast("Database", database), schema, options, column_name
+        )
 
 
 def _route_sync_file_read(
     format_name: str,
     path: str,
-    database: Any,
+    database: "Database",
     schema: Optional[Sequence["ColumnDef"]],
     options: Dict[str, object],
     column_name: Optional[str] = None,
-) -> Any:
+) -> "Records":
     """Route to sync file reader."""
     from .readers import (
         read_csv,
@@ -80,11 +113,11 @@ def _route_sync_file_read(
 async def _route_async_file_read(
     format_name: str,
     path: str,
-    database: Any,
+    database: "AsyncDatabase",
     schema: Optional[Sequence["ColumnDef"]],
     options: Dict[str, object],
     column_name: Optional[str] = None,
-) -> Any:
+) -> "AsyncRecords":
     """Route to async file reader."""
     from .readers.async_csv_reader import read_csv
     from .readers.async_json_reader import read_json, read_jsonl
@@ -109,16 +142,42 @@ async def _route_async_file_read(
         raise ValueError(f"Unsupported file format: {format_name}")
 
 
+@overload
 def route_file_read_streaming(
     format_name: str,
     path: str,
-    database: Any,
+    database: "Database",
+    schema: Optional[Sequence["ColumnDef"]],
+    options: Dict[str, object],
+    column_name: Optional[str] = None,
+    *,
+    async_mode: Literal[False] = False,
+) -> "Records": ...
+
+
+@overload
+def route_file_read_streaming(
+    format_name: str,
+    path: str,
+    database: "AsyncDatabase",
+    schema: Optional[Sequence["ColumnDef"]],
+    options: Dict[str, object],
+    column_name: Optional[str] = None,
+    *,
+    async_mode: Literal[True],
+) -> "AsyncRecords": ...
+
+
+def route_file_read_streaming(
+    format_name: str,
+    path: str,
+    database: Union["Database", "AsyncDatabase"],
     schema: Optional[Sequence["ColumnDef"]],
     options: Dict[str, object],
     column_name: Optional[str] = None,
     *,
     async_mode: bool = False,
-) -> Any:
+) -> Union["Records", "AsyncRecords"]:
     """Route file read to the appropriate streaming reader function based on format.
 
     Args:
@@ -139,22 +198,22 @@ def route_file_read_streaming(
     """
     if async_mode:
         return _route_async_file_read_streaming(
-            format_name, path, database, schema, options, column_name
-        )
+            format_name, path, cast("AsyncDatabase", database), schema, options, column_name
+        )  # type: ignore[return-value]
     else:
         return _route_sync_file_read_streaming(
-            format_name, path, database, schema, options, column_name
+            format_name, path, cast("Database", database), schema, options, column_name
         )
 
 
 def _route_sync_file_read_streaming(
     format_name: str,
     path: str,
-    database: Any,
+    database: "Database",
     schema: Optional[Sequence["ColumnDef"]],
     options: Dict[str, object],
     column_name: Optional[str] = None,
-) -> Any:
+) -> "Records":
     """Route to sync streaming file reader."""
     from .readers import (
         read_csv_stream,
@@ -181,11 +240,11 @@ def _route_sync_file_read_streaming(
 async def _route_async_file_read_streaming(
     format_name: str,
     path: str,
-    database: Any,
+    database: "AsyncDatabase",
     schema: Optional[Sequence["ColumnDef"]],
     options: Dict[str, object],
     column_name: Optional[str] = None,
-) -> Any:
+) -> "AsyncRecords":
     """Route to async streaming file reader."""
     from .readers.async_csv_reader import read_csv_stream
     from .readers.async_json_reader import read_json_stream, read_jsonl_stream

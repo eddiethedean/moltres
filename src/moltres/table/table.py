@@ -300,9 +300,10 @@ class Database:
             >>> _ = db.create_table("users", [column("id", "INTEGER")]).collect()
         """
         from ..config import create_config
+        from typing import cast, Any
 
-        # Type ignore needed because mypy doesn't understand **options unpacking
-        config = create_config(engine=engine, **options)
+        # Type cast needed because mypy doesn't understand **options unpacking
+        config = create_config(engine=engine, **cast(dict[str, Any], options))
         return cls(config=config)
 
     @classmethod
@@ -467,7 +468,7 @@ class Database:
         """
         ...
 
-    def table(
+    def table(  # type: ignore[misc]
         self, name_or_model: Union[str, Type["DeclarativeBase"], Type[Any]]
     ) -> TableHandle:
         """Get a handle to a table in the database.
@@ -810,7 +811,7 @@ class Database:
         from .table_operations_helpers import build_scan_loader_chain
 
         loader = build_scan_loader_chain(self.read, schema, **options)
-        from ..dataframe.polars_dataframe import PolarsDataFrame
+
         return cast("PolarsDataFrame", loader.csv(path).polars())
 
     def scan_json(
@@ -838,7 +839,7 @@ class Database:
         from .table_operations_helpers import build_scan_loader_chain
 
         loader = build_scan_loader_chain(self.read, schema, **options)
-        from ..dataframe.polars_dataframe import PolarsDataFrame
+
         return cast("PolarsDataFrame", loader.json(path).polars())
 
     def scan_jsonl(
@@ -866,7 +867,7 @@ class Database:
         from .table_operations_helpers import build_scan_loader_chain
 
         loader = build_scan_loader_chain(self.read, schema, **options)
-        from ..dataframe.polars_dataframe import PolarsDataFrame
+
         return cast("PolarsDataFrame", loader.jsonl(path).polars())
 
     def scan_parquet(
@@ -897,7 +898,7 @@ class Database:
         from .table_operations_helpers import build_scan_loader_chain
 
         loader = build_scan_loader_chain(self.read, schema, **options)
-        from ..dataframe.polars_dataframe import PolarsDataFrame
+
         return cast("PolarsDataFrame", loader.parquet(path).polars())
 
     def scan_text(
@@ -927,7 +928,7 @@ class Database:
         from .table_operations_helpers import build_scan_loader_chain
 
         loader = build_scan_loader_chain(self.read, schema, **options)
-        from ..dataframe.polars_dataframe import PolarsDataFrame
+
         return cast("PolarsDataFrame", loader.text(path, column_name=column_name).polars())
 
     # -------------------------------------------------------------- DDL operations
@@ -957,7 +958,7 @@ class Database:
         """Create a lazy create table operation from SQLAlchemy model class."""
         ...
 
-    def create_table(
+    def create_table(  # type: ignore[misc]
         self,
         name_or_model: Union[str, Type["DeclarativeBase"]],
         columns: Optional[Sequence[ColumnDef]] = None,
