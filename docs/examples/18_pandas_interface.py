@@ -2,6 +2,10 @@
 
 This example demonstrates how to use Moltres with a pandas-style API,
 providing familiar pandas operations while maintaining SQL pushdown execution.
+
+Required dependencies:
+- moltres (required)
+- pandas (optional, for pandas DataFrame return types): pip install pandas or pip install moltres[pandas]
 """
 
 from __future__ import annotations
@@ -10,6 +14,20 @@ from typing import Any
 
 from moltres import connect
 from moltres.table.schema import column
+
+# Check for pandas (optional - example works without it but collect() returns dicts instead of DataFrame)
+try:
+    import pandas as pd
+
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    if __name__ == "__main__":
+        print("Note: pandas is not installed. Install with: pip install pandas")
+        print("Or: pip install moltres[pandas]")
+        print(
+            "The example will still run, but collect() will return list of dicts instead of pandas DataFrame.\n"
+        )
 
 
 # Helper function to handle both pandas DataFrame and list of dicts
@@ -204,7 +222,7 @@ try:
         for row in results[:5]:
             print(f"  {row}")
 except ImportError:
-    for row in results[:5]:  # type: ignore[assignment]
+    for row in results[:5]:
         print(f"  {row}")
 # Output:
 #   {'id': 1, 'name': 'Alice', 'amount': 100.0}
@@ -239,7 +257,7 @@ try:
         for row in results:
             print(f"  {row['name']}, age {row['age']}, age_plus_10 {row['age_plus_10']}")
 except ImportError:
-    for row in results:  # type: ignore[assignment]
+    for row in results:
         print(f"  {row['name']}, age {row['age']}, age_plus_10 {row['age_plus_10']}")
 # Output:
 #   Alice, age 30, age_plus_10 40
@@ -496,8 +514,18 @@ print("\nSelect with SQL expressions:")
 selected = df.select_expr("id", "name", "age", "age * 2 as double_age")
 results = selected.collect()
 print(f"  Selected: {len(results)} rows")
-if results:
-    print(f"  First row double_age: {results[0].get('double_age', 'N/A')}")
+if len(results) > 0:
+    # Handle both pandas DataFrame and list of dicts
+    if PANDAS_AVAILABLE and hasattr(results, "iloc"):
+        first_row = results.iloc[0]
+        double_age = (
+            first_row.get("double_age", "N/A")
+            if hasattr(first_row, "get")
+            else first_row["double_age"]
+        )
+    else:
+        double_age = results[0].get("double_age", "N/A")
+    print(f"  First row double_age: {double_age}")
 
 # CTE
 print("\nCommon Table Expression:")

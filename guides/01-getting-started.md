@@ -30,7 +30,7 @@ from moltres import connect
 db = connect("sqlite:///:memory:")
 
 # SQLite file-based (persistent database)
-# db = connect("sqlite:///example.db")
+# db = connect("sqlite:///example.db")  # Creates a file on disk
 
 # PostgreSQL (requires PostgreSQL server)
 # db = connect("postgresql://user:password@localhost:5432/mydb")
@@ -111,12 +111,15 @@ db = connect("sqlite:///:memory:")
 db.create_table("users", [
     column("id", "INTEGER", primary_key=True),
     column("name", "TEXT"),
+    column("email", "TEXT"),
+    column("age", "INTEGER"),
 ]).collect()
 
 # Insert sample data
 Records.from_list([
-    {"id": 1, "name": "Alice"},
-    {"id": 2, "name": "Bob"},
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
+    {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
+    {"id": 3, "name": "Charlie", "email": "charlie@example.com", "age": 35},
 ], database=db).insert_into("users")
 
 # Select all columns
@@ -144,7 +147,7 @@ print(results)
 **Key Concept**: Moltres uses lazy evaluation. Operations build a query plan but don't execute until you call `.collect()`.
 
 ```python
-from moltres import connect
+from moltres import connect, col
 from moltres.table.schema import column
 from moltres.io.records import Records
 
@@ -155,12 +158,15 @@ db = connect("sqlite:///:memory:")
 db.create_table("users", [
     column("id", "INTEGER", primary_key=True),
     column("name", "TEXT"),
+    column("email", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
 ]).collect()
 
 # Insert sample data
 Records.from_list([
-    {"id": 1, "name": "Alice"},
-    {"id": 2, "name": "Bob"},
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30, "active": 1},
+    {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25, "active": 1},
 ], database=db).insert_into("users")
 # This doesn't execute any SQL yet!
 df = (
@@ -185,9 +191,9 @@ This means you can build complex queries step by step without performance penalt
 ### Filtering
 
 ```python
-from moltres import connect
-from moltres import col
+from moltres import connect, col
 from moltres.table.schema import column
+from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
@@ -196,7 +202,16 @@ db = connect("sqlite:///:memory:")
 db.create_table("users", [
     column("id", "INTEGER", primary_key=True),
     column("name", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
+    column("email", "TEXT"),
 ]).collect()
+
+# Insert sample data
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30, "active": 1, "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "age": 25, "active": 0, "email": "bob@example.com"},
+], database=db).insert_into("users")
 
 # Single condition
 df = db.table("users").select().where(col("age") > 25)
@@ -233,8 +248,9 @@ print(results)
 ### Sorting
 
 ```python
-from moltres import connect
+from moltres import connect, col
 from moltres.table.schema import column
+from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
@@ -243,6 +259,7 @@ db = connect("sqlite:///:memory:")
 db.create_table("users", [
     column("id", "INTEGER", primary_key=True),
     column("name", "TEXT"),
+    column("age", "INTEGER"),
 ]).collect()
 
 # Insert sample data
@@ -279,10 +296,10 @@ print(results)
 **See also:** [GroupBy and aggregation examples](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)
 
 ```python
-from moltres import connect
-from moltres import col
+from moltres import connect, col
 from moltres.expressions import functions as F
 from moltres.table.schema import column
+from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
@@ -291,6 +308,8 @@ db = connect("sqlite:///:memory:")
 db.create_table("users", [
     column("id", "INTEGER", primary_key=True),
     column("name", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
 ]).collect()
 
 # Insert sample data
@@ -332,7 +351,7 @@ print(results)
 **See also:** [Join examples](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)
 
 ```python
-from moltres import connect
+from moltres import connect, col
 from moltres.table.schema import column
 from moltres.io.records import Records
 
@@ -403,11 +422,30 @@ You can also get results as pandas or polars DataFrames:
 ```python
 from moltres import connect
 from moltres.table.schema import column
+from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
-# Pandas DataFrame (requires: pip install moltres[pandas])
-results = df.collect(format="pandas")
+
+# Create table and data first
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
+
+df = db.table("users").select()
+
+# Pandas DataFrame (requires: pip install pandas)
+try:
+    results = df.collect(format="pandas")
+    # Returns: pandas.DataFrame
+except ImportError:
+    print("pandas not installed. Install with: pip install pandas or pip install moltres[pandas]")
 # Returns: pandas.DataFrame
 
 # Polars DataFrame (requires: pip install moltres[polars])
@@ -419,11 +457,25 @@ results = df.collect(format="polars")
 ## Updating and Deleting Data
 
 ```python
-from moltres import connect
+from moltres import connect, col
 from moltres.table.schema import column
+from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+
+# Create table and data first
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("active", "INTEGER"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "name": "Alice", "active": 1},
+    {"id": 2, "name": "Bob", "active": 0},
+], database=db).insert_into("users")
+
 # Update rows
 result = db.update(
     "users",

@@ -6,7 +6,7 @@ This example demonstrates using column expressions, functions, and operators.
 from moltres import connect, col, lit
 from moltres.expressions import functions as F
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Clean up any existing tables
 db.drop_table("employees", if_exists=True).collect()

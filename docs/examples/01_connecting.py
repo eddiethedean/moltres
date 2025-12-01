@@ -3,14 +3,16 @@
 This example demonstrates how to connect to different database types
 using both synchronous and asynchronous connections.
 
-Note: This example doesn't produce output - it just demonstrates connection setup.
+Required dependencies:
+- moltres (required)
+- For async: moltres[async] or moltres[async-sqlite] (optional)
 """
 
 # Synchronous connection
 from moltres import connect
 
-# SQLite
-db = connect("sqlite:///example.db")
+# SQLite (using in-memory database for this example)
+db = connect("sqlite:///:memory:")
 
 # PostgreSQL
 # db = connect("postgresql://user:password@localhost:5432/mydb")
@@ -21,19 +23,22 @@ db = connect("sqlite:///example.db")
 # Using SQLAlchemy Engine
 from sqlalchemy import create_engine
 
-engine = create_engine("sqlite:///example.db")
+engine = create_engine("sqlite:///:memory:")
 db = connect(engine=engine)
 
 # Close when done
 db.close()
 
 # Async connection
+import sys
+
 try:
     from moltres import async_connect
+    import asyncio
 
     async def main() -> None:
-        # SQLite async
-        db = async_connect("sqlite+aiosqlite:///example.db")
+        # SQLite async (using in-memory database)
+        db = async_connect("sqlite+aiosqlite:///:memory:")
 
         # PostgreSQL async
         # db = async_connect("postgresql+asyncpg://user:password@localhost:5432/mydb")
@@ -44,6 +49,11 @@ try:
         # Close when done
         await db.close()
 
-    # asyncio.run(main())
+    if __name__ == "__main__":
+        asyncio.run(main())
 except ImportError:
-    print("Async dependencies not installed. Install with: pip install moltres[async]")
+    print("Async dependencies not installed.")
+    print("Install with: pip install moltres[async]")
+    print("Or: pip install moltres[async-sqlite]")
+    if __name__ == "__main__":
+        sys.exit(1)

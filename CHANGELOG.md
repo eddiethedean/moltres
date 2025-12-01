@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.4] - 2025-12-01
+
+### Changed
+- **Documentation Examples** – Made all code examples in `docs/examples/` and `guides/` directories fully runnable:
+  - All examples now use in-memory SQLite databases to avoid file conflicts
+  - Added missing imports and variable definitions to make blocks self-contained
+  - Fixed SQL errors by ensuring tables and columns are properly defined
+  - Added dependency checks with helpful installation instructions for optional dependencies
+  - Integration examples now include execution guards with clear usage instructions
+
+### Fixed
+- **Example Code** – Fixed all standalone code blocks in guides to execute successfully (175/175 blocks passing)
+- **Missing Imports** – Added missing imports (`col`, `Records`, `pd`, etc.) throughout guide examples
+- **SQL Errors** – Fixed "no such table/column" errors by adding proper table creation and data insertion
+- **Variable Definitions** – Made all code blocks self-contained by adding missing `df` and `db` definitions
+
 ## [0.19.3] - 2025-11-30
 
 ### Changed

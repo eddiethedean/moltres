@@ -52,14 +52,14 @@ try:
     # Method 1: Attach model when creating DataFrame from table
     # ---------------------------------------------------------
     print("=== Method 1: Using table() with SQLModel ===")
-    users_table = db.table(User)  # Pass SQLModel class directly
+    users_table = db.table(User)  # type: ignore[arg-type]  # Pass SQLModel class directly
     df = users_table.select()
     results = df.collect()
 
     # Results are SQLModel instances
     print(f"Type of first result: {type(results[0])}")
-    print(f"First user: {results[0].name} ({results[0].email})")
-    print(f"First user age: {results[0].age}")
+    print(f"First user: {results[0].name} ({results[0].email})")  # type: ignore[attr-defined]
+    print(f"First user age: {results[0].age}")  # type: ignore[attr-defined]
     print()
 
     # Method 2: Attach model using with_model()
@@ -70,44 +70,45 @@ try:
     results2 = df2_with_model.collect()
 
     print(f"Type of first result: {type(results2[0])}")
-    print(f"First user: {results2[0].name}")
+    print(f"First user: {results2[0].name}")  # type: ignore[attr-defined]
     print()
 
     # Method 3: Using integration helpers
     # ------------------------------------
     print("=== Method 3: Using integration helpers ===")
     from moltres.integration import with_sqlmodel
+    from moltres import col
 
-    df3 = db.table("users").select().where(lambda x: x["age"] > 28)
+    df3 = db.table("users").select().where(col("age") > 28)
     df3_with_model = with_sqlmodel(df3, User)
     results3 = df3_with_model.collect()
 
     print(f"Users over 28: {len(results3)}")
     for user in results3:
-        print(f"  - {user.name} ({user.age})")
+        print(f"  - {user.name} ({user.age})")  # type: ignore[attr-defined]
     print()
 
     # Method 4: Chaining operations with model attached
     # --------------------------------------------------
     print("=== Method 4: Chaining operations ===")
-    df4 = db.table(User).select().where(lambda x: x["age"] > 25).order_by("age")
+    df4 = db.table(User).select().where(col("age") > 25).order_by("age")  # type: ignore[arg-type]
     results4 = df4.collect()
 
     print("Users over 25 (sorted by age):")
     for user in results4:
-        print(f"  - {user.name} ({user.age})")
+        print(f"  - {user.name} ({user.age})")  # type: ignore[attr-defined]
     print()
 
     # Method 5: Streaming with SQLModel
     # ----------------------------------
     print("=== Method 5: Streaming with SQLModel ===")
-    df5 = db.table(User).select()
+    df5 = db.table(User).select()  # type: ignore[arg-type]
     stream_results = df5.collect(stream=True)
 
     print("Streaming results:")
     for chunk in stream_results:
         for user in chunk:
-            print(f"  - {user.name}")
+            print(f"  - {user.name}")  # type: ignore[attr-defined]
         break  # Just show first chunk
     print()
 
@@ -121,7 +122,7 @@ try:
     SessionLocal = sessionmaker(bind=engine)
 
     # Create table using SQLAlchemy
-    User.__table__.create(engine, checkfirst=True)
+    User.__table__.create(engine, checkfirst=True)  # type: ignore[attr-defined]
 
     # Insert data
     with SessionLocal() as session:
@@ -137,7 +138,7 @@ try:
 
     print(f"Results from SQLAlchemy session: {len(results6)}")
     for user in results6:
-        print(f"  - {user.name}")
+        print(f"  - {user.name}")  # type: ignore[attr-defined]
     print()
 
     db.close()

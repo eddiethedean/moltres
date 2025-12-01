@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.19.3"
+version = "0.19.4"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -220,6 +220,20 @@ module = [
 ]
 ignore_missing_imports = true
 
+# dbt example models are demonstration code
+[[tool.mypy.overrides]]
+module = "docs.examples.dbt_example_project.*"
+disallow_untyped_defs = false
+
+# Example files may have duplicate definitions for demonstration purposes
+# Note: mypy doesn't support disabling no-redef, so we'll ignore errors for this file
+[[tool.mypy.overrides]]
+module = [
+    "docs.examples.22_fastapi_integration",
+    "22_fastapi_integration",
+]
+ignore_errors = true
+
 [[tool.mypy.overrides]]
 module = [
     "moltres.integrations.prefect",
@@ -264,3 +278,30 @@ follow_imports = "skip"
 
 # Note: pyarrow type stubs are provided in tests/stubs/pyarrow/
 # The stubs directory is automatically discovered by mypy via mypy_path
+
+# pandas is an optional dependency - allow missing stubs
+[[tool.mypy.overrides]]
+module = [
+    "pandas",
+    "pandas.*",
+]
+ignore_missing_imports = true
+
+# bokeh (streamlit dependency) uses Python 3.10+ syntax (pattern matching)
+[[tool.mypy.overrides]]
+module = [
+    "bokeh",
+    "bokeh.*",
+]
+ignore_errors = true
+follow_imports = "skip"
+
+# streamlit uses bokeh which has Python 3.10+ syntax
+[[tool.mypy.overrides]]
+module = [
+    "moltres.integrations.streamlit",
+    "streamlit",
+    "streamlit.*",
+]
+ignore_errors = true
+follow_imports = "skip"

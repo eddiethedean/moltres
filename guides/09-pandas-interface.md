@@ -629,8 +629,6 @@ from moltres.io.records import Records
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
 
-db = connect("sqlite:///example.db")
-
 # Setup
 db.create_table("users", [
     column("id", "INTEGER", primary_key=True),

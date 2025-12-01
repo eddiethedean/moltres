@@ -2,8 +2,9 @@
 
 This example demonstrates how to use Moltres DataFrames in dbt Python models.
 
-IMPORTANT: dbt integration is optional. Install with:
-    pip install dbt-core
+Required dependencies:
+- moltres (required)
+- dbt-core (optional): pip install dbt-core or pip install moltres[dbt]
 """
 
 # Example 1: Basic dbt Python Model with Moltres
@@ -40,6 +41,7 @@ try:
 
 except ImportError:
     print("dbt-core not installed. Install with: pip install dbt-core")
+    print("Or: pip install moltres[dbt]")
 
 # Example 2: Using dbt Sources
 # =============================
@@ -96,4 +98,7 @@ if __name__ == "__main__":
     print("=" * 50)
     print("\nThis file contains examples of using Moltres with dbt.")
     print("See the function docstrings for code examples.")
+    print("\nRequired dependencies:")
+    print("  pip install dbt-core")
+    print("  Or: pip install moltres[dbt]")
     print("\nFor more details, see: guides/17-dbt-integration.md")

@@ -29,6 +29,7 @@ try:
 
     import streamlit as st
     from moltres import connect, col
+    from moltres.expressions import functions as F
     from moltres.table.schema import column
     from moltres.integrations.streamlit import (
         moltres_dataframe,
@@ -368,11 +369,15 @@ if STREAMLIT_AVAILABLE:
         st.metric("Total Users", total_users)
 
     with col2:
-        avg_age = (
-            db.table("users").select().agg({"age": "avg"}).collect()[0]
-            if db.table("users").select().collect()
-            else 0
-        )
+        from moltres.expressions import functions as F
+
+        users_df = db.table("users").select()
+        users_count = len(users_df.collect())
+        if users_count > 0:
+            avg_age_result = users_df.select(F.avg(col("age")).alias("avg_age")).collect()
+            avg_age = avg_age_result[0]["avg_age"] if avg_age_result else 0
+        else:
+            avg_age = 0
         st.metric("Average Age", f"{avg_age:.1f}" if isinstance(avg_age, (int, float)) else "N/A")
 
     with col3:
@@ -386,11 +391,11 @@ if STREAMLIT_AVAILABLE:
     moltres_dataframe(orders_by_user, show_query_info=False)
 
     st.subheader("Users with Orders (Join Example)")
-    users_with_orders = (
-        db.table("users")
-        .join(db.table("orders"), on="id", how="inner")
-        .select("users.name", "users.email", "orders.product", "orders.amount")
-    )
+    users_df = db.table("users").select()
+    orders_df = db.table("orders").select()
+    users_with_orders = users_df.join(
+        orders_df, on=[col("users.id") == col("orders.user_id")], how="inner"
+    ).select(col("users.name"), col("users.email"), col("orders.product"), col("orders.amount"))
     visualize_query(users_with_orders, show_sql=True, show_plan=False, show_metrics=False)
     moltres_dataframe(users_with_orders, show_query_info=False)
 
@@ -406,3 +411,24 @@ if STREAMLIT_AVAILABLE:
 
 else:
     print("This example requires Streamlit. Install with: pip install streamlit")
+    print("Or: pip install moltres[streamlit]")
+
+
+if __name__ == "__main__":
+    if not STREAMLIT_AVAILABLE:
+        print("\n" + "=" * 70)
+        print("Streamlit Integration Example")
+        print("=" * 70)
+        print("\nThis example requires Streamlit to be installed.")
+        print("Install with: pip install streamlit")
+        print("Or: pip install moltres[streamlit]")
+        print("\nThen run with:")
+        print("  streamlit run docs/examples/25_streamlit_integration.py")
+    else:
+        print("\n" + "=" * 70)
+        print("Streamlit Integration Example")
+        print("=" * 70)
+        print("\nThis is a Streamlit app. Run it with:")
+        print("  streamlit run docs/examples/25_streamlit_integration.py")
+        print("\nNote: This file can be imported, but to see the interactive app,")
+        print("you must run it with the streamlit command above.")

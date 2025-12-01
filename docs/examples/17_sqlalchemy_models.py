@@ -14,6 +14,7 @@ except ImportError:
 
 from moltres import col, connect
 from moltres.io.records import Records
+from moltres.table.schema import column
 
 
 # Define SQLAlchemy models
@@ -45,13 +46,8 @@ class Order(Base):
     created_at = Column(DateTime)
 
 
-# Connect to database
-import os
-
-db_path = "example_sqlalchemy.db"
-if os.path.exists(db_path):
-    os.remove(db_path)
-db = connect(f"sqlite:///{db_path}")
+# Connect to database (using in-memory database)
+db = connect("sqlite:///:memory:")
 
 # ============================================================================
 # Create tables from SQLAlchemy models
@@ -144,7 +140,6 @@ print("\nPerforming model-based joins...")
 # Join orders with users using model classes
 orders_df = db.table(Order).select()
 users_df = db.table(User).select()
-from moltres import col
 
 joined_df = orders_df.join(users_df, on=[col("orders.user_id") == col("users.id")])
 # After join, select specific columns using col() or column names
@@ -187,8 +182,6 @@ print("\nBackward compatibility: traditional API still works...")
 # Output:
 # Output: Backward compatibility: traditional API still works...
 
-from moltres.table.schema import column
-
 # Traditional API (string + columns) still works
 product_table = db.create_table(
     "products",
@@ -216,10 +209,5 @@ print(f"Query using string table name works: {len(products_df.collect())} rows")
 print("\nExample completed successfully!")
 # Output:
 # Output: Example completed successfully!
-print(f"\nNote: The database file '{db_path}' has been created.")
-# Output:
-# Output: Note: The database file 'example_sqlalchemy.db' has been created.
-print("You can inspect it or delete it when done.")
-# Output: You can inspect it or delete it when done.
 
 db.close()

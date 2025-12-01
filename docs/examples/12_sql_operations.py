@@ -5,7 +5,7 @@ This example demonstrates executing raw SQL queries and using SQL features.
 
 from moltres import connect, col
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Create table
 from moltres.table.schema import column

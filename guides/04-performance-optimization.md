@@ -346,7 +346,8 @@ print(plan)
 ```python
 # SQLite is single-threaded, but very fast for small-medium datasets
 # Use WAL mode for better concurrency
-# db = connect("sqlite:///example.db?mode=rwc")
+# db = connect("sqlite:///:memory:")  # For testing
+# db = connect("sqlite:///example.db?mode=rwc")  # For production with WAL mode
 
 # Create indexes (SQLite doesn't auto-index foreign keys)
 db.create_index("idx_orders_user_id", "orders", "user_id").collect()

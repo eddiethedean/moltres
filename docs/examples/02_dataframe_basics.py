@@ -6,7 +6,7 @@ and collect.
 
 from moltres import connect, col
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Clean up any existing tables
 db.drop_table("users", if_exists=True).collect()

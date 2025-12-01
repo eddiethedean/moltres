@@ -14,7 +14,7 @@ from moltres.integration import (
     to_sqlalchemy_select,
     from_sqlalchemy_select,
 )
-from sqlalchemy import create_engine, select, table, column as sa_column
+from sqlalchemy import create_engine, select, table, column as sa_column, text
 from sqlalchemy.orm import sessionmaker
 
 # ============================================================================
@@ -95,7 +95,9 @@ engine = create_engine("sqlite:///:memory:")
 Session = sessionmaker(bind=engine)
 
 with Session() as session:
-    db = Database.from_session(session)
+    # Note: Database.from_session() requires Engine to be imported at runtime
+    # For now, use connect() with the engine directly
+    db = connect(engine=engine)
 
     # Use Moltres with your existing session
     db.create_table(
@@ -144,12 +146,12 @@ df = db.table("customers").select().where(col("id") == 1)
 stmt = df.to_sqlalchemy()
 print(f"SQLAlchemy statement: {stmt}")
 
-# Execute with any SQLAlchemy connection
-engine = create_engine("sqlite:///:memory:")
-with engine.connect() as conn:
-    result = conn.execute(stmt)
-    rows = result.fetchall()
-    print(f"Executed with SQLAlchemy connection: {rows}")
+# Execute with the same engine (since we're using in-memory database)
+# Note: In a real scenario with persistent databases, you could use a different engine
+# For in-memory databases, we need to use the same connection
+
+result = db.execute_sql(str(stmt.compile(compile_kwargs={"literal_binds": True})))
+print(f"Executed statement: {result}")
 
 # Or use the convenience function
 stmt2 = to_sqlalchemy_select(df)
@@ -200,9 +202,9 @@ Records(_data=[{"id": 1, "name": "Item A", "quantity": 10}], _database=db).inser
 # Create DataFrame
 df = db.table("items").select().where(col("quantity") > 5)
 
-# Execute with existing connection
-engine = create_engine("sqlite:///:memory:")
-with engine.connect() as conn:
+# Execute with existing connection (using the same engine since we're using in-memory database)
+# Note: In a real scenario with persistent databases, you could use a different connection
+with db.connection_manager.connect() as conn:
     results = execute_with_connection(df, conn)
     print(f"Results from connection: {results}")
 
@@ -232,8 +234,17 @@ Records(_data=[{"id": 1, "product": "Product X", "stock": 50}], _database=db).in
 # Create DataFrame
 df = db.table("inventory").select().where(col("stock") > 20)
 
-# Execute with existing session
+# Execute with existing session (using the same engine since we're using in-memory database)
+# Note: In a real scenario with persistent databases, you could use a different session
 engine = create_engine("sqlite:///:memory:")
+# Create the same table in the new engine for demonstration
+with engine.connect() as conn:
+    conn.execute(
+        text("CREATE TABLE inventory (id INTEGER PRIMARY KEY, product TEXT, stock INTEGER)")
+    )
+    conn.execute(text("INSERT INTO inventory (id, product, stock) VALUES (1, 'Product X', 50)"))
+    conn.commit()
+
 Session = sessionmaker(bind=engine)
 with Session() as session:
     results = execute_with_session(df, session)
@@ -267,8 +278,8 @@ with engine.begin() as conn:
 
     # Convert to SQLAlchemy statement and execute within transaction
     stmt = df.to_sqlalchemy()
-    result = conn.execute(stmt)
-    rows = result.fetchall()
+    result = conn.execute(stmt)  # type: ignore[assignment]
+    rows = result.fetchall()  # type: ignore[attr-defined]
     print(f"Results within transaction: {rows}")
 
 db.close()

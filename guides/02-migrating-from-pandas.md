@@ -28,35 +28,54 @@ This guide helps you transition from Pandas to Moltres, highlighting key differe
 import pandas as pd
 
 # Read from CSV
-df = pd.read_csv("data.csv")
+# df = pd.read_csv("data.csv")  # Requires data.csv file
 
 # Read from SQL
-df = pd.read_sql("SELECT * FROM users", connection)
+# df = pd.read_sql("SELECT * FROM users", connection)  # Requires database connection
 ```
 
 **Moltres:**
 ```python
 from moltres import connect
+from moltres.table.schema import column
+from moltres.io.records import Records
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
+
+# Create table first
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
 
 # Read from CSV (returns Records, not DataFrame)
-from moltres.io.records import Records
-records = Records.from_csv("data.csv", database=db)
-records.insert_into("users")
+# Note: Requires data.csv file to exist
+# records = Records.from_csv("data.csv", database=db)
+# records.insert_into("users")
+
+# Insert sample data instead
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
 
 # Read from SQL table (returns DataFrame)
 df = db.table("users").select()
 results = df.collect()  # Returns list of dicts by default
 
-# Or get as pandas DataFrame
-results = df.collect(format="pandas")  # Returns pd.DataFrame
+# Or get as pandas DataFrame (requires: pip install pandas)
+# results = df.collect(format="pandas")  # Returns pd.DataFrame
 ```
 
 ### 2. Filtering
 
 **Pandas:**
 ```python
+import pandas as pd
+
+# Assume df is already loaded
+# df = pd.read_csv("data.csv")
+
 # Single condition
 df_filtered = df[df['age'] > 25]
 
@@ -76,6 +95,22 @@ from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+
+# Create table and data first
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
+    column("email", "TEXT"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30, "active": 1, "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "age": 25, "active": 0, "email": "bob@example.com"},
+], database=db).insert_into("users")
+
+df = db.table("users").select()
 
 # Single condition
 df_filtered = df.where(col("age") > 25)
@@ -99,6 +134,11 @@ results = df_filtered.collect()
 
 **Pandas:**
 ```python
+import pandas as pd
+
+# Assume df is already loaded
+# df = pd.read_csv("data.csv")
+
 # Select specific columns
 df_selected = df[['id', 'name', 'email']]
 
@@ -114,6 +154,21 @@ from moltres.table.schema import column
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+
+# Create table and data first
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("email", "TEXT"),
+    column("age", "INTEGER"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
+    {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
+], database=db).insert_into("users")
+
+df = db.table("users").select()
 
 # Select specific columns
 df_selected = df.select("id", "name", "email")
@@ -136,6 +191,21 @@ from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+
+# Create table and data first
+db.create_table("sales", [
+    column("id", "INTEGER", primary_key=True),
+    column("country", "TEXT"),
+    column("amount", "REAL"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "country": "USA", "amount": 100.0},
+    {"id": 2, "country": "UK", "amount": 200.0},
+], database=db).insert_into("sales")
+
+df = db.table("sales").select()
+
 # Simple aggregation
 result = df.groupby('country').agg({
     'amount': 'sum',
@@ -159,6 +229,20 @@ from moltres.table.schema import column
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+
+# Create table and data first
+db.create_table("sales", [
+    column("id", "INTEGER", primary_key=True),
+    column("country", "TEXT"),
+    column("amount", "REAL"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "country": "USA", "amount": 100.0},
+    {"id": 2, "country": "UK", "amount": 200.0},
+], database=db).insert_into("sales")
+
+df = db.table("sales").select()
 
 # Simple aggregation
 result = (
@@ -186,6 +270,12 @@ result = (
 
 **Pandas:**
 ```python
+import pandas as pd
+
+# Assume df1 and df2 are already loaded
+# df1 = pd.read_csv("data1.csv")
+# df2 = pd.read_csv("data2.csv")
+
 # Inner join
 result = df1.merge(df2, on='key', how='inner')
 
@@ -201,7 +291,17 @@ result = df1.merge(df2, on='key', how='outer')
 
 **Moltres:**
 ```python
-from moltres import col
+from moltres import connect, col
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Setup: Create tables and data
+db = connect("sqlite:///:memory:")
+db.create_table("table1", [column("key", "INTEGER"), column("value1", "TEXT")]).collect()
+db.create_table("table2", [column("key", "INTEGER"), column("value2", "TEXT")]).collect()
+
+df1 = db.table("table1").select()
+df2 = db.table("table2").select()
 
 # Inner join (default)
 # Note: Use table-qualified column names to avoid ambiguity
@@ -241,24 +341,58 @@ from moltres.table.schema import column
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
-# Ascending
-df_sorted = df.sort_values('age')
 
-# Descending
-df_sorted = df.sort_values('age', ascending=False)
+# Create table and data first
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
+]).collect()
 
-# Multiple columns
-df_sorted = df.sort_values(['active', 'age'], ascending=[False, True])
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30, "active": 1},
+    {"id": 2, "name": "Bob", "age": 25, "active": 0},
+], database=db).insert_into("users")
+
+df = db.table("users").select()
+
+# Note: sort_values() is pandas syntax. In Moltres, use order_by()
+# This example shows pandas syntax for comparison
+try:
+    import pandas as pd
+    # Convert to pandas first
+    df_pandas = df.collect(format="pandas")
+    df_sorted = df_pandas.sort_values('age')
+    df_sorted = df_pandas.sort_values('age', ascending=False)
+    df_sorted = df_pandas.sort_values(['active', 'age'], ascending=[False, True])
+except ImportError:
+    print("pandas not installed. Install with: pip install pandas or pip install moltres[pandas]")
 
 ```
 
 **Moltres:**
 ```python
-from moltres import connect
+from moltres import connect, col
 from moltres.table.schema import column
+from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30, "active": 1},
+    {"id": 2, "name": "Bob", "age": 25, "active": 0},
+], database=db).insert_into("users")
+
+df = db.table("users").select()
+
 # Ascending
 df_sorted = df.order_by("age")
 
@@ -277,6 +411,11 @@ df_sorted = df.order_by(
 
 **Pandas:**
 ```python
+import pandas as pd
+
+# Assume df is already loaded
+# df = pd.read_csv("data.csv")
+
 # Add new column
 df['new_col'] = df['col1'] + df['col2']
 
@@ -289,12 +428,26 @@ df['category'] = df['age'].apply(lambda x: 'adult' if x >= 18 else 'minor')
 
 **Moltres:**
 ```python
-from moltres import connect
+from moltres import connect, col
 from moltres.expressions import functions as F
 from moltres.table.schema import column
+from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
+db.create_table("data", [
+    column("id", "INTEGER", primary_key=True),
+    column("col1", "INTEGER"),
+    column("col2", "INTEGER"),
+    column("age", "INTEGER"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "col1": 10, "col2": 20, "age": 25},
+    {"id": 2, "col1": 15, "col2": 25, "age": 17},
+], database=db).insert_into("data")
+
+df = db.table("data").select()
 
 # Add new column (use withColumn or select)
 df_new = df.withColumn(
@@ -326,10 +479,17 @@ from moltres.io.records import Records
 
 # Use in-memory SQLite for easy setup (no file needed)
 db = connect("sqlite:///:memory:")
-# Results are already DataFrames
-df = pd.read_csv("data.csv")
-result = df.groupby('country').sum()
-# result is a DataFrame
+
+# Note: This example shows pandas syntax
+try:
+    import pandas as pd
+    # Results are already DataFrames
+    # df = pd.read_csv("data.csv")  # Requires data.csv file
+    # result = df.groupby('country').sum()
+    # result is a DataFrame
+    print("pandas example - requires data.csv file")
+except ImportError:
+    print("pandas not installed. Install with: pip install pandas or pip install moltres[pandas]")
 
 ```
 
@@ -358,14 +518,20 @@ df = db.table("users").select()
 results = df.collect()
 # results is: [{'id': 1, 'name': 'Alice'}, ...]
 
-# Get as pandas DataFrame
-results = df.collect(format="pandas")
-# results is: pd.DataFrame
+# Get as pandas DataFrame (requires: pip install pandas)
+try:
+    results = df.collect(format="pandas")
+    # results is: pd.DataFrame
+except ImportError:
+    print("pandas not installed. Install with: pip install pandas or pip install moltres[pandas]")
 
 # Or convert to pandas after
-import pandas as pd
-results = df.collect()
-df_pandas = pd.DataFrame(results)
+try:
+    import pandas as pd
+    results = df.collect()
+    df_pandas = pd.DataFrame(results)
+except ImportError:
+    print("pandas not installed. Install with: pip install pandas or pip install moltres[pandas]")
 
 ```
 
@@ -387,23 +553,29 @@ db = connect("sqlite:///:memory:")
 db.create_table("users", [
     column("id", "INTEGER", primary_key=True),
     column("name", "TEXT"),
+    column("age", "INTEGER"),
+    column("active", "INTEGER"),
+    column("country", "TEXT"),
 ]).collect()
 
 # Insert sample data
 Records.from_list([
-    {"id": 1, "name": "Alice"},
-    {"id": 2, "name": "Bob"},
+    {"id": 1, "name": "Alice", "age": 30, "active": 1, "country": "USA"},
+    {"id": 2, "name": "Bob", "age": 25, "active": 1, "country": "UK"},
 ], database=db).insert_into("users")
-# Get pandas-style DataFrame
-df = db.table("users").pandas()
 
-# Use pandas-style methods
-df_filtered = df.query('age > 25 and active == 1')
-df_grouped = df.groupby('country').agg({'age': 'mean', 'id': 'count'})
-df_merged = df1.merge(df2, left_on='id', right_on='user_id', how='inner')
-
-# Still need to call collect()
-results = df_filtered.collect()
+# Get pandas-style DataFrame (requires: pip install pandas)
+try:
+    df = db.table("users").pandas()
+    
+    # Use pandas-style methods
+    df_filtered = df.query('age > 25 and active == 1')
+    df_grouped = df.groupby('country').agg({'age': 'mean', 'id': 'count'})
+    
+    # Still need to call collect()
+    results = df_filtered.collect()
+except ImportError:
+    print("pandas not installed. Install with: pip install pandas or pip install moltres[pandas]")
 
 ```
 
@@ -411,13 +583,32 @@ results = df_filtered.collect()
 
 **Pandas limitation:**
 ```python
+import pandas as pd
+
 # This loads entire dataset into memory
-df = pd.read_csv("huge_file.csv")  # May fail if file > RAM
-df_filtered = df[df['age'] > 25]
+# df = pd.read_csv("huge_file.csv")  # May fail if file > RAM
+# df_filtered = df[df['age'] > 25]
 ```
 
 **Moltres advantage:**
 ```python
+from moltres import connect, col
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Setup database
+db = connect("sqlite:///:memory:")
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+]).collect()
+
+Records.from_list([
+    {"id": 1, "name": "Alice", "age": 30},
+    {"id": 2, "name": "Bob", "age": 25},
+], database=db).insert_into("users")
+
 # This executes in SQL - no memory loading
 df = db.table("users").select().where(col("age") > 25)
 results = df.collect()  # Only results are in memory
@@ -497,6 +688,11 @@ df.where(col("active") == True)  # Can use True
 
 **Pandas:**
 ```python
+import pandas as pd
+
+# Assume df is already loaded
+# df = pd.read_csv("data.csv")
+
 df[df['email'].str.contains('@example.com')]
 df['name'].str.upper()
 ```

@@ -43,12 +43,13 @@ Moltres maintains high compatibility with PySpark:
 
 **PySpark:**
 ```python
-from pyspark.sql import SparkSession
-
-spark = SparkSession.builder \
-    .appName("MyApp") \
-    .config("spark.some.config.option", "some-value") \
-    .getOrCreate()
+# Note: PySpark requires a Spark cluster to run
+# from pyspark.sql import SparkSession
+#
+# spark = SparkSession.builder \
+#     .appName("MyApp") \
+#     .config("spark.some.config.option", "some-value") \
+#     .getOrCreate()
 ```
 
 **Moltres:**
@@ -71,17 +72,18 @@ db = connect(
 
 **PySpark:**
 ```python
+# Note: PySpark requires a Spark cluster to run
 # From table/view
-df = spark.table("users")
-
+# df = spark.table("users")
+#
 # From CSV
-df = spark.read.csv("data.csv", header=True, inferSchema=True)
-
+# df = spark.read.csv("data.csv", header=True, inferSchema=True)
+#
 # From Parquet
-df = spark.read.parquet("data.parquet")
-
+# df = spark.read.parquet("data.parquet")
+#
 # From SQL
-df = spark.read.jdbc(url, table, properties)
+# df = spark.read.jdbc(url, table, properties)
 ```
 
 **Moltres:**
@@ -178,20 +180,34 @@ result = (
 
 **PySpark:**
 ```python
+# Note: PySpark requires a Spark cluster to run
+# Assume df1 and df2 are already loaded
 # Inner join
-result = df1.join(df2, on="key", how="inner")
-
+# result = df1.join(df2, on="key", how="inner")
+#
 # Left join
-result = df1.join(df2, on="key", how="left")
-
+# result = df1.join(df2, on="key", how="left")
+#
 # Using column expressions
-result = df1.join(df2, df1.id == df2.user_id, how="inner")
+# result = df1.join(df2, df1.id == df2.user_id, how="inner")
 ```
 
 **Moltres:**
 ```python
+from moltres import connect, col
+from moltres.table.schema import column
+from moltres.io.records import Records
+
+# Setup: Create tables and data
+db = connect("sqlite:///:memory:")
+db.create_table("table1", [column("key", "INTEGER"), column("value1", "TEXT")]).collect()
+db.create_table("table2", [column("key", "INTEGER"), column("value2", "TEXT")]).collect()
+
+df1 = db.table("table1").select()
+df2 = db.table("table2").select()
+
 # Inner join (default)
-result = df1.join(df2, on=[col("df1.key") == col("df2.key")])
+result = df1.join(df2, on=[col("table1.key") == col("table2.key")])
 
 # Left join
 result = df1.join(df2, on=[col("df1.key") == col("df2.key")], how="left")

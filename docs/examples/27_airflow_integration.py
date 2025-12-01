@@ -385,3 +385,18 @@ try:
 
 except ImportError:
     print("Airflow not installed. Install with: pip install apache-airflow")
+    print("Note: Airflow 3.0+ requires Python 3.10+")
+
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("Airflow Integration Examples")
+    print("=" * 70)
+    print("\nThis file contains Airflow integration examples.")
+    print("Required dependencies:")
+    print("  pip install apache-airflow")
+    print("  Note: Airflow 3.0+ requires Python 3.10+")
+    print("\nThese examples demonstrate how to use Moltres with Apache Airflow.")
+    print("See the code comments for detailed examples.")
+    print("\nTo use in a real Airflow DAG, copy the relevant example code")
+    print("into your DAG file.")

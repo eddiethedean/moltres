@@ -7,14 +7,8 @@ This example demonstrates:
 """
 
 from moltres import connect, col
-import os
 
-# Clean up any existing database file
-db_path = "example.db"
-if os.path.exists(db_path):
-    os.remove(db_path)
-
-db = connect(f"sqlite:///{db_path}")
+db = connect("sqlite:///:memory:")
 
 # ============================================================================
 # Schema Management: Constraints and Indexes

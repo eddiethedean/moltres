@@ -6,7 +6,7 @@ This example demonstrates grouping and aggregation operations.
 from moltres import connect, col
 from moltres.expressions import functions as F
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Create table
 from moltres.table.schema import column

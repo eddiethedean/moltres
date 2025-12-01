@@ -54,6 +54,7 @@ try:
 except ImportError:
     DJANGO_AVAILABLE = False
     print("Django is not installed. Install with: pip install django")
+    print("Or: pip install moltres[django]")
 
 
 # Example 2: Django Views with Moltres
@@ -327,10 +328,12 @@ if __name__ == "__main__":
     print("Django Integration Examples")
     print("=" * 50)
     print("\nThis file demonstrates Django integration features.")
-    print("To use in a real Django project:")
-    print("1. Install: pip install django moltres[django]")
-    print("2. Add 'moltres.integrations.django' to INSTALLED_APPS")
-    print("3. Add MoltresExceptionMiddleware to MIDDLEWARE")
-    print("4. Use get_moltres_db() in views")
-    print("5. Use {% load moltres_tags %} in templates")
+    print("\nRequired dependencies:")
+    print("  pip install django")
+    print("  Or: pip install moltres[django]")
+    print("\nTo use in a real Django project:")
+    print("1. Add 'moltres.integrations.django' to INSTALLED_APPS")
+    print("2. Add MoltresExceptionMiddleware to MIDDLEWARE")
+    print("3. Use get_moltres_db() in views")
+    print("4. Use {% load moltres_tags %} in templates")
     print("\nSee the code comments for detailed examples.")

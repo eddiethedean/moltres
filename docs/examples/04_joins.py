@@ -5,7 +5,7 @@ This example demonstrates various join types and join operations.
 
 from moltres import connect
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Clean up any existing tables
 db.drop_table("customers", if_exists=True).collect()

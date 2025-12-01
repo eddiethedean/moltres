@@ -2,6 +2,10 @@
 
 This example demonstrates how to use Moltres with a Polars LazyFrame-style API,
 providing familiar Polars operations while maintaining SQL pushdown execution.
+
+Required dependencies:
+- moltres (required)
+- polars (optional, for polars DataFrame return types): pip install polars or pip install moltres[polars]
 """
 
 from __future__ import annotations
@@ -11,6 +15,20 @@ from typing import Any
 from moltres import connect, col
 from moltres.expressions import functions as F
 from moltres.table.schema import column
+
+# Check for polars (optional - example works without it but collect() returns dicts instead of DataFrame)
+try:
+    import polars as pl
+
+    POLARS_AVAILABLE = True
+except ImportError:
+    POLARS_AVAILABLE = False
+    if __name__ == "__main__":
+        print("Note: polars is not installed. Install with: pip install polars")
+        print("Or: pip install moltres[polars]")
+        print(
+            "The example will still run, but collect() will return list of dicts instead of polars DataFrame.\n"
+        )
 
 
 # Helper function to handle both Polars DataFrame and list of dicts
@@ -214,7 +232,7 @@ try:
         for row in results[:5]:
             print(f"  {row}")
 except ImportError:
-    for row in results[:5]:  # type: ignore[assignment]
+    for row in results[:5]:
         print(f"  {row}")
 # Output:
 #   {'id': 1, 'name': 'Alice', 'amount': 100.0}
@@ -490,8 +508,14 @@ df = db.table("users").polars()
 selected = df.select_expr("id", "name", "age", "age * 2 as double_age")
 results = selected.collect()
 print(f"\nSelected with SQL expressions: {len(results)} rows")
-if results:
-    print(f"Double age: {results[0].get('double_age', 'N/A')}")
+if len(results) > 0:
+    # Handle both polars DataFrame and list of dicts
+    if POLARS_AVAILABLE and hasattr(results, "to_dicts"):
+        first_row = results.to_dicts()[0]
+        double_age = first_row.get("double_age", "N/A")
+    else:
+        double_age = results[0].get("double_age", "N/A")
+    print(f"Double age: {double_age}")
 
 # ============================================================================
 # CTE Support
@@ -518,8 +542,14 @@ print("=" * 70)
 df_with_row = db.table("users").polars().with_row_count("row_id")
 results = df_with_row.collect()
 print(f"\nWith row count: {len(results)} rows")
-if results:
-    print(f"First row ID: {results[0].get('row_id', 'N/A')}")
+if len(results) > 0:
+    # Handle both polars DataFrame and list of dicts
+    if POLARS_AVAILABLE and hasattr(results, "to_dicts"):
+        first_row = results.to_dicts()[0]
+        row_id = first_row.get("row_id", "N/A")
+    else:
+        row_id = results[0].get("row_id", "N/A")
+    print(f"First row ID: {row_id}")
 
 # Rename columns
 renamed = (
@@ -530,7 +560,12 @@ renamed = (
 )
 results = renamed.collect()
 print(f"\nRenamed columns: {len(results)} rows")
-if results:
-    print(f"Columns: {list(results[0].keys())}")
+if len(results) > 0:
+    # Handle both polars DataFrame and list of dicts
+    if POLARS_AVAILABLE and hasattr(results, "columns"):
+        columns = list(results.columns)
+    else:
+        columns = list(results[0].keys())
+    print(f"Columns: {columns}")
 
 db.close()

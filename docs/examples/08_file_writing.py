@@ -7,7 +7,7 @@ from pathlib import Path
 
 from moltres import connect, col
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Create table and insert data
 from moltres.table.schema import column

@@ -173,8 +173,8 @@ The `get_db_from_session()` function will automatically use this DSN.
 ```python
 from moltres.integrations.streamlit import init_db_connection, close_db_connection
 
-# Initialize connection
-db = init_db_connection("sqlite:///example.db", key="my_db")
+# Initialize connection (using in-memory database for this example)
+db = init_db_connection("sqlite:///:memory:", key="my_db")
 
 # Use the connection
 df = db.table("users").select()

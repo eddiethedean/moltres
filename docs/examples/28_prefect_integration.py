@@ -400,3 +400,18 @@ try:
 
 except ImportError:
     print("Prefect not installed. Install with: pip install prefect")
+    print("Or: pip install moltres[prefect]")
+
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("Prefect Integration Examples")
+    print("=" * 70)
+    print("\nThis file contains Prefect integration examples.")
+    print("Required dependencies:")
+    print("  pip install prefect")
+    print("  Or: pip install moltres[prefect]")
+    print("\nThese examples demonstrate how to use Moltres with Prefect.")
+    print("See the code comments for detailed examples.")
+    print("\nTo use in a real Prefect flow, copy the relevant example code")
+    print("into your flow file.")

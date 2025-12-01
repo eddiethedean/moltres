@@ -4,14 +4,8 @@ This example demonstrates creating DataFrames from lists, dicts, and other sourc
 """
 
 from moltres import connect
-import os
 
-# Clean up any existing database file
-db_path = "example.db"
-if os.path.exists(db_path):
-    os.remove(db_path)
-
-db = connect(f"sqlite:///{db_path}")
+db = connect("sqlite:///:memory:")
 
 # Create DataFrame from list of dicts
 data = [

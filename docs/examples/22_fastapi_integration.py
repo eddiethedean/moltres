@@ -29,7 +29,7 @@ try:
     from sqlmodel import SQLModel, Field
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
-    from typing import List, Optional
+    from typing import Any, Generator, List, Optional
 
     from moltres import async_connect, col
     from moltres.expressions import functions as F
@@ -287,7 +287,7 @@ try:
     from sqlmodel import SQLModel as AsyncSQLModel, Field as AsyncField
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
-    from typing import List, Optional
+    from typing import Any, Generator, List, Optional
 
     from moltres import async_connect, col
     from moltres.table.async_table import AsyncDatabase
@@ -376,7 +376,7 @@ try:
     from fastapi import FastAPI, HTTPException, Depends, Query
     from sqlmodel import SQLModel, Field, create_engine
     from sqlalchemy.orm import sessionmaker
-    from typing import List, Optional
+    from typing import Any, Generator, List, Optional
 
     from moltres import connect, col
     from moltres.expressions import functions as F
@@ -513,7 +513,7 @@ try:
     from fastapi import Depends, Query
     from sqlmodel import SQLModel as ModelSQLModel, Field as ModelField, Session
     from sqlalchemy import create_engine
-    from typing import List, Optional
+    from typing import Any, Generator, List, Optional
 
     from moltres import connect, col
     from moltres.expressions import functions as F
@@ -605,7 +605,7 @@ try:
     from fastapi import Depends
     from sqlmodel import SQLModel as JoinSQLModel, Field as JoinField, Session
     from sqlalchemy import create_engine
-    from typing import List, Optional
+    from typing import Any, Generator, List, Optional
 
     from moltres import connect, col
 
@@ -634,26 +634,26 @@ try:
     # Database Setup
     join_engine = create_engine("sqlite:///./example_join.db", echo=True)
 
-    def create_join_db_and_tables():
+    def create_join_db_and_tables() -> None:
         JoinSQLModel.metadata.create_all(join_engine)
 
-    def get_join_session():
+    def get_join_session() -> Generator[Session, None, None]:
         with Session(join_engine) as session:
             yield session
 
     join_app = JoinFastAPI(title="Moltres Joins with SQLModel Example", version="1.0.0")
 
     @join_app.on_event("startup")
-    def join_on_startup():
+    def join_on_startup() -> None:
         create_join_db_and_tables()
 
     @join_app.get("/users/{user_id}/orders")
-    def get_user_orders(user_id: int, session: Session = Depends(get_join_session)):
+    def get_user_orders(user_id: int, session: Session = Depends(get_join_session)) -> list[dict[str, Any]]:
         """Get user orders using Moltres join with SQLModel."""
         db = connect(session=session)
 
         # Join users and orders using Moltres
-        users_df = db.table(User).select()
+        users_df = db.table(User).select()  # type: ignore[arg-type]
         orders_df = db.table(Order).select()
 
         result_df = (
@@ -671,12 +671,12 @@ try:
         return result_df.collect()
 
     @join_app.get("/users/{user_id}/summary")
-    def get_user_summary(user_id: int, session: Session = Depends(get_join_session)):
+    def get_user_summary(user_id: int, session: Session = Depends(get_join_session)) -> Any:
         """Get user summary with order totals using Moltres aggregations."""
         db = connect(session=session)
 
-        users_df = db.table(User).select()
-        orders_df = db.table(Order).select()
+        users_df = db.table(User).select()  # type: ignore[arg-type]  # type: ignore[arg-type]
+        orders_df = db.table(Order).select()  # type: ignore[arg-type]
 
         # Join and aggregate
         summary_df = (
@@ -697,3 +697,20 @@ try:
 except ImportError as e:
     print(f"Join dependencies not installed: {e}")
     print("Install with: pip install fastapi uvicorn sqlmodel")
+    print("Or: pip install moltres[sqlmodel]")
+
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("FastAPI Integration Examples")
+    print("=" * 70)
+    print("\nThis file contains FastAPI integration examples.")
+    print("To run these examples, you need to install dependencies:")
+    print("  pip install fastapi uvicorn sqlmodel")
+    print("  Or: pip install moltres[sqlmodel]")
+    print("\nThen run with uvicorn:")
+    print("  uvicorn docs.examples.22_fastapi_integration:app --reload")
+    print("  uvicorn docs.examples.22_fastapi_integration:sync_app --reload")
+    print("  uvicorn docs.examples.22_fastapi_integration:model_app --reload")
+    print("  uvicorn docs.examples.22_fastapi_integration:join_app --reload")
+    print("\nEach example defines a separate FastAPI app instance.")

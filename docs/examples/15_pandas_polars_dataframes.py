@@ -5,30 +5,39 @@ This example demonstrates:
 - Passing polars DataFrames and LazyFrames to moltres operations
 - Lazy conversion and schema preservation
 - Using DataFrames with insert_into, createDataFrame, and mutations
+
+Required dependencies:
+- moltres (required)
+- pandas (optional): pip install pandas or pip install moltres[pandas]
+- polars (optional): pip install polars or pip install moltres[polars]
 """
 
-from moltres import connect, col
 import os
+import sys
 
-# Try to import pandas and polars
+from moltres import connect, col
+
+# Check for optional dependencies
 try:
     import pandas as pd
 except ImportError:
-    pd = None  # type: ignore[assignment]
-    print("⚠️  pandas not installed. Install with: pip install pandas")
+    pd = None
 
 try:
     import polars as pl
 except ImportError:
     pl = None  # type: ignore[assignment]
-    print("⚠️  polars not installed. Install with: pip install polars")
 
-# Clean up any existing database file
-db_path = "example.db"
-if os.path.exists(db_path):
-    os.remove(db_path)
+# Exit gracefully if neither pandas nor polars is available
+if pd is None and pl is None:
+    print("This example requires either pandas or polars to be installed.")
+    print("Install with: pip install pandas polars")
+    print("Or: pip install moltres[pandas,polars]")
+    if __name__ == "__main__":
+        sys.exit(1)
 
-db = connect(f"sqlite:///{db_path}")
+# Use in-memory database
+db = connect("sqlite:///:memory:")
 
 # Create a table to work with
 from moltres.table.schema import column

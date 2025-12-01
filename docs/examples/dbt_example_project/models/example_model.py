@@ -4,8 +4,10 @@ This is an example dbt Python model that demonstrates how to use
 Moltres DataFrames in dbt.
 """
 
+from typing import Any
 
-def model(dbt, session):
+
+def model(dbt: Any, session: Any) -> list[dict[str, Any]]:
     """Example dbt Python model using Moltres."""
     from moltres.integrations.dbt import get_moltres_connection  # noqa: F401
 

@@ -7,7 +7,7 @@ from moltres import connect
 from pathlib import Path
 import json
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Create sample files
 data_dir = Path(__file__).parent.parent / "example_data"

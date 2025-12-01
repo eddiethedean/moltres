@@ -7,7 +7,7 @@ from moltres import connect, col
 from moltres.expressions import functions as F
 # Window functions use the .over() method directly on column expressions
 
-db = connect("sqlite:///example.db")
+db = connect("sqlite:///:memory:")
 
 # Create table
 from moltres.table.schema import column

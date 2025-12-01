@@ -224,8 +224,15 @@ df = db.table("orders").select(
 ### Creating Database Functions
 
 ```python
-# Create PostgreSQL function using SQLAlchemy engine directly
+from moltres import connect
 from sqlalchemy import text
+
+# Create PostgreSQL function using SQLAlchemy engine directly
+# Note: This example requires PostgreSQL. For SQLite, use a simpler approach.
+db = connect("sqlite:///:memory:")
+
+# For PostgreSQL, you would use:
+# db = connect("postgresql://user:pass@localhost/dbname")
 
 with db.connection_manager.engine.connect() as conn:
     conn.execute(text("""
