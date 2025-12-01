@@ -6,6 +6,13 @@ This script runs the exact same checks that GitHub Actions runs:
 - mypy type checking
 - Documentation example validation
 
+Note: This script does NOT run tests. Tests are run separately in CI because:
+- Tests take a long time (several minutes)
+- Tests require the full dev environment
+- This script is designed for quick pre-commit checks
+
+To run tests locally, use: pytest
+
 Usage:
     python scripts/pre_commit_ci_checks.py [--skip-docs]
 """
