@@ -648,7 +648,9 @@ try:
         create_join_db_and_tables()
 
     @join_app.get("/users/{user_id}/orders")
-    def get_user_orders(user_id: int, session: Session = Depends(get_join_session)) -> list[dict[str, Any]]:
+    def get_user_orders(
+        user_id: int, session: Session = Depends(get_join_session)
+    ) -> list[dict[str, Any]]:
         """Get user orders using Moltres join with SQLModel."""
         db = connect(session=session)
 
