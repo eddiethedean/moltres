@@ -53,5 +53,12 @@ class Expression:
                         yield from nested.walk()
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        args = ", ".join(repr(arg) for arg in self.args)
-        return f"Expression(op={self.op!r}, args=({args}), alias={self._alias!r})"
+        """Return a readable string representation of the expression."""
+        # Limit args display to avoid overly long representations
+        if len(self.args) > 3:
+            args_str = ", ".join(repr(arg) for arg in self.args[:3]) + ", ..."
+        else:
+            args_str = ", ".join(repr(arg) for arg in self.args)
+
+        alias_str = f", alias={self._alias!r}" if self._alias else ""
+        return f"Expression(op='{self.op}', args=({args_str}){alias_str})"

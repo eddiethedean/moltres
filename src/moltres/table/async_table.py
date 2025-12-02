@@ -854,7 +854,11 @@ class AsyncDatabase:
                     return cast("list[str]", inspector.get_table_names(schema=schema))
 
                 return await conn.run_sync(_inspect_sync)
+        except (ValueError, RuntimeError):
+            # Re-raise ValueError and RuntimeError as-is
+            raise
         except Exception as e:
+            # Wrap other exceptions (e.g., SQLAlchemy errors) in RuntimeError
             raise RuntimeError(f"Failed to get table names: {e}") from e
 
     async def get_view_names(self, schema: Optional[str] = None) -> List[str]:
@@ -894,7 +898,11 @@ class AsyncDatabase:
                     return cast("list[str]", inspector.get_view_names(schema=schema))
 
                 return await conn.run_sync(_inspect_sync)
+        except (ValueError, RuntimeError):
+            # Re-raise ValueError and RuntimeError as-is
+            raise
         except Exception as e:
+            # Wrap other exceptions (e.g., SQLAlchemy errors) in RuntimeError
             raise RuntimeError(f"Failed to get view names: {e}") from e
 
     async def get_columns(self, table_name: str) -> List["ColumnInfo"]:

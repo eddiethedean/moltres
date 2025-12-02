@@ -328,8 +328,12 @@ class QueryExecutor:
     ) -> Iterator[List[Dict[str, Any]]]:
         """Fetch query results in streaming chunks."""
         from sqlalchemy.sql import Select
+        from sqlalchemy.exc import ProgrammingError
 
-        with self._connections.connect() as conn:
+        conn_context = self._connections.connect()
+        conn = None
+        try:
+            conn = conn_context.__enter__()
             # Execute SQLAlchemy statement directly or use text() for SQL strings
             if isinstance(stmt, Select):
                 result = conn.execute(stmt)
@@ -337,19 +341,47 @@ class QueryExecutor:
                 result = conn.execute(text(stmt), params or {})
             columns = list(result.keys())
 
-            while True:
-                rows = result.fetchmany(chunk_size)
-                if not rows:
-                    break
-                # Format rows according to fetch_format
-                if self._config.fetch_format == "records":
-                    chunk = [dict(zip(columns, row)) for row in rows]
-                    yield chunk
-                else:
-                    # For pandas/polars, we'd need to yield DataFrames
-                    # For now, convert to records format
-                    chunk = [dict(zip(columns, row)) for row in rows]
-                    yield chunk
+            try:
+                while True:
+                    rows = result.fetchmany(chunk_size)
+                    if not rows:
+                        break
+                    # Format rows according to fetch_format
+                    if self._config.fetch_format == "records":
+                        chunk = [dict(zip(columns, row)) for row in rows]
+                        yield chunk
+                    else:
+                        # For pandas/polars, we'd need to yield DataFrames
+                        # For now, convert to records format
+                        chunk = [dict(zip(columns, row)) for row in rows]
+                        yield chunk
+            except GeneratorExit:
+                # Generator was closed early (e.g., when db.close() is called)
+                # Re-raise to allow proper cleanup, but we'll suppress cleanup errors
+                raise
+        finally:
+            # Always attempt cleanup, but suppress errors if connection is already closed
+            if conn is not None:
+                try:
+                    # Check if connection is still valid before attempting cleanup
+                    # If the database was closed, the connection might be invalid
+                    conn_context.__exit__(None, None, None)
+                except (ProgrammingError, GeneratorExit) as e:
+                    # Suppress ProgrammingError about closed database during cleanup
+                    # This can happen when db.close() is called while generator is active
+                    # Also suppress GeneratorExit to prevent unraisable exception warnings
+                    if isinstance(e, ProgrammingError) and "closed" in str(e).lower():
+                        # Connection was already closed - this is expected when db.close() is called
+                        pass
+                    elif isinstance(e, GeneratorExit):
+                        # GeneratorExit during cleanup - suppress to prevent unraisable exception
+                        pass
+                    else:
+                        raise
+                except Exception:
+                    # For other exceptions during cleanup, log but don't raise
+                    # to prevent masking the original exception
+                    logger.debug("Error during fetch_stream cleanup: %s", exc_info=True)
 
     def _format_rows(self, rows: Sequence[Sequence[object]], columns: Sequence[str]) -> ResultRows:
         fmt = self._config.fetch_format

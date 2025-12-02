@@ -95,6 +95,13 @@ class TableHandle:
     database: "Database"
     model: Optional[Type[Any]] = None  # Can be SQLModel, Pydantic, or SQLAlchemy model
 
+    def __repr__(self) -> str:
+        """Return a user-friendly string representation of the TableHandle."""
+        if self.model:
+            model_name = getattr(self.model, "__name__", str(self.model))
+            return f"TableHandle('{self.name}', model={model_name})"
+        return f"TableHandle('{self.name}')"
+
     @property
     def model_class(self) -> Optional[Type["DeclarativeBase"]]:
         """Get the SQLAlchemy model class if this handle was created from a model.
@@ -252,6 +259,47 @@ class Database:
         self._ephemeral_tables: set[str] = set()
         self._closed = False
         _ACTIVE_DATABASES.add(self)
+
+    def __repr__(self) -> str:
+        """Return a user-friendly string representation of the Database."""
+        dialect_name = self._dialect_name
+        status = "closed" if self._closed else "open"
+
+        # Try to get DSN from config, but sanitize it
+        dsn = None
+        if self.config.engine.dsn:
+            dsn = self.config.engine.dsn
+            # Sanitize DSN to hide passwords
+            if "://" in dsn:
+                parts = dsn.split("://", 1)
+                if "@" in parts[1]:
+                    # Has credentials - hide password
+                    scheme = parts[0]
+                    rest = parts[1]
+                    if "/" in rest:
+                        # Format: user:pass@host/db
+                        creds_and_host, db_part = rest.rsplit("/", 1)
+                        if "@" in creds_and_host:
+                            user_pass, host = creds_and_host.rsplit("@", 1)
+                            if ":" in user_pass:
+                                user, _ = user_pass.split(":", 1)
+                                dsn = f"{scheme}://{user}:***@{host}/{db_part}"
+                            else:
+                                dsn = f"{scheme}://{user_pass}@{host}/{db_part}"
+                    else:
+                        # No database part
+                        if "@" in rest:
+                            user_pass, host = rest.rsplit("@", 1)
+                            if ":" in user_pass:
+                                user, _ = user_pass.split(":", 1)
+                                dsn = f"{scheme}://{user}:***@{host}"
+                            else:
+                                dsn = f"{scheme}://{user_pass}@{host}"
+
+        if dsn:
+            return f"Database(dialect='{dialect_name}', dsn='{dsn}', status='{status}')"
+        else:
+            return f"Database(dialect='{dialect_name}', status='{status}')"
 
     @property
     def connection_manager(self) -> ConnectionManager:

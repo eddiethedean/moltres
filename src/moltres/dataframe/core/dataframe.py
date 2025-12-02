@@ -84,6 +84,210 @@ class DataFrame(DataFrameHelpersMixin):
     database: Optional[Database] = None
     model: Optional[Type[Any]] = None  # SQLModel class, if attached
 
+    def __repr__(self) -> str:
+        """Return a user-friendly string representation of the DataFrame."""
+        from ...logical.plan import (
+            Aggregate,
+            AntiJoin,
+            CTE,
+            Distinct,
+            Except,
+            Explode,
+            FileScan,
+            Filter,
+            GroupedPivot,
+            Intersect,
+            Join,
+            Limit,
+            Pivot,
+            Project,
+            RawSQL,
+            RecursiveCTE,
+            Sample,
+            SemiJoin,
+            Sort,
+            SortOrder,
+            TableScan,
+            Union,
+        )
+
+        def format_plan(plan: LogicalPlan, depth: int = 0) -> str:
+            """Recursively format a logical plan node."""
+            if depth > 3:  # Limit depth to avoid overly long representations
+                return "..."
+
+            if isinstance(plan, TableScan):
+                table_name = plan.table
+                if plan.alias and plan.alias != plan.table:
+                    return f"TableScan('{table_name}' AS '{plan.alias}')"
+                return f"TableScan('{table_name}')"
+
+            elif isinstance(plan, FileScan):
+                return f"FileScan('{plan.path}', format='{plan.format}')"
+
+            elif isinstance(plan, RawSQL):
+                sql_preview = plan.sql[:50] + "..." if len(plan.sql) > 50 else plan.sql
+                return f"RawSQL('{sql_preview}')"
+
+            elif isinstance(plan, Project):
+                child_str = format_plan(plan.child, depth + 1)
+                # Show column names if available
+                col_names = []
+                for proj in plan.projections[:5]:  # Limit to first 5 columns
+                    if isinstance(proj, Column):
+                        if proj.op == "column" and proj.args:
+                            col_names.append(str(proj.args[0]))
+                        elif proj._alias:
+                            col_names.append(proj._alias)
+                        else:
+                            col_names.append(str(proj)[:20])
+                    else:
+                        col_names.append(str(proj)[:20])
+                if len(plan.projections) > 5:
+                    col_names.append("...")
+                cols_str = ", ".join(col_names)
+                return f"Project([{cols_str}]) <- {child_str}"
+
+            elif isinstance(plan, Filter):
+                child_str = format_plan(plan.child, depth + 1)
+                pred_str = str(plan.predicate)[:50]
+                if len(str(plan.predicate)) > 50:
+                    pred_str += "..."
+                return f"Filter({pred_str}) <- {child_str}"
+
+            elif isinstance(plan, Limit):
+                child_str = format_plan(plan.child, depth + 1)
+                if plan.offset > 0:
+                    return f"Limit({plan.count}, offset={plan.offset}) <- {child_str}"
+                return f"Limit({plan.count}) <- {child_str}"
+
+            elif isinstance(plan, Sort):
+                child_str = format_plan(plan.child, depth + 1)
+                orders = []
+                for order in plan.orders[:3]:  # Limit to first 3 sort columns
+                    if isinstance(order, SortOrder):
+                        col_str = str(order.expression)[:20]
+                        dir_str = "DESC" if order.descending else "ASC"
+                        orders.append(f"{col_str} {dir_str}")
+                if len(plan.orders) > 3:
+                    orders.append("...")
+                orders_str = ", ".join(orders)
+                return f"Sort([{orders_str}]) <- {child_str}"
+
+            elif isinstance(plan, Aggregate):
+                child_str = format_plan(plan.child, depth + 1)
+                group_cols = [str(col)[:20] for col in plan.grouping[:3]]
+                if len(plan.grouping) > 3:
+                    group_cols.append("...")
+                agg_cols = [str(col)[:20] for col in plan.aggregates[:3]]
+                if len(plan.aggregates) > 3:
+                    agg_cols.append("...")
+                group_str = ", ".join(group_cols) if group_cols else "()"
+                agg_str = ", ".join(agg_cols) if agg_cols else "()"
+                return f"Aggregate(group_by=[{group_str}], agg=[{agg_str}]) <- {child_str}"
+
+            elif isinstance(plan, Join):
+                left_str = format_plan(plan.left, depth + 1)
+                right_str = format_plan(plan.right, depth + 1)
+                join_type = plan.how.upper()
+                if plan.on:
+                    on_str = ", ".join(
+                        f"{left_col}=={right_col}" for left_col, right_col in plan.on[:2]
+                    )
+                    if len(plan.on) > 2:
+                        on_str += "..."
+                    return f"Join({join_type}, on=[{on_str}]) <- ({left_str}, {right_str})"
+                elif plan.condition is not None:
+                    cond_str = str(plan.condition)[:30]
+                    return f"Join({join_type}, on={cond_str}) <- ({left_str}, {right_str})"
+                else:
+                    return f"Join({join_type}) <- ({left_str}, {right_str})"
+
+            elif isinstance(plan, SemiJoin):
+                left_str = format_plan(plan.left, depth + 1)
+                right_str = format_plan(plan.right, depth + 1)
+                if plan.on:
+                    on_str = ", ".join(
+                        f"{left_col}=={right_col}"
+                        for left_col, right_col in (plan.on[:2] if plan.on else [])
+                    )
+                    return f"SemiJoin(on=[{on_str}]) <- ({left_str}, {right_str})"
+                elif plan.condition is not None:
+                    cond_str = str(plan.condition)[:30]
+                    return f"SemiJoin(on={cond_str}) <- ({left_str}, {right_str})"
+                return f"SemiJoin <- ({left_str}, {right_str})"
+
+            elif isinstance(plan, AntiJoin):
+                left_str = format_plan(plan.left, depth + 1)
+                right_str = format_plan(plan.right, depth + 1)
+                if plan.on:
+                    on_str = ", ".join(
+                        f"{left_col}=={right_col}"
+                        for left_col, right_col in (plan.on[:2] if plan.on else [])
+                    )
+                    return f"AntiJoin(on=[{on_str}]) <- ({left_str}, {right_str})"
+                elif plan.condition is not None:
+                    cond_str = str(plan.condition)[:30]
+                    return f"AntiJoin(on={cond_str}) <- ({left_str}, {right_str})"
+                return f"AntiJoin <- ({left_str}, {right_str})"
+
+            elif isinstance(plan, Distinct):
+                child_str = format_plan(plan.child, depth + 1)
+                return f"Distinct <- {child_str}"
+
+            elif isinstance(plan, Union):
+                left_str = format_plan(plan.left, depth + 1)
+                right_str = format_plan(plan.right, depth + 1)
+                union_type = "UNION" if plan.distinct else "UNION ALL"
+                return f"{union_type} <- ({left_str}, {right_str})"
+
+            elif isinstance(plan, Intersect):
+                left_str = format_plan(plan.left, depth + 1)
+                right_str = format_plan(plan.right, depth + 1)
+                intersect_type = "INTERSECT" if plan.distinct else "INTERSECT ALL"
+                return f"{intersect_type} <- ({left_str}, {right_str})"
+
+            elif isinstance(plan, Except):
+                left_str = format_plan(plan.left, depth + 1)
+                right_str = format_plan(plan.right, depth + 1)
+                except_type = "EXCEPT" if plan.distinct else "EXCEPT ALL"
+                return f"{except_type} <- ({left_str}, {right_str})"
+
+            elif isinstance(plan, CTE):
+                child_str = format_plan(plan.child, depth + 1)
+                return f"CTE('{plan.name}') <- {child_str}"
+
+            elif isinstance(plan, RecursiveCTE):
+                initial_str = format_plan(plan.initial, depth + 1)
+                recursive_str = format_plan(plan.recursive, depth + 1)
+                return f"RecursiveCTE('{plan.name}') <- ({initial_str}, {recursive_str})"
+
+            elif isinstance(plan, Pivot):
+                child_str = format_plan(plan.child, depth + 1)
+                return f"Pivot(pivot='{plan.pivot_column}', value='{plan.value_column}', agg='{plan.agg_func}') <- {child_str}"
+
+            elif isinstance(plan, GroupedPivot):
+                child_str = format_plan(plan.child, depth + 1)
+                return f"GroupedPivot(pivot='{plan.pivot_column}', value='{plan.value_column}', agg='{plan.agg_func}') <- {child_str}"
+
+            elif isinstance(plan, Explode):
+                child_str = format_plan(plan.child, depth + 1)
+                col_str = str(plan.column)[:30]
+                return f"Explode({col_str}) <- {child_str}"
+
+            elif isinstance(plan, Sample):
+                child_str = format_plan(plan.child, depth + 1)
+                seed_str = f", seed={plan.seed}" if plan.seed is not None else ""
+                return f"Sample(fraction={plan.fraction}{seed_str}) <- {child_str}"
+
+            else:
+                # Fallback for unknown plan types
+                return f"{type(plan).__name__}(...)"
+
+        plan_str = format_plan(self.plan)
+        model_str = f", model={self.model.__name__}" if self.model else ""
+        return f"DataFrame({plan_str}{model_str})"
+
     # ------------------------------------------------------------------ builders
     @classmethod
     def from_table(

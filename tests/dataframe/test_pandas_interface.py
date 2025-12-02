@@ -4,7 +4,6 @@ import pytest
 
 from moltres import connect
 from moltres.dataframe import PandasDataFrame
-from moltres.utils.exceptions import PandasAPIError
 
 
 def _to_dict_list(results):
@@ -1191,26 +1190,15 @@ def test_query_with_and_keyword(sample_db):
     """Test query() method supports 'and' keyword."""
     df = sample_db.table("users").pandas()
 
-    # Use 'and' keyword - chain queries for now since parser might not fully support AND yet
-    # TODO: Fix parser to fully support AND keyword in single query
-    try:
-        result_df = df.query("age > 25 and country == 'USA'")
-        results = result_df.collect()
-        results_list = _to_dict_list(results)
+    # Parser fully supports AND keyword (case-insensitive)
+    result_df = df.query("age > 25 and country == 'USA'")
+    results = result_df.collect()
+    results_list = _to_dict_list(results)
 
-        # Should find matching rows
-        assert len(results_list) >= 0
-        if results_list:
-            assert all(r["age"] > 25 and r["country"] == "USA" for r in results_list)
-    except (ValueError, PandasAPIError):
-        # Parser might not fully support AND keyword yet - use chained queries instead
-        result_df = df.query("age > 25").query("country == 'USA'")
-        results = result_df.collect()
-        results_list = _to_dict_list(results)
-
-        assert len(results_list) >= 0
-        if results_list:
-            assert all(r["age"] > 25 and r["country"] == "USA" for r in results_list)
+    # Should find matching rows
+    assert len(results_list) >= 0
+    if results_list:
+        assert all(r["age"] > 25 and r["country"] == "USA" for r in results_list)
 
 
 def test_groupby_sum(sample_db):

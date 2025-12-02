@@ -30,7 +30,7 @@ LiteralValue = Union[bool, int, float, str, None]
 ColumnLike: TypeAlias = Union["Column", LiteralValue]
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(frozen=True, eq=False, repr=False)
 class Column(Expression):
     """User-facing wrapper around expressions with rich operators.
 
@@ -48,6 +48,193 @@ class Column(Expression):
     """
 
     source: Optional[str] = None
+
+    def __repr__(self) -> str:
+        """Return a user-friendly string representation of the column expression."""
+        # Handle simple column reference
+        if self.op == "column":
+            col_name = self.args[0] if self.args else "?"
+            result = f"col('{col_name}')"
+        # Handle literal values
+        elif self.op == "literal":
+            value = self.args[0] if self.args else None
+            if isinstance(value, str):
+                result = f"lit('{value}')"
+            else:
+                result = f"lit({value!r})"
+        # Handle binary arithmetic operations
+        elif self.op in ("add", "sub", "mul", "div", "floor_div", "mod", "pow"):
+            op_symbols = {
+                "add": "+",
+                "sub": "-",
+                "mul": "*",
+                "div": "/",
+                "floor_div": "//",
+                "mod": "%",
+                "pow": "**",
+            }
+            op_symbol = op_symbols.get(self.op, self.op)
+            left = self.args[0] if len(self.args) > 0 else "?"
+            right = self.args[1] if len(self.args) > 1 else "?"
+            # Add parentheses for complex expressions (but not for simple columns or literals)
+            left_str = (
+                f"({left!r})"
+                if isinstance(left, Column) and left.op not in ("column", "literal")
+                else f"{left!r}"
+            )
+            right_str = (
+                f"({right!r})"
+                if isinstance(right, Column) and right.op not in ("column", "literal")
+                else f"{right!r}"
+            )
+            result = f"{left_str} {op_symbol} {right_str}"
+        # Handle comparison operations
+        elif self.op in ("gt", "lt", "ge", "le", "eq", "ne"):
+            op_symbols = {
+                "gt": ">",
+                "lt": "<",
+                "ge": ">=",
+                "le": "<=",
+                "eq": "==",
+                "ne": "!=",
+            }
+            op_symbol = op_symbols.get(self.op, self.op)
+            left = self.args[0] if len(self.args) > 0 else "?"
+            right = self.args[1] if len(self.args) > 1 else "?"
+            left_str = (
+                f"({left!r})"
+                if isinstance(left, Column) and left.op not in ("column", "literal")
+                else f"{left!r}"
+            )
+            right_str = (
+                f"({right!r})"
+                if isinstance(right, Column) and right.op not in ("column", "literal")
+                else f"{right!r}"
+            )
+            result = f"{left_str} {op_symbol} {right_str}"
+        # Handle logical operations
+        elif self.op in ("and", "or"):
+            op_symbol = " & " if self.op == "and" else " | "
+            left = self.args[0] if len(self.args) > 0 else "?"
+            right = self.args[1] if len(self.args) > 1 else "?"
+            left_str = (
+                f"({left!r})"
+                if isinstance(left, Column) and left.op not in ("column", "literal")
+                else f"{left!r}"
+            )
+            right_str = (
+                f"({right!r})"
+                if isinstance(right, Column) and right.op not in ("column", "literal")
+                else f"{right!r}"
+            )
+            result = f"{left_str}{op_symbol}{right_str}"
+        # Handle unary operations
+        elif self.op == "neg":
+            expr = self.args[0] if self.args else "?"
+            expr_str = (
+                f"({expr!r})" if isinstance(expr, Column) and expr.op != "column" else f"{expr!r}"
+            )
+            result = f"-{expr_str}"
+        elif self.op == "not":
+            expr = self.args[0] if self.args else "?"
+            expr_str = (
+                f"({expr!r})" if isinstance(expr, Column) and expr.op != "column" else f"{expr!r}"
+            )
+            result = f"~{expr_str}"
+        # Handle cast
+        elif self.op == "cast":
+            expr = self.args[0] if len(self.args) > 0 else "?"
+            type_name = self.args[1] if len(self.args) > 1 else "?"
+            if len(self.args) > 3:
+                precision = self.args[2]
+                scale = self.args[3]
+                result = f"{expr!r}.cast('{type_name}', precision={precision}, scale={scale})"
+            elif len(self.args) > 2:
+                precision = self.args[2]
+                result = f"{expr!r}.cast('{type_name}', precision={precision})"
+            else:
+                result = f"{expr!r}.cast('{type_name}')"
+        # Handle null checks
+        elif self.op == "is_null":
+            expr = self.args[0] if self.args else "?"
+            result = f"{expr!r}.is_null()"
+        elif self.op == "is_not_null":
+            expr = self.args[0] if self.args else "?"
+            result = f"{expr!r}.is_not_null()"
+        # Handle string operations
+        elif self.op in ("like", "ilike", "contains", "startswith", "endswith"):
+            expr = self.args[0] if len(self.args) > 0 else "?"
+            pattern = self.args[1] if len(self.args) > 1 else "?"
+            if self.op == "like":
+                result = f"{expr!r}.like('{pattern}')"
+            elif self.op == "ilike":
+                result = f"{expr!r}.ilike('{pattern}')"
+            elif self.op == "contains":
+                result = f"{expr!r}.contains('{pattern}')"
+            elif self.op == "startswith":
+                result = f"{expr!r}.startswith('{pattern}')"
+            elif self.op == "endswith":
+                result = f"{expr!r}.endswith('{pattern}')"
+            else:
+                result = f"{expr!r}.{self.op}('{pattern}')"
+        # Handle between
+        elif self.op == "between":
+            expr = self.args[0] if len(self.args) > 0 else "?"
+            lower = self.args[1] if len(self.args) > 1 else "?"
+            upper = self.args[2] if len(self.args) > 2 else "?"
+            result = f"{expr!r}.between({lower!r}, {upper!r})"
+        # Handle in
+        elif self.op == "in":
+            expr = self.args[0] if len(self.args) > 0 else "?"
+            values = self.args[1] if len(self.args) > 1 else ()
+            if isinstance(values, tuple):
+                values_str = (
+                    "["
+                    + ", ".join(repr(v) for v in values[:5])
+                    + ("..." if len(values) > 5 else "")
+                    + "]"
+                )
+            else:
+                values_str = repr(values)
+            result = f"{expr!r}.isin({values_str})"
+        # Handle window functions
+        elif self.op == "window":
+            expr = self.args[0] if len(self.args) > 0 else "?"
+            result = f"{expr!r}.over(...)"
+        # Handle sort operations
+        elif self.op == "sort_asc":
+            expr = self.args[0] if self.args else "?"
+            result = f"{expr!r}.asc()"
+        elif self.op == "sort_desc":
+            expr = self.args[0] if self.args else "?"
+            result = f"{expr!r}.desc()"
+        # Handle function calls (aggregations, etc.)
+        elif self.op.startswith("agg_") or self.op == "function":
+            # For function calls, show function name and args
+            if self.op.startswith("agg_"):
+                func_name = self.op[4:]  # Remove 'agg_' prefix
+                # For aggregations, all args are the function arguments
+                args = self.args
+            else:
+                func_name = str(self.args[0]) if self.args else "?"
+                args = self.args[1:]
+            if args:
+                args_str = ", ".join(repr(arg) for arg in args)
+                result = f"{func_name}({args_str})"
+            else:
+                result = f"{func_name}()"
+        # Fallback for unknown operations
+        else:
+            args_str = ", ".join(repr(arg) for arg in self.args[:3])
+            if len(self.args) > 3:
+                args_str += "..."
+            result = f"Column.{self.op}({args_str})"
+
+        # Add alias if present
+        if self._alias:
+            result += f".alias('{self._alias}')"
+
+        return result
 
     # ------------------------------------------------------------------ helpers
     def alias(self, alias: str) -> "Column":
