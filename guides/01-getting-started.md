@@ -26,8 +26,15 @@ Moltres works with any SQLAlchemy-compatible database. Here's how to connect:
 ```python
 from moltres import connect
 
+# Recommended: Use context manager for automatic cleanup
+with connect("sqlite:///:memory:") as db:
+    # Use db here
+    pass  # db.close() called automatically on exit
+
 # SQLite in-memory (great for learning and testing - no file needed)
-db = connect("sqlite:///:memory:")
+# db = connect("sqlite:///:memory:")
+# ... use db ...
+# db.close()  # Remember to close manually if not using context manager
 
 # SQLite file-based (persistent database)
 # db = connect("sqlite:///example.db")  # Creates a file on disk

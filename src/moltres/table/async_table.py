@@ -166,7 +166,20 @@ class AsyncTransaction:
 
 
 class AsyncDatabase:
-    """Entry-point object returned by ``moltres.async_connect``."""
+    """Entry-point object returned by ``moltres.async_connect``.
+
+    The :class:`AsyncDatabase` class supports async context manager protocol for
+    automatic connection cleanup. Use it in an ``async with`` statement to ensure
+    the connection is properly closed.
+
+    Example:
+        Using async context manager (recommended)::
+
+            >>> async with async_connect("sqlite+aiosqlite:///:memory:") as db:
+            ...     df = db.sql("SELECT * FROM users")
+            ...     results = await df.collect()
+            ...     # await db.close() called automatically on exit
+    """
 
     def __init__(self, config: MoltresConfig):
         self.config = config
@@ -1329,6 +1342,33 @@ class AsyncDatabase:
     async def close(self) -> None:
         """Close the database connection and cleanup resources."""
         await self._close_resources()
+
+    async def __aenter__(self) -> "AsyncDatabase":
+        """Enter the async database context manager.
+
+        Returns:
+            AsyncDatabase: This database instance
+
+        Example:
+            >>> async with async_connect("sqlite+aiosqlite:///:memory:") as db:
+            ...     df = db.sql("SELECT * FROM users")
+            ...     results = await df.collect()
+            ...     # await db.close() called automatically on exit
+        """
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit the async database context manager.
+
+        Automatically closes the database connection when exiting the context,
+        even if an exception occurred.
+
+        Args:
+            exc_type: Exception type if an exception occurred, None otherwise
+            exc_val: Exception value if an exception occurred, None otherwise
+            exc_tb: Exception traceback if an exception occurred, None otherwise
+        """
+        await self.close()
 
     async def _close_resources(self) -> None:
         if self._closed:

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Context Manager Support** – Added context manager protocol support to `Database` and `AsyncDatabase` classes:
+  - `Database` now supports `with` statements for automatic connection cleanup
+  - `AsyncDatabase` now supports `async with` statements for automatic connection cleanup
+  - Connections are automatically closed when exiting the context, even if exceptions occur
+  - Eliminates the need for manual `db.close()` or `await db.close()` calls
+  - Updated documentation and examples to show context manager usage as the recommended approach
+
 ## [0.19.6] - 2025-12-02
 
 ### Changed

@@ -20,6 +20,7 @@ Welcome to the Moltres user guides! These guides provide practical, step-by-step
 - **[06 - Error Handling](https://moltres.readthedocs.io/en/latest/guides/error-handling.html)** - Debug issues and handle errors effectively.
 - **[07 - Advanced Topics](https://moltres.readthedocs.io/en/latest/guides/advanced-topics.html)** - Advanced features for power users.
 - **[09 - Pandas Interface](https://moltres.readthedocs.io/en/latest/guides/pandas-interface.html)** - Comprehensive guide to the pandas-style interface with string accessor and data inspection methods.
+- **[18 - SQL Approaches Comparison](https://moltres.readthedocs.io/en/latest/guides/sql-approaches-comparison.html)** - Compare raw SQL, SQLAlchemy Core, and Moltres for executing complex queries.
 
 ## Quick Navigation
 

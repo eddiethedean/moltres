@@ -261,15 +261,29 @@ class Database:
     in Moltres. It handles connections, query execution, table management, and data
     mutations.
 
+    The :class:`Database` class supports context manager protocol for automatic
+    connection cleanup. Use it in a ``with`` statement to ensure the connection
+    is properly closed.
+
     Attributes:
         config: The :class:`MoltresConfig` instance used for this database
         dialect: The SQL dialect being used (e.g., "sqlite", "postgresql")
 
     Example:
-        >>> from moltres import connect, col
-        >>> db = connect("sqlite:///example.db")
-        >>> df = db.table("users").select().where(col("active") == True)
-        >>> results = df.collect()
+        Basic usage::
+
+            >>> from moltres import connect, col
+            >>> db = connect("sqlite:///example.db")
+            >>> df = db.table("users").select().where(col("active") == True)
+            >>> results = df.collect()
+            >>> db.close()
+
+        Using context manager (recommended)::
+
+            >>> with connect("sqlite:///example.db") as db:
+            ...     df = db.table("users").select().where(col("active") == True)
+            ...     results = df.collect()
+            ...     # db.close() called automatically on exit
     """
 
     def __init__(self, config: MoltresConfig):
@@ -481,6 +495,33 @@ class Database:
         Note: After calling close(), the :class:`Database` instance should not be used.
         """
         self._close_resources()
+
+    def __enter__(self) -> "Database":
+        """Enter the database context manager.
+
+        Returns:
+            Database: This database instance
+
+        Example:
+            >>> with connect("sqlite:///example.db") as db:
+            ...     df = db.table("users").select()
+            ...     results = df.collect()
+            ...     # db.close() called automatically on exit
+        """
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit the database context manager.
+
+        Automatically closes the database connection when exiting the context,
+        even if an exception occurred.
+
+        Args:
+            exc_type: Exception type if an exception occurred, None otherwise
+            exc_val: Exception value if an exception occurred, None otherwise
+            exc_tb: Exception traceback if an exception occurred, None otherwise
+        """
+        self.close()
 
     def _close_resources(self) -> None:
         if self._closed:

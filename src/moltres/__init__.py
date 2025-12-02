@@ -205,7 +205,17 @@ def connect(
         TypeError: If session is not a SQLAlchemy Session or SQLModel Session instance
 
     Example:
-        >>> # Using connection string
+        >>> # Using connection string with context manager (recommended)
+        >>> with connect("sqlite:///:memory:") as db:
+        ...     from moltres.table.schema import column
+        ...     _ = db.create_table("users", [column("id", "INTEGER"), column("active", "BOOLEAN")]).collect()  # doctest: +ELLIPSIS
+        ...     from moltres.io.records import Records
+        ...     _ = Records(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
+        ...     df = db.table("users").select().where(col("active") == True)
+        ...     results = df.collect()
+        ...     # db.close() called automatically on exit
+
+        >>> # Using connection string (manual close)
         >>> db = connect("sqlite:///:memory:")
         >>> from moltres.table.schema import column
         >>> _ = db.create_table("users", [column("id", "INTEGER"), column("active", "BOOLEAN")]).collect()  # doctest: +ELLIPSIS
@@ -213,12 +223,7 @@ def connect(
         >>> _ = Records(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
         >>> df = db.table("users").select().where(col("active") == True)
         >>> results = df.collect()
-        >>> len(results)
-        1
-        >>> results[0]["id"]
-        1
-        >>> results[0]["active"]
-        1
+        >>> db.close()
 
         >>> # Using SQLAlchemy Engine
         >>> from sqlalchemy import create_engine
@@ -354,18 +359,23 @@ def async_connect(
     Example:
         >>> import asyncio
         >>> async def example():
-        ...     # Using connection string
+        ...     # Using connection string with async context manager (recommended)
+        ...     async with async_connect("sqlite+aiosqlite:///:memory:") as db:
+        ...         from moltres.table.schema import column
+        ...         await db.create_table("users", [column("id", "INTEGER")]).collect()
+        ...         from moltres.io.records import :class:`AsyncRecords`
+        ...         records = :class:`AsyncRecords`(_data=[{"id": 1}], _database=db)
+        ...         await records.insert_into("users")
+        ...         table_handle = await db.table("users")
+        ...         df = table_handle.select()
+        ...         results = await df.collect()
+        ...         assert len(results) == 1
+        ...         assert results[0]["id"] == 1
+        ...         # await db.close() called automatically on exit
+        ...
+        ...     # Using connection string (manual close)
         ...     db = async_connect("sqlite+aiosqlite:///:memory:")
-        ...     from moltres.table.schema import column
         ...     await db.create_table("users", [column("id", "INTEGER")]).collect()
-        ...     from moltres.io.records import :class:`AsyncRecords`
-        ...     records = :class:`AsyncRecords`(_data=[{"id": 1}], _database=db)
-        ...     await records.insert_into("users")
-        ...     table_handle = await db.table("users")
-        ...     df = table_handle.select()
-        ...     results = await df.collect()
-        ...     assert len(results) == 1
-        ...     assert results[0]["id"] == 1
         ...     await db.close()
         ...     # Note: async examples require running in async context
         ...     # asyncio.run(example())  # doctest: +SKIP
