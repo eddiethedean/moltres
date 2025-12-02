@@ -4,13 +4,36 @@ This guide helps you debug and troubleshoot issues with Moltres queries.
 
 ## Viewing Generated SQL
 
-The most important debugging tool is viewing the SQL that Moltres generates:
+The most important debugging tool is viewing the SQL that Moltres generates. Moltres provides several convenient methods for this:
+
+### Method 1: show_sql() - Pretty-print SQL
 
 ```python
 df = db.table("users").select().where(col("age") > 18)
-sql = df.to_sql()
+df.show_sql()  # Pretty-prints formatted SQL with indentation
+```
+
+### Method 2: sql property - Get formatted SQL
+
+```python
+df = db.table("users").select().where(col("age") > 18)
+print(df.sql)  # Returns formatted SQL string
+```
+
+### Method 3: to_sql(pretty=True) - Get formatted SQL
+
+```python
+df = db.table("users").select().where(col("age") > 18)
+sql = df.to_sql(pretty=True)  # Returns formatted SQL
 print(sql)
-# Output: SELECT * FROM users WHERE age > 18
+```
+
+### Method 4: sql_preview() - Get SQL preview
+
+```python
+df = db.table("users").select().where(col("age") > 18)
+preview = df.sql_preview(max_length=200)  # First 200 characters
+print(preview)
 ```
 
 ### Why This Helps
@@ -212,23 +235,56 @@ if actual_count != expected_count:
 
 ## Debugging Performance Issues
 
-### 1. Use EXPLAIN
+### 1. Use Query Plan Visualization
 
-Most databases support `EXPLAIN` to see query plans:
+Moltres provides several methods to understand your query plan:
+
+#### plan_summary() - Get structured plan statistics
 
 ```python
 df = db.table("orders").select().where(col("status") == "active")
-sql = df.to_sql()
+summary = df.plan_summary()
+print(f"Operations: {summary['operations']}")
+print(f"Table scans: {summary['table_scans']}")
+print(f"Joins: {summary['joins']}")
+print(f"Filters: {summary['filters']}")
+print(f"Depth: {summary['depth']}")
+```
 
-# PostgreSQL
-explain_sql = f"EXPLAIN ANALYZE {sql}"
-plan = db.execute(explain_sql)
-print(plan)
+#### visualize_plan() - ASCII tree visualization
 
-# SQLite
-explain_sql = f"EXPLAIN QUERY PLAN {sql}"
-plan = db.execute(explain_sql)
+```python
+df = db.table("orders").select().where(col("status") == "active")
+print(df.visualize_plan())
+# Output: ASCII tree showing plan structure
+```
+
+#### explain() - Database execution plan
+
+```python
+df = db.table("orders").select().where(col("status") == "active")
+plan = df.explain(analyze=True)  # Use analyze=True for actual execution stats
 print(plan)
+```
+
+#### validate() - Check for common issues
+
+```python
+df = db.table("orders").select().where(col("status") == "active")
+issues = df.validate()
+for issue in issues:
+    print(f"[{issue['type']}] {issue['message']}")
+    if issue.get('suggestion'):
+        print(f"  Suggestion: {issue['suggestion']}")
+```
+
+#### performance_hints() - Get optimization suggestions
+
+```python
+df = db.table("orders").select().where(col("status") == "active")
+hints = df.performance_hints()
+for hint in hints:
+    print(f"- {hint}")
 ```
 
 ### 2. Monitor Query Execution
@@ -439,18 +495,66 @@ def test_query():
 test_query()
 ```
 
+## Schema Discovery
+
+Moltres provides convenient methods to discover database schemas:
+
+### Get table schema
+
+```python
+# Get schema for a specific table
+schema = db.schema("users")
+for col_def in schema:
+    print(f"{col_def.name}: {col_def.type_name}")
+
+# Get all tables with their schemas
+tables = db.tables()
+for table_name, columns in tables.items():
+    print(f"{table_name}: {len(columns)} columns")
+
+# Get columns from a table handle
+handle = db.table("users")
+columns = handle.columns()
+print(columns)  # ['id', 'name', 'email', ...]
+```
+
+## Interactive Help
+
+Moltres provides interactive help to discover available operations:
+
+### help() - Display available operations
+
+```python
+df = db.table("users").select()
+df.help()  # Displays all available operations and examples
+```
+
+### suggest_next() - Get suggestions for next operations
+
+```python
+df = db.table("users").select()
+suggestions = df.suggest_next()
+for suggestion in suggestions:
+    print(suggestion)
+```
+
 ## Summary
 
-1. **Use `df.to_sql()`** to see generated SQL
-2. **Read error messages** and suggestions carefully
-3. **Test incrementally** - build queries step by step
-4. **Use `limit()` and `show()`** to inspect results
-5. **Use `EXPLAIN`** to understand query plans
-6. **Monitor performance** with hooks
-7. **Verify data** - check for NULLs, types, ranges
-8. **Test in database tools** directly
-9. **Enable SQL logging** for detailed debugging
-10. **Create test queries** to isolate issues
+1. **Use `df.show_sql()` or `df.sql`** to see formatted SQL
+2. **Use `df.plan_summary()` and `df.visualize_plan()`** to understand query structure
+3. **Use `df.validate()`** to check for common issues
+4. **Use `df.performance_hints()`** to get optimization suggestions
+5. **Use `db.schema()` and `db.tables()`** to discover database structure
+6. **Read error messages** and suggestions carefully (they now include query context)
+7. **Test incrementally** - build queries step by step
+8. **Use `limit()` and `show()`** to inspect results
+9. **Use `df.explain()`** to understand database execution plans
+10. **Monitor performance** with hooks
+11. **Verify data** - check for NULLs, types, ranges
+12. **Test in database tools** directly
+13. **Enable SQL logging** for detailed debugging
+14. **Create test queries** to isolate issues
+15. **Use `df.help()` and `df.suggest_next()`** to discover available operations
 
 For more help:
 - [Performance Guide](./PERFORMANCE.md)

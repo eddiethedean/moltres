@@ -32,7 +32,7 @@ from typing import (
 
 from ...expressions.column import Column, LiteralValue, col
 from ...logical import operators
-from ...logical.plan import FileScan, LogicalPlan, RawSQL
+from ...logical.plan import FileScan, Limit, LogicalPlan, RawSQL
 from ...sql.compiler import compile_plan
 from ..helpers.dataframe_helpers import DataFrameHelpersMixin
 
@@ -1445,8 +1445,12 @@ class DataFrame(DataFrameHelpersMixin):
             return self
 
     # ---------------------------------------------------------------- execution
-    def to_sql(self) -> str:
+    def to_sql(self, pretty: bool = False) -> str:
         """Convert the :class:`DataFrame`'s logical plan to a SQL string.
+
+        Args:
+            pretty: If True, format SQL with indentation and line breaks for readability.
+                   If False, return compact SQL string.
 
         Returns:
             SQL string representation of the query
@@ -1473,8 +1477,146 @@ class DataFrame(DataFrameHelpersMixin):
         )
         if isinstance(stmt, Select):
             # Compile SQLAlchemy statement to SQL string
-            return str(stmt.compile(compile_kwargs={"literal_binds": True}))
+            sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+            if pretty:
+                return self._format_sql(sql)
+            return sql
         return str(stmt)
+
+    def _format_sql(self, sql: str) -> str:
+        """Format SQL string with indentation for readability."""
+        # Simple SQL formatter - add basic indentation
+        # Keywords that should start a new line
+        keywords = [
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "JOIN",
+            "INNER JOIN",
+            "LEFT JOIN",
+            "RIGHT JOIN",
+            "FULL JOIN",
+            "GROUP BY",
+            "ORDER BY",
+            "HAVING",
+            "LIMIT",
+            "UNION",
+            "INTERSECT",
+            "EXCEPT",
+        ]
+
+        # Split by keywords (case-insensitive)
+        lines = []
+        current_line = ""
+        i = 0
+        sql_upper = sql.upper()
+
+        while i < len(sql):
+            # Check if we're at a keyword
+            found_keyword = None
+            for keyword in keywords:
+                if sql_upper[i:].startswith(keyword):
+                    # Check if it's a whole word (not part of another word)
+                    if (i == 0 or not sql[i - 1].isalnum() and sql[i - 1] != "_") and (
+                        i + len(keyword) >= len(sql)
+                        or not sql[i + len(keyword)].isalnum()
+                        and sql[i + len(keyword)] != "_"
+                    ):
+                        found_keyword = keyword
+                        break
+
+            if found_keyword:
+                # Add current line if not empty
+                if current_line.strip():
+                    lines.append(current_line.rstrip())
+                # Add keyword on new line with indentation
+                keyword_text = sql[i : i + len(found_keyword)]
+                # Determine indentation level
+                indent = "  "  # 2 spaces per level
+                if keyword_text.upper() in (
+                    "FROM",
+                    "WHERE",
+                    "GROUP BY",
+                    "ORDER BY",
+                    "HAVING",
+                    "LIMIT",
+                ):
+                    indent = ""
+                elif keyword_text.upper().endswith("JOIN"):
+                    indent = "  "
+                lines.append(indent + keyword_text)
+                i += len(found_keyword)
+                current_line = " " * (len(indent) + 2)  # Continue with indentation
+            else:
+                current_line += sql[i]
+                i += 1
+
+        if current_line.strip():
+            lines.append(current_line.rstrip())
+
+        return "\n".join(lines)
+
+    @property
+    def sql(self) -> str:
+        """Property accessor for SQL string representation.
+
+        Returns:
+            SQL string representation of the query (formatted for readability)
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> print(df.sql)  # Pretty-printed SQL
+            >>> db.close()
+        """
+        return self.to_sql(pretty=True)
+
+    def show_sql(self, max_length: Optional[int] = None) -> None:
+        """Pretty-print the SQL query that will be executed.
+
+        Args:
+            max_length: Optional maximum length to display. If SQL is longer,
+                       shows first part with "..." indicator. If None, shows full SQL.
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> df.show_sql()  # Prints formatted SQL
+            >>> db.close()
+        """
+        sql = self.to_sql(pretty=True)
+        if max_length and len(sql) > max_length:
+            print(sql[:max_length] + "...")
+            print(f"\n[SQL truncated at {max_length} characters, full length: {len(sql)}]")
+        else:
+            print(sql)
+
+    def sql_preview(self, max_length: int = 200) -> str:
+        """Get a preview of the SQL query (first N characters).
+
+        Args:
+            max_length: Maximum length of preview (default: 200)
+
+        Returns:
+            SQL preview string with "..." if truncated
+
+        Example:
+            >>> from moltres import connect, col
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> preview = df.sql_preview()
+            >>> len(preview) <= 203  # 200 + "..."
+            True
+        """
+        sql = self.to_sql(pretty=False)
+        if len(sql) > max_length:
+            return sql[:max_length] + "..."
+        return sql
 
     def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
         """Convert :class:`DataFrame`'s logical plan to a SQLAlchemy Select statement.
@@ -1587,6 +1729,380 @@ class DataFrame(DataFrameHelpersMixin):
                 else:
                     plan_lines.append(str(row))
         return "\n".join(plan_lines)
+
+    def plan_summary(self) -> Dict[str, Any]:
+        """Get a structured summary of the query plan.
+
+        Returns:
+            Dictionary containing plan statistics:
+            - operations: List of operation types in the plan
+            - table_scans: Number of table scans
+            - joins: Number of joins
+            - filters: Number of filter operations
+            - aggregations: Number of aggregation operations
+            - depth: Maximum depth of the plan tree
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> summary = df.plan_summary()
+            >>> summary["operations"]
+            ['TableScan', 'Filter']
+            >>> db.close()
+        """
+        from collections import deque
+
+        operations = []
+        table_scans = 0
+        joins = 0
+        filters = 0
+        aggregations = 0
+        max_depth = 0
+
+        # Traverse plan tree
+        queue = deque([(self.plan, 0)])
+        while queue:
+            plan_node, depth = queue.popleft()
+            max_depth = max(max_depth, depth)
+
+            # Get operation type
+            op_type = type(plan_node).__name__
+            operations.append(op_type)
+
+            # Count specific operations
+            if op_type == "TableScan":
+                table_scans += 1
+            elif op_type in (
+                "Join",
+                "InnerJoin",
+                "LeftJoin",
+                "RightJoin",
+                "FullJoin",
+                "SemiJoin",
+                "AntiJoin",
+            ):
+                joins += 1
+            elif op_type == "Filter":
+                filters += 1
+            elif op_type == "Aggregate":
+                aggregations += 1
+
+            # Add children to queue
+            if hasattr(plan_node, "child"):
+                queue.append((plan_node.child, depth + 1))
+            elif hasattr(plan_node, "left") and hasattr(plan_node, "right"):
+                queue.append((plan_node.left, depth + 1))
+                queue.append((plan_node.right, depth + 1))
+            elif hasattr(plan_node, "children"):
+                # children is a method, call it
+                children = plan_node.children()
+                for child in children:
+                    queue.append((child, depth + 1))
+
+        return {
+            "operations": operations,
+            "table_scans": table_scans,
+            "joins": joins,
+            "filters": filters,
+            "aggregations": aggregations,
+            "depth": max_depth,
+            "total_operations": len(operations),
+        }
+
+    def validate(self) -> List[Dict[str, Any]]:
+        """Validate the query plan and check for common issues.
+
+        Returns:
+            List of dictionaries containing validation results:
+            - type: "warning" or "error"
+            - message: Description of the issue
+            - suggestion: Optional suggestion for fixing the issue
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> issues = df.validate()
+            >>> len(issues) >= 0
+            True
+        """
+        issues = []
+
+        # Check if database is attached (needed for execution)
+        if self.database is None:
+            issues.append(
+                {
+                    "type": "warning",
+                    "message": "DataFrame is not attached to a Database. Query cannot be executed.",
+                    "suggestion": "Attach a Database using df.with_database(db) or create DataFrame from db.table()",
+                }
+            )
+
+        # Check for potential performance issues
+        summary = self.plan_summary()
+
+        # Warn about multiple table scans (potential cartesian product)
+        if summary["table_scans"] > 1 and summary["joins"] == 0:
+            issues.append(
+                {
+                    "type": "warning",
+                    "message": f"Query has {summary['table_scans']} table scans but no joins. This may indicate a missing join condition.",
+                    "suggestion": "Check if you need to add a join() operation with proper join conditions.",
+                }
+            )
+
+        # Warn about filters without indexes (if we can detect)
+        if summary["filters"] > 0 and self.database is not None:
+            # This is a simple check - in practice, we'd need to inspect the actual filter predicates
+            issues.append(
+                {
+                    "type": "info",
+                    "message": f"Query has {summary['filters']} filter operation(s). Consider adding indexes on filtered columns for better performance.",
+                    "suggestion": "Use db.create_index() to add indexes on frequently filtered columns.",
+                }
+            )
+
+        # Check for deep plan trees (potential performance issue)
+        if summary["depth"] > 10:
+            issues.append(
+                {
+                    "type": "warning",
+                    "message": f"Query plan has depth {summary['depth']}, which may indicate a complex query that could be slow.",
+                    "suggestion": "Consider breaking the query into smaller parts or using subqueries.",
+                }
+            )
+
+        return issues
+
+    def performance_hints(self) -> List[str]:
+        """Get performance optimization hints for this query.
+
+        Returns:
+            List of performance optimization suggestions
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> hints = df.performance_hints()
+            >>> len(hints) >= 0
+            True
+        """
+        hints = []
+        summary = self.plan_summary()
+
+        # Check for missing indexes on filtered columns
+        if summary["filters"] > 0:
+            hints.append(
+                "Consider adding indexes on columns used in WHERE clauses for better performance."
+            )
+
+        # Check for joins without conditions
+        if summary["joins"] > 0:
+            hints.append("Ensure join conditions are properly specified and indexed.")
+
+        # Check for aggregations without GROUP BY
+        if summary["aggregations"] > 0:
+            # This would need more detailed plan inspection to be accurate
+            hints.append(
+                "For aggregation queries, ensure GROUP BY columns are indexed if possible."
+            )
+
+        # Check for large result sets - traverse plan to find Limit
+        has_limit = False
+        queue = [self.plan]
+        visited = set()
+        while queue:
+            node = queue.pop(0)
+            if id(node) in visited:
+                continue
+            visited.add(id(node))
+            if isinstance(node, Limit):
+                has_limit = True
+                break
+            # Add children
+            if hasattr(node, "child"):
+                queue.append(node.child)
+            elif hasattr(node, "left") and hasattr(node, "right"):
+                queue.append(node.left)
+                queue.append(node.right)
+            elif hasattr(node, "children"):
+                queue.extend(node.children())
+
+        if not has_limit:
+            hints.append("Consider using limit() if you only need a subset of results.")
+
+        return hints
+
+    def help(self) -> None:
+        """Display interactive help showing available operations and examples.
+
+        Example:
+            >>> from moltres import connect
+            >>> db = connect("sqlite:///:memory:")
+            >>> df = db.table("users").select()
+            >>> df.help()  # Prints help information
+        """
+        print("=" * 70)
+        print("Moltres DataFrame - Available Operations")
+        print("=" * 70)
+        print()
+        print("Query Operations:")
+        print("  - select(*columns)      : Select specific columns")
+        print("  - where(condition)       : Filter rows")
+        print("  - join(other, on=...)    : Join with another DataFrame")
+        print("  - group_by(*columns)    : Group rows")
+        print("  - agg(*expressions)      : Aggregate grouped data")
+        print("  - order_by(*columns)    : Sort results")
+        print("  - limit(n)              : Limit number of rows")
+        print("  - distinct()            : Remove duplicates")
+        print()
+        print("Execution Operations:")
+        print("  - collect()              : Execute query and return results")
+        print("  - show(n=20)             : Print first n rows")
+        print("  - head(n=5)              : Get first n rows")
+        print("  - tail(n=5)              : Get last n rows")
+        print()
+        print("Debugging & Introspection:")
+        print("  - to_sql(pretty=False)   : Get SQL string")
+        print("  - show_sql()             : Pretty-print SQL")
+        print("  - explain(analyze=False) : Get query execution plan")
+        print("  - plan_summary()         : Get structured plan summary")
+        print("  - visualize_plan()      : ASCII tree visualization")
+        print("  - validate()            : Check for common issues")
+        print("  - performance_hints()   : Get optimization suggestions")
+        print()
+        print("Schema Operations:")
+        print("  - columns                : Get column names")
+        print("  - schema                 : Get column schema")
+        print("  - dtypes                 : Get data types")
+        print()
+        print("For more information, see: https://moltres.readthedocs.io/")
+        print("=" * 70)
+
+    def suggest_next(self) -> List[str]:
+        """Suggest logical next operations based on current DataFrame state.
+
+        Returns:
+            List of suggested next operations
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select()
+            >>> suggestions = df.suggest_next()
+            >>> len(suggestions) > 0
+            True
+        """
+        suggestions = []
+        summary = self.plan_summary()
+
+        # If just a table scan, suggest filtering
+        if summary["table_scans"] == 1 and summary["filters"] == 0:
+            suggestions.append(
+                "You might want to filter rows with where(), e.g., df.where(col('column') > value)"
+            )
+
+        # If has filters but no projection, suggest selecting specific columns
+        if summary["filters"] > 0:
+            suggestions.append(
+                "Consider selecting specific columns with select() for better performance"
+            )
+
+        # If has joins, suggest checking join conditions
+        if summary["joins"] > 0:
+            suggestions.append(
+                "Verify join conditions are correct and indexed for optimal performance"
+            )
+
+        # If no limit, suggest adding one for large datasets
+        has_limit = any(
+            isinstance(node, Limit) for node in [self.plan] if hasattr(self.plan, "child")
+        )
+        if not has_limit:
+            suggestions.append("Consider adding limit() if you only need a subset of results")
+
+        # If has aggregations, suggest ordering
+        if summary["aggregations"] > 0:
+            suggestions.append("You might want to order results with order_by()")
+
+        # General suggestions
+        if not suggestions:
+            suggestions.append(
+                "Ready to execute! Use collect() to get results or show() to preview"
+            )
+            suggestions.append("Use explain() to see the query execution plan")
+
+        return suggestions
+
+    def visualize_plan(self) -> str:
+        """Create an ASCII tree visualization of the query plan.
+
+        Returns:
+            String containing ASCII tree representation of the plan
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> df = db.table("users").select().where(col("id") > 1)
+            >>> print(df.visualize_plan())
+            >>> db.close()
+        """
+        lines = []
+        visited = set()
+
+        def format_node(node: LogicalPlan, prefix: str = "", is_last: bool = True) -> None:
+            """Recursively format plan nodes as a tree."""
+            node_id = id(node)
+            if node_id in visited:
+                lines.append(f"{prefix}{'└── ' if is_last else '├── '}[CYCLE]")
+                return
+            visited.add(node_id)
+
+            op_type = type(node).__name__
+            # Add details based on operation type
+            details = ""
+            if hasattr(node, "table"):
+                details = f"({node.table})"
+            elif hasattr(node, "predicate"):
+                details = " [has predicate]"
+            elif hasattr(node, "columns"):
+                details = f" [{len(node.columns)} columns]"
+
+            connector = "└── " if is_last else "├── "
+            lines.append(f"{prefix}{connector}{op_type}{details}")
+
+            # Update prefix for children
+            child_prefix = prefix + ("    " if is_last else "│   ")
+
+            # Get children
+            children = []
+            if hasattr(node, "child"):
+                children = [node.child]
+            elif hasattr(node, "left") and hasattr(node, "right"):
+                children = [node.left, node.right]
+            elif hasattr(node, "children"):
+                # children is a method, call it
+                children = list(node.children())
+
+            # Format children
+            for i, child in enumerate(children):
+                is_last_child = i == len(children) - 1
+                format_node(child, child_prefix, is_last_child)
+
+        format_node(self.plan)
+        return "\n".join(lines)
 
     @overload
     def collect(self, stream: Literal[False] = False) -> List[Dict[str, object]]: ...

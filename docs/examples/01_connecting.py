@@ -55,5 +55,9 @@ except ImportError:
     print("Async dependencies not installed.")
     print("Install with: pip install moltres[async]")
     print("Or: pip install moltres[async-sqlite]")
+    # Output (if async dependencies not installed):
+    #   Async dependencies not installed.
+    #   Install with: pip install moltres[async]
+    #   Or: pip install moltres[async-sqlite]
     if __name__ == "__main__":
         sys.exit(1)

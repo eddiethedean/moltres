@@ -493,10 +493,105 @@ print(f"Deleted {result} rows")
 
 ```
 
+## Debugging and UX Features
+
+Moltres provides powerful tools to help you understand and debug your queries:
+
+### Viewing Generated SQL
+
+```python
+from moltres import connect, col
+from moltres.table.schema import column
+
+db = connect("sqlite:///:memory:")
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+    column("age", "INTEGER"),
+]).collect()
+
+df = db.table("users").select().where(col("age") > 25)
+
+# Pretty-print SQL
+df.show_sql()
+
+# Get formatted SQL as string
+sql = df.sql
+print(sql)
+
+# Get SQL preview
+preview = df.sql_preview(max_length=100)
+print(preview)
+```
+
+### Understanding Query Plans
+
+```python
+# Get structured plan summary
+summary = df.plan_summary()
+print(f"Operations: {summary['operations']}")
+print(f"Table scans: {summary['table_scans']}")
+print(f"Filters: {summary['filters']}")
+
+# Visualize plan as ASCII tree
+print(df.visualize_plan())
+
+# Get database execution plan
+plan = df.explain()
+print(plan)
+```
+
+### Schema Discovery
+
+```python
+# Get schema for a table
+schema = db.schema("users")
+for col_def in schema:
+    print(f"{col_def.name}: {col_def.type_name}")
+
+# Get all tables with schemas
+tables = db.tables()
+for table_name, columns in tables.items():
+    print(f"{table_name}: {len(columns)} columns")
+
+# Get columns from table handle
+handle = db.table("users")
+print(handle.columns())  # ['id', 'name', 'age']
+```
+
+### Query Validation and Performance Hints
+
+```python
+# Validate query for common issues
+issues = df.validate()
+for issue in issues:
+    print(f"[{issue['type']}] {issue['message']}")
+
+# Get performance optimization hints
+hints = df.performance_hints()
+for hint in hints:
+    print(f"- {hint}")
+```
+
+### Interactive Help
+
+```python
+# Display available operations
+df.help()
+
+# Get suggestions for next operations
+suggestions = df.suggest_next()
+for suggestion in suggestions:
+    print(suggestion)
+```
+
+**See also:** [Debugging Guide](https://moltres.readthedocs.io/en/latest/DEBUGGING.html) for comprehensive debugging techniques
+
 ## Next Steps
 
 - **Learn more**: Check out the [Common Patterns Guide](https://moltres.readthedocs.io/en/latest/guides/common-patterns.html)
 - **Optimize**: Read the [Performance Guide](https://moltres.readthedocs.io/en/latest/guides/performance-optimization.html)
+- **Debug**: See the [Debugging Guide](https://moltres.readthedocs.io/en/latest/DEBUGGING.html) for query debugging tools
 - **Migrate**: If coming from Pandas, see [Migration from Pandas](https://moltres.readthedocs.io/en/latest/guides/migrating-from-pandas.html)
 - **Examples**: Explore the [examples overview](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)
 

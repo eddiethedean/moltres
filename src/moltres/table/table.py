@@ -129,6 +129,27 @@ class TableHandle:
 
         return DataFrame.from_table(self, columns=list(columns))
 
+    def columns(self) -> List[str]:
+        """Get the list of column names for this table.
+
+        Returns:
+            List of column names
+
+        Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> handle = db.table("users")
+            >>> cols = handle.columns()
+            >>> "id" in cols
+            True
+            >>> "name" in cols
+            True
+        """
+        column_infos = self.database.get_columns(self.name)
+        return [col.name for col in column_infos]
+
     def pandas(self, *columns: str) -> "PandasDataFrame":
         """Create a :class:`PandasDataFrame` from this table.
 
@@ -1192,6 +1213,79 @@ class Database:
         from ..utils.inspector import get_view_names
 
         return get_view_names(self, schema=schema)
+
+    def schema(self, table_name: str) -> List[ColumnDef]:
+        """Get the schema (column definitions) for a table.
+
+        Args:
+            table_name: Name of the table
+
+        Returns:
+            List of :class:`ColumnDef` objects describing the table's columns
+
+        Raises:
+            ValueError: If table does not exist
+
+        Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
+            >>> schema = db.schema("users")
+            >>> len(schema)
+            2
+            >>> schema[0].name
+            'id'
+            >>> schema[0].type_name
+            'INTEGER'
+        """
+        columns = self.get_columns(table_name)
+        return [
+            ColumnDef(
+                name=col.name,
+                type_name=col.type_name,
+                nullable=col.nullable,
+                default=col.default,
+                primary_key=col.primary_key,
+                precision=col.precision,
+                scale=col.scale,
+            )
+            for col in columns
+        ]
+
+    def tables(self, schema: Optional[str] = None) -> Dict[str, List[ColumnDef]]:
+        """Get all tables in the database with their schemas.
+
+        Args:
+            schema: Optional schema name (for databases that support schemas)
+
+        Returns:
+            Dictionary mapping table names to their column definitions
+
+        Example:
+            >>> from moltres import connect
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("users", [column("id", "INTEGER")]).collect()
+            >>> db.create_table("orders", [column("id", "INTEGER")]).collect()
+            >>> tables = db.tables()
+            >>> "users" in tables
+            True
+            >>> "orders" in tables
+            True
+            >>> len(tables["users"])
+            1
+        """
+        table_names = self.get_table_names(schema=schema)
+        result = {}
+        for table_name in table_names:
+            try:
+                result[table_name] = self.schema(table_name)
+            except Exception as exc:
+                logger.debug("Failed to get schema for table %s: %s", table_name, exc)
+                # Continue with other tables even if one fails
+                result[table_name] = []
+        return result
 
     def get_columns(self, table_name: str) -> List["ColumnInfo"]:
         """Get column information for a table.

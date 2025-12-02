@@ -33,6 +33,10 @@ if pd is None and pl is None:
     print("This example requires either pandas or polars to be installed.")
     print("Install with: pip install pandas polars")
     print("Or: pip install moltres[pandas,polars]")
+    # Output (if dependencies not installed):
+    #   This example requires either pandas or polars to be installed.
+    #   Install with: pip install pandas polars
+    #   Or: pip install moltres[pandas,polars]
     if __name__ == "__main__":
         sys.exit(1)
 

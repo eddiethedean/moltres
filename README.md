@@ -104,6 +104,8 @@ db.delete("users", where=col("email").is_null())
 
 **SQL Dialects**: SQLite, PostgreSQL, MySQL, DuckDB, and any SQLAlchemy-supported database
 
+**UX Features**: Enhanced SQL display (`show_sql()`, `sql` property), query plan visualization (`plan_summary()`, `visualize_plan()`), schema discovery (`db.schema()`, `db.tables()`), query validation (`validate()`), performance hints (`performance_hints()`), and interactive help (`help()`, `suggest_next()`)
+
 ## 🧪 Development
 
 ```bash

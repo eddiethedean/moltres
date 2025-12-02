@@ -90,11 +90,28 @@ class MoltresError(Exception):
     def __str__(self) -> str:
         """Return formatted error message with suggestion if available."""
         msg = self.message
+
+        # Add query context if available
+        if self.context:
+            query_context = self.context.get("query")
+            if query_context:
+                msg += f"\n\nQuery: {query_context}"
+
+            operation_context = self.context.get("operation")
+            if operation_context:
+                msg += f"\n\nOperation: {operation_context}"
+
+            # Add other context (excluding query and operation which are handled above)
+            other_context = {
+                k: v for k, v in self.context.items() if k not in ("query", "operation")
+            }
+            if other_context:
+                context_str = ", ".join(f"{k}={v}" for k, v in other_context.items())
+                msg += f"\n\nContext: {context_str}"
+
         if self.suggestion:
             msg += f"\n\nSuggestion: {self.suggestion}"
-        if self.context:
-            context_str = ", ".join(f"{k}={v}" for k, v in self.context.items())
-            msg += f"\n\nContext: {context_str}"
+
         return msg
 
 
@@ -171,8 +188,15 @@ class ExecutionError(MoltresError):
             elif "syntax error" in message.lower():
                 suggestion = (
                     "There's a SQL syntax error. Check your query structure. "
-                    "Use df.to_sql() to see the generated SQL."
+                    "Use df.to_sql() or df.show_sql() to see the generated SQL."
                 )
+                # Add SQL to context if available
+                context = context or {}
+                if "sql" in context:
+                    sql_preview = str(context["sql"])[:200]
+                    if len(str(context["sql"])) > 200:
+                        sql_preview += "..."
+                    context["sql_preview"] = sql_preview
         super().__init__(message, suggestion, context)
 
 
