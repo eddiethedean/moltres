@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.6] - 2025-12-02
+
 ### Changed
 - **Integrations Directory Reorganization** – Reorganized integrations directory for better structure and maintainability:
   - Consolidated `integration/` directory into `integrations/sqlalchemy/` package

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.19.5"
+version = "0.19.6"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
