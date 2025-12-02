@@ -6,6 +6,7 @@ directly to connect() and async_connect() instead of engines.
 
 from __future__ import annotations
 
+import uuid
 from typing import Union
 
 import pytest
@@ -167,8 +168,10 @@ def test_connect_with_sqlmodel_session_filtering(tmp_path):
     from sqlmodel import SQLModel, Field, create_engine
     from sqlalchemy.orm import sessionmaker
 
+    table_name = f"products_{uuid.uuid4().hex[:8]}"
+
     class Product(SQLModel, table=True):
-        __tablename__ = "products"
+        __tablename__ = table_name
         id: Union[int, None] = Field(default=None, primary_key=True)
         name: str
         price: float
