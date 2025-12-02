@@ -14,7 +14,7 @@ try:
     PYTEST_AVAILABLE = True
 except ImportError:
     PYTEST_AVAILABLE = False
-    pytest = None
+    pytest = None  # type: ignore[assignment, misc]
 
 
 class QueryLogger:
@@ -57,7 +57,6 @@ class QueryLogger:
         return self.get_total_time() / len(self.query_times)
 
 
-@pytest.fixture(scope="function")
 def query_logger() -> Generator[QueryLogger, None, None]:
     """Fixture that provides a QueryLogger instance for tracking SQL queries.
 
@@ -76,6 +75,11 @@ def query_logger() -> Generator[QueryLogger, None, None]:
     logger = QueryLogger()
     yield logger
     logger.clear()
+
+
+# Apply pytest.fixture decorator only if pytest is available
+if PYTEST_AVAILABLE and pytest is not None:
+    query_logger = pytest.fixture(scope="function")(query_logger)
 
 
 # Hook into SQLAlchemy to log queries
