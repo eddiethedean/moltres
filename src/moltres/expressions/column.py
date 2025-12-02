@@ -24,7 +24,7 @@ from typing_extensions import TypeAlias
 from .expr import Expression
 
 if TYPE_CHECKING:
-    from ..dataframe.dataframe import DataFrame
+    from ..dataframe.core.dataframe import DataFrame
 
 LiteralValue = Union[bool, int, float, str, None]
 ColumnLike: TypeAlias = Union["Column", LiteralValue]

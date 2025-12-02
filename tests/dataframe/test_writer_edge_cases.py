@@ -15,7 +15,7 @@ class TestDataFrameWriterEdgeCases:
 
     def test_write_without_database(self, tmp_path):
         """Test that writing without database raises RuntimeError."""
-        from moltres.dataframe.dataframe import DataFrame
+        from moltres.dataframe import DataFrame
         from moltres.logical import operators
 
         # Create DataFrame without database

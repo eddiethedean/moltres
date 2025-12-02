@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from moltres.dataframe.readers.schema_inference import (
+from moltres.dataframe.io.readers.schema_inference import (
     apply_schema_to_rows,
     infer_schema_from_rows,
 )

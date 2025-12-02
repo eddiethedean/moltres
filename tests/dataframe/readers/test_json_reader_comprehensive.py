@@ -8,7 +8,7 @@ import gzip
 import pytest
 
 from moltres import connect
-from moltres.dataframe.readers.json_reader import (
+from moltres.dataframe.io.readers.json_reader import (
     read_json,
     read_json_stream,
     read_jsonl,

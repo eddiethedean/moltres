@@ -416,7 +416,7 @@ class TestDataFrameNormalize:
 
     def test_normalize_pandas_dataframe(self, tmp_path):
         """Test normalize_data_to_rows with pandas DataFrame."""
-        from moltres.dataframe.create_dataframe import normalize_data_to_rows
+        from moltres.dataframe.core.create_dataframe import normalize_data_to_rows
 
         df = pd.DataFrame([{"id": 1, "name": "Alice"}])
         rows = normalize_data_to_rows(df)
@@ -425,7 +425,7 @@ class TestDataFrameNormalize:
 
     def test_normalize_polars_dataframe(self, tmp_path):
         """Test normalize_data_to_rows with polars DataFrame."""
-        from moltres.dataframe.create_dataframe import normalize_data_to_rows
+        from moltres.dataframe.core.create_dataframe import normalize_data_to_rows
 
         df = pl.DataFrame([{"id": 1, "name": "Alice"}])
         rows = normalize_data_to_rows(df)
@@ -434,7 +434,7 @@ class TestDataFrameNormalize:
 
     def test_normalize_polars_lazyframe(self, tmp_path):
         """Test normalize_data_to_rows with polars LazyFrame."""
-        from moltres.dataframe.create_dataframe import normalize_data_to_rows
+        from moltres.dataframe.core.create_dataframe import normalize_data_to_rows
 
         df = pl.DataFrame([{"id": 1, "name": "Alice"}])
         lf = df.lazy()

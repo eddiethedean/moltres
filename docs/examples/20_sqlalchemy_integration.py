@@ -8,7 +8,7 @@ Moltres DataFrames and SQLAlchemy statements.
 from moltres import connect, col
 from moltres.dataframe.dataframe import DataFrame
 from moltres.table.schema import column
-from moltres.integration import (
+from moltres.integrations.sqlalchemy import (
     execute_with_connection,
     execute_with_session,
     to_sqlalchemy_select,

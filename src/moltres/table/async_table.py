@@ -29,10 +29,10 @@ if TYPE_CHECKING:
     import polars as pl
     from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
     from sqlalchemy.orm import DeclarativeBase
-    from ..dataframe.async_dataframe import AsyncDataFrame
-    from ..dataframe.async_pandas_dataframe import AsyncPandasDataFrame
-    from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
-    from ..dataframe.async_reader import AsyncDataLoader, AsyncReadAccessor
+    from ..dataframe.core.async_dataframe import AsyncDataFrame
+    from ..dataframe.interfaces.async_pandas_dataframe import AsyncPandasDataFrame
+    from ..dataframe.interfaces.async_polars_dataframe import AsyncPolarsDataFrame
+    from ..dataframe.io.async_reader import AsyncDataLoader, AsyncReadAccessor
     from ..io.records import AsyncLazyRecords, AsyncRecords
     from ..utils.inspector import ColumnInfo
     from .async_actions import (
@@ -85,7 +85,7 @@ class AsyncTableHandle:
         return self.model
 
     def select(self, *columns: str) -> "AsyncDataFrame":
-        from ..dataframe.async_dataframe import AsyncDataFrame
+        from ..dataframe.core.async_dataframe import AsyncDataFrame
 
         return AsyncDataFrame.from_table(self, columns=list(columns))
 
@@ -102,8 +102,8 @@ class AsyncTableHandle:
             >>> df = table.polars()
             >>> results = await df.collect()
         """
-        from ..dataframe.async_dataframe import AsyncDataFrame
-        from ..dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+        from ..dataframe.core.async_dataframe import AsyncDataFrame
+        from ..dataframe.interfaces.async_polars_dataframe import AsyncPolarsDataFrame
 
         df = AsyncDataFrame.from_table(self)
         return AsyncPolarsDataFrame.from_dataframe(df)
@@ -121,8 +121,8 @@ class AsyncTableHandle:
             >>> df = table.pandas()
             >>> results = await df.collect()
         """
-        from ..dataframe.async_dataframe import AsyncDataFrame
-        from ..dataframe.async_pandas_dataframe import AsyncPandasDataFrame
+        from ..dataframe.core.async_dataframe import AsyncDataFrame
+        from ..dataframe.interfaces.async_pandas_dataframe import AsyncPandasDataFrame
 
         df = AsyncDataFrame.from_table(self)
         return AsyncPandasDataFrame.from_dataframe(df)
@@ -393,7 +393,7 @@ class AsyncDatabase:
 
         Note: For SQL operations on tables, use await db.table(name).select() instead.
         """
-        from ..dataframe.async_reader import AsyncDataLoader
+        from ..dataframe.io.async_reader import AsyncDataLoader
 
         return AsyncDataLoader(self)
 
@@ -404,7 +404,7 @@ class AsyncDatabase:
         Use await db.read.records.* for :class:`AsyncRecords`-based reads (backward compatibility).
         Use db.load.* for AsyncDataFrame-based reads (PySpark-style).
         """
-        from ..dataframe.async_reader import AsyncReadAccessor
+        from ..dataframe.io.async_reader import AsyncReadAccessor
 
         return AsyncReadAccessor(self)
 
@@ -446,7 +446,7 @@ class AsyncDatabase:
             ...     await db.close()
             ...     # asyncio.run(example())  # doctest: +SKIP
         """
-        from ..dataframe.async_dataframe import AsyncDataFrame
+        from ..dataframe.core.async_dataframe import AsyncDataFrame
         from ..logical import operators
 
         # Convert params dict to the format expected by RawSQL
@@ -1197,13 +1197,13 @@ class AsyncDatabase:
             >>> lazy_records = db.read.records.csv("data.csv")
             >>> df = await db.createDataFrame(lazy_records, pk="id")
         """
-        from ..dataframe.async_dataframe import AsyncDataFrame
-        from ..dataframe.create_dataframe import (
+        from ..dataframe.core.async_dataframe import AsyncDataFrame
+        from ..dataframe.core.create_dataframe import (
             ensure_primary_key,
             generate_unique_table_name,
             get_schema_from_records,
         )
-        from ..dataframe.readers.schema_inference import infer_schema_from_rows
+        from ..dataframe.io.readers.schema_inference import infer_schema_from_rows
         from ..io.records import (
             AsyncLazyRecords,
             AsyncRecords,

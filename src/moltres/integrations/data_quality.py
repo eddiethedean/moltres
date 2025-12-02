@@ -20,8 +20,8 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from ..dataframe.async_dataframe import AsyncDataFrame
-    from ..dataframe.dataframe import DataFrame
+    from ..dataframe.core.async_dataframe import AsyncDataFrame
+    from ..dataframe.core.dataframe import DataFrame
 
 logger = logging.getLogger(__name__)
 

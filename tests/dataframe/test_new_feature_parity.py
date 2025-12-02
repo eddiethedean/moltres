@@ -129,7 +129,7 @@ def test_pyspark_getitem_multiple_columns(sample_db):
 
     # Multiple column access should return DataFrame
     df_selected = df[["id", "name"]]
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
 
     assert isinstance(df_selected, DataFrame)
 
@@ -146,7 +146,7 @@ def test_pyspark_getitem_boolean_indexing(sample_db):
 
     # Boolean indexing should filter rows
     df_filtered = df[df["age"] > 25]
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
 
     assert isinstance(df_filtered, DataFrame)
 

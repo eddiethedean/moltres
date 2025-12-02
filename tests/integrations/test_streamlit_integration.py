@@ -434,7 +434,7 @@ class TestGracefulDegradation:
     def test_import_error_without_streamlit(self):
         """Test that functions raise ImportError when Streamlit is not available."""
         # Temporarily remove streamlit
-        import moltres.integrations.streamlit as streamlit_module
+        import moltres.integrations.streamlit.core as streamlit_module
 
         # Save original value
         original_available = streamlit_module.STREAMLIT_AVAILABLE

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe.core.dataframe import DataFrame
     from moltres.table.table import Database
 
 try:

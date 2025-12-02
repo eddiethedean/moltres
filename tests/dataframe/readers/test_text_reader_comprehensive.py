@@ -7,7 +7,7 @@ import gzip
 import pytest
 
 from moltres import connect
-from moltres.dataframe.readers.text_reader import read_text, read_text_stream
+from moltres.dataframe.io.readers.text_reader import read_text, read_text_stream
 from moltres.table.schema import ColumnDef
 
 
@@ -212,7 +212,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text
+        from moltres.dataframe.io.readers.async_text_reader import read_text
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -235,7 +235,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text
+        from moltres.dataframe.io.readers.async_text_reader import read_text
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -258,7 +258,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text
+        from moltres.dataframe.io.readers.async_text_reader import read_text
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -281,7 +281,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text
+        from moltres.dataframe.io.readers.async_text_reader import read_text
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -303,7 +303,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text
+        from moltres.dataframe.io.readers.async_text_reader import read_text
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -326,7 +326,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text
+        from moltres.dataframe.io.readers.async_text_reader import read_text
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -344,7 +344,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text
+        from moltres.dataframe.io.readers.async_text_reader import read_text
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -366,7 +366,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text_stream
+        from moltres.dataframe.io.readers.async_text_reader import read_text_stream
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -392,7 +392,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text_stream
+        from moltres.dataframe.io.readers.async_text_reader import read_text_stream
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
@@ -419,7 +419,7 @@ class TestAsyncTextReader:
             pytest.skip("aiosqlite not installed")
 
         from moltres import async_connect
-        from moltres.dataframe.readers.async_text_reader import read_text_stream
+        from moltres.dataframe.io.readers.async_text_reader import read_text_stream
 
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")

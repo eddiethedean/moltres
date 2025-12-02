@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from moltres.dataframe.readers import async_readers_init
+from moltres.dataframe.io.readers import async_readers_init
 
 
 def test_async_readers_init_module():

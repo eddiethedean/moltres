@@ -11,7 +11,7 @@ try:
         moltres_db,
         test_data,
     )
-    from moltres.integrations.pytest_plugin import query_logger
+    from moltres.integrations.pytest.plugin import query_logger
 
     # Make fixtures available to pytest
     __all__ = ["moltres_db", "moltres_async_db", "test_data", "query_logger"]

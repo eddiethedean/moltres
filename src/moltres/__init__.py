@@ -38,25 +38,25 @@ from .table.table import Database
 
 # Optional pandas interface - only import if available
 try:
-    from .dataframe.pandas_dataframe import PandasDataFrame
+    from .dataframe.interfaces.pandas_dataframe import PandasDataFrame
 except ImportError:
     PandasDataFrame = None  # type: ignore
 
 # Optional polars interface - only import if available
 try:
-    from .dataframe.polars_dataframe import PolarsDataFrame
+    from .dataframe.interfaces.polars_dataframe import PolarsDataFrame
 except ImportError:
     PolarsDataFrame = None  # type: ignore
 
 # Optional async polars interface - only import if available
 try:
-    from .dataframe.async_polars_dataframe import AsyncPolarsDataFrame
+    from .dataframe.interfaces.async_polars_dataframe import AsyncPolarsDataFrame
 except ImportError:
     AsyncPolarsDataFrame = None  # type: ignore
 
 # Optional async pandas interface - only import if available
 try:
-    from .dataframe.async_pandas_dataframe import AsyncPandasDataFrame
+    from .dataframe.interfaces.async_pandas_dataframe import AsyncPandasDataFrame
 except ImportError:
     AsyncPandasDataFrame = None  # type: ignore
 

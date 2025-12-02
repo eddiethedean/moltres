@@ -76,7 +76,7 @@ try:
     # Method 3: Using integration helpers
     # ------------------------------------
     print("=== Method 3: Using integration helpers ===")
-    from moltres.integration import with_sqlmodel
+    from moltres.integrations.sqlalchemy import with_sqlmodel
     from moltres import col
 
     df3 = db.table("users").select().where(col("age") > 28)
@@ -115,7 +115,7 @@ try:
     # Method 6: Using with existing SQLAlchemy infrastructure
     # --------------------------------------------------------
     print("=== Method 6: With SQLAlchemy Session ===")
-    from moltres.integration import execute_with_session_model
+    from moltres.integrations.sqlalchemy import execute_with_session_model
     from sqlalchemy.orm import sessionmaker
 
     engine = create_engine("sqlite:///:memory:")

@@ -53,7 +53,7 @@ def insert_rows(
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
     # Type narrowing: rows is now Records | Sequence[Mapping[str, object]], both compatible
     # Use isinstance check to narrow type
-    from ..dataframe.dataframe import DataFrame
+    from ..dataframe.core.dataframe import DataFrame
 
     if isinstance(rows, DataFrame):
         raise TypeError("DataFrame should have been converted to Records")
@@ -189,7 +189,7 @@ def merge_rows(
     # After DataFrame conversion check, rows is Records which implements Sequence[Mapping[str, object]]
     # Type narrowing: rows is now Records | Sequence[Mapping[str, object]], both compatible
     # Use isinstance check to narrow type
-    from ..dataframe.dataframe import DataFrame
+    from ..dataframe.core.dataframe import DataFrame
 
     if isinstance(rows, DataFrame):
         raise TypeError("DataFrame should have been converted to Records")

@@ -3,7 +3,7 @@
 import pytest
 
 from moltres import connect, col
-from moltres.dataframe.polars_dataframe import PolarsDataFrame
+from moltres.dataframe import PolarsDataFrame
 from moltres.expressions import functions as F
 
 

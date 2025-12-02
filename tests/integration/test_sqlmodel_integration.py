@@ -194,7 +194,7 @@ class TestSQLModelIntegration:
 
     def test_integration_helper_with_sqlmodel(self):
         """Test integration helper function."""
-        from moltres.integration import with_sqlmodel
+        from moltres.integrations.sqlalchemy import with_sqlmodel
 
         table_name = f"users_{uuid.uuid4().hex[:8]}"
 

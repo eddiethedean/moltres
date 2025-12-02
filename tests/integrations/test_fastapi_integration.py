@@ -684,7 +684,7 @@ class TestErrorHandlingWithoutFastAPI:
     def test_register_exception_handlers_without_fastapi(self, monkeypatch):
         """Test that register_exception_handlers raises ImportError when FastAPI is not available."""
         # Mock FastAPI as not available
-        import moltres.integrations.fastapi as fastapi_module
+        import moltres.integrations.fastapi.core as fastapi_module
 
         original_available = fastapi_module.FASTAPI_AVAILABLE
         fastapi_module.FASTAPI_AVAILABLE = False
@@ -706,7 +706,7 @@ class TestErrorHandlingWithoutFastAPI:
     def test_handle_moltres_errors_without_fastapi(self, monkeypatch):
         """Test that handle_moltres_errors raises ImportError when FastAPI is not available."""
         # Mock FastAPI as not available
-        import moltres.integrations.fastapi as fastapi_module
+        import moltres.integrations.fastapi.core as fastapi_module
 
         original_available = fastapi_module.FASTAPI_AVAILABLE
         fastapi_module.FASTAPI_AVAILABLE = False

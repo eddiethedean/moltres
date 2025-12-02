@@ -40,10 +40,10 @@ if TYPE_CHECKING:
     import polars as pl
     from sqlalchemy.engine import Engine
     from sqlalchemy.orm import DeclarativeBase, Session
-    from ..dataframe.dataframe import DataFrame
-    from ..dataframe.pandas_dataframe import PandasDataFrame
-    from ..dataframe.polars_dataframe import PolarsDataFrame
-    from ..dataframe.reader import DataLoader, ReadAccessor
+    from ..dataframe.core.dataframe import DataFrame
+    from ..dataframe.interfaces.pandas_dataframe import PandasDataFrame
+    from ..dataframe.interfaces.polars_dataframe import PolarsDataFrame
+    from ..dataframe.io.reader import DataLoader, ReadAccessor
     from ..expressions.column import Column
     from ..io.records import LazyRecords, Records
     from ..utils.inspector import ColumnInfo
@@ -118,7 +118,7 @@ class TableHandle:
             >>> handle = db.table("users")
             >>> df = handle.select("id", "name")
         """
-        from ..dataframe.dataframe import DataFrame
+        from ..dataframe.core.dataframe import DataFrame
 
         return DataFrame.from_table(self, columns=list(columns))
 
@@ -135,8 +135,8 @@ class TableHandle:
             >>> df = db.table('users').pandas()
             >>> df = db.table('users').pandas('id', 'name')
         """
-        from ..dataframe.pandas_dataframe import PandasDataFrame
-        from ..dataframe.dataframe import DataFrame
+        from ..dataframe.interfaces.pandas_dataframe import PandasDataFrame
+        from ..dataframe.core.dataframe import DataFrame
 
         df = DataFrame.from_table(self, columns=list(columns) if columns else None)
         return PandasDataFrame.from_dataframe(df)
@@ -154,8 +154,8 @@ class TableHandle:
             >>> df = db.table('users').polars()
             >>> df = db.table('users').polars('id', 'name')
         """
-        from ..dataframe.polars_dataframe import PolarsDataFrame
-        from ..dataframe.dataframe import DataFrame
+        from ..dataframe.interfaces.polars_dataframe import PolarsDataFrame
+        from ..dataframe.core.dataframe import DataFrame
 
         df = DataFrame.from_table(self, columns=list(columns) if columns else None)
         return PolarsDataFrame.from_dataframe(df)
@@ -695,7 +695,7 @@ class Database:
 
         Note: For SQL operations on tables, use db.table(name).select() instead.
         """
-        from ..dataframe.reader import DataLoader
+        from ..dataframe.io.reader import DataLoader
 
         return DataLoader(self)
 
@@ -706,7 +706,7 @@ class Database:
         Use db.read.records.* for :class:`Records`-based reads (backward compatibility).
         Use db.load.* for :class:`DataFrame`-based reads (PySpark-style).
         """
-        from ..dataframe.reader import ReadAccessor
+        from ..dataframe.io.reader import ReadAccessor
 
         return ReadAccessor(self)
 
@@ -755,7 +755,7 @@ class Database:
             150.0
             >>> db.close()
         """
-        from ..dataframe.dataframe import DataFrame
+        from ..dataframe.core.dataframe import DataFrame
         from ..logical import operators
 
         # Convert params dict to the format expected by RawSQL

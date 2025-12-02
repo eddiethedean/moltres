@@ -12,7 +12,7 @@ except ImportError:
     pytest.skip("aiosqlite not installed", allow_module_level=True)
 
 from moltres import async_connect
-from moltres.dataframe.readers.async_csv_reader import read_csv, read_csv_stream
+from moltres.dataframe.io.readers.async_csv_reader import read_csv, read_csv_stream
 from moltres.table.schema import ColumnDef
 
 

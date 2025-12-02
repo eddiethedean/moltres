@@ -10,7 +10,7 @@ except ImportError:
     pytest.skip("aiosqlite not installed", allow_module_level=True)
 
 from moltres import async_connect, col
-from moltres.dataframe.async_dataframe import AsyncDataFrame
+from moltres.dataframe import AsyncDataFrame
 from moltres.expressions.functions import upper
 
 
@@ -274,7 +274,7 @@ class TestAsyncDataFrameOperations:
 
     async def test_union_no_database_error(self, tmp_path):
         """Test union() without database raises error."""
-        from moltres.dataframe.async_dataframe import AsyncDataFrame
+        from moltres.dataframe import AsyncDataFrame
         from moltres.logical import operators
 
         plan1 = operators.scan("a")

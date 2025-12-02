@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional, Union
 from ..column import Column, ColumnLike, ensure_column, literal
 
 if TYPE_CHECKING:
-    from ...dataframe.dataframe import DataFrame
+    from ...dataframe.core.dataframe import DataFrame
 
 
 class When:

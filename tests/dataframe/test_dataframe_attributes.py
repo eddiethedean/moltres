@@ -282,7 +282,7 @@ def test_columns_property_sort(tmp_path):
 
 def test_schema_property_no_database():
     """Test .schema property raises error when no database connection."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import TableScan
 
     # Create DataFrame without database
@@ -295,7 +295,7 @@ def test_schema_property_no_database():
 
 def test_columns_property_no_database():
     """Test .columns property raises error when no database connection."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import TableScan
 
     # Create DataFrame without database
@@ -397,7 +397,7 @@ def test_extract_column_names_explode(tmp_path):
 
 def test_extract_schema_unknown_plan_type():
     """Test _extract_schema_from_plan raises error for unknown plan types."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import LogicalPlan
 
     # Create a custom plan type that's not handled
@@ -413,7 +413,7 @@ def test_extract_schema_unknown_plan_type():
 
 def test_extract_column_names_unknown_plan_type():
     """Test _extract_column_names raises error for unknown plan types."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import LogicalPlan
 
     # Create a custom plan type that's not handled
@@ -468,7 +468,7 @@ def test_extract_schema_star_expansion(tmp_path):
 
 def test_extract_column_names_file_scan_with_schema(tmp_path):
     """Test _extract_column_names with FileScan that has schema."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import FileScan
     from moltres.table.schema import column
 
@@ -488,7 +488,7 @@ def test_extract_column_names_file_scan_with_schema(tmp_path):
 
 def test_extract_column_names_file_scan_no_schema_error(tmp_path):
     """Test _extract_column_names raises error for FileScan without schema."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import FileScan
 
     db_path = tmp_path / "test.db"
@@ -504,7 +504,7 @@ def test_extract_column_names_file_scan_no_schema_error(tmp_path):
 
 def test_extract_schema_file_scan_with_schema(tmp_path):
     """Test _extract_schema_from_plan with FileScan that has schema."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import FileScan
     from moltres.table.schema import column
 
@@ -526,7 +526,7 @@ def test_extract_schema_file_scan_with_schema(tmp_path):
 
 def test_extract_schema_file_scan_text_file(tmp_path):
     """Test _extract_schema_from_plan with FileScan for text file (column_name)."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import FileScan
 
     db_path = tmp_path / "test.db"
@@ -578,7 +578,7 @@ def test_extract_column_names_sample(tmp_path):
 
 def test_find_base_plan_nested_project(tmp_path):
     """Test _find_base_plan with nested Project plans."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import Project, TableScan
 
     db_path = tmp_path / "test.db"
@@ -660,7 +660,7 @@ def test_extract_schema_project_column_match_by_args(tmp_path):
 
 def test_extract_schema_explode_alias_in_child(tmp_path):
     """Test _extract_schema_from_plan with Explode where alias is already in child."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import Explode, TableScan
 
     db_path = tmp_path / "test.db"

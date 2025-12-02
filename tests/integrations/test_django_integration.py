@@ -110,9 +110,7 @@ class TestMoltresExceptionMiddleware:
     def test_database_connection_error(self):
         """Test DatabaseConnectionError handling."""
         # Import directly from the django.py module to avoid package/module conflict
-        from moltres.integrations import django as django_module
-
-        MoltresExceptionMiddleware = django_module.MoltresExceptionMiddleware
+        from moltres.integrations.django import MoltresExceptionMiddleware
 
         def get_response(request):
             raise DatabaseConnectionError(
@@ -349,9 +347,7 @@ class TestDatabaseConnectionHelpers:
     )
     def test_get_moltres_db_default(self):
         """Test get_moltres_db with default database."""
-        from moltres.integrations import django as django_module
-
-        get_moltres_db = django_module.get_moltres_db
+        from moltres.integrations.django import get_moltres_db
 
         db = get_moltres_db(using="default")
         assert db is not None
@@ -741,7 +737,7 @@ class TestGracefulDegradation:
     def test_middleware_without_django(self, monkeypatch):
         """Test that middleware raises ImportError when Django is not available."""
         # Import the actual module file, not the package
-        from moltres.integrations import django_module
+        from moltres.integrations.django import core as django_module
 
         original_available = django_module.DJANGO_AVAILABLE
         django_module.DJANGO_AVAILABLE = False
@@ -760,7 +756,7 @@ class TestGracefulDegradation:
     def test_get_moltres_db_without_django(self, monkeypatch):
         """Test that get_moltres_db raises ImportError when Django is not available."""
         # Import the actual module file, not the package
-        from moltres.integrations import django_module
+        from moltres.integrations.django import core as django_module
 
         original_available = django_module.DJANGO_AVAILABLE
         django_module.DJANGO_AVAILABLE = False

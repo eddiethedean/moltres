@@ -114,7 +114,7 @@ def test_null_values(tmp_path):
 
 def test_collect_without_database():
     """Test that collecting a DataFrame without a database raises RuntimeError."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import TableScan
 
     plan = TableScan(table="test")
@@ -167,7 +167,7 @@ def test_join_different_databases(tmp_path):
 
 def test_join_without_database():
     """Test that joining DataFrames without databases raises RuntimeError."""
-    from moltres.dataframe.dataframe import DataFrame
+    from moltres.dataframe import DataFrame
     from moltres.logical.plan import TableScan
 
     plan1 = TableScan(table="table1")

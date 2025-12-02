@@ -3,7 +3,7 @@
 import pytest
 
 from moltres import connect
-from moltres.dataframe.pandas_dataframe import PandasDataFrame
+from moltres.dataframe import PandasDataFrame
 from moltres.utils.exceptions import PandasAPIError
 
 
@@ -92,7 +92,7 @@ def test_column_access_multiple(sample_db):
     df_selected = df[["id", "name"]]
 
     # Should return a PandasDataFrame
-    from moltres.dataframe.pandas_dataframe import PandasDataFrame
+    from moltres.dataframe import PandasDataFrame
 
     assert isinstance(df_selected, PandasDataFrame)
 
@@ -908,7 +908,7 @@ def test_merge_missing_columns(sample_db):
 
 def test_from_dataframe_classmethod(sample_db):
     """Test from_dataframe class method."""
-    from moltres.dataframe.pandas_dataframe import PandasDataFrame
+    from moltres.dataframe import PandasDataFrame
 
     # Create regular DataFrame
     regular_df = sample_db.table("users").select()

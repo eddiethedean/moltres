@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-__all__ = ["MoltresExceptionMiddleware", "get_moltres_db"]
+__all__ = ["MoltresExceptionMiddleware", "get_moltres_db", "DJANGO_AVAILABLE"]
 
-# Import from the django_module.py file in the parent directory
 try:
-    from ..django_module import MoltresExceptionMiddleware, get_moltres_db
+    from .core import DJANGO_AVAILABLE, MoltresExceptionMiddleware, get_moltres_db
 except ImportError:
     # Django not available or import failed
+    DJANGO_AVAILABLE = False
     MoltresExceptionMiddleware = None  # type: ignore[assignment, misc]
     get_moltres_db = None  # type: ignore[assignment]

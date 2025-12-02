@@ -141,7 +141,7 @@ class TestAsyncGroupedDataFrame:
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
-        from moltres.dataframe.async_groupby import AsyncGroupedDataFrame
+        from moltres.dataframe.groupby.async_groupby import AsyncGroupedDataFrame
 
         # Test various aggregation functions
         agg_col = AsyncGroupedDataFrame._create_aggregation_from_string("amount", "sum")
@@ -171,7 +171,7 @@ class TestAsyncGroupedDataFrame:
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
-        from moltres.dataframe.async_groupby import AsyncGroupedDataFrame
+        from moltres.dataframe.groupby.async_groupby import AsyncGroupedDataFrame
 
         with pytest.raises(ValueError, match="Unknown aggregation function"):
             AsyncGroupedDataFrame._create_aggregation_from_string("amount", "invalid_func")
@@ -248,7 +248,7 @@ class TestAsyncGroupedDataFrame:
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
-        from moltres.dataframe.async_groupby import AsyncGroupedDataFrame
+        from moltres.dataframe.groupby.async_groupby import AsyncGroupedDataFrame
         from moltres.logical import operators
 
         # Create a grouped DataFrame without proper grouping

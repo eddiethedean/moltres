@@ -10,7 +10,7 @@ except ImportError:
     pytest.skip("aiosqlite not installed", allow_module_level=True)
 
 from moltres import col
-from moltres.dataframe.async_groupby import AsyncPivotedGroupedDataFrame
+from moltres.dataframe.groupby.async_groupby import AsyncPivotedGroupedDataFrame
 from moltres.expressions.functions import (
     avg,
     count,

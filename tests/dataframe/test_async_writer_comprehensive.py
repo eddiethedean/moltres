@@ -416,7 +416,7 @@ class TestAsyncDataFrameWriterTableOperations:
 
     async def test_save_as_table_without_database(self, tmp_path):
         """Test save_as_table without database raises RuntimeError."""
-        from moltres.dataframe.async_dataframe import AsyncDataFrame
+        from moltres.dataframe import AsyncDataFrame
         from moltres.logical import operators
 
         plan = operators.scan("test")

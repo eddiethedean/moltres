@@ -6,7 +6,7 @@ import gzip
 
 import pytest
 
-from moltres.dataframe.readers.compression import open_compressed
+from moltres.dataframe.io.readers.compression import open_compressed
 
 
 class TestCompression:

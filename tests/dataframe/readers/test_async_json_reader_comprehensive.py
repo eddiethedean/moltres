@@ -13,7 +13,7 @@ except ImportError:
     pytest.skip("aiosqlite not installed", allow_module_level=True)
 
 from moltres import async_connect
-from moltres.dataframe.readers.async_json_reader import (
+from moltres.dataframe.io.readers.async_json_reader import (
     read_json,
     read_json_stream,
     read_jsonl,

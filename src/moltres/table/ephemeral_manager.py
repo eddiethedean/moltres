@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Optional, Sequence, Union
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
-    from ..dataframe.dataframe import DataFrame
+    from ..dataframe.core.dataframe import DataFrame
     from ..io.records import LazyRecords, Records
     from .schema import ColumnDef
     from .table import Database
@@ -86,14 +86,14 @@ class EphemeralTableManager:
             ValueError: If data is empty and no schema provided, or if primary key requirements are not met
             ValidationError: If list of tuples provided without schema, or other validation errors
         """
-        from ..dataframe.create_dataframe import (
+        from ..dataframe.core.create_dataframe import (
             ensure_primary_key,
             generate_unique_table_name,
             get_schema_from_records,
             normalize_data_to_rows,
         )
-        from ..dataframe.dataframe import DataFrame
-        from ..dataframe.readers.schema_inference import infer_schema_from_rows
+        from ..dataframe.core.dataframe import DataFrame
+        from ..dataframe.io.readers.schema_inference import infer_schema_from_rows
         from ..io.records import (
             LazyRecords,
             Records,
