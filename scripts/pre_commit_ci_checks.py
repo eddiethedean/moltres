@@ -4,6 +4,8 @@
 This script runs the exact same checks that GitHub Actions runs:
 - Ruff linting and formatting
 - mypy type checking
+- Installation verification (import moltres, check __version__)
+- Minimal import test (from moltres import connect)
 - Documentation example validation
 
 Note: This script does NOT run tests. Tests are run separately in CI because:
@@ -162,7 +164,31 @@ Examples:
     else:
         checks_passed.append("mypy")
 
-    # 4. Validate documentation examples
+    # 4. Verify installation and imports (exact CI command)
+    print_header("Installation Verification")
+    if not run_command(
+        python_cmd
+        + [
+            "-c",
+            "import moltres; print(f'Moltres {moltres.__version__} installed successfully')",
+        ],
+        "Verify installation",
+    ):
+        checks_failed.append("Installation verification")
+    else:
+        checks_passed.append("Installation verification")
+
+    # 5. Test minimal import (exact CI command)
+    print_header("Minimal Import Test")
+    if not run_command(
+        python_cmd + ["-c", "from moltres import connect; print('Import successful')"],
+        "Test minimal import",
+    ):
+        checks_failed.append("Minimal import test")
+    else:
+        checks_passed.append("Minimal import test")
+
+    # 6. Validate documentation examples
     if not args.skip_docs:
         print_header("Documentation Examples Validation")
         if not run_command(
