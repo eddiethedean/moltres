@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Integrations Directory Reorganization** – Reorganized integrations directory for better structure and maintainability:
+  - Consolidated `integration/` directory into `integrations/sqlalchemy/` package
+  - Moved single-file integrations into organized package structure:
+    - `django.py` and `django_module.py` → `django/core.py`
+    - `pytest.py` and `pytest_plugin.py` → `pytest/{fixtures,plugin}.py`
+    - `fastapi.py` → `fastapi/core.py`
+    - `streamlit.py` → `streamlit/core.py`
+    - `airflow.py` → `airflow/core.py`
+    - `prefect.py` → `prefect/core.py`
+  - Moved SQLAlchemy integration code from `__init__.py` to `sync_integration.py` for cleaner API exposure
+  - All integration packages now follow consistent structure with `__init__.py` for clean exports and `core.py` for implementation
+  - Updated all imports across codebase, tests, and documentation examples
+  - Fixed exception handling order in Django middleware (check subclasses before base classes)
+  - Exported `FASTAPI_AVAILABLE` and `STREAMLIT_AVAILABLE` from package `__init__.py` files for graceful degradation testing
+
+### Fixed
+- **Type Checking** – Fixed mypy type checking errors:
+  - Added proper type ignore comments for optional integration imports
+  - Fixed untyped decorator warnings in Streamlit integration
+  - Added import-untyped ignores for Django imports (missing stubs)
+- **Exception Handling** – Fixed Django middleware exception handling to check more specific exceptions (subclasses) before base classes
+
 ## [0.19.5] - 2025-12-01
 
 ### Changed

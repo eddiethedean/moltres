@@ -211,7 +211,7 @@ def cached_query(
         cache_decorator = st.cache_data(ttl=ttl, max_entries=max_entries)
 
         @wraps(func)
-        @cache_decorator  # type: ignore[misc]
+        @cache_decorator
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             result = func(*args, **kwargs)
 
