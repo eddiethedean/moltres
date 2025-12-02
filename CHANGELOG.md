@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2025-12-02
+
 ### Added
 - **Context Manager Support** – Added context manager protocol support to `Database` and `AsyncDatabase` classes:
   - `Database` now supports `with` statements for automatic connection cleanup
