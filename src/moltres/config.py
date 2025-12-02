@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Literal, TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING, Union
 
 from sqlalchemy.engine import Engine
 
@@ -14,6 +14,9 @@ else:
     AsyncEngine = None  # type: ignore[assignment, misc]
 
 FetchFormat = Literal["pandas", "polars", "records"]
+
+# Type for engine configuration option values
+EngineOptionValue = Union[bool, int, float, str, None]
 
 
 @dataclass
@@ -132,7 +135,7 @@ def create_config(
     dsn: str | None = None,
     engine: Engine | "AsyncEngine | None" = None,
     session: object | None = None,
-    **kwargs: object,
+    **kwargs: EngineOptionValue,
 ) -> MoltresConfig:
     """Convenience helper used by ``moltres.connect``.
 

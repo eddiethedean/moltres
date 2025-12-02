@@ -486,6 +486,162 @@ class TestManagementCommands:
         with pytest.raises(CommandError, match="Query is required"):
             call_command("moltres_query", database="default")
 
+    @override_settings(
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            }
+        },
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "moltres.integrations.django",  # Register app for management commands
+        ],
+    )
+    def test_moltres_query_command_security_import_blocked(self):
+        """Test that import statements are blocked for security."""
+        with pytest.raises(CommandError, match="Unsafe operation detected.*Import"):
+            call_command(
+                "moltres_query",
+                'import os; os.system("rm -rf /")',
+                database="default",
+            )
+
+    @override_settings(
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            }
+        },
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "moltres.integrations.django",  # Register app for management commands
+        ],
+    )
+    def test_moltres_query_command_security_open_blocked(self):
+        """Test that file operations are blocked for security."""
+        with pytest.raises(CommandError, match="Dangerous function call detected.*open"):
+            call_command(
+                "moltres_query",
+                'open("/etc/passwd").read()',
+                database="default",
+            )
+
+    @override_settings(
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            }
+        },
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "moltres.integrations.django",  # Register app for management commands
+        ],
+    )
+    def test_moltres_query_command_security_exec_blocked(self):
+        """Test that exec() is blocked for security."""
+        with pytest.raises(CommandError, match="Dangerous function call detected.*exec"):
+            call_command(
+                "moltres_query",
+                'exec("print(1)")',
+                database="default",
+            )
+
+    @override_settings(
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            }
+        },
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "moltres.integrations.django",  # Register app for management commands
+        ],
+    )
+    def test_moltres_query_command_security_eval_blocked(self):
+        """Test that eval() is blocked for security."""
+        with pytest.raises(CommandError, match="Dangerous function call detected.*eval"):
+            call_command(
+                "moltres_query",
+                'eval("1+1")',
+                database="default",
+            )
+
+    @override_settings(
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            }
+        },
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "moltres.integrations.django",  # Register app for management commands
+        ],
+    )
+    def test_moltres_query_command_security_for_loop_blocked(self):
+        """Test that control flow statements are blocked for security."""
+        with pytest.raises(CommandError, match="Unsafe operation detected.*ListComp"):
+            call_command(
+                "moltres_query",
+                "[x for x in range(10)]",
+                database="default",
+            )
+
+    @override_settings(
+        DATABASES={
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": ":memory:",
+            }
+        },
+        INSTALLED_APPS=[
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "moltres.integrations.django",  # Register app for management commands
+        ],
+    )
+    def test_moltres_query_command_security_safe_query_allowed(self, capsys, tmp_path):
+        """Test that safe queries still work after security fixes."""
+        from django.conf import settings
+
+        # Use a file-based database instead of :memory: so data persists across connections
+        db_file = tmp_path / "test_security.db"
+        settings.DATABASES["default"]["NAME"] = str(db_file)
+
+        from moltres.integrations.django import get_moltres_db
+        from moltres.io.records import Records
+
+        # Setup: Create table and data
+        db = get_moltres_db(using="default")
+        db.create_table(
+            "test_users",
+            [column("id", "INTEGER"), column("name", "TEXT")],
+        ).collect()
+        Records(
+            _data=[{"id": 1, "name": "Alice"}],
+            _database=db,
+        ).insert_into("test_users")
+        db.close()
+
+        # Execute safe query - should work
+        call_command(
+            "moltres_query",
+            'db.table("test_users").select()',
+            database="default",
+        )
+
+        captured = capsys.readouterr()
+        assert "Alice" in captured.out
+
 
 @pytest.mark.skipif(not DJANGO_AVAILABLE, reason="Django not installed")
 class TestTemplateTags:

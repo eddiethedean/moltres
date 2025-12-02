@@ -4,10 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
-    from .column import Column
+    from .column import Column, LiteralValue
+    from ..logical.plan import LogicalPlan, WindowSpec
+else:
+    LiteralValue = Union[bool, int, float, str, None]
+    LogicalPlan = Any
+    WindowSpec = Any
+    Column = Any
+
+# Type alias for expression arguments
+# Args can be Expressions (for nested expressions), LiteralValues, strings (for identifiers),
+# LogicalPlan (for subqueries), WindowSpec (for window functions), or sequences of these
+ExpressionArg = Union["Expression", LiteralValue, str, LogicalPlan, WindowSpec, Iterable[Any]]
 
 
 @dataclass(frozen=True)
@@ -15,9 +26,9 @@ class Expression:
     """Immutable node in an expression tree."""
 
     op: str
-    args: tuple[Any, ...]
+    args: tuple[ExpressionArg, ...]
     _alias: str | None = None
-    _filter: Optional["Column"] = None
+    _filter: Optional[Column] = None
 
     def with_alias(self, alias: str) -> Expression:
         return replace(self, _alias=alias)
@@ -26,7 +37,7 @@ class Expression:
     def alias_name(self) -> str | None:
         return self._alias
 
-    def children(self) -> Iterator[Any]:
+    def children(self) -> Iterator[ExpressionArg]:
         yield from self.args
 
     def walk(self) -> Iterator[Expression]:

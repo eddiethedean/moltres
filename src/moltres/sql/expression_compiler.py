@@ -10,11 +10,7 @@ from sqlalchemy import (
     func,
     case as sa_case,
     null,
-    and_,
-    or_,
-    not_,
     literal,
-    cast as sqlalchemy_cast,
     select,
 )
 from sqlalchemy.sql import Select, ColumnElement
@@ -25,10 +21,8 @@ from ..utils.exceptions import CompilationError, ValidationError
 from .builders import quote_identifier
 
 if TYPE_CHECKING:
-    from sqlalchemy import types as sa_types
     from sqlalchemy.sql import Subquery, TableClause
     from .plan_compiler import SQLCompiler
-    from ..logical.plan import WindowSpec
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +30,10 @@ logger = logging.getLogger(__name__)
 class ExpressionCompiler:
     """Compile expression trees into SQLAlchemy column expressions."""
 
-    def __init__(self, dialect: DialectSpec, plan_compiler: Optional["SQLCompiler"] = None):
+    def __init__(self, dialect: DialectSpec, plan_compiler: Optional[SQLCompiler] = None):
         self.dialect = dialect
         self._table_cache: dict[str, Any] = {}
-        self._current_subq: "Subquery | None" = None
+        self._current_subq: Subquery | None = None
         self._join_info: Optional[dict[str, str]] = None
         self._plan_compiler = plan_compiler
 
@@ -85,6 +79,9 @@ class ExpressionCompiler:
 
         if op == "column":
             col_name = expression.args[0]
+            # Type narrowing: column op always has a string as first arg
+            if not isinstance(col_name, str):
+                raise TypeError(f"Expected string for column name, got {type(col_name).__name__}")
             # Validate column name to prevent SQL injection
             try:
                 # This will raise ValidationError if column name is invalid
@@ -140,30 +137,38 @@ class ExpressionCompiler:
                 sa_lit = sa_lit.label(expression._alias)
             return sa_lit
 
-        if op == "add":
-            left, right = expression.args
-            result: ColumnElement[Any] = self._compile(left) + self._compile(right)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "sub":
-            left, right = expression.args
-            result = self._compile(left) - self._compile(right)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "mul":
-            left, right = expression.args
-            result = self._compile(left) * self._compile(right)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "div":
-            left, right = expression.args
-            result = self._compile(left) / self._compile(right)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
+        # Try math compiler for basic arithmetic and math functions
+        if op in (
+            "add",
+            "sub",
+            "mul",
+            "div",
+            "floor_div",
+            "round",
+            "floor",
+            "ceil",
+            "abs",
+            "sqrt",
+            "exp",
+            "log",
+            "log10",
+            "log2",
+            "sin",
+            "cos",
+            "tan",
+            "asin",
+            "acos",
+            "atan",
+            "atan2",
+            "signum",
+            "sign",
+            "hypot",
+        ):
+            from .expression_compilers.math import compile_math_operation
+
+            result = compile_math_operation(self, op, expression)
+            if result is not None:
+                return result
         if op == "eq":
             left, right = expression.args
             result = self._compile(left) == self._compile(right)
@@ -201,159 +206,6 @@ class ExpressionCompiler:
                 result = result.label(expression._alias)
             return result
 
-        if op == "floor_div":
-            left, right = expression.args
-            return func.floor(self._compile(left) / self._compile(right))
-        if op == "round":
-            col_expr = self._compile(expression.args[0])
-            scale = expression.args[1] if len(expression.args) > 1 else 0
-            result = func.round(col_expr, scale)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "floor":
-            result = func.floor(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "ceil":
-            col_expr = self._compile(expression.args[0])
-            # SQLite doesn't have ceil() function, use workaround
-            if self.dialect.name == "sqlite":
-                from sqlalchemy import cast, types as sa_types
-
-                # SQLite ceil workaround:
-                # CASE WHEN x > CAST(x AS INTEGER) THEN CAST(x AS INTEGER) + 1 ELSE CAST(x AS INTEGER) END
-                int_part = cast(col_expr, sa_types.Integer)
-                result = sa_case(
-                    (col_expr > int_part, int_part + literal(1)),
-                    else_=int_part,
-                )
-            else:
-                result = func.ceil(col_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "abs":
-            result = func.abs(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "sqrt":
-            col_expr = self._compile(expression.args[0])
-            # SQLite doesn't have sqrt() function natively
-            # Some SQLite builds may have it via extensions
-            # If not available, execution will fail and test should handle it
-            result = func.sqrt(col_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "exp":
-            result = func.exp(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "log":
-            col_expr = self._compile(expression.args[0])
-            # SQLite doesn't have ln() or log() function natively
-            # Some SQLite builds may have these via extensions
-            if self.dialect.name == "sqlite":
-                # Try func.ln first (SQLAlchemy may handle it if SQLite has extension)
-                # If that doesn't work, the test should catch the exception
-                result = func.ln(col_expr)
-            else:
-                result = func.ln(col_expr)  # Natural log
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "log10":
-            col_expr = self._compile(expression.args[0])
-            # SQLite doesn't have log() function with base parameter natively
-            # Some SQLite builds may have log10 via extensions
-            # If not available, execution will fail and test should handle it
-            result = func.log(10, col_expr)  # Base-10 log
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "sin":
-            result = func.sin(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "cos":
-            result = func.cos(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "tan":
-            result = func.tan(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "asin":
-            result = func.asin(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "acos":
-            result = func.acos(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "atan":
-            result = func.atan(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "atan2":
-            y, x = expression.args
-            result = func.atan2(self._compile(y), self._compile(x))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "signum" or op == "sign":
-            col_expr = self._compile(expression.args[0])
-            # Use dialect-specific SIGN function
-            if self.dialect.name in ("postgresql", "mysql", "duckdb"):
-                result = func.sign(col_expr)
-            else:
-                # SQLite doesn't have SIGN, use CASE WHEN
-                from sqlalchemy import literal_column
-
-                result = sa_case(
-                    (col_expr > 0, literal(1)),
-                    (col_expr < 0, literal(-1)),
-                    else_=literal(0),
-                )
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "log2":
-            col_expr = self._compile(expression.args[0])
-            # Use dialect-specific log2
-            if self.dialect.name == "postgresql":
-                result = func.log(2, col_expr)
-            elif self.dialect.name == "mysql":
-                result = func.log(2, col_expr)
-            else:
-                # SQLite: log(2, x)
-                result = func.log(2, col_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "hypot":
-            x, y = expression.args
-            x_expr = self._compile(x)
-            y_expr = self._compile(y)
-            # Use dialect-specific hypot
-            if self.dialect.name == "postgresql":
-                result = func.hypot(x_expr, y_expr)
-            else:
-                # MySQL/SQLite: manual calculation sqrt(x² + y²)
-                result = func.sqrt(x_expr * x_expr + y_expr * y_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
         # Date/time functions
         if op == "year":
             result = func.extract("year", self._compile(expression.args[0]))
@@ -428,6 +280,8 @@ class ExpressionCompiler:
         if op == "date_add":
             col_expr = self._compile(expression.args[0])
             interval_str = expression.args[1]  # e.g., "1 DAY", "2 MONTH"
+            if not isinstance(interval_str, str):
+                raise TypeError(f"Expected string for interval, got {type(interval_str).__name__}")
             from sqlalchemy import literal_column
 
             # Parse interval string (format: "N UNIT" where N is number and UNIT is DAY, MONTH, YEAR, HOUR, etc.)
@@ -457,6 +311,8 @@ class ExpressionCompiler:
         if op == "date_sub":
             col_expr = self._compile(expression.args[0])
             interval_str = expression.args[1]  # e.g., "1 DAY", "2 MONTH"
+            if not isinstance(interval_str, str):
+                raise TypeError(f"Expected string for interval, got {type(interval_str).__name__}")
             from sqlalchemy import literal_column
 
             # Parse interval string
@@ -485,10 +341,14 @@ class ExpressionCompiler:
         if op == "add_months":
             col_expr = self._compile(expression.args[0])
             num_months = expression.args[1]
+            if not isinstance(num_months, (int, float)):
+                raise TypeError(f"Expected number for months, got {type(num_months).__name__}")
             # Use SQLAlchemy's interval handling
             # Try to use make_interval if available (PostgreSQL), otherwise use date_add
             try:
-                interval_months: ColumnElement[Any] = func.make_interval(months=abs(num_months))
+                interval_months: ColumnElement[Any] = func.make_interval(
+                    months=abs(int(num_months))
+                )
                 if num_months >= 0:
                     result = col_expr + interval_months
                 else:
@@ -513,6 +373,8 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             if len(expression.args) > 1:
                 format_str = expression.args[1]
+                if not isinstance(format_str, str):
+                    raise TypeError(f"Expected string for format, got {type(format_str).__name__}")
                 if self.dialect.name == "duckdb":
                     # DuckDB uses strptime for parsing with format (uses %Y format, not yyyy)
                     from sqlalchemy import literal_column
@@ -588,6 +450,8 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[0])
             if len(expression.args) > 1:
                 format_str = expression.args[1]
+                if not isinstance(format_str, str):
+                    raise TypeError(f"Expected string for format, got {type(format_str).__name__}")
                 if self.dialect.name == "postgresql":
                     result = func.to_char(func.to_timestamp(col_expr), format_str)
                 elif self.dialect.name == "mysql":
@@ -623,10 +487,15 @@ class ExpressionCompiler:
                 result = result.label(expression._alias)
             return result
         if op == "date_trunc":
-            unit = expression.args[0]
+            trunc_unit_arg = expression.args[0]
+            if not isinstance(trunc_unit_arg, str):
+                raise TypeError(
+                    f"Expected string for date_trunc unit, got {type(trunc_unit_arg).__name__}"
+                )
+            trunc_unit: str = trunc_unit_arg
             col_expr = self._compile(expression.args[1])
             if self.dialect.name == "postgresql":
-                result = func.date_trunc(unit, col_expr)
+                result = func.date_trunc(trunc_unit, col_expr)
             elif self.dialect.name == "mysql":
                 # MySQL: use DATE_FORMAT with truncation
                 from sqlalchemy import literal_column
@@ -762,30 +631,22 @@ class ExpressionCompiler:
             return result
         if op == "neg":
             return -self._compile(expression.args[0])
-        if op == "and":
-            left, right = expression.args
-            result = and_(self._compile(left), self._compile(right))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "or":
-            left, right = expression.args
-            result = or_(self._compile(left), self._compile(right))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "not":
-            return not_(self._compile(expression.args[0]))
-        if op == "between":
-            value, lower, upper = expression.args
-            return self._compile(value).between(self._compile(lower), self._compile(upper))
-        if op == "in":
-            value, options = expression.args
-            option_values = [self._compile(opt) for opt in options]
-            return self._compile(value).in_(option_values)
+        # Try logical compiler for logical operations
+        if op in ("and", "or", "not", "between", "in", "case_when"):
+            from .expression_compilers.logical import compile_logical_operation
+
+            result = compile_logical_operation(self, op, expression)
+            if result is not None:
+                return result
         if op == "in_subquery":
             # IN with subquery: col("id").isin(df.select("id"))
             value, subquery_plan = expression.args
+            from ..logical.plan import LogicalPlan
+
+            if not isinstance(subquery_plan, LogicalPlan):
+                raise TypeError(
+                    f"Expected LogicalPlan for subquery, got {type(subquery_plan).__name__}"
+                )
             if self._plan_compiler is None:
                 raise CompilationError("Subquery compilation requires plan compiler")
             subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
@@ -793,6 +654,12 @@ class ExpressionCompiler:
         if op == "scalar_subquery":
             # Scalar subquery in SELECT: scalar_subquery(df.select())
             (subquery_plan,) = expression.args
+            from ..logical.plan import LogicalPlan
+
+            if not isinstance(subquery_plan, LogicalPlan):
+                raise TypeError(
+                    f"Expected LogicalPlan for subquery, got {type(subquery_plan).__name__}"
+                )
             if self._plan_compiler is None:
                 raise CompilationError("Subquery compilation requires plan compiler")
             subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
@@ -811,6 +678,12 @@ class ExpressionCompiler:
         if op == "exists":
             # EXISTS subquery: exists(df.select())
             (subquery_plan,) = expression.args
+            from ..logical.plan import LogicalPlan
+
+            if not isinstance(subquery_plan, LogicalPlan):
+                raise TypeError(
+                    f"Expected LogicalPlan for subquery, got {type(subquery_plan).__name__}"
+                )
             if self._plan_compiler is None:
                 raise CompilationError("Subquery compilation requires plan compiler")
             subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
@@ -824,6 +697,12 @@ class ExpressionCompiler:
         if op == "not_exists":
             # NOT EXISTS subquery: not_exists(df.select())
             (subquery_plan,) = expression.args
+            from ..logical.plan import LogicalPlan
+
+            if not isinstance(subquery_plan, LogicalPlan):
+                raise TypeError(
+                    f"Expected LogicalPlan for subquery, got {type(subquery_plan).__name__}"
+                )
             if self._plan_compiler is None:
                 raise CompilationError("Subquery compilation requires plan compiler")
             subquery_stmt = self._plan_compiler._compile_plan(subquery_plan)
@@ -872,106 +751,13 @@ class ExpressionCompiler:
             else:
                 pattern = f"%{suffix}"
             return self._compile(column).like(pattern)
+        # Try type casting compiler
         if op == "cast":
-            column = expression.args[0]
-            type_name = expression.args[1]
-            precision = expression.args[2] if len(expression.args) > 2 else None
-            scale = expression.args[3] if len(expression.args) > 3 else None
+            from .expression_compilers.type_casting import compile_type_casting_operation
 
-            from sqlalchemy import types as sa_types
-
-            # Map type names to SQLAlchemy types
-            type_name_upper = type_name.upper()
-            # Type can be either a TypeEngine instance or a TypeEngine class
-            sa_type: "sa_types.TypeEngine[Any]"
-            if type_name_upper == "DECIMAL" or type_name_upper == "NUMERIC":
-                if precision is not None and scale is not None:
-                    sa_type = sa_types.Numeric(precision=precision, scale=scale)
-                elif precision is not None:
-                    sa_type = sa_types.Numeric(precision=precision)
-                else:
-                    sa_type = sa_types.Numeric()
-            elif type_name_upper == "TIMESTAMP":
-                sa_type = sa_types.TIMESTAMP()
-            elif type_name_upper == "DATE":
-                sa_type = sa_types.DATE()
-            elif type_name_upper == "TIME":
-                sa_type = sa_types.TIME()
-            elif type_name_upper == "INTERVAL":
-                sa_type = sa_types.Interval()
-            elif type_name_upper == "UUID":
-                # Handle UUID type with dialect-specific implementations
-                if self.dialect.name == "postgresql":
-                    sa_type = sa_types.UUID()
-                elif self.dialect.name == "mysql":
-                    sa_type = sa_types.CHAR(36)
-                else:
-                    # SQLite and others: use String
-                    sa_type = sa_types.String()
-            elif type_name_upper == "JSON" or type_name_upper == "JSONB":
-                # Handle JSON/JSONB type with dialect-specific implementations
-                if self.dialect.name == "postgresql":
-                    sa_type = sa_types.JSON()
-                    # Note: SQLAlchemy doesn't distinguish JSONB from JSON in type system
-                    # The actual SQL will use JSONB if specified in DDL
-                elif self.dialect.name == "mysql":
-                    sa_type = sa_types.JSON()
-                else:
-                    # SQLite and others: use String
-                    sa_type = sa_types.String()
-            elif type_name_upper == "INTEGER" or type_name_upper == "INT":
-                sa_type = sa_types.Integer()
-            elif type_name_upper == "TEXT":
-                sa_type = sa_types.Text()
-            elif (
-                type_name_upper == "REAL"
-                or type_name_upper == "FLOAT"
-                or type_name_upper == "DOUBLE"
-            ):
-                sa_type = sa_types.Float()
-            elif type_name_upper == "VARCHAR" or type_name_upper == "STRING":
-                if precision is not None:
-                    sa_type = sa_types.String(length=precision)
-                else:
-                    sa_type = sa_types.String()
-            elif type_name_upper == "CHAR":
-                if precision is not None:
-                    sa_type = sa_types.CHAR(length=precision)
-                else:
-                    sa_type = sa_types.CHAR()
-            elif type_name_upper == "BOOLEAN" or type_name_upper == "BOOL":
-                sa_type = sa_types.Boolean()
-            elif "[]" in type_name_upper:
-                # PostgreSQL array types like INTEGER[], TEXT[], etc.
-                # Extract base type before []
-                base_type = type_name_upper.split("[")[0]
-                if self.dialect.name == "postgresql":
-                    from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
-                    from sqlalchemy import types as sa_types_array
-
-                    # Map base types to SQLAlchemy types
-                    if base_type == "INTEGER" or base_type == "INT":
-                        sa_type = PG_ARRAY(sa_types_array.Integer)
-                    elif base_type == "TEXT" or base_type == "VARCHAR" or base_type == "STRING":
-                        sa_type = PG_ARRAY(sa_types_array.Text)
-                    elif base_type == "REAL" or base_type == "FLOAT":
-                        sa_type = PG_ARRAY(sa_types_array.Float)
-                    elif base_type == "BOOLEAN" or base_type == "BOOL":
-                        sa_type = PG_ARRAY(sa_types_array.Boolean)
-                    else:
-                        # Fallback to TEXT array
-                        sa_type = PG_ARRAY(sa_types_array.Text)
-                else:
-                    # For non-PostgreSQL dialects, fallback to String
-                    sa_type = sa_types.String()
-            else:
-                # Fallback to String for unknown types
-                sa_type = sa_types.String()
-
-            result = sqlalchemy_cast(self._compile(column), sa_type)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
+            result = compile_type_casting_operation(self, op, expression)
+            if result is not None:
+                return result
         if op == "is_null":
             return self._compile(expression.args[0]).is_(null())
         if op == "is_not_null":
@@ -994,22 +780,6 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
-        if op == "case_when":
-            # CASE WHEN expression: args[0] is tuple of (condition, value) pairs, args[1] is else value
-            conditions = expression.args[0]
-            else_value = self._compile(expression.args[1])
-
-            # Build CASE statement
-            # Start with empty when clauses, add them one by one
-            when_clauses: list[tuple[ColumnElement[Any], Any]] = []
-            for condition, value in conditions:
-                when_clauses.append((self._compile(condition), self._compile(value)))
-            case_stmt = sa_case(*when_clauses, else_=else_value)
-
-            result = case_stmt
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
         # Try category-specific compilers
         if op.startswith("agg_"):
             from .expression_compilers.aggregation import compile_aggregation
@@ -1043,7 +813,7 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.string import compile_string_operation
 
-            result = compile_string_operation(self, op, expression)  # type: ignore[assignment]
+            result = compile_string_operation(self, op, expression)
             if result is not None:
                 return result
 
@@ -1076,218 +846,9 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.datetime import compile_datetime_operation
 
-            result = compile_datetime_operation(self, op, expression)  # type: ignore[assignment]
+            result = compile_datetime_operation(self, op, expression)
             if result is not None:
                 return result
-
-        if op == "concat":
-            args = [self._compile(arg) for arg in expression.args]
-            # SQLite doesn't have concat() function, uses || operator instead
-            if self.dialect.name == "sqlite":
-                # Build concatenation using || operator
-                result = args[0]
-                for arg in args[1:]:
-                    result = result.op("||")(arg)
-            else:
-                # PostgreSQL and MySQL support concat() function
-                result = func.concat(*args)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "upper":
-            result = func.upper(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "lower":
-            result = func.lower(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "substring":
-            col_expr = self._compile(expression.args[0])
-            pos = expression.args[1]
-            if len(expression.args) > 2:
-                length = expression.args[2]
-                result = func.substring(col_expr, pos, length)
-            else:
-                result = func.substring(col_expr, pos)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "trim":
-            result = func.trim(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "ltrim":
-            result = func.ltrim(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "rtrim":
-            result = func.rtrim(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "initcap":
-            col_expr = self._compile(expression.args[0])
-            # Use dialect-specific initcap
-            if self.dialect.name == "postgresql":
-                result = func.initcap(col_expr)
-            elif self.dialect.name == "duckdb":
-                # DuckDB doesn't support initcap
-                raise CompilationError(
-                    f"initcap() is not supported for {self.dialect.name} dialect. "
-                    "Supported dialects: PostgreSQL"
-                )
-            else:
-                # MySQL/SQLite: not directly supported, use literal_column for workaround
-                from sqlalchemy import literal_column
-
-                # This is a simplified workaround - may not work perfectly for all cases
-                result = literal_column(f"INITCAP({col_expr})")
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "instr":
-            col_expr = self._compile(expression.args[0])
-            substr_expr = self._compile(expression.args[1])
-            # Use dialect-specific instr
-            if self.dialect.name == "postgresql":
-                result = func.strpos(col_expr, substr_expr)
-            elif self.dialect.name == "mysql":
-                result = func.locate(substr_expr, col_expr)
-            else:
-                # SQLite: instr
-                result = func.instr(col_expr, substr_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "locate":
-            substr_expr = self._compile(expression.args[0])
-            col_expr = self._compile(expression.args[1])
-            pos = expression.args[2] if len(expression.args) > 2 else 1
-            # Use dialect-specific locate
-            if self.dialect.name == "postgresql":
-                # PostgreSQL: strpos doesn't support start position, use substring
-                if pos > 1:
-                    from sqlalchemy import literal_column
-
-                    result = func.strpos(func.substring(col_expr, pos), substr_expr) + literal(
-                        pos - 1
-                    )
-                else:
-                    result = func.strpos(col_expr, substr_expr)
-            elif self.dialect.name == "mysql":
-                result = func.locate(substr_expr, col_expr, pos)
-            else:
-                # SQLite: instr with offset
-                if pos > 1:
-                    from sqlalchemy import literal_column
-
-                    result = func.instr(func.substring(col_expr, pos), substr_expr) + literal(
-                        pos - 1
-                    )
-                else:
-                    result = func.instr(col_expr, substr_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "translate":
-            col_expr = self._compile(expression.args[0])
-            from_chars = expression.args[1]
-            to_chars = expression.args[2]
-            # Use dialect-specific translate
-            if self.dialect.name == "postgresql":
-                result = func.translate(col_expr, from_chars, to_chars)
-            elif self.dialect.name == "duckdb":
-                # DuckDB doesn't support translate
-                raise CompilationError(
-                    f"translate() is not supported for {self.dialect.name} dialect. "
-                    "Supported dialects: PostgreSQL"
-                )
-            else:
-                # MySQL/SQLite: requires workaround (not directly supported)
-                # Use REPLACE for simple cases, or raise error for complex cases
-                from sqlalchemy import literal_column
-
-                # For now, raise CompilationError for non-PostgreSQL
-                raise CompilationError(
-                    f"translate() is not supported for {self.dialect.name} dialect. "
-                    "PostgreSQL supports this function natively."
-                )
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "regexp_extract":
-            # SQLAlchemy doesn't have a direct regexp_extract, use dialect-specific function
-            col_expr = self._compile(expression.args[0])
-            pattern = expression.args[1]
-            group_idx = expression.args[2] if len(expression.args) > 2 else 0
-            # Use func for dialect-specific regex functions
-            # PostgreSQL uses regexp_match, SQLite uses regexp, etc.
-            result = func.regexp_extract(col_expr, pattern, group_idx)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "regexp_replace":
-            col_expr = self._compile(expression.args[0])
-            pattern = expression.args[1]
-            replacement = expression.args[2]
-            result = func.regexp_replace(col_expr, pattern, replacement)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "split":
-            # SQLAlchemy doesn't have split, use string_to_array or similar
-            col_expr = self._compile(expression.args[0])
-            delimiter = expression.args[1]
-            result = func.string_to_array(col_expr, delimiter)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "replace":
-            col_expr = self._compile(expression.args[0])
-            search = expression.args[1]
-            replacement = expression.args[2]
-            result = func.replace(col_expr, search, replacement)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "length":
-            result = func.length(self._compile(expression.args[0]))
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "lpad":
-            col_expr = self._compile(expression.args[0])
-            length = expression.args[1]
-            pad = expression.args[2] if len(expression.args) > 2 else " "
-            result = func.lpad(col_expr, length, pad)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "rpad":
-            col_expr = self._compile(expression.args[0])
-            length = expression.args[1]
-            pad = expression.args[2] if len(expression.args) > 2 else " "
-            result = func.rpad(col_expr, length, pad)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "greatest":
-            args = [self._compile(arg) for arg in expression.args]
-            result = func.greatest(*args)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "least":
-            args = [self._compile(arg) for arg in expression.args]
-            result = func.least(*args)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
 
         # Try category-specific compilers
         if op.startswith("agg_"):
@@ -1322,7 +883,7 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.string import compile_string_operation
 
-            result = compile_string_operation(self, op, expression)  # type: ignore[assignment]
+            result = compile_string_operation(self, op, expression)
             if result is not None:
                 return result
 
@@ -1355,46 +916,17 @@ class ExpressionCompiler:
         ):
             from .expression_compilers.datetime import compile_datetime_operation
 
-            result = compile_datetime_operation(self, op, expression)  # type: ignore[assignment]
+            result = compile_datetime_operation(self, op, expression)
             if result is not None:
                 return result
 
-        # JSON functions
-        if op == "json_extract":
-            col_expr = self._compile(expression.args[0])
-            path = expression.args[1]
-            # Use dialect-specific JSON extraction
-            # PostgreSQL: -> operator or json_extract_path_text
-            # SQLite: json_extract (JSON1 extension)
-            # MySQL: JSON_EXTRACT or -> operator
-            # Generic: Use func.json_extract which SQLAlchemy may handle
-            if self.dialect.name == "postgresql":
-                # PostgreSQL uses -> or ->> operators for JSONB
-                # Convert $.key to 'key' and use -> operator
-                # For paths like $.key.nested, convert to ['key', 'nested']
-                if path.startswith("$."):
-                    # Remove $. prefix and split by . for nested paths
-                    path_parts = path[2:].split(".")
-                    # Use -> operator for JSONB (returns JSONB) or ->> for text
-                    # For now, use ->> to get text result
-                    result = col_expr
-                    for part in path_parts:
-                        result = result.op("->>")(literal(part))
-                else:
-                    # Use json_extract_path_text with path elements
-                    path_parts = path.split(".") if "." in path else [path]
-                    result = func.json_extract_path_text(
-                        col_expr, *[literal(p) for p in path_parts]
-                    )
-            elif self.dialect.name == "sqlite":
-                # SQLite JSON1 extension
-                result = func.json_extract(col_expr, path)
-            else:
-                # Generic fallback - try JSON_EXTRACT
-                result = func.json_extract(col_expr, path)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
+        # Try JSON compiler
+        if op in ("json_extract", "json_tuple", "json_array_length", "from_json", "to_json"):
+            from .expression_compilers.json import compile_json_operation
+
+            result = compile_json_operation(self, op, expression)
+            if result is not None:
+                return result
 
         # Array functions
         if op == "array":
@@ -1712,56 +1244,6 @@ class ExpressionCompiler:
             if expression._alias:
                 result = result.label(expression._alias)
             return result
-        if op == "json_tuple":
-            col_expr = self._compile(expression.args[0])
-            paths = expression.args[1:]
-            if self.dialect.name == "postgresql":
-                from sqlalchemy import literal_column
-
-                path_list = ", ".join(f"'{p}'" for p in paths)
-                result = literal_column(
-                    f"ARRAY(SELECT jsonb_path_query({col_expr}, p) FROM unnest(ARRAY[{path_list}]) AS p)"
-                )
-            else:
-                results = [func.json_extract(col_expr, path) for path in paths]
-                result = func.json_array(*results)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "from_json":
-            col_expr = self._compile(expression.args[0])
-            from sqlalchemy import types as sa_types
-
-            if len(expression.args) > 1:
-                # schema = expression.args[1]  # Not used in current implementation
-                result = func.cast(col_expr, sa_types.JSON())
-            else:
-                result = func.cast(col_expr, sa_types.JSON())
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "to_json":
-            col_expr = self._compile(expression.args[0])
-            if self.dialect.name == "postgresql":
-                result = func.to_jsonb(col_expr)
-            elif self.dialect.name == "mysql":
-                result = func.json_quote(col_expr)
-            else:
-                result = func.json(col_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "json_array_length":
-            col_expr = self._compile(expression.args[0])
-            if self.dialect.name == "postgresql":
-                result = func.jsonb_array_length(col_expr)
-            elif self.dialect.name == "mysql":
-                result = func.json_length(col_expr)
-            else:
-                result = func.json_array_length(col_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
         if op == "rand":
             if len(expression.args) == 0:
                 if self.dialect.name == "postgresql":
@@ -1856,7 +1338,12 @@ class ExpressionCompiler:
             return result
         if op == "sha2":
             col_expr = self._compile(expression.args[0])
-            num_bits = expression.args[1]
+            num_bits_arg = expression.args[1]
+            if not isinstance(num_bits_arg, int):
+                raise TypeError(
+                    f"Expected int for sha2 num_bits, got {type(num_bits_arg).__name__}"
+                )
+            num_bits: int = num_bits_arg
             if self.dialect.name == "postgresql":
                 algo_map = {224: "sha224", 256: "sha256", 384: "sha384", 512: "sha512"}
                 algo = algo_map.get(num_bits, "sha256")
@@ -1943,136 +1430,13 @@ class ExpressionCompiler:
                 result = result.label(expression._alias)
             return result
 
-        # Window-specific functions
-        if op == "window_row_number":
-            result = func.row_number()
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_rank":
-            result = func.rank()
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_dense_rank":
-            result = func.dense_rank()
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_lag":
-            column = self._compile(expression.args[0])
-            offset = expression.args[1] if len(expression.args) > 1 else 1
-            if len(expression.args) > 2:
-                default = self._compile(expression.args[2])
-                result = func.lag(column, offset, default)
-            else:
-                result = func.lag(column, offset)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_lead":
-            column = self._compile(expression.args[0])
-            offset = expression.args[1] if len(expression.args) > 1 else 1
-            if len(expression.args) > 2:
-                default = self._compile(expression.args[2])
-                result = func.lead(column, offset, default)
-            else:
-                result = func.lead(column, offset)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_first_value":
-            col_expr = self._compile(expression.args[0])
-            result = func.first_value(col_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_last_value":
-            col_expr = self._compile(expression.args[0])
-            result = func.last_value(col_expr)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_percent_rank":
-            result = func.percent_rank()
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_cume_dist":
-            result = func.cume_dist()
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_nth_value":
-            column = self._compile(expression.args[0])
-            n = expression.args[1]
-            result = func.nth_value(column, n)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
-        if op == "window_ntile":
-            n = expression.args[0]
-            result = func.ntile(n)
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
+        # Try window compiler
+        if op.startswith("window_") or op == "window":
+            from .expression_compilers.window import compile_window_operation
 
-        if op == "window":
-            # Window function: args[0] is the function, args[1] is WindowSpec
-            func_expr = self._compile(expression.args[0])
-            window_spec: WindowSpec = expression.args[1]
-
-            # Build SQLAlchemy window using .over() method on the function
-
-            # Create partition by clauses
-            partition_by = None
-            if window_spec.partition_by:
-                partition_by = [self._compile(col) for col in window_spec.partition_by]
-
-            # Create order by clauses
-            order_by: Optional[list[ColumnElement[Any]]] = None
-            if window_spec.order_by:
-                order_by = []
-                for col_expr in window_spec.order_by:  # type: ignore[assignment]
-                    # col_expr is a Column from window_spec.order_by: tuple[Column, ...]
-                    # _compile returns ColumnElement, but mypy may infer Column due to type complexity
-                    sa_order_col = self._compile(col_expr)
-                    # Check if it has desc/asc already applied
-                    if isinstance(col_expr, Column) and col_expr.op == "sort_desc":
-                        sa_order_col = sa_order_col.desc()
-                    elif isinstance(col_expr, Column) and col_expr.op == "sort_asc":
-                        sa_order_col = sa_order_col.asc()
-                    order_by.append(sa_order_col)
-
-            # Handle ROWS BETWEEN or RANGE BETWEEN
-            # SQLAlchemy's .over() method accepts rows and range_ parameters directly
-            rows_param = None
-            range_param = None
-            if window_spec.rows_between:
-                rows_param = window_spec.rows_between
-            elif window_spec.range_between:
-                range_param = window_spec.range_between
-
-            # Build window using .over() method with frame specification
-            if partition_by and order_by:
-                result = func_expr.over(
-                    partition_by=partition_by,
-                    order_by=order_by,
-                    rows=rows_param,
-                    range_=range_param,
-                )
-            elif partition_by:
-                result = func_expr.over(
-                    partition_by=partition_by, rows=rows_param, range_=range_param
-                )
-            elif order_by:
-                result = func_expr.over(order_by=order_by, rows=rows_param, range_=range_param)
-            else:
-                result = func_expr.over(rows=rows_param, range_=range_param)
-
-            if expression._alias:
-                result = result.label(expression._alias)
-            return result
+            result = compile_window_operation(self, op, expression)
+            if result is not None:
+                return result
 
         raise CompilationError(
             f"Unsupported expression operation '{op}'. "
@@ -2087,7 +1451,7 @@ class ExpressionCompiler:
             },
         )
 
-    def _get_table(self, table_name: str) -> "TableClause":
+    def _get_table(self, table_name: str) -> TableClause:
         """Get or create a SQLAlchemy table object for the given table name."""
         from sqlalchemy import table as sa_table
 

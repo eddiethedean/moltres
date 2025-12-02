@@ -14,6 +14,7 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
+    Union,
     cast,
 )
 
@@ -26,7 +27,7 @@ except ImportError as exc:
         "Async writing requires aiofiles. Install with: pip install moltres[async]"
     ) from exc
 
-from ..expressions.column import Column  # noqa: E402
+from ..expressions.column import Column, LiteralValue  # noqa: E402
 from ..table.async_mutations import delete_rows_async, insert_rows_async, update_rows_async  # noqa: E402
 from ..table.schema import ColumnDef  # noqa: E402
 from ..utils.exceptions import CompilationError, ExecutionError, ValidationError  # noqa: E402
@@ -34,6 +35,8 @@ from .async_dataframe import AsyncDataFrame  # noqa: E402
 
 if TYPE_CHECKING:
     from ..table.async_table import AsyncDatabase
+else:
+    AsyncDatabase = Any
 
 
 class AsyncDataFrameWriter:
@@ -52,37 +55,37 @@ class AsyncDataFrameWriter:
         self._bucket_by: Optional[tuple[int, Sequence[str]]] = None
         self._sort_by: Optional[Sequence[str]] = None
 
-    def mode(self, mode: str) -> "AsyncDataFrameWriter":
+    def mode(self, mode: str) -> AsyncDataFrameWriter:
         """Set the write mode (append, overwrite, ignore, error_if_exists)."""
         from .writer_helpers import build_mode_setter
 
         return build_mode_setter(self, mode)
 
-    def option(self, key: str, value: object) -> "AsyncDataFrameWriter":
+    def option(self, key: str, value: object) -> AsyncDataFrameWriter:
         """Set a write option (e.g., header=True for CSV, compression='gzip' for Parquet)."""
         from .writer_helpers import build_option_setter
 
         return build_option_setter(self, key, value)
 
-    def options(self, *args: Mapping[str, object], **kwargs: object) -> "AsyncDataFrameWriter":
+    def options(self, *args: Mapping[str, object], **kwargs: object) -> AsyncDataFrameWriter:
         """Set multiple write options at once."""
         from .writer_helpers import build_options_setter
 
         return build_options_setter(self, *args, **kwargs)
 
-    def format(self, format_name: str) -> "AsyncDataFrameWriter":
+    def format(self, format_name: str) -> AsyncDataFrameWriter:
         """Specify the output format for save()."""
         from .writer_helpers import build_format_setter
 
         return build_format_setter(self, format_name)
 
-    def stream(self, enabled: bool = True) -> "AsyncDataFrameWriter":
+    def stream(self, enabled: bool = True) -> AsyncDataFrameWriter:
         """Enable or disable streaming mode (chunked writing for large DataFrames)."""
         from .writer_helpers import build_stream_setter
 
         return build_stream_setter(self, enabled)
 
-    def partitionBy(self, *columns: str) -> "AsyncDataFrameWriter":
+    def partitionBy(self, *columns: str) -> AsyncDataFrameWriter:
         """Partition data by the given columns when writing to files."""
         from .writer_helpers import build_partition_by_setter
 
@@ -90,13 +93,13 @@ class AsyncDataFrameWriter:
 
     partition_by = partitionBy
 
-    def schema(self, schema: Sequence[ColumnDef]) -> "AsyncDataFrameWriter":
+    def schema(self, schema: Sequence[ColumnDef]) -> AsyncDataFrameWriter:
         """Set an explicit schema for the target table."""
         from .writer_helpers import build_schema_setter
 
         return build_schema_setter(self, schema)
 
-    def primaryKey(self, *columns: str) -> "AsyncDataFrameWriter":
+    def primaryKey(self, *columns: str) -> AsyncDataFrameWriter:
         """Specify primary key columns for the target table.
 
         Args:
@@ -111,7 +114,7 @@ class AsyncDataFrameWriter:
 
     primary_key = primaryKey
 
-    def bucketBy(self, num_buckets: int, *columns: str) -> "AsyncDataFrameWriter":
+    def bucketBy(self, num_buckets: int, *columns: str) -> AsyncDataFrameWriter:
         """PySpark-compatible bucketing hook (metadata only)."""
         from .writer_helpers import build_bucket_by_setter
 
@@ -119,7 +122,7 @@ class AsyncDataFrameWriter:
 
     bucket_by = bucketBy
 
-    def sortBy(self, *columns: str) -> "AsyncDataFrameWriter":
+    def sortBy(self, *columns: str) -> AsyncDataFrameWriter:
         """PySpark-compatible sortBy hook (metadata only)."""
         from .writer_helpers import build_sort_by_setter
 
@@ -187,7 +190,7 @@ class AsyncDataFrameWriter:
         table_name: str,
         *,
         where: Column,
-        set: Mapping[str, object],
+        set: Mapping[str, Union[Column, LiteralValue]],
     ) -> None:
         """Update rows in a table matching the WHERE condition.
 
@@ -603,7 +606,7 @@ class AsyncDataFrameWriter:
             if rows:
                 await insert_rows_async(table_handle, rows, transaction=transaction)
 
-    async def _table_exists(self, db: "AsyncDatabase", table_name: str) -> bool:
+    async def _table_exists(self, db: AsyncDatabase, table_name: str) -> bool:
         """Check if a table exists in the database."""
         # Query database metadata to check if table exists
         dialect_name = db._dialect_name

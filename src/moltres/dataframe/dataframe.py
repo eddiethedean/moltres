@@ -30,7 +30,7 @@ from typing import (
     overload,
 )
 
-from ..expressions.column import Column, col
+from ..expressions.column import Column, LiteralValue, col
 from ..logical import operators
 from ..logical.plan import FileScan, LogicalPlan, RawSQL
 from ..sql.compiler import compile_plan
@@ -45,6 +45,16 @@ if TYPE_CHECKING:
     from .polars_dataframe import PolarsDataFrame
     from .writer import DataFrameWriter
     from .pyspark_column import PySparkColumn
+else:
+    Database = Any
+    Select = Any
+    Records = Any
+    TableHandle = Any
+    ColumnInfo = Any
+    GroupedDataFrame = Any
+    PolarsDataFrame = Any
+    DataFrameWriter = Any
+    PySparkColumn = Any
 
 
 @dataclass(frozen=True)
@@ -71,14 +81,14 @@ class DataFrame(DataFrameHelpersMixin):
     """
 
     plan: LogicalPlan
-    database: Optional["Database"] = None
+    database: Optional[Database] = None
     model: Optional[Type[Any]] = None  # SQLModel class, if attached
 
     # ------------------------------------------------------------------ builders
     @classmethod
     def from_table(
         cls, table_handle: "TableHandle", columns: Optional[Sequence[str]] = None
-    ) -> "DataFrame":
+    ) -> DataFrame:
         plan = operators.scan(table_handle.name)
         # Check if table_handle has a model attached (SQLModel, Pydantic, or SQLAlchemy)
         model = None
@@ -94,9 +104,7 @@ class DataFrame(DataFrameHelpersMixin):
         return df
 
     @classmethod
-    def from_sqlalchemy(
-        cls, select_stmt: "Select", database: Optional["Database"] = None
-    ) -> "DataFrame":
+    def from_sqlalchemy(cls, select_stmt: Select, database: Optional[Database] = None) -> DataFrame:
         """Create a :class:`DataFrame` from a SQLAlchemy Select statement.
 
         This allows you to integrate existing SQLAlchemy queries with Moltres
@@ -113,13 +121,13 @@ class DataFrame(DataFrameHelpersMixin):
 
         Example:
             >>> from sqlalchemy import create_engine, select, table, column
-            >>> from moltres import :class:`DataFrame`
+            >>> from moltres.dataframe.dataframe import DataFrame
             >>> engine = create_engine("sqlite:///:memory:")
             >>> # Create a SQLAlchemy select statement
             >>> users = table("users", column("id"), column("name"))
             >>> sa_stmt = select(users.c.id, users.c.name).where(users.c.id > 1)
-            >>> # Convert to Moltres :class:`DataFrame`
-            >>> df = :class:`DataFrame`.from_sqlalchemy(sa_stmt)
+            >>> # Convert to Moltres DataFrame
+            >>> df = DataFrame.from_sqlalchemy(sa_stmt)
             >>> # Can now chain Moltres operations
             >>> df2 = df.select("id")
         """
@@ -136,7 +144,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return cls(plan=plan, database=database)
 
-    def select(self, *columns: Union[Column, str]) -> "DataFrame":
+    def select(self, *columns: Union[Column, str]) -> DataFrame:
         """Select specific columns from the :class:`DataFrame`.
 
         Args:
@@ -152,8 +160,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("email", "TEXT")]).collect()
-            >>> from moltres.io.records import :class:`Records`
-            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
             >>> # Select specific columns
             >>> df = db.table("users").select("id", "name", "email")
             >>> results = df.collect()
@@ -166,7 +174,7 @@ class DataFrame(DataFrameHelpersMixin):
             3
             >>> # Select with expressions
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
+            >>> _ = Records(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
             >>> df3 = db.table("orders").select(col("id"), (col("amount") * 1.1).alias("amount_with_tax"))
             >>> results3 = df3.collect()
             >>> results3[0]["amount_with_tax"]
@@ -185,7 +193,7 @@ class DataFrame(DataFrameHelpersMixin):
         result = build_select_operation(self, columns)
         return self._with_plan(result.plan) if result.should_apply else self
 
-    def selectExpr(self, *exprs: str) -> "DataFrame":
+    def selectExpr(self, *exprs: str) -> DataFrame:
         """Select columns using SQL expressions.
 
         This method allows you to write SQL expressions directly instead of
@@ -251,7 +259,7 @@ class DataFrame(DataFrameHelpersMixin):
         # Use the existing select() method with parsed columns
         return self.select(*parsed_columns)
 
-    def where(self, predicate: Union[Column, str]) -> "DataFrame":
+    def where(self, predicate: Union[Column, str]) -> DataFrame:
         """Filter rows based on a condition.
 
         Args:
@@ -297,7 +305,7 @@ class DataFrame(DataFrameHelpersMixin):
 
     filter = where
 
-    def limit(self, count: int) -> "DataFrame":
+    def limit(self, count: int) -> DataFrame:
         """Limit the number of rows returned by the query.
 
         Args:
@@ -316,7 +324,7 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> # Limit to 3 rows
             >>> df = db.table("users").select().limit(3)
             >>> results = df.collect()
@@ -324,7 +332,7 @@ class DataFrame(DataFrameHelpersMixin):
             3
             >>> # Limit with ordering
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
-            >>> :class:`Records`(_data=[{"id": i, "amount": float(i * 10)} for i in range(1, 6)], _database=db).insert_into("orders")
+            >>> Records(_data=[{"id": i, "amount": float(i * 10)} for i in range(1, 6)], _database=db).insert_into("orders")
             >>> df2 = db.table("orders").select().order_by(col("amount").desc()).limit(2)
             >>> results2 = df2.collect()
             >>> len(results2)
@@ -337,7 +345,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return self._with_plan(build_limit_operation(self.plan, count))
 
-    def sample(self, fraction: float, seed: Optional[int] = None) -> "DataFrame":
+    def sample(self, fraction: float, seed: Optional[int] = None) -> DataFrame:
         """Sample a fraction of rows from the :class:`DataFrame`.
 
         Args:
@@ -365,7 +373,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return self._with_plan(build_sample_operation(self.plan, fraction, seed))
 
-    def order_by(self, *columns: Union[Column, str]) -> "DataFrame":
+    def order_by(self, *columns: Union[Column, str]) -> DataFrame:
         """Sort rows by one or more columns.
 
         Args:
@@ -416,7 +424,7 @@ class DataFrame(DataFrameHelpersMixin):
 
     def join(
         self,
-        other: "DataFrame",
+        other: DataFrame,
         *,
         on: Optional[
             Union[str, Sequence[str], Sequence[Tuple[str, str]], "Column", Sequence["Column"]]
@@ -424,7 +432,7 @@ class DataFrame(DataFrameHelpersMixin):
         how: str = "inner",
         lateral: bool = False,
         hints: Optional[Sequence[str]] = None,
-    ) -> "DataFrame":
+    ) -> DataFrame:
         """Join with another :class:`DataFrame`.
 
         Args:
@@ -490,7 +498,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return join_dataframes(self, other, on=on, how=how, lateral=lateral, hints=hints)
 
-    def crossJoin(self, other: "DataFrame") -> "DataFrame":
+    def crossJoin(self, other: DataFrame) -> DataFrame:
         """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
 
         Args:
@@ -524,10 +532,10 @@ class DataFrame(DataFrameHelpersMixin):
 
     def semi_join(
         self,
-        other: "DataFrame",
+        other: DataFrame,
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
-    ) -> "DataFrame":
+    ) -> DataFrame:
         """Perform a semi-join: return rows from this :class:`DataFrame` where a matching row exists in other.
 
         This is equivalent to filtering with EXISTS subquery.
@@ -571,10 +579,10 @@ class DataFrame(DataFrameHelpersMixin):
 
     def anti_join(
         self,
-        other: "DataFrame",
+        other: DataFrame,
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
-    ) -> "DataFrame":
+    ) -> DataFrame:
         """Perform an anti-join: return rows from this :class:`DataFrame` where no matching row exists in other.
 
         This is equivalent to filtering with NOT EXISTS subquery.
@@ -622,7 +630,7 @@ class DataFrame(DataFrameHelpersMixin):
         value_column: str,
         agg_func: str = "sum",
         pivot_values: Optional[Sequence[str]] = None,
-    ) -> "DataFrame":
+    ) -> DataFrame:
         """Pivot the :class:`DataFrame` to reshape data from long to wide format.
 
         Args:
@@ -653,7 +661,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return pivot_dataframe(self, pivot_column, value_column, agg_func, pivot_values)
 
-    def explode(self, column: Union[Column, str], alias: str = "value") -> "DataFrame":
+    def explode(self, column: Union[Column, str], alias: str = "value") -> DataFrame:
         """Explode an array/JSON column into multiple rows (one row per element).
 
         Args:
@@ -730,7 +738,7 @@ class DataFrame(DataFrameHelpersMixin):
 
     groupBy = group_by
 
-    def union(self, other: "DataFrame") -> "DataFrame":
+    def union(self, other: DataFrame) -> DataFrame:
         """Union this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only).
 
         Args:
@@ -767,7 +775,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return union_dataframes(self, other, distinct=True)
 
-    def unionAll(self, other: "DataFrame") -> "DataFrame":
+    def unionAll(self, other: DataFrame) -> DataFrame:
         """Union this :class:`DataFrame` with another :class:`DataFrame` (all rows, including duplicates).
 
         Args:
@@ -801,7 +809,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return union_dataframes(self, other, distinct=False)
 
-    def intersect(self, other: "DataFrame") -> "DataFrame":
+    def intersect(self, other: DataFrame) -> DataFrame:
         """Intersect this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only).
 
         Args:
@@ -837,7 +845,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return intersect_dataframes(self, other, distinct=True)
 
-    def except_(self, other: "DataFrame") -> "DataFrame":
+    def except_(self, other: DataFrame) -> DataFrame:
         """Return rows in this :class:`DataFrame` that are not in another :class:`DataFrame` (distinct rows only).
 
         Args:
@@ -873,7 +881,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return except_dataframes(self, other, distinct=True)
 
-    def cte(self, name: str) -> "DataFrame":
+    def cte(self, name: str) -> DataFrame:
         """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
@@ -903,9 +911,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return cte_dataframe(self, name)
 
-    def recursive_cte(
-        self, name: str, recursive: "DataFrame", union_all: bool = False
-    ) -> "DataFrame":
+    def recursive_cte(self, name: str, recursive: DataFrame, union_all: bool = False) -> DataFrame:
         """Create a Recursive Common Table Expression (WITH RECURSIVE) from this :class:`DataFrame`.
 
         Args:
@@ -927,7 +933,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return recursive_cte_dataframe(self, name, recursive, union_all)
 
-    def distinct(self) -> "DataFrame":
+    def distinct(self) -> DataFrame:
         """Return a new :class:`DataFrame` with distinct rows.
 
         Returns:
@@ -953,7 +959,7 @@ class DataFrame(DataFrameHelpersMixin):
         """
         return self._with_plan(operators.distinct(self.plan))
 
-    def dropDuplicates(self, subset: Optional[Sequence[str]] = None) -> "DataFrame":
+    def dropDuplicates(self, subset: Optional[Sequence[str]] = None) -> DataFrame:
         """Return a new :class:`DataFrame` with duplicate rows removed.
 
         Args:
@@ -975,7 +981,7 @@ class DataFrame(DataFrameHelpersMixin):
         # use window functions or subqueries
         return self.group_by(*subset).agg()
 
-    def withColumn(self, colName: str, col_expr: Union[Column, str]) -> "DataFrame":
+    def withColumn(self, colName: str, col_expr: Union[Column, str]) -> DataFrame:
         """Add or replace a column in the :class:`DataFrame`.
 
         Args:
@@ -1073,7 +1079,7 @@ class DataFrame(DataFrameHelpersMixin):
 
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
-    def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> "DataFrame":
+    def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> DataFrame:
         """Add or replace multiple columns in the :class:`DataFrame`.
 
         Args:
@@ -1088,7 +1094,7 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("orders", [column("id", "INTEGER"), column("amount", "REAL")]).collect()
             >>> from moltres.io.records import :class:`Records`
-            >>> _ = :class:`Records`(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
+            >>> _ = Records(_data=[{"id": 1, "amount": 100.0}], _database=db).insert_into("orders")
             >>> df = db.table("orders").select()
             >>> # Add multiple columns at once
             >>> df2 = df.withColumns({
@@ -1108,7 +1114,7 @@ class DataFrame(DataFrameHelpersMixin):
             result_df = result_df.withColumn(col_name, col_expr)
         return result_df
 
-    def withColumnRenamed(self, existing: str, new: str) -> "DataFrame":
+    def withColumnRenamed(self, existing: str, new: str) -> DataFrame:
         """Rename a column in the :class:`DataFrame`.
 
         Args:
@@ -1157,7 +1163,7 @@ class DataFrame(DataFrameHelpersMixin):
             existing_col = col(existing).alias(new)
             return self._with_plan(operators.project(self.plan, (existing_col,)))
 
-    def drop(self, *cols: Union[str, Column]) -> "DataFrame":
+    def drop(self, *cols: Union[str, Column]) -> DataFrame:
         """Drop one or more columns from the :class:`DataFrame`.
 
         Args:
@@ -1175,8 +1181,8 @@ class DataFrame(DataFrameHelpersMixin):
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT"), column("email", "TEXT")]).collect()
-            >>> from moltres.io.records import :class:`Records`
-            >>> _ = :class:`Records`(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into("users")
             >>> # Drop by string column name
             >>> df = db.table("users").select().drop("email")
             >>> results = df.collect()
@@ -1215,9 +1221,14 @@ class DataFrame(DataFrameHelpersMixin):
             new_projections = []
             for col_expr in self.plan.projections:
                 if isinstance(col_expr, Column):
-                    col_name = col_expr._alias or (
-                        col_expr.args[0] if col_expr.op == "column" else None
-                    )
+                    if (
+                        col_expr.op == "column"
+                        and col_expr.args[0]
+                        and isinstance(col_expr.args[0], str)
+                    ):
+                        col_name = col_expr._alias or col_expr.args[0]
+                    else:
+                        col_name = col_expr._alias
                     if col_name not in cols_to_drop:
                         new_projections.append(col_expr)
                 else:
@@ -1421,93 +1432,18 @@ class DataFrame(DataFrameHelpersMixin):
             2
             >>> db.close()
         """
-        if self.database is None:
-            raise RuntimeError("Cannot collect a plan without an attached Database")
+        from .execution import DataFrameExecutor
 
-        # Helper function to convert rows to model instances if model is attached
-        def _convert_rows(
-            rows: List[Dict[str, object]],
-        ) -> Union[List[Dict[str, object]], List[Any]]:
-            from .materialization_helpers import convert_rows_to_models
-
-            return convert_rows_to_models(rows, self.model)
-
-        # Handle RawSQL at root level - execute directly for efficiency
-        if isinstance(self.plan, RawSQL):
-            if stream:
-                # For streaming, we need to use execute_plan_stream which expects a compiled plan
-                # So we'll compile the RawSQL plan
-                plan = self._materialize_filescan(self.plan)
-                stream_iter = self.database.execute_plan_stream(plan)
-                # Convert each chunk to SQLModel instances if model is attached
-                if self.model is not None:
-
-                    def _convert_stream() -> Iterator[List[Any]]:
-                        for chunk in stream_iter:
-                            yield _convert_rows(chunk)
-
-                    return _convert_stream()
-                return stream_iter
-            else:
-                # Execute RawSQL directly
-                from .materialization_helpers import convert_result_rows
-
-                result = self.database.execute_sql(self.plan.sql, params=self.plan.params)
-                rows = convert_result_rows(result.rows)
-                return _convert_rows(rows)
-
-        # Handle FileScan by materializing file data into a temporary table
-        plan = self._materialize_filescan(self.plan)
-
+        executor = DataFrameExecutor(self)
         if stream:
-            # For SQL queries, use streaming execution
-            stream_iter = self.database.execute_plan_stream(plan)
-            # Convert each chunk to SQLModel instances if model is attached
-            if self.model is not None:
-
-                def _convert_stream() -> Iterator[List[Any]]:
-                    for chunk in stream_iter:
-                        yield _convert_rows(chunk)
-
-                return _convert_stream()
-            return stream_iter
-
-        result = self.database.execute_plan(plan, model=self.model)
-        if result.rows is None:
-            return []
-        # If result.rows is already a list of SQLModel instances (from .exec()), return directly
-        if isinstance(result.rows, list) and len(result.rows) > 0:
-            # Check if first item is a SQLModel instance
-            try:
-                from sqlmodel import SQLModel
-
-                if isinstance(result.rows[0], SQLModel):
-                    # Already SQLModel instances from .exec(), return as-is
-                    return result.rows
-            except ImportError:
-                pass
-        # Convert to list if it's a DataFrame
-        if hasattr(result.rows, "to_dict"):
-            records = result.rows.to_dict("records")  # type: ignore[call-overload]
-            # Convert Hashable keys to str keys
-            rows = [{str(k): v for k, v in row.items()} for row in records]
-            return _convert_rows(rows)
-        if hasattr(result.rows, "to_dicts"):
-            records = list(result.rows.to_dicts())
-            # Convert Hashable keys to str keys
-            rows = [{str(k): v for k, v in row.items()} for row in records]
-            return _convert_rows(rows)
-        return _convert_rows(result.rows)
+            return executor.collect(stream=True)
+        else:
+            return executor.collect(stream=False)
 
     def _materialize_filescan(self, plan: LogicalPlan) -> LogicalPlan:
         """Materialize FileScan nodes by reading files and creating temporary tables.
 
-        When a FileScan is encountered, the file is read, materialized into a temporary
-        table, and the FileScan is replaced with a TableScan.
-
-        By default, files are read in chunks (streaming mode) to safely handle large files
-        without loading everything into memory. Set stream=False in options to use
-        in-memory reading for small files.
+        Delegates to :class:`MaterializationHandler`.
 
         Args:
             plan: Logical plan that may contain FileScan nodes
@@ -1515,95 +1451,15 @@ class DataFrame(DataFrameHelpersMixin):
         Returns:
             Logical plan with FileScan nodes replaced by TableScan nodes
         """
-        if self.database is None:
-            raise RuntimeError("Cannot materialize FileScan without an attached Database")
+        from .materialization import MaterializationHandler
 
-        if isinstance(plan, FileScan):
-            # Check if streaming is disabled (opt-out mechanism)
-            # Default is True (streaming/chunked reading) for safety with large files
-            stream_enabled = plan.options.get("stream", True)
-            if isinstance(stream_enabled, bool) and not stream_enabled:
-                # Non-streaming mode: load entire file into memory (current behavior)
-                rows = self._read_file(plan)
-
-                # Materialize into temporary table using createDataFrame
-                # This enables SQL pushdown for subsequent operations
-                # Use auto_pk to create an auto-incrementing primary key for temporary tables
-                temp_df = self.database.createDataFrame(
-                    rows, schema=plan.schema, auto_pk="__moltres_rowid__"
-                )
-
-                # createDataFrame returns a DataFrame with a TableScan plan
-                # Return the TableScan plan to replace the FileScan
-                return temp_df.plan
-            else:
-                # Streaming mode (default): read file in chunks and insert incrementally
-                from .create_dataframe import create_temp_table_from_streaming
-                from ..logical.operators import scan
-
-                # Read file using streaming readers
-                records = self._read_file_streaming(plan)
-
-                # Create temp table from streaming records (chunked insertion)
-                table_name, final_schema = create_temp_table_from_streaming(
-                    self.database,
-                    records,
-                    schema=plan.schema,
-                    auto_pk="__moltres_rowid__",
-                )
-
-                # Return TableScan plan to replace the FileScan
-                return scan(table_name)
-
-        # Recursively handle children
-        from ..logical.plan import (
-            Aggregate,
-            AntiJoin,
-            CTE,
-            Distinct,
-            Except,
-            Explode,
-            Filter,
-            Intersect,
-            Join,
-            Limit,
-            Pivot,
-            Project,
-            RecursiveCTE,
-            Sample,
-            SemiJoin,
-            Sort,
-            Union,
-        )
-
-        # RawSQL doesn't need materialization - it's handled directly in collect()
-        if isinstance(plan, RawSQL):
-            return plan
-
-        if isinstance(
-            plan, (Project, Filter, Limit, Sample, Sort, Distinct, Aggregate, Explode, Pivot)
-        ):
-            child = self._materialize_filescan(plan.child)
-            return replace(plan, child=child)
-        elif isinstance(plan, (Join, Union, Intersect, Except, SemiJoin, AntiJoin)):
-            left = self._materialize_filescan(plan.left)
-            right = self._materialize_filescan(plan.right)
-            return replace(plan, left=left, right=right)
-        elif isinstance(plan, (CTE, RecursiveCTE)):
-            # For CTEs, we need to handle the child
-            if isinstance(plan, CTE):
-                child = self._materialize_filescan(plan.child)
-                return replace(plan, child=child)
-            else:  # RecursiveCTE
-                initial = self._materialize_filescan(plan.initial)
-                recursive = self._materialize_filescan(plan.recursive)
-                return replace(plan, initial=initial, recursive=recursive)
-
-        # For other plan types, return as-is
-        return plan
+        handler = MaterializationHandler(self)
+        return handler.materialize_filescan(plan)
 
     def _read_file(self, filescan: FileScan) -> List[Dict[str, object]]:
         """Read a file based on FileScan configuration (non-streaming, loads all into memory).
+
+        Delegates to :class:`MaterializationHandler`.
 
         Args:
             filescan: FileScan logical plan node
@@ -1615,53 +1471,35 @@ class DataFrame(DataFrameHelpersMixin):
             This method loads the entire file into memory. For large files, use
             _read_file_streaming() instead.
         """
-        if self.database is None:
-            raise RuntimeError("Cannot read file without an attached Database")
+        from .materialization import MaterializationHandler
 
-        from .file_io_helpers import route_file_read
-
-        records = route_file_read(
-            format_name=filescan.format,
-            path=filescan.path,
-            database=self.database,
-            schema=filescan.schema,
-            options=filescan.options,
-            column_name=filescan.column_name,
-            async_mode=False,
-        )
-
-        return records.rows()
+        handler = MaterializationHandler(self)
+        return handler.read_file(filescan)
 
     def _read_file_streaming(self, filescan: FileScan) -> Records:
         """Read a file in streaming mode (chunked, safe for large files).
+
+        Delegates to :class:`MaterializationHandler`.
 
         Args:
             filescan: FileScan logical plan node
 
         Returns:
-            :class:`Records` object with _generator set (streaming mode)
+            Records object with _generator set (streaming mode)
 
         Note:
-            This method returns :class:`Records` with a generator, allowing chunked processing
+            This method returns Records with a generator, allowing chunked processing
             without loading the entire file into memory. Use this for large files.
         """
-        if self.database is None:
-            raise RuntimeError("Cannot read file without an attached Database")
+        from .materialization import MaterializationHandler
 
-        from .file_io_helpers import route_file_read_streaming
-
-        return route_file_read_streaming(
-            format_name=filescan.format,
-            path=filescan.path,
-            database=self.database,
-            schema=filescan.schema,
-            options=filescan.options,
-            column_name=filescan.column_name,
-            async_mode=False,
-        )
+        handler = MaterializationHandler(self)
+        return handler.read_file_streaming(filescan)
 
     def show(self, n: int = 20, truncate: bool = True) -> None:
         """Print the first n rows of the :class:`DataFrame`.
+
+        Delegates to :class:`DataFrameExecutor`.
 
         Args:
             n: Number of rows to show (default: 20)
@@ -1682,46 +1520,15 @@ class DataFrame(DataFrameHelpersMixin):
             >>> #         2  | Bob
             >>> db.close()
         """
-        rows = self.limit(n).collect()
-        # collect() with stream=False returns a list, not an iterator
-        if not isinstance(rows, list):
-            raise TypeError("show() requires collect() to return a list, not an iterator")
-        if not rows:
-            print("Empty DataFrame")
-            return
+        from .execution import DataFrameExecutor
 
-        # Get column names from first row
-        columns = list(rows[0].keys())
-
-        # Calculate column widths
-        col_widths = {}
-        for col_name in columns:
-            col_widths[col_name] = len(col_name)
-            for row in rows:
-                val_str = str(row.get(col_name, ""))
-                if truncate and len(val_str) > 20:
-                    val_str = val_str[:17] + "..."
-                col_widths[col_name] = max(col_widths[col_name], len(val_str))
-
-        # Print header
-        header = " | ".join(col.ljust(col_widths[col]) for col in columns)
-        print(header)
-        print("-" * len(header))
-
-        # Print rows
-        for row in rows:
-            row_str = " | ".join(
-                (
-                    str(row.get(col, ""))[:17] + "..."
-                    if truncate and len(str(row.get(col, ""))) > 20
-                    else str(row.get(col, ""))
-                ).ljust(col_widths[col])
-                for col in columns
-            )
-            print(row_str)
+        executor = DataFrameExecutor(self)
+        executor.show(n=n, truncate=truncate)
 
     def take(self, num: int) -> List[Dict[str, object]]:
         """Take the first num rows as a list.
+
+        Delegates to :class:`DataFrameExecutor`.
 
         Args:
             num: Number of rows to take
@@ -1735,7 +1542,7 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> rows = df.take(3)
             >>> len(rows)
@@ -1744,13 +1551,15 @@ class DataFrame(DataFrameHelpersMixin):
             1
             >>> db.close()
         """
-        rows = self.limit(num).collect()
-        if not isinstance(rows, list):
-            raise TypeError("take() requires collect() to return a list, not an iterator")
-        return rows
+        from .execution import DataFrameExecutor
+
+        executor = DataFrameExecutor(self)
+        return executor.take(num)
 
     def first(self) -> Optional[Dict[str, object]]:
         """Return the first row as a dictionary, or None if empty.
+
+        Delegates to :class:`DataFrameExecutor`.
 
         Returns:
             First row as a dictionary, or None if :class:`DataFrame` is empty
@@ -1772,15 +1581,15 @@ class DataFrame(DataFrameHelpersMixin):
             True
             >>> db.close()
         """
-        rows = self.limit(1).collect()
-        if not isinstance(rows, list):
-            raise TypeError("first() requires collect() to return a list, not an iterator")
-        return rows[0] if rows else None
+        from .execution import DataFrameExecutor
+
+        executor = DataFrameExecutor(self)
+        return executor.first()
 
     def head(self, n: int = 5) -> List[Dict[str, object]]:
         """Return the first n rows of the :class:`DataFrame`.
 
-        Convenience method for quickly inspecting data.
+        Delegates to :class:`DataFrameExecutor`.
 
         Args:
             n: Number of rows to return (default: 5)
@@ -1794,7 +1603,7 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> rows = df.head(3)
             >>> len(rows)
@@ -1803,15 +1612,15 @@ class DataFrame(DataFrameHelpersMixin):
             1
             >>> db.close()
         """
-        rows = self.limit(n).collect()
-        if not isinstance(rows, list):
-            raise TypeError("head() requires collect() to return a list, not an iterator")
-        return rows
+        from .execution import DataFrameExecutor
+
+        executor = DataFrameExecutor(self)
+        return executor.head(n)
 
     def tail(self, n: int = 5) -> List[Dict[str, object]]:
         """Return the last n rows of the :class:`DataFrame`.
 
-        Note: This requires materializing the entire :class:`DataFrame`, so it may be slow for large datasets.
+        Delegates to :class:`DataFrameExecutor`.
 
         Args:
             n: Number of rows to return (default: 5)
@@ -1825,7 +1634,7 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select().order_by("id")
             >>> rows = df.tail(2)
             >>> len(rows)
@@ -1836,17 +1645,18 @@ class DataFrame(DataFrameHelpersMixin):
             5
             >>> db.close()
         """
-        all_rows = self.collect()
-        if not isinstance(all_rows, list):
-            # If collect() returns an iterator, convert to list
-            all_rows = list(all_rows)
-        return all_rows[-n:] if len(all_rows) > n else all_rows
+        from .execution import DataFrameExecutor
+
+        executor = DataFrameExecutor(self)
+        return executor.tail(n)
 
     def nunique(self, column: Optional[str] = None) -> Union[int, Dict[str, int]]:
         """Count distinct values in column(s).
 
+        Delegates to :class:`StatisticsCalculator`.
+
         Args:
-            column: :class:`Column` name to count. If None, counts distinct values for all columns.
+            column: Column name to count. If None, counts distinct values for all columns.
 
         Returns:
             If column is specified: integer count of distinct values.
@@ -1870,39 +1680,15 @@ class DataFrame(DataFrameHelpersMixin):
             2
             >>> db.close()
         """
-        from ..expressions.functions import count_distinct
+        from .statistics import StatisticsCalculator
 
-        if column is not None:
-            # Count distinct values in the column
-            count_df = self.select(count_distinct(col(column)).alias("count"))
-            result = count_df.collect()
-            if result and isinstance(result, list) and len(result) > 0:
-                row = result[0]
-                if isinstance(row, dict):
-                    count_val = row.get("count", 0)
-                    return int(count_val) if isinstance(count_val, (int, float)) else 0
-            return 0
-        else:
-            # Count distinct for all columns
-            counts: Dict[str, int] = {}
-            for col_name in self.columns:
-                count_df = self.select(count_distinct(col(col_name)).alias("count"))
-                result = count_df.collect()
-                if result and isinstance(result, list) and len(result) > 0:
-                    row = result[0]
-                    if isinstance(row, dict):
-                        count_val = row.get("count", 0)
-                        counts[col_name] = (
-                            int(count_val) if isinstance(count_val, (int, float)) else 0
-                        )
-                    else:
-                        counts[col_name] = 0
-                else:
-                    counts[col_name] = 0
-            return counts
+        calculator = StatisticsCalculator(self)
+        return calculator.nunique(column)
 
     def count(self) -> int:
         """Return the number of rows in the :class:`DataFrame`.
+
+        Delegates to :class:`StatisticsCalculator`.
 
         Returns:
             Number of rows
@@ -1916,7 +1702,7 @@ class DataFrame(DataFrameHelpersMixin):
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
+            >>> Records(_data=[{"id": i, "name": f"User{i}"} for i in range(1, 6)], _database=db).insert_into("users")
             >>> df = db.table("users").select()
             >>> df.count()
             5
@@ -1926,79 +1712,57 @@ class DataFrame(DataFrameHelpersMixin):
             3
             >>> db.close()
         """
-        from ..expressions.functions import count as count_func
+        from .statistics import StatisticsCalculator
 
-        # Create an aggregate with count(*)
-        count_col = count_func("*").alias("count")
-        result_df = self._with_plan(operators.aggregate(self.plan, (), (count_col,)))
-        results = result_df.collect()
-        if not isinstance(results, list):
-            raise TypeError("count() requires collect() to return a list, not an iterator")
-        if results:
-            count_value = results[0].get("count", 0)
-            return int(count_value) if isinstance(count_value, (int, float, str)) else 0
-        return 0
+        calculator = StatisticsCalculator(self)
+        return calculator.count()
 
-    def describe(self, *cols: str) -> "DataFrame":
+    def describe(self, *cols: str) -> DataFrame:
         """Compute basic statistics for numeric columns.
+
+        Delegates to :class:`StatisticsCalculator`.
 
         Args:
             *cols: Optional column names to describe. If not provided, describes all numeric columns.
 
         Returns:
-            :class:`DataFrame` with statistics: count, mean, stddev, min, max
+            DataFrame with statistics: count, mean, stddev, min, max
 
         Note:
             This is a simplified implementation. A full implementation would
             automatically detect numeric columns if cols is not provided.
         """
-        from ..expressions.functions import count, avg, min, max
+        from .statistics import StatisticsCalculator
 
-        if not cols:
-            # For now, return empty DataFrame if no columns specified
-            # A full implementation would detect numeric columns
-            return self.limit(0)
+        calculator = StatisticsCalculator(self)
+        return calculator.describe(*cols)
 
-        # Build aggregations for each column
-        aggregations = []
-        for col_name in cols:
-            col_expr = col(col_name)
-            aggregations.extend(
-                [
-                    count(col_expr).alias(f"{col_name}_count"),
-                    avg(col_expr).alias(f"{col_name}_mean"),
-                    min(col_expr).alias(f"{col_name}_min"),
-                    max(col_expr).alias(f"{col_name}_max"),
-                ]
-            )
-
-        return self._with_plan(operators.aggregate(self.plan, (), tuple(aggregations)))
-
-    def summary(self, *statistics: str) -> "DataFrame":
+    def summary(self, *statistics: str) -> DataFrame:
         """Compute summary statistics for numeric columns.
+
+        Delegates to :class:`StatisticsCalculator`.
 
         Args:
             *statistics: Statistics to compute (e.g., "count", "mean", "stddev", "min", "max").
                         If not provided, computes common statistics.
 
         Returns:
-            :class:`DataFrame` with summary statistics
+            DataFrame with summary statistics
 
         Note:
             This is a simplified implementation. A full implementation would
             automatically detect numeric columns and compute all statistics.
         """
+        from .statistics import StatisticsCalculator
 
-        if not statistics:
-            statistics = ("count", "mean", "min", "max")
-
-        # For now, this is similar to describe()
-        # A full implementation would be more comprehensive
-        return self.describe()
+        calculator = StatisticsCalculator(self)
+        return calculator.summary(*statistics)
 
     def fillna(
-        self, value: Union[object, Dict[str, object]], subset: Optional[Sequence[str]] = None
-    ) -> "DataFrame":
+        self,
+        value: Union[LiteralValue, Dict[str, LiteralValue]],
+        subset: Optional[Sequence[str]] = None,
+    ) -> DataFrame:
         """Replace null values with a specified value.
 
         Args:
@@ -2049,9 +1813,7 @@ class DataFrame(DataFrameHelpersMixin):
 
             if fill_value is not None:
                 # Use COALESCE to replace nulls
-                # fill_value can be any object, but lit() expects specific types
-                # We'll allow it and let the runtime handle type errors
-                filled_col = coalesce(col_expr, lit(fill_value)).alias(col_name)  # type: ignore[arg-type]
+                filled_col = coalesce(col_expr, lit(fill_value)).alias(col_name)
                 new_projections.append(filled_col)
             else:
                 new_projections.append(col_expr)
@@ -2059,7 +1821,7 @@ class DataFrame(DataFrameHelpersMixin):
         # This is simplified - a full implementation would handle all columns
         return self.select(*new_projections)
 
-    def dropna(self, how: str = "any", subset: Optional[Sequence[str]] = None) -> "DataFrame":
+    def dropna(self, how: str = "any", subset: Optional[Sequence[str]] = None) -> DataFrame:
         """Remove rows with null values.
 
         Args:
@@ -2155,6 +1917,8 @@ class DataFrame(DataFrameHelpersMixin):
     def columns(self) -> List[str]:
         """Return a list of column names in this :class:`DataFrame`.
 
+        Delegates to :class:`SchemaInspector`.
+
         Similar to PySpark's :class:`DataFrame`.columns property, this extracts column
         names from the logical plan without requiring query execution.
 
@@ -2181,11 +1945,16 @@ class DataFrame(DataFrameHelpersMixin):
             True
             >>> db.close()
         """
-        return self._extract_column_names(self.plan)
+        from .schema import SchemaInspector
+
+        inspector = SchemaInspector(self)
+        return inspector.columns()
 
     @property
     def schema(self) -> List["ColumnInfo"]:
         """Return the schema of this :class:`DataFrame` as a list of ColumnInfo objects.
+
+        Delegates to :class:`SchemaInspector`.
 
         Similar to PySpark's :class:`DataFrame`.schema property, this extracts column
         names and types from the logical plan without requiring query execution.
@@ -2213,11 +1982,16 @@ class DataFrame(DataFrameHelpersMixin):
             'name'
             >>> db.close()
         """
-        return self._extract_schema_from_plan(self.plan)
+        from .schema import SchemaInspector
+
+        inspector = SchemaInspector(self)
+        return inspector.schema()
 
     @property
     def dtypes(self) -> List[Tuple[str, str]]:
         """Return a list of tuples containing column names and their data types.
+
+        Delegates to :class:`SchemaInspector`.
 
         Similar to PySpark's :class:`DataFrame`.dtypes property, this returns a list
         of (column_name, type_name) tuples.
@@ -2243,11 +2017,15 @@ class DataFrame(DataFrameHelpersMixin):
             'name'
             >>> db.close()
         """
-        schema = self.schema
-        return [(col_info.name, col_info.type_name) for col_info in schema]
+        from .schema import SchemaInspector
+
+        inspector = SchemaInspector(self)
+        return inspector.dtypes()
 
     def printSchema(self) -> None:
         """Print the schema of this :class:`DataFrame` in a tree format.
+
+        Delegates to :class:`SchemaInspector`.
 
         Similar to PySpark's :class:`DataFrame`.printSchema() method, this prints
         a formatted representation of the :class:`DataFrame`'s schema.
@@ -2263,16 +2041,11 @@ class DataFrame(DataFrameHelpersMixin):
             >>> #          |-- id: INTEGER (nullable = true)
             >>> #          |-- name: TEXT (nullable = true)
             >>> db.close()
-
-        Note:
-            Currently, nullable information is not available from the schema,
-            so it's always shown as `nullable = true`.
         """
-        schema = self.schema
-        print("root")
-        for col_info in schema:
-            # Format similar to PySpark: |-- column_name: type_name (nullable = true)
-            print(f" |-- {col_info.name}: {col_info.type_name} (nullable = true)")
+        from .schema import SchemaInspector
+
+        inspector = SchemaInspector(self)
+        inspector.print_schema()
 
     def __getitem__(
         self, key: Union[str, Sequence[str], Column]
@@ -2379,14 +2152,14 @@ class DataFrame(DataFrameHelpersMixin):
         return col(name)
 
     # ---------------------------------------------------------------- utilities
-    def _with_plan(self, plan: LogicalPlan) -> "DataFrame":
+    def _with_plan(self, plan: LogicalPlan) -> DataFrame:
         return DataFrame(
             plan=plan,
             database=self.database,
             model=self.model,
         )
 
-    def _with_model(self, model: Optional[Type[Any]]) -> "DataFrame":
+    def _with_model(self, model: Optional[Type[Any]]) -> DataFrame:
         """Create a new :class:`DataFrame` with a SQLModel attached.
 
         Args:
@@ -2401,8 +2174,10 @@ class DataFrame(DataFrameHelpersMixin):
             model=model,
         )
 
-    def with_model(self, model: Type[Any]) -> "DataFrame":
+    def with_model(self, model: Type[Any]) -> DataFrame:
         """Attach a SQLModel or Pydantic model to this :class:`DataFrame`.
+
+        Delegates to :class:`ModelIntegrator`.
 
         When a model is attached, `collect()` will return model instances
         instead of dictionaries. This provides type safety and validation.
@@ -2411,7 +2186,7 @@ class DataFrame(DataFrameHelpersMixin):
             model: SQLModel or Pydantic model class to attach
 
         Returns:
-            New :class:`DataFrame` with the model attached
+            New DataFrame with the model attached
 
         Raises:
             TypeError: If model is not a SQLModel or Pydantic class
@@ -2433,12 +2208,10 @@ class DataFrame(DataFrameHelpersMixin):
             >>> df_with_pydantic = df.with_model(UserData)
             >>> results = df_with_pydantic.collect()  # Returns list of UserData instances
         """
-        from ..utils.sqlmodel_integration import is_model_class
+        from .model_integration import ModelIntegrator
 
-        if not is_model_class(model):
-            raise TypeError(f"Expected SQLModel or Pydantic class, got {type(model)}")
-
-        return self._with_model(model)
+        integrator = ModelIntegrator(self)
+        return integrator.with_model(model)
 
 
 class NullHandling:
@@ -2470,7 +2243,9 @@ class NullHandling:
         return self._df.dropna(how=how, subset=subset)
 
     def fill(
-        self, value: Union[object, Dict[str, object]], subset: Optional[Sequence[str]] = None
+        self,
+        value: Union[LiteralValue, Dict[str, LiteralValue]],
+        subset: Optional[Sequence[str]] = None,
     ) -> DataFrame:
         """Fill null values with a specified value.
 

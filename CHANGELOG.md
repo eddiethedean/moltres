@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.5] - 2025-12-01
+
+### Changed
+- **Single Responsibility Principle (SRP) Refactoring** – Comprehensive refactoring to improve code organization and maintainability:
+  - **ExpressionCompiler Refactoring** – Split `ExpressionCompiler` into specialized compiler modules:
+    - `expression_compilers/aggregation.py` – Aggregation function compilation
+    - `expression_compilers/string.py` – String operation compilation
+    - `expression_compilers/datetime.py` – Datetime operation compilation
+    - `expression_compilers/window.py` – Window function compilation
+    - `expression_compilers/json.py` – JSON function compilation
+    - `expression_compilers/logical.py` – Logical operation compilation (and, or, not, between, in, case_when)
+    - `expression_compilers/type_casting.py` – Type casting compilation
+    - `expression_compilers/math.py` – Math operation compilation
+    - Significantly reduced complexity of main `ExpressionCompiler` class
+  - **DataFrame Refactoring** – Split `DataFrame` into specialized manager classes:
+    - `dataframe/execution.py` – `DataFrameExecutor` for execution methods (collect, show, take, first, head, tail)
+    - `dataframe/schema.py` – `SchemaInspector` for schema methods (columns, schema, dtypes, printSchema)
+    - `dataframe/statistics.py` – `StatisticsCalculator` for statistics methods (count, nunique, describe, summary)
+    - `dataframe/materialization.py` – `MaterializationHandler` for materialization logic
+    - `dataframe/model_integration.py` – `ModelIntegrator` for model integration logic
+  - **Database Refactoring** – Split `Database` into specialized manager classes:
+    - `table/ddl_manager.py` – `DDLManager` for DDL operations (create_table, drop_table, create_index, drop_index)
+    - `table/table_manager.py` – `TableManager` for table operations (table, insert)
+    - `table/query_executor.py` – `DatabaseQueryExecutor` for query execution (execute_plan, execute_plan_stream, execute_sql, explain)
+    - `table/ephemeral_manager.py` – `EphemeralTableManager` for ephemeral table management (createDataFrame, cleanup)
+  - **Records Refactoring** – Split `Records` into specialized manager classes:
+    - `io/records_accessor.py` – `RecordsAccessor` for data access methods (__iter__, __len__, __getitem__, rows, iter, head, tail, first, last)
+    - `io/records_schema.py` – `RecordsSchema` for schema operations (schema, select, rename)
+    - `io/records_writer.py` – `RecordsWriter` for database write operations (insert_into)
+  - All refactoring maintains full backward compatibility with existing APIs
+  - Improved code maintainability and testability through better separation of concerns
+
+### Fixed
+- **Type Safety** – Enhanced type annotations throughout refactored modules:
+  - Added proper type guards and runtime type narrowing to satisfy mypy without using `type: ignore`
+  - Converted all quoted type annotations to real types
+  - Fixed mypy errors related to `ExpressionArg` type narrowing
+  - Added `field(init=False)` for dataclass attributes initialized in `__post_init__`
+- **Error Messages** – Fixed error message in `ephemeral_manager.py` to match expected test pattern
+
 ## [0.19.4] - 2025-12-01
 
 ### Changed
@@ -952,7 +992,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.19.5...HEAD
+[0.19.5]: https://github.com/eddiethedean/moltres/compare/v0.19.4...v0.19.5
+[0.19.4]: https://github.com/eddiethedean/moltres/compare/v0.19.3...v0.19.4
+[0.19.3]: https://github.com/eddiethedean/moltres/compare/v0.19.2...v0.19.3
+[0.19.2]: https://github.com/eddiethedean/moltres/compare/v0.19.1...v0.19.2
+[0.19.1]: https://github.com/eddiethedean/moltres/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/eddiethedean/moltres/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/eddiethedean/moltres/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/eddiethedean/moltres/compare/v0.16.0...v0.17.0

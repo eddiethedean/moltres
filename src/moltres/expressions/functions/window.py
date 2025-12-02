@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from ..column import Column, ColumnLike, ensure_column
+
+if TYPE_CHECKING:
+    from ..expr import ExpressionArg
+else:
+    ExpressionArg = Any
 
 
 def row_number() -> Column:
@@ -220,7 +225,7 @@ def lag(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = Non
         10.0
         >>> db.close()
     """
-    args = [ensure_column(column), offset]
+    args: List[ExpressionArg] = [ensure_column(column), offset]
     if default is not None:
         args.append(ensure_column(default))
     return Column(op="window_lag", args=tuple(args))
@@ -254,7 +259,7 @@ def lead(column: ColumnLike, offset: int = 1, default: Optional[ColumnLike] = No
         True
         >>> db.close()
     """
-    args = [ensure_column(column), offset]
+    args: List[ExpressionArg] = [ensure_column(column), offset]
     if default is not None:
         args.append(ensure_column(default))
     return Column(op="window_lead", args=tuple(args))

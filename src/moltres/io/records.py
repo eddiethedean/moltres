@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, overload
 
 # Import conversion functions from records_conversion
@@ -24,6 +24,9 @@ from .records_conversion import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from .records_accessor import RecordsAccessor
+    from .records_schema import RecordsSchema
+    from .records_writer import RecordsWriter
     from ..table.async_table import AsyncDatabase, AsyncTableHandle
     from ..table.schema import ColumnDef
     from ..table.table import Database, TableHandle
@@ -77,6 +80,19 @@ class Records(Sequence[Mapping[str, object]]):
     _dataframe: Optional[Any] = None  # pandas DataFrame, polars DataFrame, or polars LazyFrame
     _schema: Optional[Sequence["ColumnDef"]] = None
     _database: Optional["Database"] = None
+    _accessor: "RecordsAccessor" = field(init=False)
+    _schema_manager: "RecordsSchema" = field(init=False)
+    _writer: "RecordsWriter" = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Initialize specialized managers after dataclass initialization."""
+        from .records_accessor import RecordsAccessor
+        from .records_schema import RecordsSchema
+        from .records_writer import RecordsWriter
+
+        object.__setattr__(self, "_accessor", RecordsAccessor(self))
+        object.__setattr__(self, "_schema_manager", RecordsSchema(self))
+        object.__setattr__(self, "_writer", RecordsWriter(self))
 
     @classmethod
     def from_list(
@@ -147,45 +163,18 @@ class Records(Sequence[Mapping[str, object]]):
         return _dataframe_to_records(df, database=database)
 
     def __iter__(self) -> Iterator[dict[str, object]]:
-        """Make :class:`Records` directly iterable."""
-        if self._data is not None:
-            # Materialized mode - iterate over data
-            for row in self._data:
-                yield row
-        elif self._generator is not None:
-            # Streaming mode - iterate over generator chunks
-            for chunk in self._generator():
-                for row in chunk:
-                    yield row
-        elif self._dataframe is not None:
-            # DataFrame mode - convert and iterate
-            rows = _convert_dataframe_to_rows(self._dataframe)
-            for row in rows:
-                yield row
-        # Empty records - nothing to yield
+        """Make Records directly iterable.
+
+        Delegates to :class:`RecordsAccessor`.
+        """
+        return self._accessor.__iter__()
 
     def __len__(self) -> int:
-        """Return the number of rows (materializes if needed)."""
-        if self._data is not None:
-            return len(self._data)
-        elif self._generator is not None:
-            # Materialize to get length
-            count = 0
-            for chunk in self._generator():
-                count += len(chunk)
-            return count
-        elif self._dataframe is not None:
-            # DataFrame mode - get length from DataFrame
-            if _is_pandas_dataframe(self._dataframe):
-                return len(self._dataframe)
-            elif _is_polars_dataframe(self._dataframe):
-                return len(self._dataframe)
-            elif _is_polars_lazyframe(self._dataframe):
-                # For LazyFrame, we need to materialize to get length
-                # This is expensive, but necessary for __len__
-                materialized = self._dataframe.collect()
-                return len(materialized)
-        return 0
+        """Return the number of rows (materializes if needed).
+
+        Delegates to :class:`RecordsAccessor`.
+        """
+        return self._accessor.__len__()
 
     @overload
     def __getitem__(self, index: int) -> Mapping[str, object]: ...
@@ -196,135 +185,83 @@ class Records(Sequence[Mapping[str, object]]):
     def __getitem__(
         self, index: int | slice
     ) -> Mapping[str, object] | Sequence[Mapping[str, object]]:
-        """Get a row by index or slice (materializes if needed)."""
-        if isinstance(index, slice):
-            # For slices, materialize and return a list
-            rows = self.rows()
-            return rows[index]
-        if self._data is not None:
-            return self._data[index]
-        elif self._generator is not None:
-            # Materialize to get item
-            rows = self.rows()
-            return rows[index]
-        elif self._dataframe is not None:
-            # DataFrame mode - materialize to get item
-            rows = self.rows()
-            return rows[index]
-        else:
-            raise IndexError(
-                "Cannot access Records: Records is empty. Use .rows() to check if data exists."
-            )
+        """Get a row by index or slice (materializes if needed).
+
+        Delegates to :class:`RecordsAccessor`.
+        """
+        return self._accessor.__getitem__(index)
 
     def rows(self) -> List[dict[str, object]]:
         """Return materialized list of all rows.
 
+        Delegates to :class:`RecordsAccessor`.
+
         Returns:
             List of row dictionaries
         """
-        if self._data is not None:
-            return self._data.copy()
-        elif self._generator is not None:
-            # Materialize from generator
-            all_rows: List[dict[str, object]] = []
-            for chunk in self._generator():
-                all_rows.extend(chunk)
-            return all_rows
-        elif self._dataframe is not None:
-            # DataFrame mode - convert to rows and cache in _data
-            rows = _convert_dataframe_to_rows(self._dataframe)
-            # Cache the converted data for future use
-            self._data = rows
-            self._dataframe = None  # Clear DataFrame reference after conversion
-            return rows
-        else:
-            return []
+        return self._accessor.rows()
 
     def iter(self) -> Iterator[dict[str, object]]:
         """Return an iterator over rows.
 
+        Delegates to :class:`RecordsAccessor`.
+
         Returns:
             Iterator of row dictionaries
         """
-        return iter(self)
+        return self._accessor.iter()
 
     @property
     def schema(self) -> Optional[Sequence["ColumnDef"]]:
-        """Get the schema for these records."""
-        return self._schema
+        """Get the schema for these records.
+
+        Delegates to :class:`RecordsSchema`.
+        """
+        return self._schema_manager.schema
 
     def select(self, *columns: str) -> "Records":
         """Select specific columns from records (in-memory operation).
 
+        Delegates to :class:`RecordsSchema`.
+
         Args:
-            *columns: :class:`Column` names to select. Must be strings.
+            *columns: Column names to select. Must be strings.
 
         Returns:
-            New :class:`Records` instance with only the selected columns
+            New Records instance with only the selected columns
 
         Raises:
             ValueError: If no columns provided or column doesn't exist
-            RuntimeError: If :class:`Records` is empty
+            RuntimeError: If Records is empty
 
         Example:
-            >>> records = :class:`Records`(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
+            >>> records = Records(_data=[{"id": 1, "name": "Alice", "age": 30}], _database=db)
             >>> selected = records.select("id", "name")
             >>> list(selected)
             [{"id": 1, "name": "Alice"}]
         """
-        if not columns:
-            raise ValueError("select() requires at least one column name")
-
-        rows = self.rows()
-        if not rows:
-            raise RuntimeError("Cannot select columns from empty Records")
-
-        # Get all available columns from first row
-        available_columns = set(rows[0].keys())
-
-        # Validate all requested columns exist
-        missing_columns = [col for col in columns if col not in available_columns]
-        if missing_columns:
-            available_str = ", ".join(sorted(available_columns))
-            raise ValueError(
-                f"Column(s) not found: {', '.join(missing_columns)}. "
-                f"Available columns: {available_str}"
-            )
-
-        # Filter rows to only include selected columns
-        filtered_rows = [{col: row[col] for col in columns} for row in rows]
-
-        # Filter schema if available
-        filtered_schema = None
-        if self._schema is not None:
-            schema_dict = {col.name: col for col in self._schema}
-            filtered_schema = [schema_dict[col] for col in columns if col in schema_dict]
-
-        return Records(
-            _data=filtered_rows,
-            _generator=None,
-            _schema=filtered_schema,
-            _database=self._database,
-        )
+        return self._schema_manager.select(*columns)
 
     def rename(
         self, columns: Union[Dict[str, str], str], new_name: Optional[str] = None
     ) -> "Records":
         """Rename columns in records (in-memory operation).
 
+        Delegates to :class:`RecordsSchema`.
+
         Args:
             columns: Either a dict mapping old_name -> new_name, or a single column name (if new_name provided)
             new_name: New name for the column (required if columns is a string)
 
         Returns:
-            New :class:`Records` instance with renamed columns
+            New Records instance with renamed columns
 
         Raises:
             ValueError: If column doesn't exist or new name conflicts with existing column
-            RuntimeError: If :class:`Records` is empty
+            RuntimeError: If Records is empty
 
         Example:
-            >>> records = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
             >>> renamed = records.rename({"id": "user_id", "name": "user_name"})
             >>> list(renamed)
             [{"user_id": 1, "user_name": "Alice"}]
@@ -333,81 +270,12 @@ class Records(Sequence[Mapping[str, object]]):
             >>> list(renamed)
             [{"user_id": 1, "name": "Alice"}]
         """
-        rows = self.rows()
-        if not rows:
-            raise RuntimeError("Cannot rename columns in empty Records")
-
-        # Normalize to dict format
-        if isinstance(columns, str):
-            if new_name is None:
-                raise ValueError("new_name is required when columns is a string")
-            rename_map: Dict[str, str] = {columns: new_name}
-        else:
-            rename_map = columns
-
-        if not rename_map:
-            raise ValueError("rename() requires at least one column to rename")
-
-        # Get all available columns from first row
-        available_columns = set(rows[0].keys())
-
-        # Validate all old columns exist
-        missing_columns = [
-            old_col for old_col in rename_map.keys() if old_col not in available_columns
-        ]
-        if missing_columns:
-            available_str = ", ".join(sorted(available_columns))
-            raise ValueError(
-                f"Column(s) not found: {', '.join(missing_columns)}. "
-                f"Available columns: {available_str}"
-            )
-
-        # Check for name conflicts (new name conflicts with existing column that's not being renamed)
-        new_names = set(rename_map.values())
-        conflicting = new_names & (available_columns - set(rename_map.keys()))
-        if conflicting:
-            raise ValueError(
-                f"New column name(s) conflict with existing columns: {', '.join(conflicting)}"
-            )
-
-        # Rename columns in rows
-        renamed_rows = []
-        for row in rows:
-            new_row = {}
-            for key, value in row.items():
-                if key in rename_map:
-                    new_row[rename_map[key]] = value
-                else:
-                    new_row[key] = value
-            renamed_rows.append(new_row)
-
-        # Update schema if available
-        updated_schema = None
-        if self._schema is not None:
-            from ..table.schema import ColumnDef
-
-            updated_schema = []
-            for col_def in self._schema:
-                if col_def.name in rename_map:
-                    updated_schema.append(
-                        ColumnDef(
-                            name=rename_map[col_def.name],
-                            type_name=col_def.type_name,
-                            nullable=col_def.nullable,
-                        )
-                    )
-                else:
-                    updated_schema.append(col_def)
-
-        return Records(
-            _data=renamed_rows,
-            _generator=None,
-            _schema=updated_schema,
-            _database=self._database,
-        )
+        return self._schema_manager.rename(columns, new_name=new_name)
 
     def head(self, n: int = 5) -> List[dict[str, object]]:
         """Return first n rows as list.
+
+        Delegates to :class:`RecordsAccessor`.
 
         Args:
             n: Number of rows to return (default: 5)
@@ -418,13 +286,12 @@ class Records(Sequence[Mapping[str, object]]):
         Raises:
             ValueError: If n is negative
         """
-        if n < 0:
-            raise ValueError(f"n must be non-negative, got {n}")
-        rows = self.rows()
-        return rows[:n]
+        return self._accessor.head(n)
 
     def tail(self, n: int = 5) -> List[dict[str, object]]:
         """Return last n rows as list.
+
+        Delegates to :class:`RecordsAccessor`.
 
         Args:
             n: Number of rows to return (default: 5)
@@ -435,34 +302,35 @@ class Records(Sequence[Mapping[str, object]]):
         Raises:
             ValueError: If n is negative
         """
-        if n < 0:
-            raise ValueError(f"n must be non-negative, got {n}")
-        rows = self.rows()
-        return rows[-n:]
+        return self._accessor.tail(n)
 
     def first(self) -> Optional[dict[str, object]]:
         """Return first row or None if empty.
 
+        Delegates to :class:`RecordsAccessor`.
+
         Returns:
-            First row dictionary or None if :class:`Records` is empty
+            First row dictionary or None if Records is empty
         """
-        rows = self.rows()
-        return rows[0] if rows else None
+        return self._accessor.first()
 
     def last(self) -> Optional[dict[str, object]]:
         """Return last row or None if empty.
 
+        Delegates to :class:`RecordsAccessor`.
+
         Returns:
-            Last row dictionary or None if :class:`Records` is empty
+            Last row dictionary or None if Records is empty
         """
-        rows = self.rows()
-        return rows[-1] if rows else None
+        return self._accessor.last()
 
     def insert_into(self, table: Union[str, "TableHandle"]) -> int:
         """Insert records into a table.
 
+        Delegates to :class:`RecordsWriter`.
+
         Args:
-            table: Table name (str) or :class:`TableHandle`
+            table: Table name (str) or TableHandle
 
         Returns:
             Number of rows inserted
@@ -471,40 +339,10 @@ class Records(Sequence[Mapping[str, object]]):
             RuntimeError: If no database is attached
 
         Note:
-            For :class:`DataFrame`-based operations, consider creating a :class:`DataFrame` from the data
+            For DataFrame-based operations, consider creating a DataFrame from the data
             and using df.write.insertInto() instead.
         """
-        if self._database is None:
-            raise RuntimeError(
-                "Cannot insert Records without an attached Database. "
-                "For DataFrame-based operations, consider creating a DataFrame from the data "
-                "and using df.write.insertInto() instead."
-            )
-
-        from ..table.mutations import insert_rows
-
-        if isinstance(table, str):
-            table_handle = self._database.table(table)
-        else:
-            table_handle = table
-
-        table_handle_strict: "TableHandle" = table_handle
-        transaction = self._database.connection_manager.active_transaction
-
-        # Stream chunked data without materializing whenever possible
-        if self._generator is not None:
-            total_inserted = 0
-            chunk_iter = self._generator()
-            for chunk in chunk_iter:
-                if not chunk:
-                    continue
-                total_inserted += insert_rows(table_handle_strict, chunk, transaction=transaction)
-            return total_inserted
-
-        rows = self.rows()
-        if not rows:
-            return 0
-        return insert_rows(table_handle_strict, rows, transaction=transaction)
+        return self._writer.insert_into(table)
 
 
 @dataclass

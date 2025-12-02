@@ -13,11 +13,17 @@ Key features:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse, JsonResponse
     from django.utils.deprecation import MiddlewareMixin
+    from ..table.table import Database
+else:
+    Database = Any
+    HttpRequest = Any
+    HttpResponse = Any
+    JsonResponse = Any
 
 try:
     from django.conf import settings
@@ -30,14 +36,14 @@ try:
 except ImportError:
     DJANGO_AVAILABLE = False
     # Create stubs for type checking
-    MiddlewareMixin = None  # type: ignore[assignment, misc]
-    HttpRequest = None  # type: ignore[assignment, misc]
-    HttpResponse = None  # type: ignore[assignment, misc]
-    JsonResponse = None  # type: ignore[assignment, misc]
-    connections = None  # type: ignore[assignment, misc]
-    transaction = None  # type: ignore[assignment, misc]
-    settings = None  # type: ignore[assignment, misc]
-    ImproperlyConfigured = None  # type: ignore[assignment, misc]
+    MiddlewareMixin = cast(type[Any], None)
+    HttpRequest = cast(type[Any], None)
+    HttpResponse = cast(type[Any], None)
+    JsonResponse = cast(type[Any], None)
+    connections = None
+    transaction = None
+    settings = None
+    ImproperlyConfigured = None
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +63,7 @@ class MoltresExceptionMiddleware:
         ]
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         """Initialize the middleware.
 
         Args:
@@ -80,7 +86,7 @@ class MoltresExceptionMiddleware:
             handler.setFormatter(formatter)
             logger.addHandler(handler)
 
-    def __call__(self, request: "HttpRequest") -> "HttpResponse":
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         """Process the request and handle Moltres exceptions.
 
         Args:
@@ -95,7 +101,7 @@ class MoltresExceptionMiddleware:
         except Exception as exc:
             return self._handle_exception(request, exc)
 
-    def _handle_exception(self, request: "HttpRequest", exc: Exception) -> "HttpResponse":
+    def _handle_exception(self, request: HttpRequest, exc: Exception) -> HttpResponse:
         """Handle Moltres exceptions and convert to HTTP responses.
 
         Args:
@@ -243,7 +249,7 @@ class MoltresExceptionMiddleware:
         raise exc
 
 
-def get_moltres_db(using: str = "default"):
+def get_moltres_db(using: str = "default") -> Database:
     """Get a Moltres :class:`Database` instance from Django's database connection.
 
     This function creates a Moltres :class:`Database` instance using Django's database

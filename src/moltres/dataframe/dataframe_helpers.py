@@ -16,12 +16,15 @@ if TYPE_CHECKING:
     from ..utils.inspector import ColumnInfo
     from ..table.async_table import AsyncDatabase
     from ..table.table import Database
+else:
+    Database = Any
+    AsyncDatabase = Any
 
 
 class DataFrameHelpersProtocol(Protocol):
     """Protocol defining the interface that classes using DataFrameHelpersMixin must implement."""
 
-    database: Optional[Union["Database", "AsyncDatabase"]]
+    database: Optional[Union[Database, AsyncDatabase]]
     plan: LogicalPlan
 
     def _normalize_projection(self, expr: Union[Column, str]) -> Column:
@@ -56,7 +59,7 @@ class DataFrameHelpersMixin:
     # Subclasses must provide these attributes:
     # - database: Optional[Union[Database, AsyncDatabase]]
     # - plan: LogicalPlan
-    database: Optional[Union["Database", "AsyncDatabase"]]
+    database: Optional[Union[Database, AsyncDatabase]]
 
     def _normalize_projection(self, expr: Union[Column, str]) -> Column:
         """Normalize a projection expression to a :class:`Column`.
@@ -458,9 +461,19 @@ class DataFrameHelpersMixin:
             SortOrder object
         """
         if expr.op == "sort_desc":
-            return operators.sort_order(expr.args[0], descending=True)
+            col_arg = expr.args[0]
+            if not isinstance(col_arg, Column):
+                raise TypeError(
+                    f"Expected Column for sort expression, got {type(col_arg).__name__}"
+                )
+            return operators.sort_order(col_arg, descending=True)
         if expr.op == "sort_asc":
-            return operators.sort_order(expr.args[0], descending=False)
+            col_arg = expr.args[0]
+            if not isinstance(col_arg, Column):
+                raise TypeError(
+                    f"Expected Column for sort expression, got {type(col_arg).__name__}"
+                )
+            return operators.sort_order(col_arg, descending=False)
         return operators.sort_order(expr, descending=False)
 
     def _normalize_join_condition(

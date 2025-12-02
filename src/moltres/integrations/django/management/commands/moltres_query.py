@@ -6,8 +6,13 @@ useful for data exploration, debugging, and one-off operations.
 
 from __future__ import annotations
 
+import ast
 import json
-from typing import Any
+from argparse import ArgumentParser
+from typing import TYPE_CHECKING, Any, Dict, List, Union, cast
+
+if TYPE_CHECKING:
+    from moltres.table.table import Database
 
 try:
     from django.core.management.base import BaseCommand, CommandError  # type: ignore[import-untyped]
@@ -16,9 +21,12 @@ try:
     DJANGO_AVAILABLE = True
 except ImportError:
     DJANGO_AVAILABLE = False
-    BaseCommand = None
-    CommandError = None
+    BaseCommand = cast(type[Any], None)
+    CommandError = cast(type[Any], None)
     connections = None
+
+# Type alias for query results
+QueryResults = Union[List[Dict[str, Any]], Any]
 
 
 class Command(BaseCommand):
@@ -32,7 +40,7 @@ class Command(BaseCommand):
 
     help = "Execute Moltres DataFrame operations from the command line"
 
-    def add_arguments(self, parser: Any) -> None:
+    def add_arguments(self, parser: ArgumentParser) -> None:
         """Add command arguments."""
         parser.add_argument(
             "query",
@@ -64,7 +72,7 @@ class Command(BaseCommand):
             help="Read query from file instead of command line",
         )
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: str, **options: Any) -> None:
         """Execute the command."""
         if not DJANGO_AVAILABLE:
             raise CommandError(
@@ -122,8 +130,8 @@ class Command(BaseCommand):
         except Exception as e:
             raise CommandError(f"Query execution failed: {e}") from e
 
-    def _execute_query(self, db: Any, query_str: str) -> Any:
-        """Execute a Moltres query string.
+    def _execute_query(self, db: Database, query_str: str) -> QueryResults:
+        """Execute a Moltres query string safely using AST parsing.
 
         Args:
             db: Moltres :class:`Database` instance
@@ -131,24 +139,63 @@ class Command(BaseCommand):
 
         Returns:
             Query results
+
+        Raises:
+            CommandError: If the query contains unsafe operations or fails to execute
         """
-        # Create a safe execution environment
         # Import Moltres components
         from moltres import col
         from moltres.expressions import functions as F
 
-        # Create namespace for query execution
+        # Create namespace for query execution (restricted builtins)
+        safe_builtins = {
+            "abs": abs,
+            "all": all,
+            "any": any,
+            "bool": bool,
+            "dict": dict,
+            "float": float,
+            "int": int,
+            "len": len,
+            "list": list,
+            "max": max,
+            "min": min,
+            "range": range,
+            "str": str,
+            "sum": sum,
+            "tuple": tuple,
+        }
+
         namespace = {
             "db": db,
             "col": col,
             "F": F,
-            "__builtins__": __builtins__,
+            "__builtins__": safe_builtins,
         }
 
-        # Execute query
+        # Parse and validate AST
         try:
-            # Evaluate the query string
-            result = eval(query_str, namespace)  # noqa: S307
+            tree = ast.parse(query_str, mode="eval")
+        except SyntaxError as e:
+            # Check if it's an import statement or other statement-level syntax
+            # that can't be parsed in eval mode
+            error_str = str(e).lower()
+            if "import" in error_str or (
+                "invalid syntax" in error_str and "import" in query_str.lower()
+            ):
+                raise CommandError(
+                    "Unsafe operation detected: Import statements are not allowed. "
+                    "Only query expressions are allowed."
+                ) from e
+            raise CommandError(f"Invalid query syntax: {e}") from e
+
+        # Validate AST for safety
+        self._validate_ast(tree)
+
+        # Execute query safely
+        try:
+            code = compile(tree, "<string>", "eval")
+            result = eval(code, namespace)  # noqa: S307 - Safe after AST validation
 
             # If result is a DataFrame, collect it
             if hasattr(result, "collect"):
@@ -157,7 +204,84 @@ class Command(BaseCommand):
         except Exception as e:
             raise CommandError(f"Query evaluation failed: {e}") from e
 
-    def _print_results(self, results: Any, output_format: str) -> None:
+    def _validate_ast(self, node: ast.AST) -> None:
+        """Validate AST to ensure only safe operations are allowed.
+
+        Args:
+            node: AST node to validate
+
+        Raises:
+            CommandError: If unsafe operations are detected
+        """
+        # Forbidden node types
+        forbidden_nodes = (
+            ast.Import,
+            ast.ImportFrom,
+            ast.Global,
+            ast.Nonlocal,
+            ast.Delete,
+            ast.AugAssign,
+            ast.AnnAssign,
+            ast.With,
+            ast.AsyncWith,
+            ast.Raise,
+            ast.Try,
+            ast.Assert,
+            ast.For,
+            ast.AsyncFor,
+            ast.While,
+            ast.If,
+            ast.FunctionDef,
+            ast.AsyncFunctionDef,
+            ast.ClassDef,
+            ast.Return,
+            ast.Yield,
+            ast.YieldFrom,
+            ast.Await,
+        )
+
+        for child in ast.walk(node):
+            # Check for forbidden node types
+            if isinstance(child, forbidden_nodes):
+                raise CommandError(
+                    f"Unsafe operation detected: {type(child).__name__}. "
+                    "Only query expressions are allowed."
+                )
+
+            # Check for list comprehensions and generator expressions (they can contain loops)
+            if isinstance(child, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+                raise CommandError(
+                    f"Unsafe operation detected: {type(child).__name__}. "
+                    "Comprehensions are not allowed for security reasons. "
+                    "Only query expressions are allowed."
+                )
+
+            # Check for dangerous function calls
+            if isinstance(child, ast.Call):
+                if isinstance(child.func, ast.Name):
+                    func_name = child.func.id
+                    # Block dangerous builtins
+                    dangerous_builtins = {
+                        "open",
+                        "exec",
+                        "eval",
+                        "__import__",
+                        "compile",
+                        "reload",
+                        "input",
+                        "raw_input",
+                        "file",
+                        "exit",
+                        "quit",
+                        "help",
+                    }
+                    if func_name in dangerous_builtins:
+                        raise CommandError(
+                            f"Dangerous function call detected: {func_name}. "
+                            "This operation is not allowed for security reasons."
+                        )
+
+    def _print_results(self, results: QueryResults, output_format: str) -> None:
         """Print query results in the specified format.
 
         Args:
@@ -219,7 +343,7 @@ class Command(BaseCommand):
             row_str = " | ".join(str(row.get(h, "")).ljust(widths[h]) for h in headers)
             self.stdout.write(row_str)
 
-    def _interactive_mode(self, db: Any, output_format: str) -> None:
+    def _interactive_mode(self, db: Database, output_format: str) -> None:
         """Start interactive query mode.
 
         Args:

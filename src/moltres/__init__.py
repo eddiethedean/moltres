@@ -31,7 +31,7 @@ try:
 except ImportError:
     pass
 
-from .config import MoltresConfig, create_config
+from .config import EngineOptionValue, MoltresConfig, create_config
 from .expressions import col, lit
 from .table.schema import column
 from .table.table import Database
@@ -109,7 +109,7 @@ def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
         )
 
 
-__version__ = "0.19.4"
+__version__ = "0.19.5"
 
 __all__ = [
     "AsyncDatabase",
@@ -149,7 +149,7 @@ def connect(
     dsn: str | None = None,
     engine: object | None = None,
     session: object | None = None,
-    **options: object,
+    **options: EngineOptionValue,
 ) -> Database:
     """Connect to a SQL database and return a :class:`Database` handle.
 
@@ -209,8 +209,8 @@ def connect(
         >>> db = connect("sqlite:///:memory:")
         >>> from moltres.table.schema import column
         >>> _ = db.create_table("users", [column("id", "INTEGER"), column("active", "BOOLEAN")]).collect()  # doctest: +ELLIPSIS
-        >>> from moltres.io.records import :class:`Records`
-        >>> _ = :class:`Records`(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
+        >>> from moltres.io.records import Records
+        >>> _ = Records(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
         >>> df = db.table("users").select().where(col("active") == True)
         >>> results = df.collect()
         >>> len(results)
@@ -289,7 +289,7 @@ def async_connect(
     dsn: str | None = None,
     engine: object | None = None,
     session: object | None = None,
-    **options: object,
+    **options: EngineOptionValue,
 ) -> AsyncDatabase:
     """Connect to a SQL database asynchronously and return an :class:`AsyncDatabase` handle.
 

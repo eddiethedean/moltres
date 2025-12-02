@@ -21,7 +21,7 @@ from typing import (
 
 logger = logging.getLogger(__name__)
 
-from ..expressions.column import Column  # noqa: E402
+from ..expressions.column import Column, LiteralValue  # noqa: E402
 from ..table.mutations import delete_rows, insert_rows, update_rows  # noqa: E402
 from ..table.schema import ColumnDef  # noqa: E402
 from ..utils.exceptions import CompilationError, ExecutionError, ValidationError  # noqa: E402
@@ -135,8 +135,8 @@ class DataFrameWriter:
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
+            >>> from moltres.io.records import Records
+            >>> Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
             >>> # Save :class:`DataFrame` to new table
             >>> df = db.table("source").select()
             >>> df.write.save_as_table("target")
@@ -171,8 +171,8 @@ class DataFrameWriter:
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("target", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
             >>> db.create_table("source", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
+            >>> from moltres.io.records import Records
+            >>> Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("source")
             >>> # Insert :class:`DataFrame` into existing table
             >>> df = db.table("source").select()
             >>> df.write.insertInto("target")
@@ -222,7 +222,7 @@ class DataFrameWriter:
         table_name: str,
         *,
         where: Column,
-        set: Mapping[str, object],
+        set: Mapping[str, Union[Column, LiteralValue]],
     ) -> None:
         """Update rows in a table matching the WHERE condition.
 
@@ -270,8 +270,8 @@ class DataFrameWriter:
             >>> from moltres.table.schema import column
             >>> db = connect("sqlite:///:memory:")
             >>> db.create_table("users", [column("id", "INTEGER"), column("name", "TEXT")]).collect()
-            >>> from moltres.io.records import :class:`Records`
-            >>> :class:`Records`(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
+            >>> from moltres.io.records import Records
+            >>> Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db).insert_into("users")
             >>> # Delete rows matching condition
             >>> df = db.table("users").select()
             >>> df.write.delete("users", where=col("id") == 1)

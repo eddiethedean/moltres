@@ -768,7 +768,11 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         from .pandas_dataframe_helpers import build_pandas_drop_operation
 
         if axis == 1 or axis == "index":
-            raise NotImplementedError("Dropping rows by label is not supported in lazy evaluation")
+            raise NotImplementedError(
+                "Dropping rows by label is not supported in lazy evaluation. "
+                "Alternative: Use where() or query() to filter out unwanted rows instead of dropping them. "
+                "Example: df.query('column != value') instead of df.drop(index=labels)"
+            )
         if axis != 0 and axis != "columns":
             raise ValueError(f"Invalid axis: {axis}. Must be 0 or 'columns'")
 
@@ -1048,7 +1052,12 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             >>> df.sample(frac=0.1, random_state=42)
         """
         if replace:
-            raise NotImplementedError("Sampling with replacement is not yet supported")
+            raise NotImplementedError(
+                "Sampling with replacement is not yet supported. "
+                "Alternative: Use sample() with replace=False, or materialize the DataFrame "
+                "and use pandas' sample() method with replace=True. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
 
         if n is not None and frac is not None:
             raise ValueError("Cannot specify both 'n' and 'frac'")

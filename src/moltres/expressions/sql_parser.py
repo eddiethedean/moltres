@@ -112,7 +112,7 @@ class SQLParser:
     def _parse_logical_or(self) -> Column:
         """Parse logical OR expressions."""
         left = self._parse_logical_and()
-        while self._match_token(r"OR\s+", case_insensitive=True):
+        while self._match_token(r"\bOR\b\s*", case_insensitive=True):
             right = self._parse_logical_and()
             left = Column(op="or", args=(left, right))
         return left
@@ -120,7 +120,7 @@ class SQLParser:
     def _parse_logical_and(self) -> Column:
         """Parse logical AND expressions."""
         left = self._parse_comparison()
-        while self._match_token(r"AND\s+", case_insensitive=True):
+        while self._match_token(r"\bAND\b\s*", case_insensitive=True):
             right = self._parse_comparison()
             left = Column(op="and", args=(left, right))
         return left
@@ -157,7 +157,7 @@ class SQLParser:
                 self._skip_whitespace()
                 lower = self._parse_additive()
                 self._skip_whitespace()
-                if not self._match_token(r"AND\s+", case_insensitive=True):
+                if not self._match_token(r"\bAND\b\s*", case_insensitive=True):
                     raise ValueError(f"Expected AND after BETWEEN at position {self.pos}")
                 self._skip_whitespace()
                 upper = self._parse_additive()

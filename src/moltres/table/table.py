@@ -435,6 +435,10 @@ class Database:
         self._ephemeral_tables.discard(name)
 
     def _cleanup_ephemeral_tables(self) -> None:
+        """Clean up all ephemeral tables.
+
+        Delegates to :class:`EphemeralTableManager`.
+        """
         if not self._ephemeral_tables:
             return
         for table_name in list(self._ephemeral_tables):
@@ -473,11 +477,13 @@ class Database:
     ) -> TableHandle:
         """Get a handle to a table in the database.
 
+        Delegates to :class:`TableManager`.
+
         Args:
             name_or_model: Name of the table, SQLAlchemy model class, or SQLModel model class
 
         Returns:
-            :class:`TableHandle` for the specified table
+            TableHandle for the specified table
 
         Raises:
             ValidationError: If table name is invalid
@@ -498,39 +504,10 @@ class Database:
             'Alice'
             >>> db.close()
         """
-        from ..utils.exceptions import ValidationError
-        from ..sql.builders import quote_identifier
-        from .sqlalchemy_integration import (
-            is_sqlalchemy_model,
-            get_model_table_name,
-        )
-        from ..utils.sqlmodel_integration import (
-            is_sqlmodel_model,
-            get_sqlmodel_table_name,
-        )
+        from .table_manager import TableManager
 
-        # Check if argument is a SQLModel model
-        if is_sqlmodel_model(name_or_model):
-            sqlmodel_class: Type[Any] = cast(Type[Any], name_or_model)
-            table_name = get_sqlmodel_table_name(sqlmodel_class)
-            # Validate table name format
-            quote_identifier(table_name, self._dialect.quote_char)
-            return TableHandle(name=table_name, database=self, model=sqlmodel_class)
-        # Check if argument is a SQLAlchemy model
-        elif is_sqlalchemy_model(name_or_model):
-            sa_model_class: Type["DeclarativeBase"] = cast(Type["DeclarativeBase"], name_or_model)
-            table_name = get_model_table_name(sa_model_class)
-            # Validate table name format
-            quote_identifier(table_name, self._dialect.quote_char)
-            return TableHandle(name=table_name, database=self, model=sa_model_class)
-        else:
-            # Type narrowing: after model checks, this must be str
-            table_name = cast(str, name_or_model)
-            if not table_name:
-                raise ValidationError("Table name cannot be empty")
-            # Validate table name format
-            quote_identifier(table_name, self._dialect.quote_char)
-            return TableHandle(name=table_name, database=self)
+        table_manager = TableManager(self)
+        return table_manager.table(name_or_model)
 
     def insert(
         self,
@@ -545,11 +522,11 @@ class Database:
     ) -> int:
         """Insert rows into a table.
 
-        Convenience method for inserting data into a table.
+        Delegates to :class:`TableManager`.
 
         Args:
             table_name: Name of the table to insert into
-            rows: Sequence of row dictionaries, :class:`Records`, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame
+            rows: Sequence of row dictionaries, Records, pandas DataFrame, polars DataFrame, or polars LazyFrame
 
         Returns:
             Number of rows inserted
@@ -575,10 +552,10 @@ class Database:
             'Alice'
             >>> db.close()
         """
-        from .mutations import insert_rows
+        from .table_manager import TableManager
 
-        handle = self.table(table_name)
-        return insert_rows(handle, rows)
+        table_manager = TableManager(self)
+        return table_manager.insert(table_name, rows)
 
     def update(
         self,
@@ -971,6 +948,8 @@ class Database:
     ) -> "CreateTableOperation":
         """Create a lazy create table operation.
 
+        Delegates to :class:`DDLManager`.
+
         Args:
             name_or_model: Name of the table to create, or SQLAlchemy model class
             columns: Sequence of ColumnDef objects defining the table schema (required if name_or_model is str)
@@ -1003,11 +982,10 @@ class Database:
             True
             >>> db.close()
         """
-        from .actions import CreateTableOperation
-        from .batch import get_active_batch
-        from .table_operations_helpers import build_create_table_params
+        from .ddl_manager import DDLManager
 
-        params = build_create_table_params(
+        ddl_manager = DDLManager(self)
+        return ddl_manager.create_table(
             name_or_model,
             columns,
             if_not_exists=if_not_exists,
@@ -1015,24 +993,10 @@ class Database:
             constraints=constraints,
         )
 
-        op = CreateTableOperation(
-            database=self,
-            name=params.name,
-            columns=params.columns,
-            if_not_exists=params.if_not_exists,
-            temporary=params.temporary,
-            constraints=params.constraints,
-            model=params.model,
-        )
-
-        # Add to active batch if one exists
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
-
     def drop_table(self, name: str, *, if_exists: bool = True) -> "DropTableOperation":
         """Create a lazy drop table operation.
+
+        Delegates to :class:`DDLManager`.
 
         Args:
             name: Name of the table to drop
@@ -1045,14 +1009,10 @@ class Database:
             >>> op = db.drop_table("users")
             >>> op.collect()  # Executes the DROP TABLE
         """
-        from .actions import DropTableOperation
-        from .batch import get_active_batch
+        from .ddl_manager import DDLManager
 
-        op = DropTableOperation(database=self, name=name, if_exists=if_exists)
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
+        ddl_manager = DDLManager(self)
+        return ddl_manager.drop_table(name, if_exists=if_exists)
 
     def create_index(
         self,
@@ -1065,10 +1025,12 @@ class Database:
     ) -> "CreateIndexOperation":
         """Create a lazy create index operation.
 
+        Delegates to :class:`DDLManager`.
+
         Args:
             name: Name of the index to create
             table: Name of the table to create the index on
-            columns: :class:`Column` name(s) to index (single string or sequence)
+            columns: Column name(s) to index (single string or sequence)
             unique: If True, create a UNIQUE index (default: False)
             if_not_exists: If True, don't error if index already exists (default: True)
 
@@ -1088,21 +1050,12 @@ class Database:
             >>> op2.collect()
             >>> db.close()
         """
-        from .actions import CreateIndexOperation
-        from .batch import get_active_batch
+        from .ddl_manager import DDLManager
 
-        op = CreateIndexOperation(
-            database=self,
-            name=name,
-            table_name=table,
-            columns=columns,
-            unique=unique,
-            if_not_exists=if_not_exists,
+        ddl_manager = DDLManager(self)
+        return ddl_manager.create_index(
+            name, table, columns, unique=unique, if_not_exists=if_not_exists
         )
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
 
     def drop_index(
         self,
@@ -1132,19 +1085,10 @@ class Database:
             >>> op.collect()  # Executes the DROP INDEX
             >>> db.close()
         """
-        from .actions import DropIndexOperation
-        from .batch import get_active_batch
+        from .ddl_manager import DDLManager
 
-        op = DropIndexOperation(
-            database=self,
-            name=name,
-            table_name=table,
-            if_exists=if_exists,
-        )
-        batch = get_active_batch()
-        if batch is not None:
-            batch.add(op)
-        return op
+        ddl_manager = DDLManager(self)
+        return ddl_manager.drop_index(name, table=table, if_exists=if_exists)
 
     # -------------------------------------------------------------- schema inspection
     def get_table_names(self, schema: Optional[str] = None) -> List[str]:
@@ -1304,19 +1248,39 @@ class Database:
         return compile_plan(plan, dialect=self._dialect)
 
     def execute_plan(self, plan: LogicalPlan, model: Optional[Type[Any]] = None) -> QueryResult:
-        stmt = self.compile_plan(plan)
-        return self._executor.fetch(stmt, model=model)
+        """Execute a logical plan and return results.
+
+        Delegates to :class:`DatabaseQueryExecutor`.
+        """
+        from .query_executor import DatabaseQueryExecutor
+
+        executor = DatabaseQueryExecutor(self)
+        return executor.execute_plan(plan, model=model)
 
     def execute_plan_stream(self, plan: LogicalPlan) -> Iterator[List[Dict[str, object]]]:
-        """Execute a plan and return an iterator of row chunks."""
-        stmt = self.compile_plan(plan)
-        return self._executor.fetch_stream(stmt)
+        """Execute a plan and return an iterator of row chunks.
+
+        Delegates to :class:`DatabaseQueryExecutor`.
+        """
+        from .query_executor import DatabaseQueryExecutor
+
+        executor = DatabaseQueryExecutor(self)
+        return executor.execute_plan_stream(plan)
 
     def execute_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> QueryResult:
-        return self._executor.fetch(sql, params=params)
+        """Execute a raw SQL query.
+
+        Delegates to :class:`DatabaseQueryExecutor`.
+        """
+        from .query_executor import DatabaseQueryExecutor
+
+        executor = DatabaseQueryExecutor(self)
+        return executor.execute_sql(sql, params=params)
 
     def explain(self, sql: str, params: Optional[Dict[str, Any]] = None) -> str:
         """Get the execution plan for a SQL query.
+
+        Delegates to :class:`DatabaseQueryExecutor`.
 
         Args:
             sql: SQL query string
@@ -1329,37 +1293,10 @@ class Database:
             >>> plan = db.explain("SELECT * FROM users WHERE id = :id", params={"id": 1})
             >>> print(plan)
         """
-        dialect_name = self._dialect.name
-        if dialect_name == "postgresql" or dialect_name == "duckdb":
-            explain_sql = f"EXPLAIN ANALYZE {sql}"
-        elif dialect_name == "mysql":
-            explain_sql = f"EXPLAIN {sql}"
-        elif dialect_name == "sqlite":
-            explain_sql = f"EXPLAIN QUERY PLAN {sql}"
-        else:
-            explain_sql = f"EXPLAIN {sql}"
+        from .query_executor import DatabaseQueryExecutor
 
-        result = self._executor.fetch(explain_sql, params=params)
-        if result.rows is None:
-            return ""
-        # Handle different row types
-        rows: List[Any] = []
-        if isinstance(result.rows, list):
-            rows = result.rows
-        elif hasattr(result.rows, "to_dict"):
-            # pandas DataFrame
-            rows = result.rows.to_dict("records")  # type: ignore[call-overload]
-        elif hasattr(result.rows, "to_dicts"):
-            # polars DataFrame
-            rows = list(result.rows.to_dicts())  # type: ignore[operator]
-        # Format rows - handle dict or other types
-        formatted_lines = []
-        for row in rows:
-            if isinstance(row, dict):
-                formatted_lines.append(" ".join(str(cell) for cell in row.values()))
-            else:
-                formatted_lines.append(str(row))
-        return "\n".join(formatted_lines)
+        executor = DatabaseQueryExecutor(self)
+        return executor.explain(sql, params=params)
 
     def show_tables(self, schema: Optional[str] = None) -> None:
         """Print a formatted list of tables in the database.
@@ -1486,163 +1423,59 @@ class Database:
         pk: Optional[Union[str, Sequence[str]]] = None,
         auto_pk: Optional[Union[str, Sequence[str]]] = None,
     ) -> "DataFrame":
-        """Create a :class:`DataFrame` from Python data (list of dicts, list of tuples, :class:`Records`, LazyRecords, pandas :class:`DataFrame`, polars :class:`DataFrame`, or polars LazyFrame).
+        """Create a DataFrame from Python data.
 
-        Creates a temporary table, inserts the data, and returns a :class:`DataFrame` querying from that table.
+        Delegates to :class:`EphemeralTableManager`.
+
+        Creates a temporary table, inserts the data, and returns a DataFrame querying from that table.
         If LazyRecords is provided, it will be auto-materialized.
-        If pandas/polars :class:`DataFrame` or LazyFrame is provided, it will be converted to :class:`Records` with lazy conversion.
+        If pandas/polars DataFrame or LazyFrame is provided, it will be converted to Records with lazy conversion.
 
         Args:
             data: Input data in one of supported formats:
                 - List of dicts: [{"col1": val1, "col2": val2}, ...]
                 - List of tuples: Requires schema parameter with column names
-                - :class:`Records` object: Extracts data and schema if available
+                - Records object: Extracts data and schema if available
                 - LazyRecords object: Auto-materializes and extracts data and schema
-                - pandas :class:`DataFrame`: Converts to :class:`Records` with schema preservation
-                - polars :class:`DataFrame`: Converts to :class:`Records` with schema preservation
-                - polars LazyFrame: Materializes and converts to :class:`Records` with schema preservation
+                - pandas DataFrame: Converts to Records with schema preservation
+                - polars DataFrame: Converts to Records with schema preservation
+                - polars LazyFrame: Materializes and converts to Records with schema preservation
             schema: Optional explicit schema. If not provided, schema is inferred from data.
             pk: Optional column name(s) to mark as primary key. Can be a single string or sequence of strings for composite keys.
             auto_pk: Optional column name(s) to create as auto-incrementing primary key. Can specify same name as pk to make an existing column auto-incrementing.
 
         Returns:
-            :class:`DataFrame` querying from the created temporary table
+            DataFrame querying from the created temporary table
 
         Raises:
             ValueError: If data is empty and no schema provided, or if primary key requirements are not met
             ValidationError: If list of tuples provided without schema, or other validation errors
 
         Example:
-            >>> # Create :class:`DataFrame` from list of dicts
+            >>> # Create DataFrame from list of dicts
             >>> df = db.createDataFrame([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], pk="id")
-            >>> # Create :class:`DataFrame` with auto-incrementing primary key
+            >>> # Create DataFrame with auto-incrementing primary key
             >>> df = db.createDataFrame([{"name": "Alice"}, {"name": "Bob"}], auto_pk="id")
-            >>> # Create :class:`DataFrame` from :class:`Records`
-            >>> from moltres.io.records import :class:`Records`
-            >>> records = :class:`Records`(_data=[{"id": 1, "name": "Alice"}], _database=db)
+            >>> # Create DataFrame from Records
+            >>> from moltres.io.records import Records
+            >>> records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
             >>> df = db.createDataFrame(records, pk="id")
-            >>> # Create :class:`DataFrame` from LazyRecords (auto-materializes)
+            >>> # Create DataFrame from LazyRecords (auto-materializes)
             >>> lazy_records = db.read.records.csv("data.csv")
             >>> df = db.createDataFrame(lazy_records, pk="id")
-            >>> # Create :class:`DataFrame` from pandas :class:`DataFrame`
+            >>> # Create DataFrame from pandas DataFrame
             >>> import pandas as pd
-            >>> pdf = pd.:class:`DataFrame`([{"id": 1, "name": "Alice"}])
+            >>> pdf = pd.DataFrame([{"id": 1, "name": "Alice"}])
             >>> df = db.createDataFrame(pdf, pk="id")
-            >>> # Create :class:`DataFrame` from polars :class:`DataFrame`
+            >>> # Create DataFrame from polars DataFrame
             >>> import polars as pl
-            >>> plf = pl.:class:`DataFrame`([{"id": 1, "name": "Alice"}])
+            >>> plf = pl.DataFrame([{"id": 1, "name": "Alice"}])
             >>> df = db.createDataFrame(plf, pk="id")
         """
-        from ..dataframe.create_dataframe import (
-            ensure_primary_key,
-            generate_unique_table_name,
-            get_schema_from_records,
-            normalize_data_to_rows,
-        )
-        from ..dataframe.dataframe import DataFrame
-        from ..dataframe.readers.schema_inference import infer_schema_from_rows
-        from ..io.records import (
-            LazyRecords,
-            Records,
-            _is_pandas_dataframe,
-            _is_polars_dataframe,
-            _is_polars_lazyframe,
-            _dataframe_to_records,
-        )
-        from ..utils.exceptions import ValidationError
+        from .ephemeral_manager import EphemeralTableManager
 
-        # Convert DataFrame to Records if needed
-        if _is_pandas_dataframe(data) or _is_polars_dataframe(data) or _is_polars_lazyframe(data):
-            data = _dataframe_to_records(data, database=self)
-
-        # Normalize data to list of dicts
-        # Handle LazyRecords by auto-materializing
-        if isinstance(data, LazyRecords):
-            materialized_records = data.collect()  # Auto-materialize
-            rows = normalize_data_to_rows(materialized_records)
-            # Use schema from Records if available and no explicit schema provided
-            if schema is None:
-                schema = get_schema_from_records(materialized_records)
-        elif isinstance(data, Records):
-            rows = normalize_data_to_rows(data)
-            # Use schema from Records if available and no explicit schema provided
-            if schema is None:
-                schema = get_schema_from_records(data)
-        elif isinstance(data, list) and data and isinstance(data[0], tuple):
-            # Handle list of tuples - requires schema
-            if schema is None:
-                from ..utils.exceptions import ValidationError
-
-                raise ValidationError(
-                    "List of tuples requires a schema with column names. "
-                    "Provide schema parameter or use list of dicts instead."
-                )
-            # Convert tuples to dicts using schema column names
-            column_names = [col.name for col in schema]
-            rows = []
-            for row_tuple in data:
-                if len(row_tuple) != len(column_names):
-                    raise ValueError(
-                        f"Tuple length {len(row_tuple)} does not match schema column count {len(column_names)}"
-                    )
-                rows.append(dict(zip(column_names, row_tuple)))
-        else:
-            rows = normalize_data_to_rows(data)
-
-        # Validate data is not empty (unless schema provided)
-        if not rows and schema is None:
-            raise ValueError("Cannot create DataFrame from empty data without a schema")
-
-        # Infer or use schema
-        if schema is None:
-            if not rows:
-                raise ValueError("Cannot infer schema from empty data. Provide schema parameter.")
-            inferred_schema_list = list(infer_schema_from_rows(rows))
-        else:
-            inferred_schema_list = list(schema)
-
-        # Ensure primary key
-        inferred_schema_list, new_auto_increment_cols = ensure_primary_key(
-            inferred_schema_list,
-            pk=pk,
-            auto_pk=auto_pk,
-            dialect_name=self._dialect_name,
-            require_primary_key=False,
-        )
-
-        # Generate unique table name
-        table_name = generate_unique_table_name()
-
-        # Always use persistent staging tables so later operations (which may run on a different
-        # pooled connection) can still access the data. Ephemeral cleanup happens via close().
-        use_temp_tables = False
-        table_handle = self.create_table(
-            table_name,
-            inferred_schema_list,
-            temporary=use_temp_tables,
-            if_not_exists=True,
-        ).collect()
-        if not use_temp_tables:
-            self._register_ephemeral_table(table_name)
-
-        # Insert data (exclude new auto-increment columns from INSERT)
-        if rows:
-            # Filter rows to only include columns that exist in schema and are not new auto-increment columns
-            filtered_rows = []
-            for row in rows:
-                filtered_row = {
-                    k: v
-                    for k, v in row.items()
-                    if k not in new_auto_increment_cols
-                    and any(col.name == k for col in inferred_schema_list)
-                }
-                filtered_rows.append(filtered_row)
-
-            records_to_insert = Records(_data=filtered_rows, _database=self)
-            records_to_insert.insert_into(table_handle)
-
-        # Return DataFrame querying from the temporary table
-        return DataFrame.from_table(table_handle)
+        manager = EphemeralTableManager(self)
+        return manager.create_dataframe(data, schema=schema, pk=pk, auto_pk=auto_pk)
 
     # ----------------------------------------------------------------- internals
     @property

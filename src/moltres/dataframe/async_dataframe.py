@@ -20,7 +20,7 @@ from typing import (
     overload,
 )
 
-from ..expressions.column import Column, col
+from ..expressions.column import Column, LiteralValue, col
 from ..logical import operators
 from ..logical.plan import FileScan, LogicalPlan, RawSQL
 from ..sql.compiler import compile_plan
@@ -36,6 +36,17 @@ if TYPE_CHECKING:
     from .async_polars_dataframe import AsyncPolarsDataFrame
     from .async_writer import AsyncDataFrameWriter
     from .pyspark_column import PySparkColumn
+else:
+    AsyncDatabase = Any
+    AsyncTableHandle = Any
+    AsyncGroupedDataFrame = Any
+    AsyncPandasDataFrame = Any
+    AsyncPolarsDataFrame = Any
+    AsyncDataFrameWriter = Any
+    PySparkColumn = Any
+    AsyncRecords = Any
+    Select = Any
+    AsyncNullHandling = Any
 
 
 @dataclass(frozen=True)
@@ -43,14 +54,14 @@ class AsyncDataFrame(DataFrameHelpersMixin):
     """Async lazy :class:`DataFrame` representation."""
 
     plan: LogicalPlan
-    database: Optional["AsyncDatabase"] = None
+    database: Optional[AsyncDatabase] = None
     model: Optional[Type[Any]] = None  # SQLModel class, if attached
 
     # ------------------------------------------------------------------ builders
     @classmethod
     def from_table(
-        cls, table_handle: "AsyncTableHandle", columns: Optional[Sequence[str]] = None
-    ) -> "AsyncDataFrame":
+        cls, table_handle: AsyncTableHandle, columns: Optional[Sequence[str]] = None
+    ) -> AsyncDataFrame:
         """Create an AsyncDataFrame from a table handle."""
         plan = operators.scan(table_handle.name)
         # Check if table_handle has a model attached (SQLModel, Pydantic, or SQLAlchemy)
@@ -68,8 +79,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     @classmethod
     def from_sqlalchemy(
-        cls, select_stmt: "Select", database: Optional["AsyncDatabase"] = None
-    ) -> "AsyncDataFrame":
+        cls, select_stmt: Select, database: Optional[AsyncDatabase] = None
+    ) -> AsyncDataFrame:
         """Create an AsyncDataFrame from a SQLAlchemy Select statement.
 
         This allows you to integrate existing SQLAlchemy queries with Moltres
@@ -109,7 +120,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return cls(plan=plan, database=database)
 
-    def select(self, *columns: Union[Column, str]) -> "AsyncDataFrame":
+    def select(self, *columns: Union[Column, str]) -> AsyncDataFrame:
         """Select columns from the :class:`DataFrame`.
 
         Args:
@@ -144,7 +155,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         result = build_select_operation(self, columns)
         return self._with_plan(result.plan) if result.should_apply else self
 
-    def selectExpr(self, *exprs: str) -> "AsyncDataFrame":
+    def selectExpr(self, *exprs: str) -> AsyncDataFrame:
         """Select columns using SQL expressions (async version).
 
         This method allows you to write SQL expressions directly instead of
@@ -203,7 +214,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         # Use the existing select() method with parsed columns
         return self.select(*parsed_columns)
 
-    def where(self, predicate: Union[Column, str]) -> "AsyncDataFrame":
+    def where(self, predicate: Union[Column, str]) -> AsyncDataFrame:
         """Filter rows based on a predicate.
 
         Args:
@@ -242,12 +253,12 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     def join(
         self,
-        other: "AsyncDataFrame",
+        other: AsyncDataFrame,
         on: Optional[
             Union[str, Sequence[str], Sequence[Tuple[str, str]], Column, Sequence[Column]]
         ] = None,
         how: str = "inner",
-    ) -> "AsyncDataFrame":
+    ) -> AsyncDataFrame:
         """Join with another :class:`DataFrame`.
 
         Args:
@@ -294,7 +305,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return join_dataframes(self, other, on=on, how=how, lateral=False, hints=None)
 
-    def crossJoin(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+    def crossJoin(self, other: AsyncDataFrame) -> AsyncDataFrame:
         """Perform a cross join (Cartesian product) with another :class:`DataFrame`.
 
         Args:
@@ -310,10 +321,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     def semi_join(
         self,
-        other: "AsyncDataFrame",
+        other: AsyncDataFrame,
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
-    ) -> "AsyncDataFrame":
+    ) -> AsyncDataFrame:
         """Perform a semi-join: return rows from this :class:`DataFrame` where a matching row exists in other.
 
         This is equivalent to filtering with EXISTS subquery.
@@ -337,10 +348,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     def anti_join(
         self,
-        other: "AsyncDataFrame",
+        other: AsyncDataFrame,
         *,
         on: Optional[Union[str, Sequence[str], Sequence[Tuple[str, str]]]] = None,
-    ) -> "AsyncDataFrame":
+    ) -> AsyncDataFrame:
         """Perform an anti-join: return rows from this :class:`DataFrame` where no matching row exists in other.
 
         This is equivalent to filtering with NOT EXISTS subquery.
@@ -362,7 +373,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return anti_join_dataframes(self, other, on=on)
 
-    def group_by(self, *columns: Union[Column, str]) -> "AsyncGroupedDataFrame":
+    def group_by(self, *columns: Union[Column, str]) -> AsyncGroupedDataFrame:
         """Group by the specified columns.
 
         Example:
@@ -394,7 +405,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     groupBy = group_by
 
-    def order_by(self, *columns: Union[Column, str]) -> "AsyncDataFrame":
+    def order_by(self, *columns: Union[Column, str]) -> AsyncDataFrame:
         """Sort rows by one or more columns.
 
         Args:
@@ -433,13 +444,13 @@ class AsyncDataFrame(DataFrameHelpersMixin):
     orderBy = order_by
     sort = order_by  # PySpark-style alias
 
-    def limit(self, count: int) -> "AsyncDataFrame":
+    def limit(self, count: int) -> AsyncDataFrame:
         """Limit the number of rows returned."""
         from .dataframe_operations import build_limit_operation
 
         return self._with_plan(build_limit_operation(self.plan, count))
 
-    def sample(self, fraction: float, seed: Optional[int] = None) -> "AsyncDataFrame":
+    def sample(self, fraction: float, seed: Optional[int] = None) -> AsyncDataFrame:
         """Sample a fraction of rows from the :class:`DataFrame`.
 
         Args:
@@ -458,31 +469,31 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return self._with_plan(build_sample_operation(self.plan, fraction, seed))
 
-    def union(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+    def union(self, other: AsyncDataFrame) -> AsyncDataFrame:
         """Union this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only)."""
         from .dataframe_operations import union_dataframes
 
         return union_dataframes(self, other, distinct=True)
 
-    def unionAll(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+    def unionAll(self, other: AsyncDataFrame) -> AsyncDataFrame:
         """Union this :class:`DataFrame` with another :class:`DataFrame` (all rows, including duplicates)."""
         from .dataframe_operations import union_dataframes
 
         return union_dataframes(self, other, distinct=False)
 
-    def intersect(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+    def intersect(self, other: AsyncDataFrame) -> AsyncDataFrame:
         """Intersect this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only)."""
         from .dataframe_operations import intersect_dataframes
 
         return intersect_dataframes(self, other, distinct=True)
 
-    def except_(self, other: "AsyncDataFrame") -> "AsyncDataFrame":
+    def except_(self, other: AsyncDataFrame) -> AsyncDataFrame:
         """Return rows in this :class:`DataFrame` that are not in another :class:`DataFrame` (distinct rows only)."""
         from .dataframe_operations import except_dataframes
 
         return except_dataframes(self, other, distinct=True)
 
-    def cte(self, name: str) -> "AsyncDataFrame":
+    def cte(self, name: str) -> AsyncDataFrame:
         """Create a Common Table Expression (CTE) from this :class:`DataFrame`.
 
         Args:
@@ -496,8 +507,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return cte_dataframe(self, name)
 
     def recursive_cte(
-        self, name: str, recursive: "AsyncDataFrame", union_all: bool = False
-    ) -> "AsyncDataFrame":
+        self, name: str, recursive: AsyncDataFrame, union_all: bool = False
+    ) -> AsyncDataFrame:
         """Create a Recursive Common Table Expression (WITH RECURSIVE) from this :class:`DataFrame`.
 
         Args:
@@ -519,7 +530,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return recursive_cte_dataframe(self, name, recursive, union_all)
 
-    def explode(self, column: Union[Column, str], alias: str = "value") -> "AsyncDataFrame":
+    def explode(self, column: Union[Column, str], alias: str = "value") -> AsyncDataFrame:
         """Explode an array/JSON column into multiple rows (one row per element).
 
         Args:
@@ -556,7 +567,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         value_column: str,
         agg_func: str = "sum",
         pivot_values: Optional[Sequence[str]] = None,
-    ) -> "AsyncDataFrame":
+    ) -> AsyncDataFrame:
         """Pivot the :class:`DataFrame` to reshape data from long to wide format.
 
         Args:
@@ -588,18 +599,18 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return pivot_dataframe(self, pivot_column, value_column, agg_func, pivot_values)
 
-    def distinct(self) -> "AsyncDataFrame":
+    def distinct(self) -> AsyncDataFrame:
         """Return a new :class:`DataFrame` with distinct rows."""
         return self._with_plan(operators.distinct(self.plan))
 
-    def dropDuplicates(self, subset: Optional[Sequence[str]] = None) -> "AsyncDataFrame":
+    def dropDuplicates(self, subset: Optional[Sequence[str]] = None) -> AsyncDataFrame:
         """Return a new :class:`DataFrame` with duplicate rows removed."""
         if subset is None:
             return self.distinct()
         # Simplified implementation
         return self.group_by(*subset).agg()
 
-    def withColumn(self, colName: str, col_expr: Union[Column, str]) -> "AsyncDataFrame":
+    def withColumn(self, colName: str, col_expr: Union[Column, str]) -> AsyncDataFrame:
         """Add or replace a column in the :class:`DataFrame`.
 
         Args:
@@ -675,7 +686,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
-    def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> "AsyncDataFrame":
+    def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> AsyncDataFrame:
         """Add or replace multiple columns in the :class:`DataFrame`.
 
         Args:
@@ -710,7 +721,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             result_df = result_df.withColumn(col_name, col_expr)
         return result_df
 
-    def withColumnRenamed(self, existing: str, new: str) -> "AsyncDataFrame":
+    def withColumnRenamed(self, existing: str, new: str) -> AsyncDataFrame:
         """Rename a column in the :class:`DataFrame`."""
         from ..logical.plan import Project
         from dataclasses import replace as dataclass_replace
@@ -733,7 +744,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             existing_col = col(existing).alias(new)
             return self._with_plan(operators.project(self.plan, (existing_col,)))
 
-    def drop(self, *cols: Union[str, Column]) -> "AsyncDataFrame":
+    def drop(self, *cols: Union[str, Column]) -> AsyncDataFrame:
         """Drop one or more columns from the :class:`DataFrame`.
 
         Args:
@@ -766,9 +777,14 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             new_projections = []
             for col_expr in self.plan.projections:
                 if isinstance(col_expr, Column):
-                    col_name = col_expr._alias or (
-                        col_expr.args[0] if col_expr.op == "column" else None
-                    )
+                    if (
+                        col_expr.op == "column"
+                        and col_expr.args[0]
+                        and isinstance(col_expr.args[0], str)
+                    ):
+                        col_name = col_expr._alias or col_expr.args[0]
+                    else:
+                        col_name = col_expr._alias
                     if col_name not in cols_to_drop:
                         new_projections.append(col_expr)
                 else:
@@ -906,7 +922,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             return int(count_value) if isinstance(count_value, (int, float, str)) else 0
         return 0
 
-    async def describe(self, *cols: str) -> "AsyncDataFrame":
+    async def describe(self, *cols: str) -> AsyncDataFrame:
         """Compute basic statistics for numeric columns."""
         from ..expressions.functions import count, avg, min, max
 
@@ -927,13 +943,15 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return self._with_plan(operators.aggregate(self.plan, (), tuple(aggregations)))
 
-    async def summary(self, *statistics: str) -> "AsyncDataFrame":
+    async def summary(self, *statistics: str) -> AsyncDataFrame:
         """Compute summary statistics for numeric columns."""
         return await self.describe()
 
     def fillna(
-        self, value: Union[object, Dict[str, object]], subset: Optional[Sequence[str]] = None
-    ) -> "AsyncDataFrame":
+        self,
+        value: Union[LiteralValue, Dict[str, LiteralValue]],
+        subset: Optional[Sequence[str]] = None,
+    ) -> AsyncDataFrame:
         """Replace null values with a specified value."""
         from ..expressions.functions import coalesce, lit
 
@@ -949,16 +967,14 @@ class AsyncDataFrame(DataFrameHelpersMixin):
                 fill_value = value
 
             if fill_value is not None:
-                # fill_value can be any object, but lit() expects specific types
-                # We'll allow it and let the runtime handle type errors
-                filled_col = coalesce(col_expr, lit(fill_value)).alias(col_name)  # type: ignore[arg-type]
+                filled_col = coalesce(col_expr, lit(fill_value)).alias(col_name)
                 new_projections.append(filled_col)
             else:
                 new_projections.append(col_expr)
 
         return self.select(*new_projections)
 
-    def dropna(self, how: str = "any", subset: Optional[Sequence[str]] = None) -> "AsyncDataFrame":
+    def dropna(self, how: str = "any", subset: Optional[Sequence[str]] = None) -> AsyncDataFrame:
         """Remove rows with null values."""
         if subset is None:
             return self
@@ -991,7 +1007,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             return str(stmt.compile(compile_kwargs={"literal_binds": True}))
         return str(stmt)
 
-    def to_sqlalchemy(self, dialect: Optional[str] = None) -> "Select":
+    def to_sqlalchemy(self, dialect: Optional[str] = None) -> Select:
         """Convert AsyncDataFrame's logical plan to a SQLAlchemy Select statement.
 
         This method allows you to use Moltres AsyncDataFrames with existing SQLAlchemy
@@ -1301,7 +1317,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
         return cast("list[dict[str, object]]", await records.rows())
 
-    async def _read_file_streaming(self, filescan: FileScan) -> "AsyncRecords":
+    async def _read_file_streaming(self, filescan: FileScan) -> AsyncRecords:
         """Read a file in streaming mode (chunked, safe for large files).
 
         Args:
@@ -1328,10 +1344,10 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             column_name=filescan.column_name,
             async_mode=True,
         )
-        return cast("AsyncRecords", result)
+        return cast(AsyncRecords, result)
 
     @property
-    def na(self) -> "AsyncNullHandling":
+    def na(self) -> AsyncNullHandling:
         """Access null handling methods via the `na` property.
 
         Returns:
@@ -1344,7 +1360,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return AsyncNullHandling(self)
 
     @property
-    def write(self) -> "AsyncDataFrameWriter":
+    def write(self) -> AsyncDataFrameWriter:
         """Return an AsyncDataFrameWriter for writing this :class:`DataFrame` to a table."""
         from .async_writer import AsyncDataFrameWriter
 
@@ -1442,7 +1458,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
 
     def __getitem__(
         self, key: Union[str, Sequence[str], Column]
-    ) -> Union["AsyncDataFrame", Column, "PySparkColumn"]:
+    ) -> Union[AsyncDataFrame, Column, PySparkColumn]:
         """Enable bracket notation column access (e.g., df["col"], df[["col1", "col2"]]).
 
         Supports:
@@ -1547,7 +1563,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         return col(name)
 
     # ---------------------------------------------------------------- utilities
-    def _with_plan(self, plan: LogicalPlan) -> "AsyncDataFrame":
+    def _with_plan(self, plan: LogicalPlan) -> AsyncDataFrame:
         """Create a new AsyncDataFrame with a different plan."""
         return AsyncDataFrame(
             plan=plan,
@@ -1555,7 +1571,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             model=self.model,
         )
 
-    def _with_model(self, model: Optional[Type[Any]]) -> "AsyncDataFrame":
+    def _with_model(self, model: Optional[Type[Any]]) -> AsyncDataFrame:
         """Create a new AsyncDataFrame with a SQLModel attached.
 
         Args:
@@ -1570,7 +1586,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             model=model,
         )
 
-    def with_model(self, model: Type[Any]) -> "AsyncDataFrame":
+    def with_model(self, model: Type[Any]) -> AsyncDataFrame:
         """Attach a SQLModel or Pydantic model to this AsyncDataFrame.
 
         When a model is attached, `collect()` will return model instances
@@ -1640,7 +1656,9 @@ class AsyncNullHandling:
         return self._df.dropna(how=how, subset=subset)
 
     def fill(
-        self, value: Union[object, Dict[str, object]], subset: Optional[Sequence[str]] = None
+        self,
+        value: Union[LiteralValue, Dict[str, LiteralValue]],
+        subset: Optional[Sequence[str]] = None,
     ) -> AsyncDataFrame:
         """Fill null values with a specified value.
 
@@ -1660,7 +1678,7 @@ class AsyncNullHandling:
         """
         return self._df.fillna(value=value, subset=subset)
 
-    def polars(self) -> "AsyncPolarsDataFrame":
+    def polars(self) -> AsyncPolarsDataFrame:
         """Convert this AsyncDataFrame to an AsyncPolarsDataFrame for Polars-style operations.
 
         Returns:
@@ -1677,7 +1695,7 @@ class AsyncNullHandling:
 
         return AsyncPolarsDataFrame.from_dataframe(self._df)
 
-    def pandas(self) -> "AsyncPandasDataFrame":
+    def pandas(self) -> AsyncPandasDataFrame:
         """Convert this AsyncDataFrame to an AsyncPandasDataFrame for Pandas-style operations.
 
         Returns:

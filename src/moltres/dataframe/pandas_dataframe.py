@@ -1010,7 +1010,12 @@ class PandasDataFrame(InterfaceCommonMixin):
         from .pandas_dataframe_helpers import build_pandas_sample_operation
 
         if replace:
-            raise NotImplementedError("Sampling with replacement is not yet supported")
+            raise NotImplementedError(
+                "Sampling with replacement is not yet supported. "
+                "Alternative: Use sample() with replace=False, or materialize the DataFrame "
+                "and use pandas' sample() method with replace=True. "
+                "See https://github.com/eddiethedean/moltres/issues for feature requests."
+            )
 
         result_df = build_pandas_sample_operation(self, n=n, frac=frac, random_state=random_state)
         return self._with_dataframe(cast(DataFrame, result_df))
@@ -1318,7 +1323,12 @@ class _LocIndexer:
                 # Boolean condition - filter rows
                 return self._df._with_dataframe(self._df._df.where(key))
             else:
-                raise NotImplementedError("loc only supports boolean conditions for row filtering")
+                raise NotImplementedError(
+                    "loc only supports boolean conditions for row filtering in lazy evaluation. "
+                    "Alternative: Use query() or where() for filtering, or materialize the DataFrame "
+                    "and use pandas' loc accessor for label-based indexing. "
+                    "Example: df.query('column == value') instead of df.loc[df['column'] == 'value']"
+                )
 
 
 @dataclass(frozen=True)
@@ -1340,6 +1350,10 @@ class _ILocIndexer:
             return self._df._with_dataframe(self._df._df.where(key))
         else:
             raise NotImplementedError(
-                "iloc positional indexing requires materialization. "
-                "Use limit() or boolean filtering instead."
+                "iloc positional indexing requires materialization in lazy evaluation. "
+                "Alternatives: "
+                "1. Use limit(n) to get the first n rows, "
+                "2. Use boolean filtering with query() or where(), "
+                "3. Materialize the DataFrame with collect() and use pandas' iloc accessor. "
+                "Example: df.limit(10) or df.query('condition').limit(5)"
             )
