@@ -23,8 +23,10 @@ class TestSQLModelIntegration:
         """Test that SQLModel models are detected correctly."""
         from moltres.utils.sqlmodel_integration import is_sqlmodel_model
 
+        table_name = f"users_{uuid.uuid4().hex[:8]}"
+
         class User(SQLModel, table=True):
-            __tablename__ = "users"
+            __tablename__ = table_name
             id: int = Field(primary_key=True)
             name: str
 
