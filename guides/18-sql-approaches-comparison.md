@@ -570,7 +570,7 @@ The best choice depends on your team's expertise, project requirements, and long
 
 ### Quick Decision Guide
 
-```
+```text
 Do you need database-specific SQL features?
 ├─ Yes → Raw SQL
 └─ No → Continue
