@@ -418,6 +418,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
             "FastAPI is required for error handling decorator. Install with: pip install fastapi"
         )
 
+    import asyncio
     from functools import wraps
 
     from ...utils.exceptions import (
@@ -430,15 +431,9 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
         ValidationError,
     )
 
-    @wraps(func)
-    async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-        import asyncio
-
-        try:
-            if asyncio.iscoroutinefunction(func):
-                return await func(*args, **kwargs)
-            return func(*args, **kwargs)
-        except QueryTimeoutError as e:
+    def _handle_error(e: Exception) -> None:
+        """Raise appropriate HTTPException for Moltres errors."""
+        if isinstance(e, QueryTimeoutError):
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail={
@@ -447,7 +442,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
                     "suggestion": e.suggestion,
                 },
             ) from e
-        except DatabaseConnectionError as e:
+        elif isinstance(e, DatabaseConnectionError):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={
@@ -456,7 +451,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
                     "suggestion": e.suggestion,
                 },
             ) from e
-        except (CompilationError, ValidationError, ColumnNotFoundError) as e:
+        elif isinstance(e, (CompilationError, ValidationError, ColumnNotFoundError)):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
@@ -465,7 +460,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
                     "suggestion": e.suggestion,
                 },
             ) from e
-        except ExecutionError as e:
+        elif isinstance(e, ExecutionError):
             # Check if it's a "not found" error
             error_msg = str(e.message).lower()
             if "not found" in error_msg or "does not exist" in error_msg:
@@ -475,19 +470,36 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
             raise HTTPException(
                 status_code=status_code,
                 detail={
-                    "error": "SQL execution error",
+                    "error": "Execution error",
                     "message": str(e.message),
                     "suggestion": e.suggestion,
                 },
             ) from e
-        except MoltresError as e:
+        elif isinstance(e, MoltresError):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail={
-                    "error": "Moltres error",
+                    "error": type(e).__name__,
                     "message": str(e.message),
-                    "suggestion": e.suggestion,
+                    "suggestion": getattr(e, "suggestion", "An unexpected error occurred"),
                 },
             ) from e
 
-    return async_wrapper
+    if asyncio.iscoroutinefunction(func):
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                _handle_error(e)
+
+        return async_wrapper
+    else:
+        @wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                _handle_error(e)
+
+        return sync_wrapper
