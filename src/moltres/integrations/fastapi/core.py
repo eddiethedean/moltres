@@ -491,6 +491,9 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return await func(*args, **kwargs)
+            except HTTPException:
+                # Re-raise HTTPException (FastAPI exceptions should pass through)
+                raise
             except Exception as e:
                 _handle_error(e)
 
@@ -501,6 +504,9 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
+            except HTTPException:
+                # Re-raise HTTPException (FastAPI exceptions should pass through)
+                raise
             except Exception as e:
                 _handle_error(e)
 
