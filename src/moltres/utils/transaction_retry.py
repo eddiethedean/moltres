@@ -7,7 +7,7 @@ such as deadlocks, lock timeouts, and connection errors.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar, cast
 
 from sqlalchemy.exc import OperationalError
 
@@ -196,8 +196,6 @@ async def retry_transaction_async(
         >>>
         >>> result = await retry_transaction_async(update_data_async)
     """
-    from typing import cast
-
     if config is None:
         config = transaction_retry_config()
 

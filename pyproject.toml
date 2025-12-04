@@ -153,7 +153,7 @@ target-version = "py39"
 
 [tool.ruff.lint.per-file-ignores]
 "docs/examples/*" = ["E402", "F841"]  # Allow imports not at top and unused variables for educational examples
-"tests/**/*" = ["F841"]  # Unused variables are acceptable in tests for clarity
+"tests/**/*.py" = ["F841"]  # Unused variables are acceptable in tests for clarity
 "notebooks/*.ipynb" = ["F821"]  # Notebooks have variables defined across cells
 "src/moltres/expressions/functions.py" = ["F405"]  # Star imports are intentional for API surface
 
