@@ -479,7 +479,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail={
-                    "error": type(e).__name__,
+                    "error": "Moltres error",
                     "message": str(e.message),
                     "suggestion": getattr(e, "suggestion", "An unexpected error occurred"),
                 },
