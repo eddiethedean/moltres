@@ -486,6 +486,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
             ) from e
 
     if asyncio.iscoroutinefunction(func):
+
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
@@ -495,6 +496,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
 
         return async_wrapper
     else:
+
         @wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
