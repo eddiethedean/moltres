@@ -72,6 +72,10 @@ class RawSQL(LogicalPlan):
 class Project(LogicalPlan):
     child: LogicalPlan
     projections: tuple[Column, ...]
+    for_update: bool = False
+    for_share: bool = False
+    for_update_nowait: bool = False
+    for_update_skip_locked: bool = False
 
     def children(self) -> Sequence[LogicalPlan]:
         return (self.child,)

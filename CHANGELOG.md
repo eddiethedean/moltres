@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2025-12-04
+
+### Added
+- **Transaction Utilities** – Comprehensive transaction utility features for enhanced transaction management:
+  - **Transaction Decorator** (`@transaction`) – Automatically wrap functions in transactions:
+    - Works with both sync and async functions
+    - Supports all transaction parameters (readonly, isolation_level, savepoint, timeout)
+    - Automatic rollback on exceptions
+    - Can accept database instance or find it from function parameters
+  - **Transaction Hooks** – Register callbacks for transaction lifecycle events:
+    - `register_transaction_hook()` – Register hooks for begin, commit, or rollback events
+    - `register_async_transaction_hook()` – Async version for async transactions
+    - Supports multiple hooks per event type
+    - Use cases include audit logging, cache invalidation, event publishing
+  - **Transaction Metrics** – Track transaction performance and statistics:
+    - Global metrics collector tracks transaction count, duration, success/failure rates
+    - Records savepoint usage, isolation levels, read-only transactions
+    - Error tracking by exception type
+    - `get_transaction_metrics()` and `reset_transaction_metrics()` functions
+  - **Transaction Retry** – Automatic retry on transient failures:
+    - `retry_transaction()` – Retry function calls within transactions
+    - `retry_transaction_async()` – Async version
+    - Detects deadlocks, lock timeouts, connection errors
+    - Configurable retry parameters with exponential backoff
+    - Database-specific error detection (PostgreSQL, MySQL, SQLite)
+  - **Transaction Testing Utilities** – Helpers for testing transaction behavior:
+    - `ConcurrentTransactionTester` – Test concurrent transaction scenarios
+    - `DeadlockSimulator` – Simulate and test deadlock scenarios
+    - `test_isolation_level()` – Test isolation level behavior
+    - Supports both sync and async testing
+  - All utilities integrated with existing transaction infrastructure
+  - Comprehensive test coverage (16 new tests)
+  - New guide: `guides/20-transaction-utilities.md`
+  - Example file: `docs/examples/21_transaction_utilities.py`
+
 ## [0.22.0] - 2025-12-02
 
 ### Added

@@ -26,11 +26,11 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Union,
     cast,
     overload,
     Sequence,
     Type,
-    Union,
 )
 
 from ..config import MoltresConfig
@@ -192,17 +192,30 @@ class TableHandle:
 class Transaction:
     """:class:`Transaction` context for grouping multiple operations."""
 
-    def __init__(self, database: "Database", connection: Connection):
+    def __init__(
+        self,
+        database: "Database",
+        connection: Connection,
+        readonly: bool = False,
+        isolation_level: Optional[str] = None,
+        is_savepoint: bool = False,
+    ):
         """Initialize a transaction context.
 
         Args:
             database: The database instance this transaction belongs to
             connection: The SQLAlchemy connection for this transaction
+            readonly: Whether this transaction is read-only
+            isolation_level: Transaction isolation level
+            is_savepoint: Whether this transaction is actually a savepoint
         """
         self.database = database
         self.connection = connection
         self._committed = False
         self._rolled_back = False
+        self._readonly = readonly
+        self._isolation_level = isolation_level
+        self._is_savepoint = is_savepoint
 
     def commit(self) -> None:
         """Explicitly commit the transaction.
@@ -215,6 +228,11 @@ class Transaction:
         self.database.connection_manager.commit_transaction(self.connection)
         self._committed = True
 
+        # Execute commit hooks
+        from ..utils.transaction_hooks import _execute_hooks, _on_commit_hooks
+
+        _execute_hooks(_on_commit_hooks, self)
+
     def rollback(self) -> None:
         """Explicitly rollback the transaction.
 
@@ -226,12 +244,101 @@ class Transaction:
         self.database.connection_manager.rollback_transaction(self.connection)
         self._rolled_back = True
 
+        # Execute rollback hooks
+        from ..utils.transaction_hooks import _execute_hooks, _on_rollback_hooks
+
+        _execute_hooks(_on_rollback_hooks, self)
+
+    def savepoint(self, name: Optional[str] = None) -> str:
+        """Create a savepoint within this transaction.
+
+        Args:
+            name: Optional savepoint name. If not provided, a unique name is generated.
+
+        Returns:
+            The savepoint name (generated or provided)
+
+        Raises:
+            RuntimeError: If the transaction has already been committed or rolled back
+            ValueError: If savepoints are not supported by the dialect
+        """
+        if self._committed or self._rolled_back:
+            raise RuntimeError("Transaction already committed or rolled back")
+        if name is None:
+            name = self.database.connection_manager._generate_savepoint_name()
+        self.database.connection_manager.create_savepoint(self.connection, name)
+        return name
+
+    def rollback_to_savepoint(self, name: str) -> None:
+        """Rollback to a specific savepoint.
+
+        Args:
+            name: Savepoint name to rollback to
+
+        Raises:
+            RuntimeError: If the transaction has already been committed or rolled back,
+                         or if the savepoint doesn't exist
+        """
+        if self._committed or self._rolled_back:
+            raise RuntimeError("Transaction already committed or rolled back")
+        self.database.connection_manager.rollback_to_savepoint(self.connection, name)
+
+    def release_savepoint(self, name: str) -> None:
+        """Release a savepoint.
+
+        Args:
+            name: Savepoint name to release
+
+        Raises:
+            RuntimeError: If the transaction has already been committed or rolled back,
+                         or if the savepoint doesn't exist
+        """
+        if self._committed or self._rolled_back:
+            raise RuntimeError("Transaction already committed or rolled back")
+        self.database.connection_manager.release_savepoint(self.connection, name)
+
+    def is_readonly(self) -> bool:
+        """Check if this transaction is read-only.
+
+        Returns:
+            True if the transaction is read-only, False otherwise
+        """
+        return self._readonly
+
+    def isolation_level(self) -> Optional[str]:
+        """Get the transaction isolation level.
+
+        Returns:
+            Isolation level string or None if not set
+        """
+        return self._isolation_level
+
+    def is_active(self) -> bool:
+        """Check if this transaction is still active.
+
+        Returns:
+            True if the transaction is active (not committed or rolled back), False otherwise
+        """
+        return not self._committed and not self._rolled_back
+
     def __enter__(self) -> "Transaction":
         """Enter the transaction context.
 
         Returns:
             :class:`Transaction`: This transaction instance
         """
+        # Execute begin hooks
+        from ..utils.transaction_hooks import _execute_hooks, _on_begin_hooks
+
+        _execute_hooks(_on_begin_hooks, self)
+
+        # Start metrics tracking
+        import time
+
+        self._metrics_start_time = time.time()
+        self._metrics_has_savepoint = self._is_savepoint
+        self._metrics_readonly = self._readonly
+        self._metrics_isolation_level = self._isolation_level
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -252,6 +359,23 @@ class Transaction:
             # No exception, commit
             if not self._committed and not self._rolled_back:
                 self.commit()
+
+        # Record metrics after commit/rollback
+        if hasattr(self, "_metrics_start_time"):
+            import time
+            from ..utils.transaction_metrics import get_transaction_metrics
+
+            duration = time.time() - self._metrics_start_time
+            committed = exc_type is None and not self._rolled_back
+            metrics = get_transaction_metrics()
+            metrics.record_transaction(
+                duration=duration,
+                committed=committed,
+                has_savepoint=self._metrics_has_savepoint,
+                readonly=self._metrics_readonly,
+                isolation_level=self._metrics_isolation_level,
+                error=exc_val if exc_type else None,
+            )
 
 
 class Database:
@@ -1544,6 +1668,47 @@ class Database:
     def dialect(self) -> DialectSpec:
         return self._dialect
 
+    def is_in_transaction(self) -> bool:
+        """Check if currently in a transaction.
+
+        Returns:
+            True if a transaction is active, False otherwise
+
+        Example:
+            >>> if db.is_in_transaction():
+            ...     status = db.get_transaction_status()
+            ...     print(f"Isolation: {status['isolation_level']}")
+        """
+        return self._connections.active_transaction is not None
+
+    def get_transaction_status(self) -> Optional[dict[str, object]]:
+        """Get transaction status and metadata if a transaction is active.
+
+        Returns:
+            Dictionary with transaction metadata including:
+            - readonly: Whether the transaction is read-only
+            - isolation_level: Transaction isolation level (if set)
+            - timeout: Transaction timeout in seconds (if set)
+            - savepoints: List of active savepoint names
+            None if no transaction is active
+
+        Example:
+            >>> with db.transaction(isolation_level="SERIALIZABLE", readonly=True) as txn:
+            ...     status = db.get_transaction_status()
+            ...     assert status["isolation_level"] == "SERIALIZABLE"
+            ...     assert status["readonly"] is True
+        """
+        if not self.is_in_transaction():
+            return None
+
+        metadata = self._connections.transaction_metadata or {}
+        return {
+            "readonly": metadata.get("readonly", False),
+            "isolation_level": metadata.get("isolation_level"),
+            "timeout": metadata.get("timeout"),
+            "savepoints": self._connections.savepoint_stack,
+        }
+
     def batch(self) -> "OperationBatch":
         """Create a batch context for grouping multiple operations.
 
@@ -1563,33 +1728,155 @@ class Database:
         return OperationBatch(self)
 
     @contextmanager
-    def transaction(self) -> Iterator[Transaction]:
+    def transaction(
+        self,
+        savepoint: bool = False,
+        readonly: bool = False,
+        isolation_level: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Iterator[Transaction]:
         """Create a transaction context for grouping multiple operations.
 
         All operations within the transaction context share the same transaction.
         If any exception occurs, the transaction is automatically rolled back.
         Otherwise, it is committed on successful exit.
 
+        Args:
+            savepoint: If True and a transaction is already active, create a savepoint
+                      instead of raising an error. This enables nested transactions.
+            readonly: If True, set the transaction to read-only mode. Prevents writes.
+            isolation_level: Optional isolation level. Must be one of:
+                           - "READ UNCOMMITTED"
+                           - "READ COMMITTED"
+                           - "REPEATABLE READ"
+                           - "SERIALIZABLE"
+            timeout: Optional transaction timeout in seconds. Database-specific behavior:
+                    - PostgreSQL: Sets statement_timeout (milliseconds)
+                    - MySQL: Sets innodb_lock_wait_timeout (seconds)
+                    - SQLite: Not supported
+
         Yields:
             :class:`Transaction` object that can be used for explicit commit/rollback
 
         Example:
-            >>> with db.transaction() as txn:
-            ...     df.write.insertInto("table")
-            ...     df.write.update("table", where=..., set={...})
-            ...     # If any operation fails, all are rolled back
-            ...     # Otherwise, all are committed on exit
+            Basic transaction::
+
+                >>> with db.transaction() as txn:
+                ...     df.write.insertInto("table")
+                ...     df.write.update("table", where=..., set={...})
+                ...     # If any operation fails, all are rolled back
+                ...     # Otherwise, all are committed on exit
+
+            Nested transaction with savepoint::
+
+                >>> with db.transaction() as outer:
+                ...     # ... operations ...
+                ...     with db.transaction(savepoint=True) as inner:
+                ...         # ... operations that can be rolled back independently ...
+                ...         inner.savepoint("checkpoint")
+                ...         # ... operations ...
+                ...         inner.rollback_to_savepoint("checkpoint")
+                ...     # outer transaction continues...
+
+            Read-only transaction::
+
+                >>> with db.transaction(readonly=True) as txn:
+                ...     results = db.table("users").select().collect()
+
+            Transaction with isolation level::
+
+                >>> with db.transaction(isolation_level="SERIALIZABLE") as txn:
+                ...     # ... critical operations requiring highest isolation ...
         """
-        connection = self._connections.begin_transaction()
-        txn = Transaction(self, connection)
+        # Check if there's already an active transaction (for savepoint detection)
+        had_active_transaction = self._connections.active_transaction is not None
+
+        connection = self._connections.begin_transaction(
+            savepoint=savepoint,
+            readonly=readonly,
+            isolation_level=isolation_level,
+            timeout=timeout,
+        )
+        metadata = self._connections.transaction_metadata or {}
+
+        # If savepoint=True was requested and there was already an active transaction,
+        # this is a savepoint transaction
+        is_savepoint_txn = savepoint and had_active_transaction
+
+        txn = Transaction(
+            self,
+            connection,
+            readonly=bool(metadata.get("readonly", False)) if metadata else readonly,
+            isolation_level=cast(Optional[str], metadata.get("isolation_level"))
+            if metadata
+            else isolation_level,
+            is_savepoint=is_savepoint_txn,
+        )
+
+        # Track savepoint name if this is a savepoint
+        savepoint_name: Optional[str] = None
+        if is_savepoint_txn:
+            savepoint_stack = self._connections.savepoint_stack
+            if savepoint_stack:
+                savepoint_name = savepoint_stack[-1]
+
+        # Call Transaction's __enter__ to set up hooks and metrics
+        from ..utils.transaction_hooks import _execute_hooks, _on_begin_hooks
+
+        # Execute begin hooks
+        _execute_hooks(_on_begin_hooks, txn)
+
+        # Start metrics tracking
+        import time
+
+        metrics_start_time = time.time()
+
+        exc_info = None
+        committed = False
         try:
             yield txn
             if not txn._committed and not txn._rolled_back:
-                txn.commit()
-        except Exception:
+                if is_savepoint_txn and savepoint_name:
+                    # For savepoints, we don't commit - the outer transaction handles it
+                    # But we should release the savepoint
+                    try:
+                        txn.release_savepoint(savepoint_name)
+                    except RuntimeError:
+                        # Savepoint may have already been released
+                        pass
+                else:
+                    txn.commit()
+                    committed = True
+            else:
+                committed = txn._committed
+        except Exception as exc:
+            exc_info = exc
             if not txn._rolled_back:
-                txn.rollback()
+                if is_savepoint_txn and savepoint_name:
+                    # For savepoints, rollback to the savepoint
+                    try:
+                        txn.rollback_to_savepoint(savepoint_name)
+                    except RuntimeError:
+                        # Fallback to regular rollback if savepoint rollback fails
+                        txn.rollback()
+                else:
+                    txn.rollback()
             raise
+        finally:
+            # Record metrics (always called, even on exception)
+            from ..utils.transaction_metrics import get_transaction_metrics
+
+            duration = time.time() - metrics_start_time
+            final_committed = committed if not exc_info else False
+            metrics = get_transaction_metrics()
+            metrics.record_transaction(
+                duration=duration,
+                committed=final_committed,
+                has_savepoint=is_savepoint_txn,
+                readonly=readonly,
+                isolation_level=isolation_level,
+                error=exc_info if exc_info else None,
+            )
 
     def createDataFrame(
         self,

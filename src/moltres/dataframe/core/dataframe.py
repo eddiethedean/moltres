@@ -626,6 +626,220 @@ class DataFrame(DataFrameHelpersMixin):
     orderBy = order_by  # PySpark-style alias
     sort = order_by  # PySpark-style alias
 
+    def select_for_update(self, nowait: bool = False, skip_locked: bool = False) -> "DataFrame":
+        """Select rows with FOR UPDATE lock.
+
+        This method adds a FOR UPDATE clause to the SELECT statement, which locks
+        the selected rows for update until the transaction commits or rolls back.
+        This is useful for preventing concurrent modifications.
+
+        Args:
+            nowait: If True, don't wait for lock - raise error if rows are locked.
+                   Requires database support (PostgreSQL, MySQL 8.0+).
+            skip_locked: If True, skip locked rows instead of waiting or erroring.
+                        Requires database support (PostgreSQL, MySQL 8.0+).
+
+        Returns:
+            New :class:`DataFrame` with FOR UPDATE locking enabled
+
+        Raises:
+            ValueError: If nowait or skip_locked is requested but not supported by dialect.
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("orders", [column("id", "INTEGER"), column("status", "TEXT")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "status": "pending"}], _database=db).insert_into("orders")
+            >>> with db.transaction() as txn:
+            ...     df = db.table("orders").select().where(col("status") == "pending")
+            ...     locked_df = df.select_for_update(nowait=True)
+            ...     results = locked_df.collect()
+            ...     # Rows are now locked for update
+        """
+        from ...logical.plan import Filter, Project, TableScan
+
+        # Get the current plan
+        plan = self.plan
+
+        # Find or create a Project plan
+        project_plan = None
+        needs_wrap = False
+        if isinstance(plan, Project):
+            project_plan = plan
+        elif isinstance(plan, Filter):
+            # Filter wraps the child, which might be a Project or TableScan
+            if isinstance(plan.child, Project):
+                project_plan = plan.child
+            elif isinstance(plan.child, TableScan):
+                # Need to add a Project between Filter and TableScan
+                needs_wrap = True
+
+                # Create a Project with all columns (select *)
+                project_plan = Project(
+                    child=plan.child,
+                    projections=(),  # Empty means select all
+                    for_update=True,
+                    for_share=False,
+                    for_update_nowait=nowait,
+                    for_update_skip_locked=skip_locked,
+                )
+        elif isinstance(plan, TableScan):
+            # Need to wrap TableScan in a Project
+            needs_wrap = True
+            project_plan = Project(
+                child=plan,
+                projections=(),  # Empty means select all
+                for_update=True,
+                for_share=False,
+                for_update_nowait=nowait,
+                for_update_skip_locked=skip_locked,
+            )
+
+        if project_plan is None:
+            raise ValueError(
+                "select_for_update() requires a DataFrame with a Project, Filter, or TableScan plan. "
+                "This should not happen - please report this as a bug."
+            )
+
+        # Check dialect support
+        if self.database:
+            dialect = self.database.dialect
+            if nowait and not dialect.supports_for_update_nowait:
+                raise ValueError(f"Dialect '{dialect.name}' does not support FOR UPDATE NOWAIT")
+            if skip_locked and not dialect.supports_for_update_skip_locked:
+                raise ValueError(
+                    f"Dialect '{dialect.name}' does not support FOR UPDATE SKIP LOCKED"
+                )
+            if not dialect.supports_row_locking:
+                raise ValueError(f"Dialect '{dialect.name}' does not support row-level locking")
+
+        # Update the Project plan with locking (if not already created with locking)
+        if needs_wrap:
+            updated_project = project_plan  # Already created with locking
+        else:
+            updated_project = replace(
+                project_plan,
+                for_update=True,
+                for_share=False,
+                for_update_nowait=nowait,
+                for_update_skip_locked=skip_locked,
+            )
+
+        # If plan was a Filter, update it to use the updated Project
+        if isinstance(plan, Filter) and not needs_wrap:
+            return self._with_plan(replace(plan, child=updated_project))
+        else:
+            return self._with_plan(updated_project)
+
+    def select_for_share(self, nowait: bool = False, skip_locked: bool = False) -> "DataFrame":
+        """Select rows with FOR SHARE lock.
+
+        This method adds a FOR SHARE clause to the SELECT statement, which locks
+        the selected rows for shared (read) access. Other transactions can still
+        read the rows but cannot modify them until the transaction commits.
+
+        Args:
+            nowait: If True, don't wait for lock - raise error if rows are locked.
+                   Requires database support (PostgreSQL, MySQL 8.0+).
+            skip_locked: If True, skip locked rows instead of waiting or erroring.
+                        Requires database support (PostgreSQL, MySQL 8.0+).
+
+        Returns:
+            New :class:`DataFrame` with FOR SHARE locking enabled
+
+        Raises:
+            ValueError: If nowait or skip_locked is requested but not supported by dialect.
+
+        Example:
+            >>> from moltres import connect, col
+            >>> from moltres.table.schema import column
+            >>> db = connect("sqlite:///:memory:")
+            >>> db.create_table("products", [column("id", "INTEGER"), column("stock", "INTEGER")]).collect()
+            >>> from moltres.io.records import Records
+            >>> _ = Records(_data=[{"id": 1, "stock": 10}], _database=db).insert_into("products")
+            >>> with db.transaction() as txn:
+            ...     df = db.table("products").select().where(col("id") == 1)
+            ...     locked_df = df.select_for_share()
+            ...     results = locked_df.collect()
+            ...     # Rows are now locked for shared access
+        """
+        from ...logical.plan import Filter, Project, TableScan
+
+        # Get the current plan
+        plan = self.plan
+
+        # Find or create a Project plan
+        project_plan = None
+        needs_wrap = False
+        if isinstance(plan, Project):
+            project_plan = plan
+        elif isinstance(plan, Filter):
+            # Filter wraps the child, which might be a Project or TableScan
+            if isinstance(plan.child, Project):
+                project_plan = plan.child
+            elif isinstance(plan.child, TableScan):
+                # Need to add a Project between Filter and TableScan
+                needs_wrap = True
+
+                # Create a Project with all columns (select *)
+                project_plan = Project(
+                    child=plan.child,
+                    projections=(),  # Empty means select all
+                    for_update=False,
+                    for_share=True,
+                    for_update_nowait=nowait,
+                    for_update_skip_locked=skip_locked,
+                )
+        elif isinstance(plan, TableScan):
+            # Need to wrap TableScan in a Project
+            needs_wrap = True
+            project_plan = Project(
+                child=plan,
+                projections=(),  # Empty means select all
+                for_update=False,
+                for_share=True,
+                for_update_nowait=nowait,
+                for_update_skip_locked=skip_locked,
+            )
+
+        if project_plan is None:
+            raise ValueError(
+                "select_for_share() requires a DataFrame with a Project, Filter, or TableScan plan. "
+                "This should not happen - please report this as a bug."
+            )
+
+        # Check dialect support
+        if self.database:
+            dialect = self.database.dialect
+            if nowait and not dialect.supports_for_update_nowait:
+                raise ValueError(f"Dialect '{dialect.name}' does not support FOR UPDATE NOWAIT")
+            if skip_locked and not dialect.supports_for_update_skip_locked:
+                raise ValueError(
+                    f"Dialect '{dialect.name}' does not support FOR UPDATE SKIP LOCKED"
+                )
+            if not dialect.supports_row_locking:
+                raise ValueError(f"Dialect '{dialect.name}' does not support row-level locking")
+
+        # Update the Project plan with locking (if not already created with locking)
+        if needs_wrap:
+            updated_project = project_plan  # Already created with locking
+        else:
+            updated_project = replace(
+                project_plan,
+                for_update=False,
+                for_share=True,
+                for_update_nowait=nowait,
+                for_update_skip_locked=skip_locked,
+            )
+
+        # If plan was a Filter, update it to use the updated Project
+        if isinstance(plan, Filter) and not needs_wrap:
+            return self._with_plan(replace(plan, child=updated_project))
+        else:
+            return self._with_plan(updated_project)
+
     def join(
         self,
         other: DataFrame,

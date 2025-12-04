@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.22.0"
+version = "0.23.0"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -152,7 +152,8 @@ line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint.per-file-ignores]
-"docs/examples/*" = ["E402"]  # Allow imports not at top for educational examples
+"docs/examples/*" = ["E402", "F841"]  # Allow imports not at top and unused variables for educational examples
+"tests/**/*" = ["F841"]  # Unused variables are acceptable in tests for clarity
 "notebooks/*.ipynb" = ["F821"]  # Notebooks have variables defined across cells
 "src/moltres/expressions/functions.py" = ["F405"]  # Star imports are intentional for API surface
 

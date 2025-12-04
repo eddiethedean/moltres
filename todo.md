@@ -59,15 +59,21 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [x] Schema introspection utilities (`db.get_table_names()`, `db.get_view_names()`, etc.)
 - [x] Column metadata introspection (`db.get_columns(table_name)`, etc.)
 
-### Transaction Control
-- [ ] Explicit transaction control improvements (`BEGIN`, `COMMIT`, `ROLLBACK`) - expand API
-- [ ] Nested transaction context manager (`with db.transaction(savepoint=True):`)
-- [ ] Read-only transactions (`with db.transaction(readonly=True):`)
-- [ ] Transaction timeout (`with db.transaction(timeout=30):`)
-- [ ] Savepoints (`SAVEPOINT`, `ROLLBACK TO SAVEPOINT`) - SQL standard
-- [ ] Transaction isolation levels (`SET TRANSACTION ISOLATION LEVEL`) - SQL standard
-- [ ] Transaction state inspection (`db.is_in_transaction()`, `db.get_transaction_status()`)
-- [ ] Locking (`SELECT ... FOR UPDATE`, `SELECT ... FOR SHARE`) - SQL standard/dialect-specific
+### Transaction Control ✅ **COMPLETED**
+- [x] Explicit transaction control improvements (`BEGIN`, `COMMIT`, `ROLLBACK`) - Enhanced transaction API with savepoints, isolation levels, and more ✅ **COMPLETED**
+- [x] Nested transaction context manager (`with db.transaction(savepoint=True):`) ✅ **COMPLETED**
+- [x] Read-only transactions (`with db.transaction(readonly=True):`) ✅ **COMPLETED**
+- [x] Transaction timeout (`with db.transaction(timeout=30):`) ✅ **COMPLETED**
+- [x] Savepoints (`SAVEPOINT`, `ROLLBACK TO SAVEPOINT`) ✅ **COMPLETED**
+- [x] Transaction isolation levels (`SET TRANSACTION ISOLATION LEVEL`) ✅ **COMPLETED**
+- [x] Transaction state inspection (`db.is_in_transaction()`, `db.get_transaction_status()`) ✅ **COMPLETED**
+- [x] Locking (`SELECT ... FOR UPDATE`, `SELECT ... FOR SHARE`) ✅ **COMPLETED**
+- [x] **Transaction Utilities** – Comprehensive transaction management utilities:
+  - [x] Transaction decorator (`@transaction`) for automatic transaction wrapping ✅ **COMPLETED**
+  - [x] Transaction hooks system for lifecycle callbacks (begin, commit, rollback) ✅ **COMPLETED**
+  - [x] Transaction metrics and monitoring ✅ **COMPLETED**
+  - [x] Transaction retry logic for transient failures (deadlocks, lock timeouts) ✅ **COMPLETED**
+  - [x] Transaction testing utilities for concurrent scenarios ✅ **COMPLETED**
 
 ## 🔧 Developer Experience
 
@@ -188,6 +194,73 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Better handling of edge cases in file readers
 
 ## ✅ Recently Completed
+
+### Transaction Utilities ✅ **COMPLETED**
+- ✅ **Transaction Decorator** – `@transaction` decorator for automatic transaction wrapping:
+  - Works with sync and async functions
+  - Supports all transaction parameters (readonly, isolation_level, savepoint, timeout)
+  - Automatic rollback on exceptions
+  - Can accept database instance or find from function parameters
+- ✅ **Transaction Hooks** – Callback system for transaction lifecycle events:
+  - `register_transaction_hook()` for begin, commit, rollback events
+  - `register_async_transaction_hook()` for async transactions
+  - Supports multiple hooks per event type
+- ✅ **Transaction Metrics** – Performance tracking and statistics:
+  - Global metrics collector tracks count, duration, success/failure rates
+  - Records savepoint usage, isolation levels, read-only transactions
+  - Error tracking by exception type
+  - `get_transaction_metrics()` and `reset_transaction_metrics()` functions
+- ✅ **Transaction Retry** – Automatic retry on transient failures:
+  - `retry_transaction()` and `retry_transaction_async()`
+  - Detects deadlocks, lock timeouts, connection errors
+  - Configurable retry parameters with exponential backoff
+  - Database-specific error detection
+- ✅ **Transaction Testing Utilities** – Helpers for testing:
+  - `ConcurrentTransactionTester` for concurrent scenarios
+  - `DeadlockSimulator` for deadlock testing
+  - `test_isolation_level()` for isolation level testing
+  - Comprehensive test coverage (16 tests)
+- ✅ **Documentation** – Guide and examples:
+  - `guides/20-transaction-utilities.md` – Comprehensive usage guide
+  - `docs/examples/21_transaction_utilities.py` – Example demonstrating all utilities
+
+### Enhanced Transaction Control Features ✅ **COMPLETED**
+- ✅ **Savepoints and Nested Transactions** – Full savepoint support for nested transaction scenarios:
+  - `Transaction.savepoint()` – Create savepoints within transactions
+  - `Transaction.rollback_to_savepoint()` – Rollback to specific savepoints
+  - `Transaction.release_savepoint()` – Release savepoints
+  - `db.transaction(savepoint=True)` – Automatic savepoint creation for nested transactions
+- ✅ **Transaction Isolation Levels** – Support for SQL standard isolation levels:
+  - `db.transaction(isolation_level="SERIALIZABLE")` and other standard levels
+  - `Transaction.isolation_level()` – Query current isolation level
+  - Dialect-specific support detection via `DialectSpec`
+- ✅ **Read-Only Transactions** – Read-only transaction mode:
+  - `db.transaction(readonly=True)` – Prevents writes to database
+  - `Transaction.is_readonly()` – Check if transaction is read-only
+- ✅ **Transaction Timeouts** – Configurable transaction timeouts:
+  - `db.transaction(timeout=30)` – Set transaction timeout in seconds
+  - Database-specific timeout handling (PostgreSQL, MySQL)
+- ✅ **Transaction State Inspection** – Methods to check transaction status:
+  - `db.is_in_transaction()` – Check if currently in a transaction
+  - `db.get_transaction_status()` – Get transaction metadata
+  - `Transaction.is_active()` – Check if transaction is active
+- ✅ **Row-Level Locking** – `FOR UPDATE` and `FOR SHARE` support:
+  - `DataFrame.select_for_update()` – Lock rows for update
+  - `DataFrame.select_for_share()` – Lock rows for shared read
+  - Support for `NOWAIT` and `SKIP LOCKED` options
+  - Dialect-specific feature detection and error handling
+- ✅ **SQL Compiler Updates** – Extended SQL generation for transaction features:
+  - `SAVEPOINT`, `ROLLBACK TO SAVEPOINT`, `RELEASE SAVEPOINT` SQL generation
+  - `SET TRANSACTION ISOLATION LEVEL` SQL generation
+  - `SET TRANSACTION READ ONLY` SQL generation
+  - `FOR UPDATE` and `FOR SHARE` clause generation in SELECT statements
+- ✅ **Comprehensive Testing** – Test suite for all transaction features:
+  - 13 new tests covering savepoints, isolation levels, read-only, row locking
+  - Both sync and async transaction testing
+  - Multiple dialect support (SQLite, PostgreSQL)
+- ✅ **Documentation** – Guide and examples:
+  - `guides/19-transaction-control.md` – Comprehensive transaction control guide
+  - `docs/examples/20_transaction_control.py` – Example demonstrating all features
 
 ### Documentation Organization & Read the Docs Optimization ✅ **COMPLETED**
 - ✅ **Examples Directory Reorganization** – Moved example directories to `docs/` for better organization:

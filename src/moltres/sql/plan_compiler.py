@@ -174,12 +174,58 @@ class SQLCompiler:
             if join_info:
                 self._expr._join_info = join_info
             try:
-                columns = [self._expr.compile_expr(col) for col in plan.projections]
+                if plan.projections:
+                    columns = [self._expr.compile_expr(col) for col in plan.projections]
+                else:
+                    # Empty projections means SELECT *
+                    from sqlalchemy import literal_column
+
+                    columns = [literal_column("*")]
             finally:
                 self._expr._current_subq = old_subq
                 self._expr._join_info = old_join_info
             # Create new select with these columns
             stmt = select(*columns).select_from(child_subq)
+
+            # Add row-level locking clauses if specified
+            if plan.for_update or plan.for_share:
+                if not self.dialect.supports_row_locking:
+                    raise CompilationError(
+                        f"Dialect '{self.dialect.name}' does not support row-level locking"
+                    )
+
+                if plan.for_update:
+                    if plan.for_update_nowait:
+                        if not self.dialect.supports_for_update_nowait:
+                            raise CompilationError(
+                                f"Dialect '{self.dialect.name}' does not support FOR UPDATE NOWAIT"
+                            )
+                        stmt = stmt.with_for_update(nowait=True)
+                    elif plan.for_update_skip_locked:
+                        if not self.dialect.supports_for_update_skip_locked:
+                            raise CompilationError(
+                                f"Dialect '{self.dialect.name}' does not support FOR UPDATE SKIP LOCKED"
+                            )
+                        # SQLAlchemy uses skip_locked=True for skip locked
+                        stmt = stmt.with_for_update(skip_locked=True)
+                    else:
+                        stmt = stmt.with_for_update()
+                elif plan.for_share:
+                    if plan.for_update_nowait:
+                        if not self.dialect.supports_for_update_nowait:
+                            raise CompilationError(
+                                f"Dialect '{self.dialect.name}' does not support FOR UPDATE NOWAIT"
+                            )
+                        stmt = stmt.with_for_update(read=True, nowait=True)
+                    elif plan.for_update_skip_locked:
+                        if not self.dialect.supports_for_update_skip_locked:
+                            raise CompilationError(
+                                f"Dialect '{self.dialect.name}' does not support FOR UPDATE SKIP LOCKED"
+                            )
+                        stmt = stmt.with_for_update(read=True, skip_locked=True)
+                    else:
+                        stmt = stmt.with_for_update(read=True)
+
             return stmt
 
         if isinstance(plan, Filter):
