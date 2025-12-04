@@ -470,7 +470,7 @@ def handle_moltres_errors(func: Callable[..., Any]) -> Callable[..., Any]:
             raise HTTPException(
                 status_code=status_code,
                 detail={
-                    "error": "Execution error",
+                    "error": "SQL execution error",
                     "message": str(e.message),
                     "suggestion": e.suggestion,
                 },
