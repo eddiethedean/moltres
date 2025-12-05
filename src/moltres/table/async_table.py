@@ -7,6 +7,7 @@ import atexit
 from contextlib import asynccontextmanager
 import logging
 import time
+from types import TracebackType
 import weakref
 from dataclasses import dataclass
 from typing import (
@@ -269,7 +270,12 @@ class AsyncTransaction:
 
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         if exc_type is not None:
             # Exception occurred, rollback
             if not self._rolled_back and not self._committed:
@@ -278,7 +284,7 @@ class AsyncTransaction:
             if hasattr(self, "_metrics_start_time"):
                 from ..utils.transaction_metrics import get_transaction_metrics
 
-                self._metrics_error = exc_val
+                self._metrics_error = exc_val if isinstance(exc_val, Exception) else None
                 duration = time.time() - self._metrics_start_time
                 metrics = get_transaction_metrics()
                 metrics.record_transaction(
@@ -1633,7 +1639,12 @@ class AsyncDatabase:
         """
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         """Exit the async database context manager.
 
         Automatically closes the database connection when exiting the context,

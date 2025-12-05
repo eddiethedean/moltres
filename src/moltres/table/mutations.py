@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Dict, Mapping, Optional, Sequence, Union
 
 from ..expressions.column import Column
 from ..sql.builders import comma_separated, quote_identifier
@@ -13,6 +13,7 @@ from .table import TableHandle
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    from sqlalchemy.engine import Connection
     from ..io.records import Records
 
 
@@ -21,7 +22,7 @@ def insert_rows(
     rows: Union[
         Sequence[Mapping[str, object]], "Records", "pd.DataFrame", "pl.DataFrame", "pl.LazyFrame"
     ],
-    transaction: Optional[Any] = None,
+    transaction: Optional["Connection"] = None,
 ) -> int:
     """Insert rows into a table using batch inserts for better performance.
 
@@ -80,7 +81,7 @@ def update_rows(
     *,
     where: Column,
     values: Mapping[str, object],
-    transaction: Optional[Any] = None,
+    transaction: Optional["Connection"] = None,
 ) -> int:
     """Update rows in a table matching the given condition.
 
@@ -114,7 +115,9 @@ def update_rows(
     return result.rowcount or 0
 
 
-def delete_rows(handle: TableHandle, *, where: Column, transaction: Optional[Any] = None) -> int:
+def delete_rows(
+    handle: TableHandle, *, where: Column, transaction: Optional["Connection"] = None
+) -> int:
     """Delete rows from a table matching the given condition.
 
     Args:
@@ -146,7 +149,7 @@ def merge_rows(
     on: Sequence[str],
     when_matched: Optional[Mapping[str, object]] = None,
     when_not_matched: Optional[Mapping[str, object]] = None,
-    transaction: Optional[Any] = None,
+    transaction: Optional["Connection"] = None,
 ) -> int:
     """Merge (upsert) rows into a table with conflict resolution.
 

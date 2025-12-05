@@ -141,9 +141,23 @@ class QueryExecutor:
                             return QueryResult(
                                 rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
                             )
-                    except Exception:
+                    except (AttributeError, TypeError, ValueError) as e:
+                        # SQLModel .exec() may not be available or may fail due to:
+                        # - AttributeError: .exec() method doesn't exist on this session type
+                        # - TypeError: Incompatible statement or model type
+                        # - ValueError: Invalid arguments to .exec()
                         # Fall back to regular execute if exec() fails
-                        pass
+                        logger.debug(
+                            "SQLModel .exec() failed, falling back to regular execute: %s", e
+                        )
+                    except Exception as e:
+                        # Catch any other unexpected exceptions from SQLModel .exec()
+                        # This broad catch is acceptable here because we have a fallback path
+                        # and want to ensure query execution continues even if SQLModel integration fails
+                        logger.debug(
+                            "Unexpected error in SQLModel .exec(), falling back to regular execute: %s",
+                            e,
+                        )
 
                 # Execute SQLAlchemy statement directly or use text() for SQL strings
                 if isinstance(stmt, Select):
@@ -180,9 +194,23 @@ class QueryExecutor:
                             return QueryResult(
                                 rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
                             )
-                    except Exception:
+                    except (AttributeError, TypeError, ValueError) as e:
+                        # SQLModel .exec() may not be available or may fail due to:
+                        # - AttributeError: .exec() method doesn't exist on this session type
+                        # - TypeError: Incompatible statement or model type
+                        # - ValueError: Invalid arguments to .exec()
                         # Fall back to regular execute if exec() fails
-                        pass
+                        logger.debug(
+                            "SQLModel .exec() failed, falling back to regular execute: %s", e
+                        )
+                    except Exception as e:
+                        # Catch any other unexpected exceptions from SQLModel .exec()
+                        # This broad catch is acceptable here because we have a fallback path
+                        # and want to ensure query execution continues even if SQLModel integration fails
+                        logger.debug(
+                            "Unexpected error in SQLModel .exec(), falling back to regular execute: %s",
+                            e,
+                        )
 
                 with self._connections.connect() as conn:
                     # Apply query timeout if configured
@@ -255,7 +283,10 @@ class QueryExecutor:
             ) from exc
 
     def execute(
-        self, sql: str, params: Optional[Dict[str, Any]] = None, transaction: Optional[Any] = None
+        self,
+        sql: str,
+        params: Optional[Dict[str, Any]] = None,
+        transaction: Optional["Connection"] = None,
     ) -> QueryResult:
         """Execute a non-SELECT SQL statement (INSERT, UPDATE, DELETE, etc.).
 
@@ -285,7 +316,7 @@ class QueryExecutor:
         self,
         sql: str,
         params_list: Sequence[Dict[str, Any]],
-        transaction: Optional[Any] = None,
+        transaction: Optional["Connection"] = None,
     ) -> QueryResult:
         """Execute a SQL statement multiple times with different parameter sets.
 
@@ -322,7 +353,7 @@ class QueryExecutor:
 
     def fetch_stream(
         self,
-        stmt: Union[str, Any],
+        stmt: Union[str, "Select"],
         params: Optional[Dict[str, Any]] = None,
         chunk_size: int = 10000,
     ) -> Iterator[List[Dict[str, Any]]]:

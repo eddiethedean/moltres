@@ -3,6 +3,7 @@
 import pytest
 
 from moltres import col, connect, async_connect
+from moltres.expressions import functions as F
 from moltres.io.records import Records, AsyncRecords
 from moltres.table.schema import column
 
@@ -259,6 +260,143 @@ class TestRowLevelLocking:
         df = db.table("orders").select()
         with pytest.raises(ValueError, match="does not support FOR UPDATE NOWAIT"):
             df.select_for_update(nowait=True)
+
+    def test_select_for_update_with_join(self, tmp_path):
+        """Test FOR UPDATE with join plans."""
+        db_path = tmp_path / "test.db"
+        db = connect(f"sqlite:///{db_path}")
+
+        db.create_table(
+            "orders",
+            [
+                column("id", "INTEGER", primary_key=True),
+                column("customer_id", "INTEGER"),
+                column("amount", "REAL"),
+            ],
+        ).collect()
+        db.create_table(
+            "customers", [column("id", "INTEGER", primary_key=True), column("name", "TEXT")]
+        ).collect()
+        Records(_data=[{"id": 1, "customer_id": 1, "amount": 100.0}], _database=db).insert_into(
+            "orders"
+        )
+        Records(_data=[{"id": 1, "name": "Alice"}], _database=db).insert_into("customers")
+
+        with db.transaction() as txn:
+            orders = db.table("orders").select()
+            customers = db.table("customers").select()
+            joined = orders.join(customers, on=[col("orders.customer_id") == col("customers.id")])
+            locked_df = joined.select_for_update()
+            results = locked_df.collect()
+            assert len(results) == 1
+            assert results[0]["name"] == "Alice"
+
+    def test_select_for_update_with_aggregate(self, tmp_path):
+        """Test FOR UPDATE with aggregate plans."""
+        db_path = tmp_path / "test.db"
+        db = connect(f"sqlite:///{db_path}")
+
+        db.create_table(
+            "orders",
+            [
+                column("id", "INTEGER", primary_key=True),
+                column("customer_id", "INTEGER"),
+                column("amount", "REAL"),
+            ],
+        ).collect()
+        Records(
+            _data=[
+                {"id": 1, "customer_id": 1, "amount": 100.0},
+                {"id": 2, "customer_id": 1, "amount": 200.0},
+            ],
+            _database=db,
+        ).insert_into("orders")
+
+        with db.transaction() as txn:
+            df = (
+                db.table("orders")
+                .select()
+                .group_by("customer_id")
+                .agg(F.sum(col("amount")).alias("total"))
+            )
+            locked_df = df.select_for_update()
+            results = locked_df.collect()
+            assert len(results) == 1
+            assert results[0]["total"] == 300.0
+
+    def test_select_for_update_with_sort(self, tmp_path):
+        """Test FOR UPDATE with sort plans."""
+        db_path = tmp_path / "test.db"
+        db = connect(f"sqlite:///{db_path}")
+
+        db.create_table(
+            "orders", [column("id", "INTEGER", primary_key=True), column("amount", "REAL")]
+        ).collect()
+        Records(
+            _data=[{"id": 1, "amount": 200.0}, {"id": 2, "amount": 100.0}], _database=db
+        ).insert_into("orders")
+
+        with db.transaction() as txn:
+            df = db.table("orders").select().order_by(col("amount").desc())
+            locked_df = df.select_for_update()
+            results = locked_df.collect()
+            assert len(results) == 2
+            assert results[0]["amount"] == 200.0
+
+    def test_select_for_update_with_limit(self, tmp_path):
+        """Test FOR UPDATE with limit plans."""
+        db_path = tmp_path / "test.db"
+        db = connect(f"sqlite:///{db_path}")
+
+        db.create_table(
+            "orders", [column("id", "INTEGER", primary_key=True), column("amount", "REAL")]
+        ).collect()
+        Records(
+            _data=[
+                {"id": 1, "amount": 100.0},
+                {"id": 2, "amount": 200.0},
+                {"id": 3, "amount": 300.0},
+            ],
+            _database=db,
+        ).insert_into("orders")
+
+        with db.transaction() as txn:
+            df = db.table("orders").select().limit(2)
+            locked_df = df.select_for_update()
+            results = locked_df.collect()
+            assert len(results) == 2
+
+    def test_select_for_share_with_join(self, tmp_path):
+        """Test FOR SHARE with join plans."""
+        db_path = tmp_path / "test.db"
+        db = connect(f"sqlite:///{db_path}")
+
+        db.create_table(
+            "products",
+            [
+                column("id", "INTEGER", primary_key=True),
+                column("category_id", "INTEGER"),
+                column("stock", "INTEGER"),
+            ],
+        ).collect()
+        db.create_table(
+            "categories", [column("id", "INTEGER", primary_key=True), column("name", "TEXT")]
+        ).collect()
+        Records(_data=[{"id": 1, "category_id": 1, "stock": 10}], _database=db).insert_into(
+            "products"
+        )
+        Records(_data=[{"id": 1, "name": "Electronics"}], _database=db).insert_into("categories")
+
+        with db.transaction() as txn:
+            products = db.table("products").select()
+            categories = db.table("categories").select()
+            joined = products.join(
+                categories, on=[col("products.category_id") == col("categories.id")]
+            )
+            locked_df = joined.select_for_share()
+            results = locked_df.collect()
+            assert len(results) == 1
+            assert results[0]["name"] == "Electronics"
 
 
 class TestAsyncEnhancedTransactions:

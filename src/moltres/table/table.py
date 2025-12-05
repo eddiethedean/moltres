@@ -16,6 +16,7 @@ import atexit
 from contextlib import contextmanager
 import logging
 import signal
+from types import FrameType, TracebackType
 import weakref
 from dataclasses import dataclass
 from typing import (
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
     import polars as pl
     from sqlalchemy.engine import Engine
     from sqlalchemy.orm import DeclarativeBase, Session
+    from sqlalchemy.sql import Select
     from ..dataframe.core.dataframe import DataFrame
     from ..dataframe.interfaces.pandas_dataframe import PandasDataFrame
     from ..dataframe.interfaces.polars_dataframe import PolarsDataFrame
@@ -60,6 +62,9 @@ if TYPE_CHECKING:
         TableSchema,
         UniqueConstraint,
     )
+
+    # Type alias for table name or model
+    TableNameOrModel = Union[str, Type[DeclarativeBase], Type[Any]]
 from sqlalchemy.engine import Connection
 
 from ..engine.connection import ConnectionManager
@@ -341,7 +346,12 @@ class Transaction:
         self._metrics_isolation_level = self._isolation_level
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         """Exit the transaction context.
 
         Automatically commits if no exception occurred, or rolls back if an exception was raised.
@@ -374,7 +384,7 @@ class Transaction:
                 has_savepoint=self._metrics_has_savepoint,
                 readonly=self._metrics_readonly,
                 isolation_level=self._metrics_isolation_level,
-                error=exc_val if exc_type else None,
+                error=exc_val if (exc_type and isinstance(exc_val, Exception)) else None,
             )
 
 
@@ -634,7 +644,12 @@ class Database:
         """
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         """Exit the database context manager.
 
         Automatically closes the database connection when exiting the context,
@@ -707,7 +722,7 @@ class Database:
         ...
 
     def table(  # type: ignore[misc]
-        self, name_or_model: Union[str, Type["DeclarativeBase"], Type[Any]]
+        self, name_or_model: "TableNameOrModel"
     ) -> TableHandle:
         """Get a handle to a table in the database.
 
@@ -1550,7 +1565,7 @@ class Database:
         return result
 
     # -------------------------------------------------------------- query utils
-    def compile_plan(self, plan: LogicalPlan) -> Any:
+    def compile_plan(self, plan: LogicalPlan) -> "Select":
         """Compile a logical plan to a SQLAlchemy Select statement."""
         return compile_plan(plan, dialect=self._dialect)
 
@@ -1992,7 +2007,7 @@ def _cleanup_all_databases() -> None:
             logger.debug("Database cleanup during interpreter shutdown failed: %s", exc)
 
 
-def _signal_handler(signum: int, frame: Any) -> None:
+def _signal_handler(signum: int, frame: Optional[FrameType]) -> None:
     """Handle signals (SIGTERM, SIGINT) by cleaning up databases before exit."""
     logger.info("Received signal %d, cleaning up databases...", signum)
     _cleanup_all_databases()

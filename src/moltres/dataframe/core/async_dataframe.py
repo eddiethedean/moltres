@@ -29,6 +29,7 @@ from ..helpers.dataframe_helpers import DataFrameHelpersMixin
 if TYPE_CHECKING:
     from sqlalchemy.sql import Select
     from ...io.records import AsyncRecords
+    from ...logical.plan import Project
     from ...table.async_table import AsyncDatabase, AsyncTableHandle
     from ...utils.inspector import ColumnInfo
     from ..groupby.async_groupby import AsyncGroupedDataFrame
@@ -201,9 +202,33 @@ class AsyncDataFrame(DataFrameHelpersMixin):
                 for proj in self.plan.projections:
                     if isinstance(proj, Column) and proj.op == "column" and proj.args:
                         available_columns.add(str(proj.args[0]))
-        except Exception:
-            # If we can't extract columns, that's okay - parser will still work
-            pass
+        except (AttributeError, TypeError, KeyError) as e:
+            # Column extraction may fail due to:
+            # - AttributeError: Plan structure doesn't match expected format
+            # - TypeError: Unexpected type in projections
+            # - KeyError: Missing expected attributes
+            # This is acceptable - the SQL parser will still work without column context
+            # Log at debug level for troubleshooting
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(
+                "Could not extract column names from plan for selectExpr() context: %s. "
+                "SQL parsing will continue without column validation.",
+                e,
+            )
+        except Exception as e:
+            # Catch any other unexpected exceptions during column extraction
+            # This broad catch is acceptable because column extraction is optional
+            # and we want selectExpr() to work even if extraction fails
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug(
+                "Unexpected error extracting column names from plan for selectExpr(): %s. "
+                "SQL parsing will continue without column validation.",
+                e,
+            )
 
         # Parse each SQL expression into a Column expression
         parsed_columns = []
@@ -444,6 +469,159 @@ class AsyncDataFrame(DataFrameHelpersMixin):
     orderBy = order_by
     sort = order_by  # PySpark-style alias
 
+    def _find_or_create_project_for_locking(
+        self, plan: LogicalPlan, for_update: bool, for_share: bool, nowait: bool, skip_locked: bool
+    ) -> tuple[Project, LogicalPlan, bool]:
+        """Find or create a Project node for row-level locking.
+
+        Traverses the plan tree to find the topmost Project node, or creates one
+        if needed. Returns the Project node, the updated plan, and whether wrapping
+        was needed.
+
+        Args:
+            plan: The logical plan to process
+            for_update: Whether to use FOR UPDATE locking
+            for_share: Whether to use FOR SHARE locking
+            nowait: Whether to use NOWAIT option
+            skip_locked: Whether to use SKIP LOCKED option
+
+        Returns:
+            Tuple of (Project node, updated plan, needs_wrap flag)
+        """
+        from ...logical.plan import (
+            Aggregate,
+            Distinct,
+            Explode,
+            Filter,
+            Join,
+            Limit,
+            Project,
+            Sample,
+            SemiJoin,
+            AntiJoin,
+            Sort,
+            TableScan,
+        )
+        from dataclasses import replace
+
+        # Helper to find the topmost Project node by traversing the plan tree
+        def find_project_node(p: LogicalPlan) -> tuple[Project | None, LogicalPlan]:
+            """Find the topmost Project node, or return None if not found."""
+            if isinstance(p, Project):
+                return p, p
+            elif isinstance(p, (Filter, Aggregate, Sort, Limit, Distinct, Sample, Explode)):
+                # These have a single child - recurse
+                found_project, child_plan = find_project_node(p.child)
+                if found_project is not None:
+                    return found_project, p
+                # No Project found in child - we'll need to wrap
+                return None, p
+            elif isinstance(p, (Join, SemiJoin, AntiJoin)):
+                # These have left and right children - check left first (typically the main query)
+                found_project, left_plan = find_project_node(p.left)
+                if found_project is not None:
+                    return found_project, p
+                # Check right child
+                found_project, right_plan = find_project_node(p.right)
+                if found_project is not None:
+                    return found_project, p
+                # No Project found - we'll need to wrap
+                return None, p
+            elif isinstance(p, TableScan):
+                # TableScan needs to be wrapped in a Project
+                return None, p
+            else:
+                # Other plan types (CTE, Union, etc.) - wrap the entire plan
+                return None, p
+
+        project_node, root_plan = find_project_node(plan)
+
+        if project_node is not None:
+            # Found a Project node - update it with locking flags
+            updated_project = replace(
+                project_node,
+                for_update=for_update,
+                for_share=for_share,
+                for_update_nowait=nowait,
+                for_update_skip_locked=skip_locked,
+            )
+            # Rebuild the plan tree with the updated Project
+            updated_plan = self._rebuild_plan_with_updated_project(
+                root_plan, project_node, updated_project
+            )
+            return updated_project, updated_plan, False
+        else:
+            # No Project found - wrap the entire plan in a Project
+            new_project = Project(
+                child=root_plan,
+                projections=(),  # Empty means select all
+                for_update=for_update,
+                for_share=for_share,
+                for_update_nowait=nowait,
+                for_update_skip_locked=skip_locked,
+            )
+            return new_project, new_project, True
+
+    def _rebuild_plan_with_updated_project(
+        self, plan: LogicalPlan, old_project: Project, new_project: Project
+    ) -> LogicalPlan:
+        """Rebuild the plan tree with an updated Project node.
+
+        Args:
+            plan: The root plan to rebuild
+            old_project: The Project node to replace
+            new_project: The new Project node to use
+
+        Returns:
+            Updated plan tree
+        """
+        from ...logical.plan import (
+            Aggregate,
+            Distinct,
+            Explode,
+            Filter,
+            Join,
+            Limit,
+            Project,
+            Sample,
+            SemiJoin,
+            AntiJoin,
+            Sort,
+        )
+        from dataclasses import replace
+
+        if plan is old_project:
+            return new_project
+        elif isinstance(plan, (Filter, Aggregate, Sort, Limit, Distinct, Sample, Explode)):
+            updated_child = self._rebuild_plan_with_updated_project(
+                plan.child, old_project, new_project
+            )
+            return cast(LogicalPlan, replace(plan, child=updated_child))
+        elif isinstance(plan, (Join, SemiJoin, AntiJoin)):
+            updated_left = self._rebuild_plan_with_updated_project(
+                plan.left, old_project, new_project
+            )
+            updated_right = self._rebuild_plan_with_updated_project(
+                plan.right, old_project, new_project
+            )
+            if isinstance(plan, Join):
+                return cast(LogicalPlan, replace(plan, left=updated_left, right=updated_right))
+            elif isinstance(plan, SemiJoin):
+                return cast(LogicalPlan, replace(plan, left=updated_left, right=updated_right))
+            else:  # AntiJoin
+                return cast(LogicalPlan, replace(plan, left=updated_left, right=updated_right))
+        elif isinstance(plan, Project):
+            # This shouldn't happen if old_project is found, but handle it
+            if plan is old_project:
+                return new_project
+            updated_child = self._rebuild_plan_with_updated_project(
+                plan.child, old_project, new_project
+            )
+            return cast(LogicalPlan, replace(plan, child=updated_child))
+        else:
+            # Other plan types - no change needed
+            return plan
+
     def select_for_update(
         self, nowait: bool = False, skip_locked: bool = False
     ) -> "AsyncDataFrame":
@@ -479,51 +657,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             ...     results = await locked_df.collect()
             ...     # Rows are now locked for update
         """
-        from ...logical.plan import Filter, Project, TableScan
-        from dataclasses import replace
 
-        # Get the current plan
-        plan = self.plan
-
-        # Find or create a Project plan
-        project_plan = None
-        needs_wrap = False
-        if isinstance(plan, Project):
-            project_plan = plan
-        elif isinstance(plan, Filter):
-            # Filter wraps the child, which might be a Project or TableScan
-            if isinstance(plan.child, Project):
-                project_plan = plan.child
-            elif isinstance(plan.child, TableScan):
-                # Need to add a Project between Filter and TableScan
-                needs_wrap = True
-                project_plan = Project(
-                    child=plan.child,
-                    projections=(),  # Empty means select all
-                    for_update=True,
-                    for_share=False,
-                    for_update_nowait=nowait,
-                    for_update_skip_locked=skip_locked,
-                )
-        elif isinstance(plan, TableScan):
-            # Need to wrap TableScan in a Project
-            needs_wrap = True
-            project_plan = Project(
-                child=plan,
-                projections=(),  # Empty means select all
-                for_update=True,
-                for_share=False,
-                for_update_nowait=nowait,
-                for_update_skip_locked=skip_locked,
-            )
-
-        if project_plan is None:
-            raise ValueError(
-                "select_for_update() requires an AsyncDataFrame with a Project, Filter, or TableScan plan. "
-                "This should not happen - please report this as a bug."
-            )
-
-        # Check dialect support
+        # Check dialect support first
         if self.database:
             dialect = self.database.dialect
             if nowait and not dialect.supports_for_update_nowait:
@@ -535,23 +670,25 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             if not dialect.supports_row_locking:
                 raise ValueError(f"Dialect '{dialect.name}' does not support row-level locking")
 
-        # Update the Project plan with locking (if not already created with locking)
-        if needs_wrap:
-            updated_project = project_plan  # Already created with locking
-        else:
-            updated_project = replace(
-                project_plan,
-                for_update=True,
-                for_share=False,
-                for_update_nowait=nowait,
-                for_update_skip_locked=skip_locked,
+        # Get the current plan
+        plan = self.plan
+
+        try:
+            # Find or create a Project plan for locking
+            project_plan, updated_plan, needs_wrap = self._find_or_create_project_for_locking(
+                plan, for_update=True, for_share=False, nowait=nowait, skip_locked=skip_locked
             )
 
-        # If plan was a Filter, update it to use the updated Project
-        if isinstance(plan, Filter) and not needs_wrap:
-            return self._with_plan(replace(plan, child=updated_project))
-        else:
-            return self._with_plan(updated_project)
+            # Return AsyncDataFrame with updated plan
+            return self._with_plan(updated_plan)
+        except Exception as e:
+            # Provide better error message with plan type information
+            plan_type = type(plan).__name__
+            raise ValueError(
+                f"select_for_update() failed on plan type '{plan_type}'. "
+                f"This may indicate an unsupported plan structure. "
+                f"Original error: {e}"
+            ) from e
 
     def select_for_share(self, nowait: bool = False, skip_locked: bool = False) -> "AsyncDataFrame":
         """Select rows with FOR SHARE lock.
@@ -559,6 +696,9 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         This method adds a FOR SHARE clause to the SELECT statement, which locks
         the selected rows for shared (read) access. Other transactions can still
         read the rows but cannot modify them until the transaction commits.
+
+        This method works with any plan structure (joins, aggregations, sorts, etc.)
+        by finding or creating the appropriate Project node in the plan tree.
 
         Args:
             nowait: If True, don't wait for lock - raise error if rows are locked.
@@ -570,7 +710,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             New AsyncDataFrame with FOR SHARE locking enabled
 
         Raises:
-            ValueError: If nowait or skip_locked is requested but not supported by dialect.
+            ValueError: If nowait or skip_locked is requested but not supported by dialect,
+                       or if the plan structure cannot support row-level locking.
 
         Example:
             >>> from moltres import async_connect, col
@@ -585,52 +726,15 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             ...     locked_df = df.select_for_share()
             ...     results = await locked_df.collect()
             ...     # Rows are now locked for shared access
+
+        Example with joins:
+            >>> orders = await db.table("orders").select()
+            >>> customers = await db.table("customers").select()
+            >>> joined = orders.join(customers, on=[col("orders.customer_id") == col("customers.id")])
+            >>> locked_joined = joined.select_for_share()
+            >>> results = await locked_joined.collect()
         """
-        from ...logical.plan import Filter, Project, TableScan
-        from dataclasses import replace
-
-        # Get the current plan
-        plan = self.plan
-
-        # Find or create a Project plan
-        project_plan = None
-        needs_wrap = False
-        if isinstance(plan, Project):
-            project_plan = plan
-        elif isinstance(plan, Filter):
-            # Filter wraps the child, which might be a Project or TableScan
-            if isinstance(plan.child, Project):
-                project_plan = plan.child
-            elif isinstance(plan.child, TableScan):
-                # Need to add a Project between Filter and TableScan
-                needs_wrap = True
-                project_plan = Project(
-                    child=plan.child,
-                    projections=(),  # Empty means select all
-                    for_update=False,
-                    for_share=True,
-                    for_update_nowait=nowait,
-                    for_update_skip_locked=skip_locked,
-                )
-        elif isinstance(plan, TableScan):
-            # Need to wrap TableScan in a Project
-            needs_wrap = True
-            project_plan = Project(
-                child=plan,
-                projections=(),  # Empty means select all
-                for_update=False,
-                for_share=True,
-                for_update_nowait=nowait,
-                for_update_skip_locked=skip_locked,
-            )
-
-        if project_plan is None:
-            raise ValueError(
-                "select_for_share() requires an AsyncDataFrame with a Project, Filter, or TableScan plan. "
-                "This should not happen - please report this as a bug."
-            )
-
-        # Check dialect support
+        # Check dialect support first
         if self.database:
             dialect = self.database.dialect
             if nowait and not dialect.supports_for_update_nowait:
@@ -642,23 +746,25 @@ class AsyncDataFrame(DataFrameHelpersMixin):
             if not dialect.supports_row_locking:
                 raise ValueError(f"Dialect '{dialect.name}' does not support row-level locking")
 
-        # Update the Project plan with locking (if not already created with locking)
-        if needs_wrap:
-            updated_project = project_plan  # Already created with locking
-        else:
-            updated_project = replace(
-                project_plan,
-                for_update=False,
-                for_share=True,
-                for_update_nowait=nowait,
-                for_update_skip_locked=skip_locked,
+        # Get the current plan
+        plan = self.plan
+
+        try:
+            # Find or create a Project plan for locking
+            project_plan, updated_plan, needs_wrap = self._find_or_create_project_for_locking(
+                plan, for_update=False, for_share=True, nowait=nowait, skip_locked=skip_locked
             )
 
-        # If plan was a Filter, update it to use the updated Project
-        if isinstance(plan, Filter) and not needs_wrap:
-            return self._with_plan(replace(plan, child=updated_project))
-        else:
-            return self._with_plan(updated_project)
+            # Return AsyncDataFrame with updated plan
+            return self._with_plan(updated_plan)
+        except Exception as e:
+            # Provide better error message with plan type information
+            plan_type = type(plan).__name__
+            raise ValueError(
+                f"select_for_share() failed on plan type '{plan_type}'. "
+                f"This may indicate an unsupported plan structure. "
+                f"Original error: {e}"
+            ) from e
 
     def limit(self, count: int) -> AsyncDataFrame:
         """Limit the number of rows returned."""

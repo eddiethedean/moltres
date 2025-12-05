@@ -560,8 +560,12 @@ class SQLCompiler:
             # pivot_values should always be provided at this point (inferred in agg() if not provided)
             if not plan.pivot_values:
                 raise CompilationError(
-                    "GROUPED_PIVOT without pivot_values. "
-                    "This should not happen - pivot_values should be inferred in agg() if not provided.",
+                    f"GROUPED_PIVOT without pivot_values. "
+                    f"Plan structure: {type(plan).__name__} with pivot_column='{plan.pivot_column}', "
+                    f"value_column='{plan.value_column}', agg_func='{plan.agg_func}'. "
+                    f"pivot_values should be inferred in agg() if not provided. "
+                    f"If you're creating a GroupedPivot manually, ensure pivot_values is set. "
+                    f"Otherwise, this may indicate a bug in the pivot value inference logic."
                 )
 
             # Convert child to subquery

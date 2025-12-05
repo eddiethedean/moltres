@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **select_for_update() and select_for_share() Logic Bug** – Fixed critical bug where these methods only handled simple plan types (Project, Filter, TableScan) and failed with "This should not happen" errors on complex plans:
+  - Now properly handles all plan types including Join, Aggregate, Sort, Limit, Distinct, and combinations thereof
+  - Added plan tree traversal logic to find or create Project nodes for row-level locking
+  - Works correctly with nested joins, filters, aggregates, and other complex query structures
+  - Both sync (`DataFrame`) and async (`AsyncDataFrame`) versions fixed
+- **Improved Error Messages** – Enhanced defensive error messages to include helpful debugging information:
+  - `select_for_update()` and `select_for_share()` now include plan type in error messages
+  - GroupedPivot compilation errors now include pivot column, value column, and aggregation function details
+  - Error messages provide actionable guidance for debugging
+- **Code Quality Improvements** – Fixed style and exception handling issues:
+  - Removed extra blank line in `CompilationState` dataclass (PEP 8 compliance)
+  - Improved exception handling in `QueryExecutor.fetch()` methods (both sync and async):
+    - Now catches specific exceptions (`AttributeError`, `TypeError`, `ValueError`) before broad `Exception`
+    - Added debug logging when SQLModel `.exec()` fallback occurs
+    - Added explanatory comments for broad exception handling
+  - Enhanced `selectExpr()` exception handling in both sync and async DataFrames:
+    - Now catches specific exceptions (`AttributeError`, `TypeError`, `KeyError`) before broad `Exception`
+    - Added debug logging with exception details when column extraction fails
+    - Added comments explaining why fallback behavior is acceptable
+
+### Changed
+- **Type Hints** – Improved type annotations for better IDE support and type checking:
+  - Changed `transaction: Optional[Any]` to `transaction: Optional["Connection"]` in mutation functions (`insert_rows`, `update_rows`, `delete_rows`, `merge_rows`)
+  - Updated `QueryExecutor.execute()` and `execute_many()` methods with proper Connection type hints
+- **Documentation** – Enhanced docstrings for `select_for_update()` and `select_for_share()`:
+  - Added examples showing usage with joins and complex plans
+  - Clarified that methods work with any plan structure
+  - Documented plan type handling behavior
+- **Exception Handling** – Standardized exception handling patterns across codebase:
+  - More specific exception catching where possible
+  - Improved logging for debugging fallback scenarios
+  - Better error context in all exception handlers
+
+### Added
+- **Comprehensive Test Coverage** – Added extensive test suite for complex plan scenarios:
+  - Tests for `select_for_update()` with joins, aggregates, sorts, limits, distinct, and multiple filters
+  - Tests for `select_for_share()` with complex plans
+  - Async versions of all complex plan tests
+  - Tests verifying improved error messages
+  - 12 new tests in `tests/dataframe/test_select_for_update_fixes.py`
+  - Enhanced existing tests in `tests/table/test_enhanced_transactions.py`
+- **Error Handling Tests** – Added comprehensive test suite for error handling paths:
+  - Tests for SQLModel `.exec()` fallback behavior with different exception types
+  - Tests for `selectExpr()` error handling scenarios
+  - Tests verifying error context logging
+  - 7 new tests in `tests/engine/test_error_handling.py`
+
 ## [0.23.0] - 2025-12-04
 
 ### Added
