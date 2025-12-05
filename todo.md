@@ -81,7 +81,13 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Better type inference for schemas
 - [ ] Generic DataFrame types with schema
 - [ ] Type-safe column references
-- [x] Better mypy coverage (reduce Any types) - Fixed all type errors in async implementations and examples ✅ **COMPLETED**
+- [x] Better mypy coverage (reduce Any types) - Comprehensive type safety improvements completed ✅ **COMPLETED**
+  - Fixed all existing mypy errors (Project import, no-any-return)
+  - Replaced Any types with proper types (Select, Connection, AsyncConnection, etc.)
+  - Fixed context manager exception types (BaseException, TracebackType)
+  - Added type aliases (ModelType, TableNameOrModel)
+  - Improved DataFrame and table type annotations
+  - Zero mypy errors across entire codebase (170 source files)
 
 ### Error Handling
 - [ ] Error recovery strategies
@@ -194,6 +200,32 @@ This file tracks planned features, improvements, and tasks for Moltres.
 - [ ] Better handling of edge cases in file readers
 
 ## ✅ Recently Completed
+
+### Type Safety & Code Quality Improvements (v0.23.1) ✅ **COMPLETED**
+- ✅ **Comprehensive Type Safety Improvements** – Major type safety enhancements across codebase:
+  - ✅ Fixed all existing mypy errors (8 errors in DataFrame classes - Project import, no-any-return)
+  - ✅ Replaced Any types with proper types throughout:
+    - `Union[str, Any]` → `Union[str, Select]` in execution layer
+    - `Optional[Any]` → `Optional["Connection"]` / `Optional["AsyncConnection"]` in mutations and execution
+    - Fixed context manager types: `__exit__` and `__aexit__` now use proper exception types
+  - ✅ Added type aliases for better type safety:
+    - `ModelType` for SQLModel/Pydantic/SQLAlchemy model types
+    - `TableNameOrModel` for table() method parameter
+  - ✅ Improved DataFrame type annotations (model types, streaming return types)
+  - ✅ Improved table operation type annotations (compile_plan, signal handler)
+  - ✅ Zero mypy errors across entire codebase (170 source files checked)
+- ✅ **Code Quality Improvements** – Enhanced error handling and code consistency:
+  - ✅ Improved exception handling in execution layer (specific exceptions before broad catch)
+  - ✅ Added debug logging for fallback scenarios and error conditions
+  - ✅ Enhanced selectExpr() exception handling with better logging
+  - ✅ Standardized exception handling patterns across codebase
+  - ✅ Fixed PEP 8 style issues (extra blank line in CompilationState)
+- ✅ **Comprehensive Test Coverage** – Added tests for all improvements:
+  - ✅ 12 new tests for select_for_update/select_for_share with complex plans
+  - ✅ 7 new tests for error handling paths and fallback scenarios
+  - ✅ All 2,101 tests passing
+- ✅ **Version Bump** – Released as v0.23.1
+- ✅ **Documentation** – Updated CHANGELOG with all improvements
 
 ### Transaction Utilities ✅ **COMPLETED**
 - ✅ **Transaction Decorator** – `@transaction` decorator for automatic transaction wrapping:
