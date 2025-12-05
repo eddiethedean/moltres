@@ -271,6 +271,20 @@ class DataLoader:
         """
         return self.text(path, column_name)
 
+    def text_file(self, path: str, column_name: str = "value") -> DataFrame:
+        """Read a text file as a single column (snake_case alias for textFile).
+
+        This is an alias for :meth:`textFile`. See :meth:`textFile` for full documentation.
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
+        """
+        return self.textFile(path, column_name)
+
     def format(self, source: str) -> "FormatReader":
         """Specify the data source format.
 
@@ -634,6 +648,20 @@ class ReadAccessor:
             :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
         """
         return self._loader.textFile(path, column_name)
+
+    def text_file(self, path: str, column_name: str = "value") -> DataFrame:
+        """Read a text file as a single column (snake_case alias for textFile).
+
+        This is an alias for :meth:`textFile`. See :meth:`textFile` for full documentation.
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
+        """
+        return self.textFile(path, column_name)
 
     def format(self, source: str) -> FormatReader:
         """Specify the data source format.

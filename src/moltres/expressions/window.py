@@ -79,6 +79,20 @@ class Window:
         return WindowSpec(partition_by=tuple(ensure_column(c) for c in columns))
 
     @staticmethod
+    def partition_by(*columns: ColumnLike) -> WindowSpec:
+        """Create a window specification partitioned by columns (snake_case alias for partitionBy).
+
+        This is an alias for :meth:`partitionBy`. See :meth:`partitionBy` for full documentation.
+
+        Args:
+            *columns: :class:`Column` expressions to partition by
+
+        Returns:
+            WindowSpec with partition_by set
+        """
+        return Window.partitionBy(*columns)
+
+    @staticmethod
     def orderBy(*columns: ColumnLike) -> WindowSpec:
         """Create a window specification ordered by columns.
 
@@ -89,6 +103,20 @@ class Window:
             WindowSpec with order_by set
         """
         return WindowSpec(order_by=tuple(ensure_column(c) for c in columns))
+
+    @staticmethod
+    def order_by(*columns: ColumnLike) -> WindowSpec:
+        """Create a window specification ordered by columns (snake_case alias for orderBy).
+
+        This is an alias for :meth:`orderBy`. See :meth:`orderBy` for full documentation.
+
+        Args:
+            *columns: :class:`Column` expressions to order by
+
+        Returns:
+            WindowSpec with order_by set
+        """
+        return Window.orderBy(*columns)
 
     @staticmethod
     def rowsBetween(start: int | None, end: int | None) -> WindowSpec:
@@ -104,6 +132,21 @@ class Window:
         return WindowSpec(rows_between=(start, end))
 
     @staticmethod
+    def rows_between(start: int | None, end: int | None) -> WindowSpec:
+        """Create a window specification with ROWS BETWEEN frame (snake_case alias for rowsBetween).
+
+        This is an alias for :meth:`rowsBetween`. See :meth:`rowsBetween` for full documentation.
+
+        Args:
+            start: Start row
+            end: End row
+
+        Returns:
+            WindowSpec with rows_between set
+        """
+        return Window.rowsBetween(start, end)
+
+    @staticmethod
     def rangeBetween(start: int | None, end: int | None) -> WindowSpec:
         """Create a window specification with RANGE BETWEEN frame.
 
@@ -115,6 +158,21 @@ class Window:
             WindowSpec with range_between set
         """
         return WindowSpec(range_between=(start, end))
+
+    @staticmethod
+    def range_between(start: int | None, end: int | None) -> WindowSpec:
+        """Create a window specification with RANGE BETWEEN frame (snake_case alias for rangeBetween).
+
+        This is an alias for :meth:`rangeBetween`. See :meth:`rangeBetween` for full documentation.
+
+        Args:
+            start: Start range
+            end: End range
+
+        Returns:
+            WindowSpec with range_between set
+        """
+        return Window.rangeBetween(start, end)
 
 
 # Window function helpers

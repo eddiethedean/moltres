@@ -355,6 +355,7 @@ def test_drop_table_integration(tmp_path):
 
     db.drop_table("temp").collect()
     result = db.execute_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='temp'")
+    assert result.rows is not None
     assert len(result.rows) == 0
 
 
@@ -633,6 +634,7 @@ def test_create_index_single_column(tmp_path):
     result = db.execute_sql(
         "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_email'"
     )
+    assert result.rows is not None
     assert len(result.rows) == 1
 
 
@@ -659,6 +661,7 @@ def test_create_index_multi_column(tmp_path):
     result = db.execute_sql(
         "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_user_status'"
     )
+    assert result.rows is not None
     assert len(result.rows) == 1
 
 
@@ -710,6 +713,7 @@ def test_drop_index(tmp_path):
     result = db.execute_sql(
         "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_email'"
     )
+    assert result.rows is not None
     assert len(result.rows) == 1
 
     # Drop index
@@ -1131,6 +1135,7 @@ async def test_async_create_index(tmp_path):
         result = await async_db.execute_sql(
             "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_email'"
         )
+        assert result.rows is not None
         assert len(result.rows) == 1
     finally:
         await async_db.close()
@@ -1166,6 +1171,7 @@ async def test_async_drop_index(tmp_path):
         result = await async_db.execute_sql(
             "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_email'"
         )
+        assert result.rows is not None
         assert len(result.rows) == 0
     finally:
         await async_db.close()

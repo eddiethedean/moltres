@@ -1453,7 +1453,7 @@ class AsyncDatabase:
     async def createDataFrame(
         self,
         data: Union[
-            Sequence[dict[str, object]],
+            Sequence[dict[str, Any]],
             Sequence[tuple],
             "AsyncRecords",
             "AsyncLazyRecords",
@@ -1620,6 +1620,36 @@ class AsyncDatabase:
 
         # Return AsyncDataFrame querying from the temporary table
         return AsyncDataFrame.from_table(table_handle)
+
+    async def create_dataframe(
+        self,
+        data: Union[
+            Sequence[dict[str, object]],
+            Sequence[tuple],
+            "AsyncRecords",
+            "AsyncLazyRecords",
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
+        ],
+        schema: Optional[Sequence[ColumnDef]] = None,
+        pk: Optional[Union[str, Sequence[str]]] = None,
+        auto_pk: Optional[Union[str, Sequence[str]]] = None,
+    ) -> "AsyncDataFrame":
+        """Create an AsyncDataFrame from Python data (snake_case alias for createDataFrame).
+
+        This is an alias for :meth:`createDataFrame`. See :meth:`createDataFrame` for full documentation.
+
+        Args:
+            data: Input data in one of supported formats
+            schema: Optional explicit schema
+            pk: Optional column name(s) to mark as primary key
+            auto_pk: Optional column name(s) to create as auto-incrementing primary key
+
+        Returns:
+            AsyncDataFrame querying from the created temporary table
+        """
+        return await self.createDataFrame(data, schema=schema, pk=pk, auto_pk=auto_pk)
 
     async def close(self) -> None:
         """Close the database connection and cleanup resources."""

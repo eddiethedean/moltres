@@ -1896,7 +1896,7 @@ class Database:
     def createDataFrame(
         self,
         data: Union[
-            Sequence[dict[str, object]],
+            Sequence[dict[str, Any]],
             Sequence[tuple],
             Records,
             "LazyRecords",
@@ -1961,6 +1961,36 @@ class Database:
 
         manager = EphemeralTableManager(self)
         return manager.create_dataframe(data, schema=schema, pk=pk, auto_pk=auto_pk)
+
+    def create_dataframe(
+        self,
+        data: Union[
+            Sequence[dict[str, object]],
+            Sequence[tuple],
+            Records,
+            "LazyRecords",
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
+        ],
+        schema: Optional[Sequence[ColumnDef]] = None,
+        pk: Optional[Union[str, Sequence[str]]] = None,
+        auto_pk: Optional[Union[str, Sequence[str]]] = None,
+    ) -> "DataFrame":
+        """Create a DataFrame from Python data (snake_case alias for createDataFrame).
+
+        This is an alias for :meth:`createDataFrame`. See :meth:`createDataFrame` for full documentation.
+
+        Args:
+            data: Input data in one of supported formats
+            schema: Optional explicit schema
+            pk: Optional column name(s) to mark as primary key
+            auto_pk: Optional column name(s) to create as auto-incrementing primary key
+
+        Returns:
+            DataFrame querying from the created temporary table
+        """
+        return self.createDataFrame(data, schema=schema, pk=pk, auto_pk=auto_pk)
 
     # ----------------------------------------------------------------- internals
     @property

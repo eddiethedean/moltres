@@ -10,7 +10,7 @@ from ....table.schema import ColumnDef
 
 
 def infer_schema_from_rows(
-    rows: list[dict[str, object]],
+    rows: Sequence[dict[str, Any]],
     date_format: Optional[str] = None,
     timestamp_format: Optional[str] = None,
 ) -> Sequence[ColumnDef]:
@@ -144,7 +144,7 @@ def _infer_type_from_values(
 
 
 def apply_schema_to_rows(
-    rows: list[dict[str, object]],
+    rows: Sequence[dict[str, Any]],
     schema: Sequence[ColumnDef],
     date_format: Optional[str] = None,
     timestamp_format: Optional[str] = None,

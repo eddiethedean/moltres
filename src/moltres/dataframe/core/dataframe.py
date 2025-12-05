@@ -412,6 +412,9 @@ class DataFrame(DataFrameHelpersMixin):
         This method allows you to write SQL expressions directly instead of
         building :class:`Column` objects manually, similar to PySpark's selectExpr().
 
+        Note:
+            A snake_case alias :meth:`select_expr` is also available.
+
         Args:
             *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
 
@@ -495,6 +498,19 @@ class DataFrame(DataFrameHelpersMixin):
 
         # Use the existing select() method with parsed columns
         return self.select(*parsed_columns)
+
+    def select_expr(self, *exprs: str) -> DataFrame:
+        """Select columns using SQL expressions (snake_case alias for selectExpr).
+
+        This is an alias for :meth:`selectExpr`. See :meth:`selectExpr` for full documentation.
+
+        Args:
+            *exprs: SQL expression strings (e.g., "amount * 1.1 as with_tax")
+
+        Returns:
+            New :class:`DataFrame` with selected expressions
+        """
+        return self.selectExpr(*exprs)
 
     def where(self, predicate: Union[Column, str]) -> DataFrame:
         """Filter rows based on a condition.
@@ -1068,6 +1084,22 @@ class DataFrame(DataFrameHelpersMixin):
         """
         return self.join(other, how="cross")
 
+    def cross_join(self, other: DataFrame) -> DataFrame:
+        """Perform a cross join (Cartesian product) with another :class:`DataFrame` (snake_case alias for crossJoin).
+
+        This is an alias for :meth:`crossJoin`. See :meth:`crossJoin` for full documentation.
+
+        Args:
+            other: Another :class:`DataFrame` to cross join with
+
+        Returns:
+            New :class:`DataFrame` containing the Cartesian product of rows
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
+        """
+        return self.crossJoin(other)
+
     def semi_join(
         self,
         other: DataFrame,
@@ -1347,6 +1379,22 @@ class DataFrame(DataFrameHelpersMixin):
 
         return union_dataframes(self, other, distinct=False)
 
+    def union_all(self, other: DataFrame) -> DataFrame:
+        """Union this :class:`DataFrame` with another :class:`DataFrame` (all rows, including duplicates) (snake_case alias for unionAll).
+
+        This is an alias for :meth:`unionAll`. See :meth:`unionAll` for full documentation.
+
+        Args:
+            other: Another :class:`DataFrame` to union with
+
+        Returns:
+            New :class:`DataFrame` containing the union of all rows
+
+        Raises:
+            RuntimeError: If DataFrames are not bound to the same :class:`Database`
+        """
+        return self.unionAll(other)
+
     def intersect(self, other: DataFrame) -> DataFrame:
         """Intersect this :class:`DataFrame` with another :class:`DataFrame` (distinct rows only).
 
@@ -1519,6 +1567,20 @@ class DataFrame(DataFrameHelpersMixin):
         # use window functions or subqueries
         return self.group_by(*subset).agg()
 
+    def drop_duplicates(self, subset: Optional[Sequence[str]] = None) -> DataFrame:
+        """Return a new :class:`DataFrame` with duplicate rows removed (snake_case alias for dropDuplicates).
+
+        This is an alias for :meth:`dropDuplicates`. See :meth:`dropDuplicates` for full documentation.
+
+        Args:
+            subset: Optional list of column names to consider when identifying duplicates.
+                   If None, all columns are considered.
+
+        Returns:
+            New :class:`DataFrame` with duplicates removed
+        """
+        return self.dropDuplicates(subset)
+
     def withColumn(self, colName: str, col_expr: Union[Column, str]) -> DataFrame:
         """Add or replace a column in the :class:`DataFrame`.
 
@@ -1617,6 +1679,20 @@ class DataFrame(DataFrameHelpersMixin):
 
         return self._with_plan(operators.project(self.plan, tuple(new_projections)))
 
+    def with_column(self, colName: str, col_expr: Union[Column, str]) -> DataFrame:
+        """Add or replace a column in the :class:`DataFrame` (snake_case alias for withColumn).
+
+        This is an alias for :meth:`withColumn`. See :meth:`withColumn` for full documentation.
+
+        Args:
+            colName: Name of the column to add or replace
+            col_expr: :class:`Column` expression or column name
+
+        Returns:
+            New :class:`DataFrame` with the added/replaced column
+        """
+        return self.withColumn(colName, col_expr)
+
     def withColumns(self, cols_map: Dict[str, Union[Column, str]]) -> DataFrame:
         """Add or replace multiple columns in the :class:`DataFrame`.
 
@@ -1651,6 +1727,19 @@ class DataFrame(DataFrameHelpersMixin):
         for col_name, col_expr in cols_map.items():
             result_df = result_df.withColumn(col_name, col_expr)
         return result_df
+
+    def with_columns(self, cols_map: Dict[str, Union[Column, str]]) -> DataFrame:
+        """Add or replace multiple columns in the :class:`DataFrame` (snake_case alias for withColumns).
+
+        This is an alias for :meth:`withColumns`. See :meth:`withColumns` for full documentation.
+
+        Args:
+            cols_map: Dictionary mapping column names to :class:`Column` expressions or column names
+
+        Returns:
+            New :class:`DataFrame` with the added/replaced columns
+        """
+        return self.withColumns(cols_map)
 
     def withColumnRenamed(self, existing: str, new: str) -> DataFrame:
         """Rename a column in the :class:`DataFrame`.
@@ -1700,6 +1789,20 @@ class DataFrame(DataFrameHelpersMixin):
             # No projection yet, create one that selects all and renames the column
             existing_col = col(existing).alias(new)
             return self._with_plan(operators.project(self.plan, (existing_col,)))
+
+    def with_column_renamed(self, existing: str, new: str) -> DataFrame:
+        """Rename a column in the :class:`DataFrame` (snake_case alias for withColumnRenamed).
+
+        This is an alias for :meth:`withColumnRenamed`. See :meth:`withColumnRenamed` for full documentation.
+
+        Args:
+            existing: Current name of the column
+            new: New name for the column
+
+        Returns:
+            New :class:`DataFrame` with the renamed column
+        """
+        return self.withColumnRenamed(existing, new)
 
     def drop(self, *cols: Union[str, Column]) -> DataFrame:
         """Drop one or more columns from the :class:`DataFrame`.
@@ -3100,6 +3203,13 @@ class DataFrame(DataFrameHelpersMixin):
 
         inspector = SchemaInspector(self)
         inspector.print_schema()
+
+    def print_schema(self) -> None:
+        """Print the schema of this :class:`DataFrame` in a tree format (snake_case alias for printSchema).
+
+        This is an alias for :meth:`printSchema`. See :meth:`printSchema` for full documentation.
+        """
+        return self.printSchema()
 
     def __getitem__(
         self, key: Union[str, Sequence[str], Column]

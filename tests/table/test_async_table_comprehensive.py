@@ -362,6 +362,7 @@ class TestAsyncDatabase:
 
         plan = operators.scan("test")
         result = await db.execute_plan(plan)
+        assert result.rows is not None
         assert len(result.rows) == 1
 
         await db.close()
@@ -412,6 +413,7 @@ class TestAsyncDatabase:
         await records.insert_into("test")
 
         result = await db.execute_sql("SELECT * FROM test")
+        assert result.rows is not None
         assert len(result.rows) == 1
 
         await db.close()
@@ -433,6 +435,7 @@ class TestAsyncDatabase:
         await records.insert_into("test")
 
         result = await db.execute_sql("SELECT * FROM test WHERE id = :id", params={"id": 1})
+        assert result.rows is not None
         assert len(result.rows) == 1
 
         await db.close()

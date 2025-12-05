@@ -164,6 +164,20 @@ class AsyncDataLoader:
         """
         return await self.text(path, column_name)
 
+    async def text_file(self, path: str, column_name: str = "value") -> AsyncDataFrame:
+        """Read a text file as a single column (snake_case alias for textFile).
+
+        This is an alias for :meth:`textFile`. See :meth:`textFile` for full documentation.
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return await self.textFile(path, column_name)
+
     async def format(self, source: str) -> "AsyncFormatReader":
         """Specify the data source format.
 
@@ -541,6 +555,20 @@ class AsyncReadAccessor:
             AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
         """
         return await self._loader.textFile(path, column_name)
+
+    async def text_file(self, path: str, column_name: str = "value") -> AsyncDataFrame:
+        """Read a text file as a single column (snake_case alias for textFile).
+
+        This is an alias for :meth:`textFile`. See :meth:`textFile` for full documentation.
+
+        Args:
+            path: Path to the text file
+            column_name: Name of the column to create (default: "value")
+
+        Returns:
+            AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
+        """
+        return await self.textFile(path, column_name)
 
     async def format(self, source: str) -> AsyncFormatReader:
         """Specify the data source format.

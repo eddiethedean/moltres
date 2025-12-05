@@ -25,7 +25,7 @@ class TestInferSchemaFromRows:
             {"id": 1, "name": "Alice", "score": 85.5, "active": True},
             {"id": 2, "name": "Bob", "score": 90.0, "active": False},
         ]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         assert len(schema) == 4
         # Check column names
         col_names = {col.name for col in schema}
@@ -37,7 +37,7 @@ class TestInferSchemaFromRows:
             {"id": 1, "name": "Alice", "value": None},
             {"id": 2, "name": None, "value": 10},
         ]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         assert len(schema) == 3
         # Columns with None should be nullable
         name_col = next(col for col in schema if col.name == "name")
@@ -48,7 +48,7 @@ class TestInferSchemaFromRows:
     def test_infer_schema_integer_types(self):
         """Test inferring integer types."""
         rows = [{"id": 1, "count": 42}]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         id_col = next(col for col in schema if col.name == "id")
         count_col = next(col for col in schema if col.name == "count")
         assert "INTEGER" in id_col.type_name.upper()
@@ -57,7 +57,7 @@ class TestInferSchemaFromRows:
     def test_infer_schema_float_types(self):
         """Test inferring float types."""
         rows = [{"price": 19.99, "rate": 0.05}]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         price_col = next(col for col in schema if col.name == "price")
         rate_col = next(col for col in schema if col.name == "rate")
         assert "REAL" in price_col.type_name.upper() or "FLOAT" in price_col.type_name.upper()
@@ -66,7 +66,7 @@ class TestInferSchemaFromRows:
     def test_infer_schema_string_types(self):
         """Test inferring string types."""
         rows = [{"name": "Alice", "email": "alice@example.com"}]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         name_col = next(col for col in schema if col.name == "name")
         email_col = next(col for col in schema if col.name == "email")
         assert "TEXT" in name_col.type_name.upper() or "VARCHAR" in name_col.type_name.upper()
@@ -75,7 +75,7 @@ class TestInferSchemaFromRows:
     def test_infer_schema_boolean_types(self):
         """Test inferring boolean types."""
         rows = [{"active": True, "verified": False}]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         active_col = next(col for col in schema if col.name == "active")
         verified_col = next(col for col in schema if col.name == "verified")
         assert (
@@ -109,7 +109,7 @@ class TestInferSchemaFromRows:
             {"value": "text"},
             {"value": 3.14},
         ]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         value_col = next(col for col in schema if col.name == "value")
         # Schema inference may try to parse strings as numbers, so result may vary
         # Just check that a type was inferred
@@ -122,7 +122,7 @@ class TestInferSchemaFromRows:
             {"id": "2"},
             {"id": "3"},
         ]
-        schema = infer_schema_from_rows(rows)
+        schema = infer_schema_from_rows(rows)  # type: ignore[arg-type]
         id_col = next(col for col in schema if col.name == "id")
         # Numeric strings may be inferred as INTEGER if all can be parsed
         # Just check that a type was inferred
@@ -140,7 +140,7 @@ class TestApplySchemaToRows:
             ColumnDef(name="name", type_name="TEXT"),
             ColumnDef(name="score", type_name="REAL"),
         ]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         assert len(result) == 1
         assert result[0]["id"] == 1
         assert result[0]["name"] == "Alice"
@@ -154,7 +154,7 @@ class TestApplySchemaToRows:
             ColumnDef(name="name", type_name="TEXT", nullable=True),
             ColumnDef(name="score", type_name="REAL"),
         ]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         assert result[0]["id"] == 1
         assert result[0]["name"] is None
         assert result[0]["score"] == 85.5
@@ -167,7 +167,7 @@ class TestApplySchemaToRows:
             ColumnDef(name="name", type_name="TEXT"),
             ColumnDef(name="score", type_name="REAL", nullable=True),
         ]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         assert result[0]["id"] == 1
         assert result[0]["name"] == "Alice"
         assert result[0].get("score") is None
@@ -179,7 +179,7 @@ class TestApplySchemaToRows:
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         assert len(result[0]) == 2
         assert "extra" not in result[0]
 
@@ -191,7 +191,7 @@ class TestApplySchemaToRows:
             ColumnDef(name="active", type_name="BOOLEAN"),
             ColumnDef(name="price", type_name="REAL"),
         ]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         assert result[0]["id"] == 1
         # Boolean type may be converted to string in apply_schema_to_rows
         # Just check that the value is present
@@ -202,7 +202,7 @@ class TestApplySchemaToRows:
         """Test date conversion in apply_schema_to_rows."""
         rows = [{"date": "2023-01-01"}]
         schema = [ColumnDef(name="date", type_name="DATE")]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         # Date conversion may return string or date object depending on implementation
         assert result[0]["date"] is not None
 
@@ -213,7 +213,7 @@ class TestApplySchemaToRows:
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         assert len(result) == 0
 
     def test_apply_schema_multiple_rows(self):
@@ -227,7 +227,7 @@ class TestApplySchemaToRows:
             ColumnDef(name="id", type_name="INTEGER"),
             ColumnDef(name="name", type_name="TEXT"),
         ]
-        result = apply_schema_to_rows(rows, schema)
+        result = apply_schema_to_rows(rows, schema)  # type: ignore[arg-type]
         assert len(result) == 3
         assert result[0]["id"] == 1
         assert result[1]["id"] == 2

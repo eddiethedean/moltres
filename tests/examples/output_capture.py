@@ -47,11 +47,15 @@ class OutputCapture:
                 self.exception = e
                 raise
 
-        return self.captured_stdout
+        # Update captured_stdout from stdout buffer
+        captured_output: str = str(self.stdout.getvalue())
+        self.captured_stdout = captured_output
+        self.captured_stderr = str(self.stderr.getvalue())
+        return captured_output
 
     def get_output(self) -> str:
         """Get formatted output string."""
-        output_parts = []
+        output_parts: list[str] = []
         if self.captured_stdout:
             output_parts.append(self.captured_stdout.rstrip())
         if self.captured_stderr:
