@@ -14,6 +14,7 @@ Comparison documents (in this directory):
 
 - [Moltres vs PySpark](MOLTRES_VS_PYSPARK_COMPARISON.md)
 - [Moltres vs SQLFrame](MOLTRES_VS_SQLFRAME_COMPARISON.md)
+- [Moltres vs Ibis](MOLTRES_VS_IBIS_COMPARISON.md)
 
 ## Prerequisites
 
