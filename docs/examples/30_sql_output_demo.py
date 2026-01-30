@@ -131,12 +131,7 @@ print("\n" + "=" * 70)
 print("5. .sql property and sql_preview()")
 print("=" * 70)
 
-df5 = (
-    db.table("users")
-    .select(col("name"), col("country"))
-    .where(col("age") >= 25)
-    .order_by("name")
-)
+df5 = db.table("users").select(col("name"), col("country")).where(col("age") >= 25).order_by("name")
 
 print("\n--- df.sql (formatted string) ---")
 print(df5.sql)
