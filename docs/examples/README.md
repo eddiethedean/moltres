@@ -26,6 +26,7 @@ This directory contains example code demonstrating various features of Moltres.
 20. **20_sqlalchemy_integration.py** - SQLAlchemy integration patterns
 21. **21_sqlmodel_integration.py** - SQLModel and Pydantic integration
 22. **22_fastapi_integration.py** - FastAPI integration with sync and async endpoints
+30. **30_sql_output_demo.py** - Show raw SQL output for DataFrame queries (to_sql, show_sql, .sql)
 
 ## Running Examples
 
