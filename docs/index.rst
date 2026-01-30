@@ -93,6 +93,17 @@ Concepts, operations, and internals
    FAQ
 
 
+Comparisons
+===========
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Comparisons
+
+   MOLTRES_VS_PYSPARK_COMPARISON
+   MOLTRES_VS_SQLFRAME_COMPARISON
+
+
 Internal and archive docs
 =========================
 
@@ -109,7 +120,6 @@ Internal and archive docs
    PRIORITY_IMPLEMENTATION
    MIGRATION_GUIDE
    MIGRATION_SPARK
-   MOLTRES_VS_PYSPARK_COMPARISON
    PYSPARK_FEATURE_COMPARISON
    PYSPARK_INTERFACE_AUDIT
    PYSPARK_MIGRATION_INCONSISTENCIES
