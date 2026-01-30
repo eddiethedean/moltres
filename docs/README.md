@@ -10,6 +10,11 @@ The documentation site includes:
 - Framework and tooling integrations
 - Performance, security, and troubleshooting guides
 
+Comparison documents (in this directory):
+
+- [Moltres vs PySpark](MOLTRES_VS_PYSPARK_COMPARISON.md)
+- [Moltres vs SQLFrame](MOLTRES_VS_SQLFRAME_COMPARISON.md)
+
 ## Prerequisites
 
 For local development, install the documentation dependencies:
