@@ -7,7 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-03
+
+### Breaking
+
+- **SQL execution lives in `moltres-core`** – Connection management, query execution, and dialect helpers are packaged as **`moltres-core`** on PyPI. `pip install moltres` pulls it in automatically. **From a git checkout**, install core first: `pip install -e ./moltres-core` then `pip install -e .`.
+- **`EngineConfig` is unified with core** – `moltres.config.EngineConfig` is now `moltres_core.config.EngineConfig` (single dataclass type for the public API and for `ConnectionManager` / `QueryExecutor`).
+
+### Added
+
+- **`moltres-core` distribution** – Same major version line as `moltres`; runtime dependency `moltres-core>=1.0.0,<2`.
+- **PyPI release automation** – GitHub Actions workflow publishes **both** `moltres-core` and `moltres` when you push tag `v*`, using the shared version in each `pyproject.toml`.
+- **Pydantable SQL engine surface** – `MoltresPydantableEngine`, `SqlPlan`, and `SqlRootData` for plan-driven SQL execution; see `docs/PYDANTABLE_ENGINE.md`.
+- **Comprehensive Test Coverage** – Added extensive test suite for complex plan scenarios:
+  - Tests for `select_for_update()` with joins, aggregates, sorts, limits, distinct, and multiple filters
+  - Tests for `select_for_share()` with complex plans
+  - Async versions of all complex plan tests
+  - Tests verifying improved error messages
+  - 12 new tests in `tests/dataframe/test_select_for_update_fixes.py`
+  - Enhanced existing tests in `tests/table/test_enhanced_transactions.py`
+- **Error Handling Tests** – Added comprehensive test suite for error handling paths:
+  - Tests for SQLModel `.exec()` fallback behavior with different exception types
+  - Tests for `selectExpr()` error handling scenarios
+  - Tests verifying error context logging
+  - 7 new tests in `tests/engine/test_error_handling.py`
+
+### Changed
+
+- **Type Hints** – Improved type annotations for better IDE support and type checking:
+  - Changed `transaction: Optional[Any]` to `transaction: Optional["Connection"]` in mutation functions (`insert_rows`, `update_rows`, `delete_rows`, `merge_rows`)
+  - Updated `QueryExecutor.execute()` and `execute_many()` methods with proper Connection type hints
+- **Documentation** – Enhanced docstrings for `select_for_update()` and `select_for_share()`:
+  - Added examples showing usage with joins and complex plans
+  - Clarified that methods work with any plan structure
+  - Documented plan type handling behavior
+- **Exception Handling** – Standardized exception handling patterns across codebase:
+  - More specific exception catching where possible
+  - Improved logging for debugging fallback scenarios
+  - Better error context in all exception handlers
+
 ### Fixed
+
 - **select_for_update() and select_for_share() Logic Bug** – Fixed critical bug where these methods only handled simple plan types (Project, Filter, TableScan) and failed with "This should not happen" errors on complex plans:
   - Now properly handles all plan types including Join, Aggregate, Sort, Limit, Distinct, and combinations thereof
   - Added plan tree traversal logic to find or create Project nodes for row-level locking
@@ -27,33 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Now catches specific exceptions (`AttributeError`, `TypeError`, `KeyError`) before broad `Exception`
     - Added debug logging with exception details when column extraction fails
     - Added comments explaining why fallback behavior is acceptable
-
-### Changed
-- **Type Hints** – Improved type annotations for better IDE support and type checking:
-  - Changed `transaction: Optional[Any]` to `transaction: Optional["Connection"]` in mutation functions (`insert_rows`, `update_rows`, `delete_rows`, `merge_rows`)
-  - Updated `QueryExecutor.execute()` and `execute_many()` methods with proper Connection type hints
-- **Documentation** – Enhanced docstrings for `select_for_update()` and `select_for_share()`:
-  - Added examples showing usage with joins and complex plans
-  - Clarified that methods work with any plan structure
-  - Documented plan type handling behavior
-- **Exception Handling** – Standardized exception handling patterns across codebase:
-  - More specific exception catching where possible
-  - Improved logging for debugging fallback scenarios
-  - Better error context in all exception handlers
-
-### Added
-- **Comprehensive Test Coverage** – Added extensive test suite for complex plan scenarios:
-  - Tests for `select_for_update()` with joins, aggregates, sorts, limits, distinct, and multiple filters
-  - Tests for `select_for_share()` with complex plans
-  - Async versions of all complex plan tests
-  - Tests verifying improved error messages
-  - 12 new tests in `tests/dataframe/test_select_for_update_fixes.py`
-  - Enhanced existing tests in `tests/table/test_enhanced_transactions.py`
-- **Error Handling Tests** – Added comprehensive test suite for error handling paths:
-  - Tests for SQLModel `.exec()` fallback behavior with different exception types
-  - Tests for `selectExpr()` error handling scenarios
-  - Tests verifying error context logging
-  - 7 new tests in `tests/engine/test_error_handling.py`
 
 ## [0.23.0] - 2025-12-04
 

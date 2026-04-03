@@ -6,12 +6,12 @@ This document formalizes the release process for Moltres.
 
 ### Pre-Release
 
-- [ ] All tests pass (`pytest -n 10`)
-- [ ] Type checking passes (`mypy src`)
-- [ ] Linting passes (`ruff check .` and `ruff format --check .`)
+- [ ] All tests pass (`pytest -n 10` or your usual matrix)
+- [ ] Type checking passes (`mypy src moltres-core/src`)
+- [ ] Linting passes (`ruff check src docs/examples tests moltres-core/src` and `ruff format --check …`)
 - [ ] Documentation is reviewed and updated
 - [ ] CHANGELOG.md is updated with all changes
-- [ ] Version number is bumped in `pyproject.toml` and `src/moltres/__init__.py`
+- [ ] Version number is bumped in **`pyproject.toml`**, **`moltres-core/pyproject.toml`**, **`src/moltres/__init__.py`**, and **`moltres-core/src/moltres_core/__init__.py`** (all must match the release tag)
 - [ ] Dependencies are reviewed for security issues
 - [ ] Performance benchmarks are within acceptable ranges
 - [ ] Breaking changes are documented
@@ -21,21 +21,23 @@ This document formalizes the release process for Moltres.
 
 1. **Update Version**
    ```bash
-   # Update pyproject.toml
-   version = "X.Y.Z"
-   
-   # Update src/moltres/__init__.py
-   __version__ = "X.Y.Z"
+   # Root package
+   # pyproject.toml → version = "X.Y.Z"
+   # src/moltres/__init__.py → __version__ = "X.Y.Z"
+
+   # Companion core (must match for major releases)
+   # moltres-core/pyproject.toml → version = "X.Y.Z"
+   # moltres-core/src/moltres_core/__init__.py → __version__ = "X.Y.Z"
    ```
 
 2. **Update CHANGELOG.md**
    - Move "Unreleased" changes to new version section
    - Add release date
-   - Categorize changes (Added, Changed, Fixed, Removed, Security)
+   - Categorize changes (Added, Changed, Fixed, Removed, Security). Call out **Breaking** for major releases.
 
 3. **Commit Changes**
    ```bash
-   git add pyproject.toml src/moltres/__init__.py CHANGELOG.md
+   git add pyproject.toml moltres-core/pyproject.toml src/moltres/__init__.py moltres-core/src/moltres_core/__init__.py CHANGELOG.md
    git commit -m "Release X.Y.Z"
    ```
 
@@ -46,29 +48,34 @@ This document formalizes the release process for Moltres.
    git push origin vX.Y.Z
    ```
 
-5. **Build Package**
+5. **Publish (automated)**  
+   Pushing **`v*`** runs `.github/workflows/release.yml`, which verifies both package versions match the tag, builds **moltres-core** and **moltres**, and uploads to PyPI (secret **`PYPI_API_TOKEN`**). **Publish `moltres-core` first is required** for fresh installs; the workflow does this before `moltres`.
+
+6. **Build locally (optional check)**
    ```bash
+   (cd moltres-core && python -m build)
    python -m build
    ```
 
-6. **Test Installation**
+7. **Test Installation**
    ```bash
-   pip install dist/moltres-*.whl
-   python -c "import moltres; print(moltres.__version__)"
+   pip install dist/moltres_core-*.whl dist/moltres-*.whl
+   python -c "import moltres, moltres_core; print(moltres.__version__, moltres_core.__version__)"
    ```
 
-7. **Upload to PyPI**
+8. **Upload to PyPI (manual fallback)**
    ```bash
+   twine upload moltres-core/dist/*
    twine upload dist/*
    ```
 
-8. **Create GitHub Release**
+9. **Create GitHub Release**
    - Go to GitHub Releases
    - Create new release from tag vX.Y.Z
    - Copy relevant CHANGELOG.md section
    - Publish release
 
-9. **Verify Release**
+10. **Verify Release**
    ```bash
    pip install --upgrade moltres
    python -c "import moltres; print(moltres.__version__)"

@@ -28,4 +28,5 @@ __all__ = [
     "stub_engine_capabilities",
 ]
 
+# Vendored pydantable-protocol API level (not the moltres-core package version).
 __version__ = "1.13.0"
