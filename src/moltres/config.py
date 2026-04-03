@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from moltres_core.config import EngineConfig, FetchFormat, EngineOptionValue
 from sqlalchemy.engine import Engine
@@ -206,7 +206,9 @@ def create_config(
     # Construct EngineConfig with validated kwargs
     # Using **kwargs with type checking would be ideal, but dataclass doesn't support it directly
     # This approach extracts known fields and passes them safely
-    engine_config = EngineConfig(dsn=dsn, engine=engine, session=session, **engine_kwargs)  # type: ignore[arg-type]
+    engine_config = EngineConfig(
+        dsn=dsn, engine=engine, session=session, **cast(Any, engine_kwargs)
+    )
     return MoltresConfig(engine=engine_config, options=merged_kwargs)
 
 

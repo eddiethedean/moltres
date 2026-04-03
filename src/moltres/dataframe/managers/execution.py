@@ -5,7 +5,18 @@ This module handles execution of DataFrame queries, including collect, show, tak
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Literal, Optional, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Union,
+    cast,
+    overload,
+)
 
 if TYPE_CHECKING:
     from ..core.dataframe import DataFrame
@@ -119,7 +130,8 @@ class DataFrameExecutor:
                 pass
         # Convert to list if it's a DataFrame
         if hasattr(result.rows, "to_dict"):
-            records = result.rows.to_dict("records")  # type: ignore[call-overload]
+            rows_df: Any = result.rows
+            records = cast(list[Any], rows_df.to_dict("records"))
             # Convert Hashable keys to str keys
             rows = [{str(k): v for k, v in row.items()} for row in records]
             return _convert_rows(rows)

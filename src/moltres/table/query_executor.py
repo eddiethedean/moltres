@@ -5,7 +5,7 @@ This module handles query execution operations including plan execution, SQL exe
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Type, cast
 
 if TYPE_CHECKING:
     from ..engine.execution import QueryResult
@@ -47,7 +47,7 @@ class DatabaseQueryExecutor:
             Iterator of row chunks (each chunk is a list of dictionaries)
         """
         stmt = self._db.compile_plan(plan)
-        return self._db._executor.fetch_stream(stmt)
+        return cast(Iterator[List[Dict[str, object]]], self._db._executor.fetch_stream(stmt))
 
     def execute_sql(self, sql: str, params: Optional[Dict[str, Any]] = None) -> "QueryResult":
         """Execute a raw SQL query.
@@ -90,10 +90,12 @@ class DatabaseQueryExecutor:
             rows = result.rows
         elif hasattr(result.rows, "to_dict"):
             # pandas DataFrame
-            rows = result.rows.to_dict("records")  # type: ignore[call-overload]
+            rows_df: Any = result.rows
+            rows = cast(list[Any], rows_df.to_dict("records"))
         elif hasattr(result.rows, "to_dicts"):
             # polars DataFrame
-            rows = list(result.rows.to_dicts())  # type: ignore[operator]
+            pl_df: Any = result.rows
+            rows = list(pl_df.to_dicts())
         # Format rows - handle dict or other types
         if not rows:
             return ""

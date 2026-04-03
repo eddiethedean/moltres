@@ -7,7 +7,7 @@ Supports both sync and async database connections.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 if TYPE_CHECKING:
     from ..table.async_table import AsyncDatabase
@@ -85,8 +85,8 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
 
     engine = db.connection_manager.engine
 
-    # Declare columns variable
-    columns: List[Dict[str, Any]]
+    # Declare columns variable (SQLAlchemy ReflectedColumn mapping-like objects).
+    columns: list[Any]
 
     # Handle async engines - SQLAlchemy Inspector doesn't work directly with AsyncEngine
     if isinstance(engine, AsyncEngine):
@@ -94,12 +94,12 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
         import threading
         import concurrent.futures
 
-        async def _get_columns_async() -> List[Dict[str, Any]]:
+        async def _get_columns_async() -> list[Any]:
             async with engine.begin() as conn:
                 # Use run_sync to call inspect on the underlying sync connection
-                def _inspect_sync(sync_conn: Any) -> List[Dict[str, Any]]:
+                def _inspect_sync(sync_conn: Any) -> list[Any]:
                     inspector = sa_inspect(sync_conn)
-                    return inspector.get_columns(table_name)  # type: ignore[no-any-return]
+                    return cast(list[Any], inspector.get_columns(table_name))
 
                 cols = await conn.run_sync(_inspect_sync)
                 return cols
@@ -108,7 +108,7 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
         try:
             asyncio.get_running_loop()
             # We're in an async context - run in a separate thread with new event loop
-            future: concurrent.futures.Future[List[Dict[str, Any]]] = concurrent.futures.Future()
+            future: concurrent.futures.Future[list[Any]] = concurrent.futures.Future()
 
             def run_in_new_loop() -> None:
                 new_loop = asyncio.new_event_loop()
@@ -138,7 +138,7 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
         # Sync engine - use inspector directly
         inspector = sa_inspect(engine)
         try:
-            columns = inspector.get_columns(table_name)  # type: ignore[assignment]
+            columns = cast(list[Any], inspector.get_columns(table_name))
         except Exception as e:
             raise RuntimeError(f"Failed to inspect table '{table_name}': {e}") from e
 
@@ -299,7 +299,7 @@ def get_table_names(
                     from sqlalchemy import inspect as sa_inspect
 
                     inspector = sa_inspect(sync_conn)
-                    return inspector.get_table_names(schema=schema)  # type: ignore[no-any-return]
+                    return cast(list[str], inspector.get_table_names(schema=schema))
 
                 table_names = await conn.run_sync(_inspect_sync)
                 return table_names
@@ -386,7 +386,7 @@ def get_view_names(
                     from sqlalchemy import inspect as sa_inspect
 
                     inspector = sa_inspect(sync_conn)
-                    return inspector.get_view_names(schema=schema)  # type: ignore[no-any-return]
+                    return cast(list[str], inspector.get_view_names(schema=schema))
 
                 view_names = await conn.run_sync(_inspect_sync)
                 return view_names

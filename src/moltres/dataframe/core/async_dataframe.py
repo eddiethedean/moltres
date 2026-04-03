@@ -1590,7 +1590,8 @@ class AsyncDataFrame(DataFrameHelpersMixin):
                 pass
         # Convert to list if it's a DataFrame
         if hasattr(result.rows, "to_dict"):
-            records = result.rows.to_dict("records")  # type: ignore[call-overload]
+            rows_df: Any = result.rows
+            records = cast(list[Any], rows_df.to_dict("records"))
             # Convert Hashable keys to str keys
             rows = [{str(k): v for k, v in row.items()} for row in records]
             return _convert_rows(rows)
