@@ -41,6 +41,19 @@ pip install moltres[sqlmodel]          # SQLModel/Pydantic integration
 pip install moltres[streamlit]        # Streamlit integration
 ```
 
+### `moltres-core` and pydantable
+
+SQL execution lives in the companion **`moltres-core`** package. You can use
+`MoltresPydantableEngine` with [pydantable](https://pypi.org/project/pydantable/) for a
+typed, plan-driven API backed by SQL for supported operations. See
+[`docs/PYDANTABLE_ENGINE.md`](docs/PYDANTABLE_ENGINE.md). From source, install
+`moltres-core` **before** `moltres`:
+
+```bash
+pip install -e ./moltres-core
+pip install -e .
+```
+
 ## 🚀 Quick Start
 
 ```python

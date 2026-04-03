@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moltres-core"
+version = "1.0.0"
+description = "SQL execution core for Moltres with pydantable ExecutionEngine support."
+readme = "README.md"
+authors = [{ name = "Odos Matthews", email = "odosmatthews@gmail.com" }]
+license = { text = "MIT License" }
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Database",
+]
+dependencies = [
+    "SQLAlchemy>=2.0",
+    "typing-extensions>=4.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/eddiethedean/moltres"
+Repository = "https://github.com/eddiethedean/moltres"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -50,6 +50,11 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
 os.environ.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
 
+# Prefect: avoid API log handler warnings outside flow runs; disable shipping logs to
+# the ephemeral server so shutdown does not flush to a stopped API ("Error logging to API").
+os.environ.setdefault("PREFECT_LOGGING_TO_API_WHEN_MISSING_FLOW", "ignore")
+os.environ.setdefault("PREFECT_LOGGING_TO_API_ENABLED", "false")
+
 try:
     import pytest_asyncio
 except ImportError:
@@ -98,6 +103,24 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.xdist_group("postgresql"))
         if fixtures & _MYSQL_FIXTURES:
             item.add_marker(pytest.mark.xdist_group("mysql"))
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Stop Prefect ephemeral API servers before pytest closes capture streams.
+
+    Prefect registers atexit handlers that log when stopping the temporary server. If
+    those run after pytest tears down stdout/stderr, logging can raise
+    ``ValueError: I/O operation on closed file``. Stopping servers here avoids that.
+    """
+    try:
+        from prefect.server.api.server import SubprocessASGIServer
+    except ImportError:
+        return
+    for server in list(SubprocessASGIServer._instances.values()):
+        try:
+            server.stop()
+        except Exception:
+            pass
 
 
 # Fix for ensure_greenlet_context fixture when running tests in parallel with pytest-xdist

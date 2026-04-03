@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0). If empty, uses the current ref name."
+        required: false
+        type: string
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Determine tag and version
+        id: tag
+        shell: bash
+        run: |
+          TAG_INPUT="${{ inputs.tag }}"
+          if [ -n "$TAG_INPUT" ]; then
+            TAG="$TAG_INPUT"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ "$TAG" != v* ]]; then
+            echo "Tag must start with 'v' (got: $TAG)" >&2
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify versions match tag
+        shell: bash
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          import tomllib
+          
+          version = os.environ["VERSION"]
+          
+          def read_version(pyproject_path: Path) -> str:
+            data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+            return data["project"]["version"]
+          
+          root = Path(".")
+          core = Path("moltres-core")
+          
+          root_v = read_version(root / "pyproject.toml")
+          core_v = read_version(core / "pyproject.toml")
+          
+          mismatches = []
+          if root_v != version:
+            mismatches.append(f"root pyproject.toml version={root_v!r} != tag version={version!r}")
+          if core_v != version:
+            mismatches.append(f"moltres-core/pyproject.toml version={core_v!r} != tag version={version!r}")
+          
+          if mismatches:
+            print("Version mismatch:", file=sys.stderr)
+            for m in mismatches:
+              print(f"- {m}", file=sys.stderr)
+            sys.exit(1)
+          
+          print(f"Versions OK: moltres={root_v}, moltres-core={core_v}")
+          PY
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+
+      - name: Build moltres-core (sdist + wheel)
+        working-directory: moltres-core
+        run: |
+          python -m build
+          python -m twine check dist/*
+
+      - name: Build moltres (sdist + wheel)
+        run: |
+          python -m build
+          python -m twine check dist/*
+
+      - name: Publish moltres-core to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: moltres-core/dist
+
+      - name: Publish moltres to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist

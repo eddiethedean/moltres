@@ -31,6 +31,8 @@ try:
 except ImportError:
     pass
 
+from moltres_core import MoltresPydantableEngine, SqlPlan, SqlRootData
+
 from .config import EngineOptionValue, MoltresConfig, create_config
 from .expressions import col, lit
 from .table.schema import column
@@ -109,7 +111,7 @@ def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
         )
 
 
-__version__ = "0.23.2"
+__version__ = "1.0.0"
 
 __all__ = [
     "AsyncDatabase",
@@ -117,8 +119,11 @@ __all__ = [
     "AsyncPolarsDataFrame",
     "Database",
     "MoltresConfig",
+    "MoltresPydantableEngine",
     "PandasDataFrame",
     "PolarsDataFrame",
+    "SqlPlan",
+    "SqlRootData",
     "__version__",
     "async_connect",
     "col",

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "0.23.2"
+version = "1.0.0"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -43,6 +43,7 @@ classifiers = [
 dependencies = [
   "SQLAlchemy>=2.0",
   "typing-extensions>=4.5",
+  "moltres-core>=1.0.0,<2",
 ]
 
 [project.urls]
@@ -63,6 +64,10 @@ async = ["aiofiles>=23.0", "greenlet>=3.0.0"]
 async-postgresql = ["aiofiles>=23.0", "asyncpg>=0.29.0", "greenlet>=3.0.0"]
 async-mysql = ["aiofiles>=23.0", "aiomysql>=0.2.0", "greenlet>=3.0.0"]
 async-sqlite = ["aiofiles>=23.0", "aiosqlite>=0.19.0", "greenlet>=3.0.0"]
+
+pydantable-integration = [
+    "pydantable>=1.0",
+]
 
 dev = [
     "pytest>=8.0",
