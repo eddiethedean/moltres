@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "SQLAlchemy>=2.0",
     "typing-extensions>=4.5",
+    "pydantable-protocol>=1.14.0,<2",
 ]
 
 [project.urls]

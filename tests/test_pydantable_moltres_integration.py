@@ -2,15 +2,7 @@
 
 from __future__ import annotations
 
-import sys
-
 import pytest
-
-from moltres_core import embedded_protocol
-
-# Editable / dev pydantable installs may not ship ``pydantable_protocol`` on PYTHONPATH.
-# ``moltres_core`` embeds a compatible copy for engine development; alias it for pydantable.
-sys.modules.setdefault("pydantable_protocol", embedded_protocol)
 
 pytest.importorskip("pydantable")
 

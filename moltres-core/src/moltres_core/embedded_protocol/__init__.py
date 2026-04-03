@@ -1,20 +1,19 @@
-"""Vendored copy of ``pydantable_protocol`` (zero-dependency API surface).
+"""Backward-compatible re-export of :mod:`pydantable_protocol`.
 
-Synced from the ``pydantable-protocol`` distribution in the pydantable monorepo.
-When ``pydantable-protocol`` is published to PyPI, this embedded copy may be
-replaced by a normal versioned dependency.
+Prefer importing from ``pydantable_protocol`` directly in new code.
 """
 
-from moltres_core.embedded_protocol.exceptions import (
-    MissingRustExtensionError,
-    UnsupportedEngineOperationError,
-)
-from moltres_core.embedded_protocol.protocols import (
+from __future__ import annotations
+
+from pydantable_protocol import (
     EngineCapabilities,
     ExecutionEngine,
+    MissingRustExtensionError,
     PlanExecutor,
     SinkWriter,
+    UnsupportedEngineOperationError,
     stub_engine_capabilities,
+    __version__,
 )
 
 __all__ = [
@@ -27,6 +26,3 @@ __all__ = [
     "__version__",
     "stub_engine_capabilities",
 ]
-
-# Vendored pydantable-protocol API level (not the moltres-core package version).
-__version__ = "1.13.0"

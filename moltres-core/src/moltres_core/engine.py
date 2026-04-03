@@ -7,10 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, NoReturn, cast
 
-from moltres_core.embedded_protocol import (
-    EngineCapabilities,
-    UnsupportedEngineOperationError,
-)
+from pydantable_protocol import EngineCapabilities, UnsupportedEngineOperationError
 from sqlalchemy import and_, func, select
 from sqlalchemy.sql.elements import ColumnElement
 

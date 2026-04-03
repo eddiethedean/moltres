@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from moltres_core.embedded_protocol import ExecutionEngine
+from pydantable_protocol import ExecutionEngine
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine, insert
 from typing_extensions import get_protocol_members
 

@@ -4,8 +4,9 @@ SQL execution utilities shared by [Moltres](https://github.com/eddiethedean/molt
 [`pydantable`](https://pypi.org/project/pydantable/)-compatible **MoltresPydantableEngine**
 implementing the `ExecutionEngine` protocol.
 
-The `pydantable_protocol` API is **vendored** under `moltres_core.embedded_protocol`
-(based on the `pydantable-protocol` package in the pydantable monorepo) so this wheel
-stays installable before `pydantable-protocol` hits PyPI.
+The `ExecutionEngine` protocol and related types come from the
+[`pydantable-protocol`](https://pypi.org/project/pydantable-protocol/) package on PyPI
+(`pydantable_protocol`). `moltres_core.embedded_protocol` is a backward-compatible alias
+for that module.
 
 See the parent repository README and `docs/PYDANTABLE_ENGINE.md` for usage.

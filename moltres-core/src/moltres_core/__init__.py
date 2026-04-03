@@ -17,7 +17,7 @@ from moltres_core.sql import (
     unregister_performance_hook,
 )
 
-from moltres_core import embedded_protocol
+from . import embedded_protocol
 
 __all__ = [
     "AsyncConnectionManager",

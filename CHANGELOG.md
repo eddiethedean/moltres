@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **moltres-core** – Replaced the vendored `pydantable_protocol` copy with a runtime dependency on **[pydantable-protocol](https://pypi.org/project/pydantable-protocol/)** (≥1.14.0). The `moltres_core.embedded_protocol` module remains as a thin re-export for backward compatibility.
+
 ## [1.0.0] - 2026-04-03
 
 ### Breaking

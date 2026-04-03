@@ -2,8 +2,10 @@
 
 The **`moltres-core`** distribution provides
 :class:`~moltres_core.engine.MoltresPydantableEngine`, an implementation of the
-zero-dependency `ExecutionEngine` protocol (vendored under
-`moltres_core.embedded_protocol` until `pydantable-protocol` is published on PyPI).
+zero-dependency `ExecutionEngine` protocol from the
+[`pydantable-protocol`](https://pypi.org/project/pydantable-protocol/) package
+(a direct dependency of `moltres-core`). For backward compatibility,
+`moltres_core` also exposes that module as `moltres_core.embedded_protocol`.
 
 ## Install
 
