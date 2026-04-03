@@ -171,7 +171,7 @@ The project team makes the following assumptions about the project environment, 
 
 ### Technical Assumptions
 1. **SQLAlchemy Stability**: SQLAlchemy will continue to be the standard Python SQL toolkit and maintain backward compatibility throughout the project duration
-2. **Python Version Support**: Python 3.9+ will remain the minimum supported version, with no breaking changes requiring Python 4.0 migration
+2. **Python Version Support**: Python 3.10+ will remain the minimum supported version, with no breaking changes requiring Python 4.0 migration
 3. **Database Compatibility**: Database vendors (PostgreSQL, MySQL, Oracle, SQL Server, Snowflake) will maintain SQLAlchemy driver compatibility and support
 4. **SQLAlchemy Drivers**: Third-party SQLAlchemy drivers for target databases (Oracle, SQL Server, Snowflake) will be available and maintained
 5. **Infrastructure Availability**: GitHub Actions, GitHub Pages, and PyPI will remain available and stable for CI/CD, documentation hosting, and package distribution
@@ -207,7 +207,7 @@ The following constraints limit the project scope, timeline, resources, or appro
 1. **Backward Compatibility**: Must maintain backward compatibility with existing Moltres API (Version 0.8.0+) throughout the project. Breaking changes require deprecation periods and migration guides.
 2. **SQLAlchemy Dependency**: Must work within SQLAlchemy's capabilities and limitations. Cannot extend beyond what SQLAlchemy supports without upstream contributions.
 3. **Database Dialect Limitations**: Database-specific features are limited to what each database's SQLAlchemy driver supports. Cannot implement features that require unsupported SQL extensions.
-4. **Python Version Support**: Must support Python 3.9+ as minimum version. Cannot use Python 3.10+ exclusive features without maintaining 3.9 compatibility.
+4. **Python Version Support**: Must support Python 3.10+ as minimum version. Dependency choices (e.g. pydantable-protocol) may require newer Python features.
 5. **SQL Standard Compliance**: Features must map to standard SQL or common SQL extensions. Cannot implement features that don't have SQL equivalents.
 
 ### Resource Constraints

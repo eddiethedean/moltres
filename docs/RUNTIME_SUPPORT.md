@@ -6,13 +6,12 @@ This document captures the currently supported Python versions, operating system
 
 | Python | Ubuntu (22.04) | macOS (13/14) | Windows (2025) |
 |--------|----------------|---------------|----------------|
-| 3.9    | ✅ Full test suite | ✅ Full test suite | ✅ Full test suite |
 | 3.10   | ✅ Full test suite | ✅ Full test suite | ✅ Full test suite |
 | 3.11   | ✅ Full test suite | ✅ Full test suite | ✅ Full test suite |
 | 3.12   | ✅ Full test suite | ✅ Full test suite | ✅ Full test suite |
 
 - The CI workflow (`.github/workflows/ci.yml`) runs the unit test suite, linting, typing, documentation validation, and smoke DB tests across every entry in the table above.
-- We require **Python 3.9+** as defined in `pyproject.toml`. Earlier Python versions are not tested or supported.
+- We require **Python 3.10+** as defined in `pyproject.toml`. Earlier Python versions are not tested or supported.
 
 ## Database Backends
 

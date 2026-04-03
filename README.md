@@ -3,7 +3,7 @@
 <div align="center">
 
 [![CI](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/moltres/actions/workflows/ci.yml)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://github.com/eddiethedean/moltres)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://github.com/eddiethedean/moltres)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/eddiethedean/moltres/blob/main/LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/moltres/badge/?version=latest)](https://moltres.readthedocs.io/en/latest/?badge=latest)
 

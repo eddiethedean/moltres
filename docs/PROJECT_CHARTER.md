@@ -144,7 +144,7 @@ The Project Manager has authority to:
 
 ### Assumptions
 - SQLAlchemy continues to be the standard Python SQL toolkit
-- Python 3.9+ remains the minimum supported version
+- Python 3.10+ remains the minimum supported version
 - Open-source model will attract community contributions
 - Database vendors maintain SQLAlchemy compatibility
 

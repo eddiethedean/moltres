@@ -2,7 +2,7 @@
 
 ## Layers
 
-> Supports Python 3.9+ and assumes SQLAlchemy-compatible drivers.
+> Supports Python 3.10+ and assumes SQLAlchemy-compatible drivers.
 
 1. **Expression System** – `moltres.expressions` models columns, literals, math/string ops, and
    aggregations as symbolic trees.

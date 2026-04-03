@@ -4,16 +4,15 @@ This document details the supported Python versions, database backends, and driv
 
 ## Python Versions
 
-Moltres supports Python 3.9 and above:
+Moltres supports Python 3.10 and above:
 
-- **Python 3.9** - Minimum supported version
-- **Python 3.10** - Fully supported
+- **Python 3.10** - Minimum supported version; fully tested in CI
 - **Python 3.11** - Fully supported
 - **Python 3.12** - Fully supported
 
 ### Python Version Support Policy
 
-- Minimum version is determined by dependencies (SQLAlchemy 2.0+ requires Python 3.9+)
+- Minimum version is determined by dependencies (**pydantable-protocol** requires Python 3.10+; SQLAlchemy 2.0+ supports that baseline)
 - New Python versions are tested and added within 3 months of release
 - Deprecated Python versions are supported for at least 12 months after EOL
 
@@ -115,7 +114,6 @@ The following combinations are tested in CI:
 
 ### Python × OS Matrix
 
-- Python 3.9 × Ubuntu, macOS, Windows
 - Python 3.10 × Ubuntu, macOS, Windows
 - Python 3.11 × Ubuntu, macOS, Windows
 - Python 3.12 × Ubuntu, macOS, Windows
@@ -184,12 +182,9 @@ Moltres requires SQLAlchemy 2.0+ which introduced:
 - Improved type hints
 - Better connection pooling
 
-### Python 3.9+
+### Python 3.10+
 
-Python 3.9 is the minimum version due to:
-- Type hint improvements (PEP 585, PEP 604)
-- SQLAlchemy 2.0 requirements
-- Modern async/await support
+Python 3.10 is the minimum version because **moltres-core** depends on **pydantable-protocol**, which uses language features such as ``dataclass(slots=True)`` (Python 3.10+). SQLAlchemy 2.0 and the rest of the stack are compatible with this baseline.
 
 ## Known Limitations
 
