@@ -7,7 +7,9 @@ build:
 
   jobs:
     pre_build:
-      # Install the project in editable mode so autodoc can import it
+      # Monorepo: moltres depends on moltres-core; install core from checkout first
+      # so pip does not need moltres-core on PyPI during doc builds.
+      - pip install -e ./moltres-core
       - pip install -e ".[dev]"
 
 sphinx:
