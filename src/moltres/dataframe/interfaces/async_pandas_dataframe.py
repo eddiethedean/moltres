@@ -584,10 +584,12 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
             )
 
         # Collect the full DataFrame
+        import pandas as pd
+
         pdf = await self.collect()
 
         # Use pandas describe
-        return pdf.describe()
+        return cast(pd.DataFrame, pdf.describe())
 
     async def info(self) -> None:
         """Print a concise summary of the :class:`DataFrame` (pandas-style, async).

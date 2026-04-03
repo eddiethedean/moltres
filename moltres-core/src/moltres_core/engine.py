@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from dataclasses import replace
+from typing import Any, NoReturn, cast
 
 from moltres_core.embedded_protocol import (
     EngineCapabilities,
     UnsupportedEngineOperationError,
 )
 from sqlalchemy import and_, func, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from moltres_core.plan import (
     SqlPlan,
@@ -24,11 +26,13 @@ from moltres_core.sql.execution import QueryExecutor
 ConfigT = Any
 
 
-def _unsupported(name: str) -> None:
+def _unsupported(name: str) -> NoReturn:
     raise UnsupportedEngineOperationError(f"Moltres SQL engine does not support {name!r} yet")
 
 
-def _records_to_columns(records: list[dict[str, Any]], column_order: list[str]) -> dict[str, list[Any]]:
+def _records_to_columns(
+    records: list[dict[str, Any]], column_order: list[str]
+) -> dict[str, list[Any]]:
     if not records:
         return {c: [] for c in column_order}
     return {c: [row.get(c) for row in records] for c in column_order}
@@ -58,7 +62,7 @@ def _schema_descriptors_from_rows(
 
 
 def _copy_plan_state(src: SqlPlan, **kwargs: Any) -> SqlPlan:
-    data = {
+    data: dict[str, Any] = {
         "columns": src.columns,
         "field_types": dict(src.field_types),
         "order_by": src.order_by,
@@ -69,7 +73,7 @@ def _copy_plan_state(src: SqlPlan, **kwargs: Any) -> SqlPlan:
         "drop_nulls_predicates": src.drop_nulls_predicates,
     }
     data.update(kwargs)
-    return SqlPlan(**data)
+    return replace(src, **cast(Any, data))
 
 
 class MoltresPydantableEngine:
@@ -178,27 +182,33 @@ class MoltresPydantableEngine:
 
         if plan.distinct:
             seen: set[tuple[Any, ...]] = set()
-            new_keep: list[int] = []
+            distinct_keep: list[int] = []
             for i in keep_rows:
-                key = tuple(work[c][i] for c in plan.columns)
-                if key in seen:
+                row_key = tuple(work[c][i] for c in plan.columns)
+                if row_key in seen:
                     continue
-                seen.add(key)
-                new_keep.append(i)
-            keep_rows = new_keep
+                seen.add(row_key)
+                distinct_keep.append(i)
+            keep_rows = distinct_keep
 
         if plan.order_by:
             rows_sorted: list[dict[str, Any]] = [
                 {c: work[c][i] for c in plan.columns} for i in keep_rows
             ]
-            for key, desc, nulls_last in reversed(plan.order_by):
-                rows_sorted.sort(
-                    key=lambda r, k=key, nl=nulls_last: (
-                        (r[k] is None) if nl else (r[k] is not None),
-                        r[k],
-                    ),
-                    reverse=desc,
-                )
+            for sort_key, sort_desc, sort_nulls_last in reversed(plan.order_by):
+
+                def _sort_key(
+                    r: dict[str, Any],
+                    *,
+                    sk: str = sort_key,
+                    snl: bool = sort_nulls_last,
+                ) -> tuple[bool, Any]:
+                    return (
+                        (r[sk] is None) if snl else (r[sk] is not None),
+                        r[sk],
+                    )
+
+                rows_sorted.sort(key=_sort_key, reverse=sort_desc)
             for c in plan.columns:
                 work[c] = [r[c] for r in rows_sorted]
         else:
@@ -352,7 +362,9 @@ class MoltresPydantableEngine:
         threshold: int | None,
     ) -> Any:
         p = self._require_plan(plan)
-        pred = tuple(p.drop_nulls_predicates) + ((tuple(subset) if subset else None, how, threshold),)
+        pred = tuple(p.drop_nulls_predicates) + (
+            (tuple(subset) if subset else None, how, threshold),
+        )
         return _copy_plan_state(p, drop_nulls_predicates=pred)
 
     def plan_rolling_agg(
@@ -473,7 +485,9 @@ class MoltresPydantableEngine:
         rt = rroot.table
         if len(left_on) != len(right_on):
             raise ValueError("left_on / right_on length mismatch")
-        conds = [lt.c[l] == rt.c[r] for l, r in zip(left_on, right_on, strict=True)]
+        conds = [
+            lt.c[left_col] == rt.c[right_col] for left_col, right_col in zip(left_on, right_on)
+        ]
         join_on = and_(*conds)
 
         j = lt.join(rt, join_on, isouter=False)
@@ -482,9 +496,7 @@ class MoltresPydantableEngine:
         field_types: dict[str, Any] = {}
 
         coalesce_keys = (
-            coalesce is not False
-            and list(left_on) == list(right_on)
-            and len(left_on) > 0
+            coalesce is not False and list(left_on) == list(right_on) and len(left_on) > 0
         )
 
         for c in lp.columns:
@@ -519,7 +531,9 @@ class MoltresPydantableEngine:
 
         records = cast(list[dict[str, Any]], rows_raw)
         descriptors = {k: annotation_to_descriptor(v) for k, v in field_types.items()}
-        first_row: dict[str, Any] = {lbl: records[0].get(lbl) for lbl in out_labels} if records else {}
+        first_row: dict[str, Any] = (
+            {lbl: records[0].get(lbl) for lbl in out_labels} if records else {}
+        )
         for lbl in out_labels:
             if lbl in descriptors and lbl in first_row:
                 descriptors[lbl] = _descriptor_from_value(first_row[lbl])
@@ -563,6 +577,7 @@ class MoltresPydantableEngine:
                 raise ValueError(f"groupby: unknown aggregated column {incol!r}")
             col = t.c[incol]
             opl = str(op).lower()
+            agg_expr: ColumnElement[Any]
             if opl == "count":
                 agg_expr = func.count(col)
             elif opl == "sum":
@@ -590,7 +605,9 @@ class MoltresPydantableEngine:
 
         records = cast(list[dict[str, Any]], rows_raw)
         out_cols = list(by) + [str(k) for k in aggregations.keys()]
-        descriptors: dict[str, dict[str, Any]] = {k: annotation_to_descriptor(p.field_types[k]) for k in by}
+        descriptors: dict[str, dict[str, Any]] = {
+            k: annotation_to_descriptor(p.field_types[k]) for k in by
+        }
         for out_name, spec in aggregations.items():
             _, incol = spec
             descriptors[out_name] = annotation_to_descriptor(p.field_types[incol])

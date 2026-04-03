@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Literal, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
+from moltres_core.config import EngineConfig, FetchFormat, EngineOptionValue
 from sqlalchemy.engine import Engine
 
 if TYPE_CHECKING:
@@ -13,61 +14,14 @@ if TYPE_CHECKING:
 else:
     AsyncEngine = None  # type: ignore[assignment, misc]
 
-FetchFormat = Literal["pandas", "polars", "records"]
-
-# Type for engine configuration option values
-EngineOptionValue = Union[bool, int, float, str, None]
-
-
-@dataclass
-class EngineConfig:
-    """Connection + execution options for SQLAlchemy engines.
-
-    Attributes:
-        dsn: Database connection string
-        engine: SQLAlchemy Engine or AsyncEngine instance
-        session: SQLAlchemy Session or AsyncSession instance
-        echo: Enable SQLAlchemy echo mode for debugging
-        fetch_format: Result format - "records", "pandas", or "polars"
-        dialect: Override SQL dialect detection
-        pool_size: Connection pool size
-        max_overflow: Maximum pool overflow connections
-        pool_timeout: Pool timeout in seconds
-        pool_recycle: Connection recycle time in seconds
-        pool_pre_ping: Enable connection health checks
-        query_timeout: Query execution timeout in seconds
-        future: Use SQLAlchemy 2.0 style
-    """
-
-    dsn: str | None = None
-    engine: Engine | "AsyncEngine" | None = None
-    session: object | None = None  # SQLAlchemy Session or AsyncSession
-    echo: bool = False
-    fetch_format: FetchFormat = "records"
-    dialect: str | None = None
-    pool_size: int | None = None
-    max_overflow: int | None = None
-    pool_timeout: int | None = None
-    pool_recycle: int | None = None
-    pool_pre_ping: bool = False
-    query_timeout: float | None = None  # Query execution timeout in seconds
-    future: bool = True
-
-    def __post_init__(self) -> None:
-        """Validate that dsn, engine, or session is provided, but not multiple.
-
-        Raises:
-            ValueError: If none of dsn, engine, or session are provided
-            ValueError: If multiple of dsn, engine, and session are provided
-        """
-        provided = [self.dsn, self.engine, self.session]
-        if all(x is None for x in provided):
-            raise ValueError("Either 'dsn', 'engine', or 'session' must be provided")
-        if sum(1 for x in provided if x is not None) > 1:
-            raise ValueError(
-                "Cannot provide multiple of 'dsn', 'engine', and 'session'. "
-                "Provide only one: a connection string, an Engine instance, or a Session instance."
-            )
+__all__ = [
+    "EngineConfig",
+    "EngineOptionValue",
+    "FetchFormat",
+    "MoltresConfig",
+    "create_config",
+    "DEFAULT_CONFIG",
+]
 
 
 @dataclass

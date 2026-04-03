@@ -39,6 +39,4 @@ class EngineConfig:
         if all(x is None for x in provided):
             raise ValueError("Either 'dsn', 'engine', or 'session' must be provided")
         if sum(1 for x in provided if x is not None) > 1:
-            raise ValueError(
-                "Cannot provide multiple of 'dsn', 'engine', and 'session'."
-            )
+            raise ValueError("Cannot provide multiple of 'dsn', 'engine', and 'session'.")

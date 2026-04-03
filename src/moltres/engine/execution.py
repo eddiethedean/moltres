@@ -6,7 +6,7 @@ framework integrations (FastAPI, etc.) keep matching registered handlers.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Type, Union
+from typing import Any, Dict, Optional, Sequence, Type, Union
 
 from moltres_core.exceptions import ExecutionError as _CoreExecutionError
 from moltres_core.exceptions import QueryTimeoutError as _CoreQueryTimeoutError

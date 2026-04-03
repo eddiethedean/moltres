@@ -196,9 +196,9 @@ try:
     def run_etl_pipeline():
         """Run ETL pipeline using ETLPipeline helper."""
         pipeline = ETLPipeline(
-            extract=lambda: connect("postgresql://user:pass@localhost/dbname")
-            .table("source_data")
-            .select(),
+            extract=lambda: (
+                connect("postgresql://user:pass@localhost/dbname").table("source_data").select()
+            ),
             transform=lambda df: df.where(col("status") == "active").select(
                 col("id"), col("name"), col("created_at")
             ),

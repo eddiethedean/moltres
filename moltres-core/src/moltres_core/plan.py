@@ -15,10 +15,7 @@ from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import FromClause
 
-try:
-    UnionType = types.UnionType
-except AttributeError:  # pragma: no cover
-    UnionType = None  # type: ignore[misc, assignment]
+UnionType: Any = getattr(types, "UnionType", None)
 
 _NoneType = type(None)
 
@@ -82,7 +79,7 @@ class SqlPlan:
 
     def _col(self, table: FromClause, name: str) -> ColumnElement[Any]:
         try:
-            return table.c[name]  # type: ignore[no-any-return,index]
+            return table.c[name]
         except KeyError as e:
             raise ValueError(f"Unknown column {name!r} for SQL root") from e
 
@@ -121,7 +118,7 @@ class SqlPlan:
             o = desc(c) if is_desc else asc(c)
             if nulls_last:
                 try:
-                    o = o.nulls_last()  # type: ignore[attr-defined]
+                    o = o.nulls_last()
                 except AttributeError:  # pragma: no cover
                     pass
             stmt = stmt.order_by(o)

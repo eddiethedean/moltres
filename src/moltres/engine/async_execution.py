@@ -29,9 +29,7 @@ class AsyncQueryExecutor(_CoreAsyncQueryExecutor):
         model: Optional[Type[Any]] = None,
     ) -> AsyncQueryResult:
         try:
-            return await super().fetch(
-                stmt, params=params, connection=connection, model=model
-            )
+            return await super().fetch(stmt, params=params, connection=connection, model=model)
         except _CoreExecutionError as exc:
             raise ExecutionError(
                 exc.message, suggestion=exc.suggestion, context=dict(exc.context)
@@ -57,9 +55,7 @@ class AsyncQueryExecutor(_CoreAsyncQueryExecutor):
         transaction: Any = None,
     ) -> AsyncQueryResult:
         try:
-            return await super().execute_many(
-                sql, params_list, transaction=transaction
-            )
+            return await super().execute_many(sql, params_list, transaction=transaction)
         except _CoreExecutionError as exc:
             raise ExecutionError(
                 exc.message, suggestion=exc.suggestion, context=dict(exc.context)

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class EngineCapabilities:
     """Feature flags for an execution engine (native, stub, or future backends)."""
 
@@ -346,13 +346,9 @@ class ExecutionEngine(PlanExecutor, SinkWriter, Protocol):
         maintain_order: bool,
     ) -> Any: ...
 
-    def plan_duplicate_mask(
-        self, plan: Any, subset: list[str] | None, keep: str
-    ) -> Any: ...
+    def plan_duplicate_mask(self, plan: Any, subset: list[str] | None, keep: str) -> Any: ...
 
-    def plan_drop_duplicate_groups(
-        self, plan: Any, subset: list[str] | None
-    ) -> Any: ...
+    def plan_drop_duplicate_groups(self, plan: Any, subset: list[str] | None) -> Any: ...
 
     def plan_drop(self, plan: Any, columns: list[str]) -> Any: ...
 

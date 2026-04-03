@@ -45,13 +45,19 @@ def test_dataframe_select_sort_head_collect() -> None:
     m_eng = MoltresPydantableEngine(cm, cfg)
     sql_root = SqlRootData(users)
 
-    df = DataFrame[User]._from_plan(
-        root_data=sql_root,
-        root_schema_type=User,
-        current_schema_type=User,
-        rust_plan=m_eng.make_plan({"id": int, "name": str}),
-        engine=m_eng,
-    ).select("id", "name").sort("id", descending=True).head(1)
+    df = (
+        DataFrame[User]
+        ._from_plan(
+            root_data=sql_root,
+            root_schema_type=User,
+            current_schema_type=User,
+            rust_plan=m_eng.make_plan({"id": int, "name": str}),
+            engine=m_eng,
+        )
+        .select("id", "name")
+        .sort("id", descending=True)
+        .head(1)
+    )
 
     rows = df.to_dict()
     assert rows == {"id": [2], "name": ["grace"]}
@@ -105,9 +111,7 @@ def test_dataframe_inner_join() -> None:
         root_data=SqlRootData(orders),
         root_schema_type=Order,
         current_schema_type=Order,
-        rust_plan=m_eng.make_plan(
-            {"order_id": int, "user_id": int, "amount": int}
-        ),
+        rust_plan=m_eng.make_plan({"order_id": int, "user_id": int, "amount": int}),
         engine=m_eng,
     )
 
