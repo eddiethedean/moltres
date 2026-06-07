@@ -116,27 +116,18 @@ def compile_datetime_operation(
         interval_str = expression.args[1]  # e.g., "1 DAY", "2 MONTH"
         from sqlalchemy import literal_column
 
-        # Parse interval string (format: "N UNIT" where N is number and UNIT is DAY, MONTH, YEAR, HOUR, etc.)
-        parts = interval_str.split()
-        if len(parts) != 2:
-            from ...utils.exceptions import CompilationError
+        from ..interval_helpers import parse_interval, safe_interval_literal
 
-            raise CompilationError(
-                f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
-            )
-        num, unit = parts
-        unit_upper = unit.upper()
+        num, unit = parse_interval(interval_str)
+        interval_literal = safe_interval_literal(num, unit)
 
-        # For PostgreSQL/DuckDB, use INTERVAL literal
         if compiler.dialect.name in ("postgresql", "duckdb"):
-            interval_col: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
+            interval_col: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_literal}'")
             result = col_expr + interval_col
         elif compiler.dialect.name == "mysql":
-            # MySQL uses DATE_ADD with INTERVAL
-            result = func.date_add(col_expr, literal_column(f"INTERVAL {num} {unit_upper}"))
+            result = func.date_add(col_expr, literal_column(f"INTERVAL {num} {unit}"))
         else:
-            # SQLite: use datetime() function with modifier
-            modifier = f"+{num} {unit_upper.lower()}"
+            modifier = f"+{num} {unit.lower()}"
             result = func.datetime(col_expr, modifier)
         if expression._alias:
             result = result.label(expression._alias)
@@ -147,27 +138,18 @@ def compile_datetime_operation(
         interval_str = expression.args[1]  # e.g., "1 DAY", "2 MONTH"
         from sqlalchemy import literal_column
 
-        # Parse interval string
-        parts = interval_str.split()
-        if len(parts) != 2:
-            from ...utils.exceptions import CompilationError
+        from ..interval_helpers import parse_interval, safe_interval_literal
 
-            raise CompilationError(
-                f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
-            )
-        num, unit = parts
-        unit_upper = unit.upper()
+        num, unit = parse_interval(interval_str)
+        interval_literal = safe_interval_literal(num, unit)
 
-        # For PostgreSQL/DuckDB, use INTERVAL literal
         if compiler.dialect.name in ("postgresql", "duckdb"):
-            interval_expr: "ColumnElement[Any]" = literal_column(f"INTERVAL '{interval_str}'")
+            interval_expr: "ColumnElement[Any]" = literal_column(f"INTERVAL '{interval_literal}'")
             result = col_expr - interval_expr
         elif compiler.dialect.name == "mysql":
-            # MySQL uses DATE_SUB with INTERVAL
-            result = func.date_sub(col_expr, literal_column(f"INTERVAL {num} {unit_upper}"))
+            result = func.date_sub(col_expr, literal_column(f"INTERVAL {num} {unit}"))
         else:
-            # SQLite: use datetime() function with modifier
-            modifier = f"-{num} {unit_upper.lower()}"
+            modifier = f"-{num} {unit.lower()}"
             result = func.datetime(col_expr, modifier)
         if expression._alias:
             result = result.label(expression._alias)
@@ -205,18 +187,11 @@ def compile_datetime_operation(
         if len(expression.args) > 1:
             format_str = expression.args[1]
             if compiler.dialect.name == "duckdb":
-                # DuckDB uses strptime for parsing with format (uses %Y format, not yyyy)
                 from sqlalchemy import literal_column
 
-                # Convert PySpark format to strptime format
-                duckdb_format = (
-                    format_str.replace("yyyy", "%Y")
-                    .replace("MM", "%m")
-                    .replace("dd", "%d")
-                    .replace("HH", "%H")
-                    .replace("mm", "%M")
-                    .replace("ss", "%S")
-                )
+                from ..interval_helpers import validate_and_convert_strptime_format
+
+                duckdb_format = validate_and_convert_strptime_format(format_str)
                 result = literal_column(f"strptime({col_expr}, '{duckdb_format}')")
             else:
                 result = func.to_timestamp(col_expr, format_str)
@@ -267,15 +242,9 @@ def compile_datetime_operation(
             elif compiler.dialect.name == "mysql":
                 result = func.unix_timestamp(col_expr, format_str)
             elif compiler.dialect.name == "duckdb":
-                # DuckDB: strptime then extract epoch
-                duckdb_format = (
-                    format_str.replace("yyyy", "%Y")
-                    .replace("MM", "%m")
-                    .replace("dd", "%d")
-                    .replace("HH", "%H")
-                    .replace("mm", "%M")
-                    .replace("ss", "%S")
-                )
+                from ..interval_helpers import validate_and_convert_strptime_format
+
+                duckdb_format = validate_and_convert_strptime_format(format_str)
                 parsed = literal_column(f"strptime({col_expr}, '{duckdb_format}')")
                 result = func.extract("epoch", parsed)
             else:

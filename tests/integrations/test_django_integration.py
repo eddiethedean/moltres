@@ -479,7 +479,7 @@ class TestManagementCommands:
     )
     def test_moltres_query_command_missing_query(self):
         """Test moltres_query command without query."""
-        with pytest.raises(CommandError, match="Query is required"):
+        with pytest.raises(CommandError, match="Provide --table"):
             call_command("moltres_query", database="default")
 
     @override_settings(
@@ -496,8 +496,8 @@ class TestManagementCommands:
         ],
     )
     def test_moltres_query_command_security_import_blocked(self):
-        """Test that import statements are blocked for security."""
-        with pytest.raises(CommandError, match="Unsafe operation detected.*Import"):
+        """Test that arbitrary code execution is blocked for security."""
+        with pytest.raises(CommandError, match="Only simple table queries are supported"):
             call_command(
                 "moltres_query",
                 'import os; os.system("rm -rf /")',
@@ -519,7 +519,7 @@ class TestManagementCommands:
     )
     def test_moltres_query_command_security_open_blocked(self):
         """Test that file operations are blocked for security."""
-        with pytest.raises(CommandError, match="Dangerous function call detected.*open"):
+        with pytest.raises(CommandError, match="Only simple table queries are supported"):
             call_command(
                 "moltres_query",
                 'open("/etc/passwd").read()',
@@ -541,7 +541,7 @@ class TestManagementCommands:
     )
     def test_moltres_query_command_security_exec_blocked(self):
         """Test that exec() is blocked for security."""
-        with pytest.raises(CommandError, match="Dangerous function call detected.*exec"):
+        with pytest.raises(CommandError, match="Only simple table queries are supported"):
             call_command(
                 "moltres_query",
                 'exec("print(1)")',
@@ -563,7 +563,7 @@ class TestManagementCommands:
     )
     def test_moltres_query_command_security_eval_blocked(self):
         """Test that eval() is blocked for security."""
-        with pytest.raises(CommandError, match="Dangerous function call detected.*eval"):
+        with pytest.raises(CommandError, match="Only simple table queries are supported"):
             call_command(
                 "moltres_query",
                 'eval("1+1")',
@@ -585,7 +585,7 @@ class TestManagementCommands:
     )
     def test_moltres_query_command_security_for_loop_blocked(self):
         """Test that control flow statements are blocked for security."""
-        with pytest.raises(CommandError, match="Unsafe operation detected.*ListComp"):
+        with pytest.raises(CommandError, match="Only simple table queries are supported"):
             call_command(
                 "moltres_query",
                 "[x for x in range(10)]",

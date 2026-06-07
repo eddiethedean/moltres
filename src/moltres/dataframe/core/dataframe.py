@@ -1562,10 +1562,15 @@ class DataFrame(DataFrameHelpersMixin):
         """
         if subset is None:
             return self.distinct()
-        # For subset, we need to group by those columns and select all
-        # This is a simplified implementation - a more complete one would
-        # use window functions or subqueries
-        return self.group_by(*subset).agg()
+        subset_cols = list(subset)
+        grouped = self.group_by(*subset_cols)
+        other_cols = [name for name in self.columns if name not in subset_cols]
+        if not other_cols:
+            return grouped.agg(allow_empty=True)
+        from ...expressions import functions as F
+
+        agg_exprs = [F.min(col(name)).alias(name) for name in other_cols]
+        return grouped.agg(*agg_exprs)
 
     def drop_duplicates(self, subset: Optional[Sequence[str]] = None) -> DataFrame:
         """Return a new :class:`DataFrame` with duplicate rows removed (snake_case alias for dropDuplicates).

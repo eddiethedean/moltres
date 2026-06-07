@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
+    from sqlalchemy.engine import Connection
+
     from .records import Records
     from ..table.table import TableHandle
 
@@ -50,20 +52,24 @@ class RecordsWriter:
             table_handle = table
 
         table_handle_strict: "TableHandle" = table_handle
-        transaction = self._records._database.connection_manager.active_transaction
+        db = self._records._database
+        transaction = db.connection_manager.active_transaction
 
-        # Stream chunked data without materializing whenever possible
-        if self._records._generator is not None:
+        def _insert_chunks(active_tx: "Connection | None") -> int:
             total_inserted = 0
-            chunk_iter = self._records._generator()
+            chunk_iter = self._records._generator()  # type: ignore[misc]
             for chunk in chunk_iter:
-                # Convert chunk to Records for insertion
                 from .records import Records
 
-                chunk_records = Records(_data=chunk, _database=self._records._database)
-                inserted = insert_rows(table_handle_strict, chunk_records, transaction=transaction)
+                chunk_records = Records(_data=chunk, _database=db)
+                inserted = insert_rows(table_handle_strict, chunk_records, transaction=active_tx)
                 total_inserted += inserted
             return total_inserted
-        else:
-            # Materialize and insert
-            return insert_rows(table_handle_strict, self._records, transaction=transaction)
+
+        if self._records._generator is not None:
+            if transaction is None and hasattr(db, "transaction"):
+                with db.transaction():
+                    active = db.connection_manager.active_transaction
+                    return _insert_chunks(active)
+            return _insert_chunks(transaction)
+        return insert_rows(table_handle_strict, self._records, transaction=transaction)

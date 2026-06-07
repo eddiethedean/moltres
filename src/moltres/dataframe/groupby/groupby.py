@@ -22,7 +22,11 @@ class GroupedDataFrame:
     keys: tuple[Column, ...]
     parent: DataFrame
 
-    def agg(self, *aggregations: Union[Column, str, Dict[str, str]]) -> DataFrame:
+    def agg(
+        self,
+        *aggregations: Union[Column, str, Dict[str, str]],
+        allow_empty: bool = False,
+    ) -> DataFrame:
         """Apply aggregation functions to the grouped data.
 
         Args:
@@ -67,13 +71,12 @@ class GroupedDataFrame:
             300.0
             >>> db.close()
         """
-        if not aggregations:
+        if not aggregations and not allow_empty:
             raise ValueError("agg requires at least one aggregation expression")
 
         # Normalize all aggregations to Column expressions
         from ..helpers.groupby_helpers import normalize_aggregations, validate_aggregation
 
-        # Allow empty aggregations for special cases like dropDuplicates
         normalized_aggs = normalize_aggregations(
             aggregations, alias_with_column_name=True, allow_empty=True
         )

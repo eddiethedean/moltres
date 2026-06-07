@@ -612,9 +612,10 @@ class DataFrameWriter:
                 result = db.execute_sql(sql, params={"name": table_name})
                 return result.rows is not None and len(result.rows) > 0
             else:
-                # Generic approach: try to select from the table with LIMIT 0
-                quote = db.dialect.quote_char
-                sql = f"SELECT * FROM {quote}{table_name}{quote} LIMIT 0"
+                from ...sql.builders import quote_identifier
+
+                quoted_table = quote_identifier(table_name, db.dialect.quote_char)
+                sql = f"SELECT * FROM {quoted_table} LIMIT 0"
                 db.execute_sql(sql)
                 return True
         except (ExecutionError, ValidationError) as e:

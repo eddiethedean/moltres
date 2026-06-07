@@ -45,8 +45,6 @@ async def insert_rows_async(
     Raises:
         ValidationError: If rows are empty or have inconsistent schemas
     """
-    # Convert DataFrame to Records if needed (async version would need async conversion)
-    # For now, convert synchronously since DataFrames are typically in-memory
     from ..io.records import (
         _is_pandas_dataframe,
         _is_polars_dataframe,
@@ -55,9 +53,11 @@ async def insert_rows_async(
     )
 
     if _is_pandas_dataframe(rows) or _is_polars_dataframe(rows) or _is_polars_lazyframe(rows):
-        # Convert to Records, then extract rows
         records = _dataframe_to_records(rows)
         rows = records.rows()
+
+    if AsyncRecords is not None and isinstance(rows, AsyncRecords) and rows._generator is not None:
+        return await rows.insert_into(handle)
 
     if not rows:
         return 0

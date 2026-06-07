@@ -203,36 +203,59 @@ def create_user_with_orders(request):
 
 ## Management Commands
 
+The `moltres_query` management command runs **safe, declarative** table queries. It does not execute arbitrary Python code.
+
 ### Basic Usage
 
-Execute Moltres queries from the command line:
-
 ```bash
+# Recommended: declarative table query
+python manage.py moltres_query --table users
+
+# Legacy simple form (full table select only)
 python manage.py moltres_query "db.table('users').select()"
 ```
+
+### Filtering and Limits
+
+Use `--where-*` flags with `--table` for simple filters:
+
+```bash
+# Active users older than 25
+python manage.py moltres_query --table users \
+  --where-column age --where-op gt --where-value 25
+
+# Supported operators: eq, ne, gt, gte, lt, lte
+python manage.py moltres_query --table users \
+  --where-column active --where-op eq --where-value true
+
+# Limit rows
+python manage.py moltres_query --table users --limit 10
+```
+
+For joins, aggregations, or complex expressions, use a Django view or a custom management command that calls Moltres in Python code.
 
 ### Options
 
 ```bash
 # Use different database
-python manage.py moltres_query "db.table('users').select()" --database=read_replica
+python manage.py moltres_query --table users --database=read_replica
 
 # Output as JSON
-python manage.py moltres_query "db.table('users').select()" --format=json
+python manage.py moltres_query --table users --format=json
 
 # Output as CSV
-python manage.py moltres_query "db.table('users').select()" --format=csv
+python manage.py moltres_query --table users --format=csv
 
 # Interactive mode
 python manage.py moltres_query --interactive
 
-# Read query from file
+# Read legacy simple query from file (db.table('name').select() only)
 python manage.py moltres_query --file=query.txt
 ```
 
 ### Interactive Mode
 
-Interactive mode allows you to explore data interactively:
+Interactive mode supports table selects and the legacy `db.table('name').select()` form:
 
 ```bash
 $ python manage.py moltres_query --interactive
@@ -240,16 +263,17 @@ Moltres Interactive Query Mode
 Type 'exit' or 'quit' to exit
 Type 'help' for help
 
-moltres> db.table("users").select()
+moltres> table users
 id | name  | email
 ---|-------|----------
 1  | Alice | alice@example.com
 2  | Bob   | bob@example.com
 
-moltres> db.table("users").select().where(col("age") > 25)
-id | name | email
----|------|----------
-1  | Alice| alice@example.com
+moltres> db.table("users").select()
+id | name  | email
+---|-------|----------
+1  | Alice | alice@example.com
+2  | Bob   | bob@example.com
 
 moltres> exit
 ```
@@ -257,17 +281,15 @@ moltres> exit
 ### Example Queries
 
 ```bash
-# Simple select
+# Full table select
+python manage.py moltres_query --table users
+
+# Filtered select
+python manage.py moltres_query --table users \
+  --where-column active --where-op eq --where-value true
+
+# Legacy form (select only — no .where(), .join(), etc.)
 python manage.py moltres_query "db.table('users').select()"
-
-# With filtering
-python manage.py moltres_query "db.table('users').select().where(col('active') == True)"
-
-# With aggregation
-python manage.py moltres_query "db.table('orders').select().group_by('status').agg(F.count(col('id')).alias('count'))"
-
-# Complex query
-python manage.py moltres_query "db.table('users').select().join(db.table('orders').select(), on=[col('users.id') == col('orders.user_id')])"
 ```
 
 ## Template Tags
@@ -285,15 +307,30 @@ Load the template tags and query data:
 {% endfor %}
 ```
 
-### With Filtering
+### Filtering
 
-Use a custom query expression:
+Template tags load a full table (`SELECT *`). For filtered, joined, or aggregated data, query in a view and pass results to the template:
+
+```python
+# views.py
+def active_users_context(request):
+    db = get_moltres_db(using='default')
+    users = (
+        db.table("users")
+        .select()
+        .where(col("active") == True)
+        .collect()
+    )
+    return {"active_users": users}
+```
 
 ```django
 {% load moltres_tags %}
 
-{% moltres_query query="db.table('users').select().where(col('active') == True)" as active_users %}
 <p>Active users: {{ active_users|length }}</p>
+{% for user in active_users %}
+    <div>{{ user.name }}</div>
+{% endfor %}
 ```
 
 ### Caching
@@ -344,11 +381,12 @@ Use the `moltres_format` filter to format results:
 
 ### Template Tag Options
 
-- `table_name` - Simple table select (e.g., `"users"`)
-- `query` - Moltres query expression (e.g., `"db.table('users').select().where(col('age') > 25)"`)
+- `table_name` - Table to query with a full-table select (e.g., `"users"`)
 - `database` - Django database alias (default: `"default"`)
 - `cache_timeout` - Cache timeout in seconds (optional)
 - `cache_key` - Custom cache key (optional, auto-generated if not provided)
+
+> **Security note:** The `query=` parameter was removed because it executed arbitrary Python via `eval()`. Use `table_name` in templates and perform filtering in views.
 
 ## Complete Example
 
@@ -507,7 +545,22 @@ urlpatterns = [
 
 ## Best Practices
 
-### 1. Use Database Routing
+### 1. Keep Complex Queries in Views
+
+Template tags and the management command are for simple table reads. Use views (or services) for filters, joins, and aggregations:
+
+```python
+def user_orders_view(request):
+    db = get_moltres_db(using='default')
+    df = (
+        db.table("users")
+        .select()
+        .join(db.table("orders").select(), on=[col("users.id") == col("orders.user_id")])
+    )
+    return render(request, "orders.html", {"orders": df.collect()})
+```
+
+### 2. Use Database Routing
 
 Route read queries to read replicas:
 
@@ -518,7 +571,7 @@ def my_view(request):
     # ... use db
 ```
 
-### 2. Cache Template Queries
+### 3. Cache Template Queries
 
 Cache expensive queries in templates:
 
@@ -526,7 +579,7 @@ Cache expensive queries in templates:
 {% moltres_query "expensive_query" cache_timeout=3600 as results %}
 ```
 
-### 3. Use Transactions
+### 4. Use Transactions
 
 Wrap related operations in transactions:
 
@@ -539,7 +592,7 @@ def create_user_with_profile(request):
     # ... multiple operations
 ```
 
-### 4. Error Handling
+### 5. Error Handling
 
 The middleware handles errors automatically, but you can also handle them manually:
 
@@ -557,7 +610,7 @@ def my_view(request):
     return JsonResponse({'users': results}, safe=False)
 ```
 
-### 5. Use Management Commands for Data Exploration
+### 6. Use Management Commands for Data Exploration
 
 Use the management command for interactive data exploration:
 

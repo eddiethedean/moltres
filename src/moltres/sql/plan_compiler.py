@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from sqlalchemy import (
     select,
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.selectable import FromClause
 
 from ..engine.dialects import DialectSpec
+from .builders import quote_identifier
 from ..logical.plan import (
     Aggregate,
     AntiJoin,
@@ -70,6 +71,14 @@ class SQLCompiler:
         if hasattr(plan, "left"):
             return self._extract_table_name(plan.left)
         return None
+
+    def _qualified_column_literal(self, table_name: str, column_name: str) -> ColumnElement[Any]:
+        """Build a validated, table-qualified column reference."""
+        from sqlalchemy import literal_column
+
+        quote = self.dialect.quote_char
+        qualified = f"{quote_identifier(table_name, quote)}.{quote_identifier(column_name, quote)}"
+        return literal_column(qualified)
 
     def _compile_plan(self, plan: LogicalPlan) -> Select:
         """Compile a logical plan to a SQLAlchemy Select statement."""
@@ -320,25 +329,17 @@ class SQLCompiler:
                     # Reference columns from the aliased subqueries
                     if left_table_name:
                         try:
-                            left_expr = left_subq.c[left_col]
+                            left_expr = cast(ColumnElement[Any], left_subq.c[left_col])
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification using dialect quote char
-                            quote = self.dialect.quote_char
-                            left_expr = literal_column(
-                                f"{quote}{left_table_name}{quote}.{quote}{left_col}{quote}"
-                            )
+                            left_expr = self._qualified_column_literal(left_table_name, left_col)
                     else:
                         left_expr = sa_column(left_col)
 
                     if right_table_name:
                         try:
-                            right_expr = right_subq.c[right_col]
+                            right_expr = cast(ColumnElement[Any], right_subq.c[right_col])
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification using dialect quote char
-                            quote = self.dialect.quote_char
-                            right_expr = literal_column(
-                                f"{quote}{right_table_name}{quote}.{quote}{right_col}{quote}"
-                            )
+                            right_expr = self._qualified_column_literal(right_table_name, right_col)
                     else:
                         right_expr = sa_column(right_col)
 
@@ -462,18 +463,16 @@ class SQLCompiler:
                     # Use table-qualified column names in join condition to avoid ambiguity
                     if left_table_name:
                         try:
-                            left_expr = left_subq.c[left_col]
+                            left_expr = cast(ColumnElement[Any], left_subq.c[left_col])
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification
-                            left_expr = literal_column(f'"{left_table_name}"."{left_col}"')
+                            left_expr = self._qualified_column_literal(left_table_name, left_col)
                     else:
                         left_expr = sa_column(left_col)
                     if right_table_name:
                         try:
-                            right_expr = right_subq.c[right_col]
+                            right_expr = cast(ColumnElement[Any], right_subq.c[right_col])
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification
-                            right_expr = literal_column(f'"{right_table_name}"."{right_col}"')
+                            right_expr = self._qualified_column_literal(right_table_name, right_col)
                     else:
                         right_expr = sa_column(right_col)
                     conditions.append(left_expr == right_expr)
@@ -655,18 +654,16 @@ class SQLCompiler:
                     # Use table-qualified column names in join condition to avoid ambiguity
                     if left_table_name:
                         try:
-                            left_expr = left_subq.c[left_col]
+                            left_expr = cast(ColumnElement[Any], left_subq.c[left_col])
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification
-                            left_expr = literal_column(f'"{left_table_name}"."{left_col}"')
+                            left_expr = self._qualified_column_literal(left_table_name, left_col)
                     else:
                         left_expr = sa_column(left_col)
                     if right_table_name:
                         try:
-                            right_expr = right_subq.c[right_col]
+                            right_expr = cast(ColumnElement[Any], right_subq.c[right_col])
                         except (KeyError, AttributeError, TypeError):
-                            # Fallback to literal with table qualification
-                            right_expr = literal_column(f'"{right_table_name}"."{right_col}"')
+                            right_expr = self._qualified_column_literal(right_table_name, right_col)
                     else:
                         right_expr = sa_column(right_col)
                     conditions.append(left_expr == right_expr)
@@ -693,10 +690,9 @@ class SQLCompiler:
                     try:
                         null_check_col = right_subq.c[first_right_col]
                     except (KeyError, AttributeError, TypeError):
-                        # Fallback to literal with table qualification
-                        from sqlalchemy import literal_column
-
-                        null_check_col = literal_column(f'"{right_table_name}"."{first_right_col}"')
+                        null_check_col = self._qualified_column_literal(
+                            right_table_name, first_right_col
+                        )
                 else:
                     from sqlalchemy import column as sa_column
 

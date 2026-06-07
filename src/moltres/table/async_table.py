@@ -1744,35 +1744,19 @@ class AsyncDatabase:
 
 
 def _cleanup_all_async_databases() -> None:
-    """Best-effort cleanup for :class:`AsyncDatabase` instances left open at exit.
-
-    Note: This runs in atexit context, so we can't reliably use asyncio.
-    Instead, we mark databases as needing cleanup and log a warning.
-    In practice, applications should explicitly close databases.
-    """
+    """Best-effort cleanup for :class:`AsyncDatabase` instances left open at exit."""
     if not _ACTIVE_ASYNC_DATABASES:
         return
-
-    databases = list(_ACTIVE_ASYNC_DATABASES)
-    if databases:
-        # Log warning about unclosed databases
+    try:
+        _force_async_database_cleanup_for_tests()
+    except Exception as exc:  # pragma: no cover - best effort at exit
         logger.warning(
-            "%d AsyncDatabase instance(s) were not explicitly closed. "
-            "Ephemeral tables may not be cleaned up. "
-            "Always call await db.close() when done with AsyncDatabase instances.",
-            len(databases),
+            "%d AsyncDatabase instance(s) were not explicitly closed; cleanup failed: %s",
+            len(_ACTIVE_ASYNC_DATABASES),
+            exc,
         )
-        # Mark as closed to prevent further use
-        for db in databases:
+        for db in list(_ACTIVE_ASYNC_DATABASES):
             db._closed = True
-            # Try to clean up ephemeral tables synchronously if possible
-            # (this is best-effort and may not work in all scenarios)
-            if db._ephemeral_tables:
-                logger.debug(
-                    "%d ephemeral table(s) may not be cleaned up for AsyncDatabase: %s",
-                    len(db._ephemeral_tables),
-                    db._ephemeral_tables,
-                )
 
 
 async def _cleanup_all_async_databases_async() -> None:

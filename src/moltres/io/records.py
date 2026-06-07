@@ -641,18 +641,26 @@ class AsyncRecords:
         else:
             table_handle = table
 
-        transaction = self._database.connection_manager.active_transaction
+        db = self._database
+        transaction = db.connection_manager.active_transaction
 
-        if self._generator is not None:
+        async def _insert_chunks(active_tx: object | None) -> int:
             total_inserted = 0
-            chunk_iter = self._generator()
+            chunk_iter = self._generator()  # type: ignore[misc]
             async for chunk in chunk_iter:
                 if not chunk:
                     continue
                 total_inserted += await insert_rows_async(
-                    table_handle, chunk, transaction=transaction
+                    table_handle, chunk, transaction=active_tx
                 )
             return total_inserted
+
+        if self._generator is not None:
+            if transaction is None and hasattr(db, "transaction"):
+                async with db.transaction():
+                    active = db.connection_manager.active_transaction
+                    return await _insert_chunks(active)
+            return await _insert_chunks(transaction)
 
         rows = await self.rows()
         if not rows:

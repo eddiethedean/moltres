@@ -39,6 +39,7 @@ def insert_rows(
     """
     # Convert DataFrame to Records if needed
     from ..io.records import (
+        Records as MoltresRecords,
         _is_pandas_dataframe,
         _is_polars_dataframe,
         _is_polars_lazyframe,
@@ -47,6 +48,9 @@ def insert_rows(
 
     if _is_pandas_dataframe(rows) or _is_polars_dataframe(rows) or _is_polars_lazyframe(rows):
         rows = _dataframe_to_records(rows, database=handle.database)
+
+    if isinstance(rows, MoltresRecords) and rows._generator is not None:
+        return rows.insert_into(handle)
 
     if not rows:
         return 0

@@ -666,14 +666,10 @@ class Database:
         if self._closed:
             return
         self._cleanup_ephemeral_tables()
-        engine = getattr(self._connections, "_engine", None)
-        if engine is not None:
-            try:
-                engine.dispose(close=True)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.debug("Error disposing engine during close: %s", exc)
-            finally:
-                self._connections._engine = None
+        try:
+            self._connections.close()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Error closing connection manager during close: %s", exc)
         self._closed = True
         _ACTIVE_DATABASES.discard(self)
 

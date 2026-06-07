@@ -765,13 +765,15 @@ def build_polars_slice_operation(
         This is a simplified implementation. Full slice support requires OFFSET support
         in the underlying DataFrame, which may not be available.
     """
-    if length is None:
-        # Return all rows from offset onwards
-        # This is a limitation - we use a large number as workaround
-        return cast(Union[DataFrame, AsyncDataFrame], polars_df._df.limit(offset + 1000000))
-    else:
-        # Use limit with offset calculation
-        return cast(Union[DataFrame, AsyncDataFrame], polars_df._df.limit(offset + length))
+    from ...logical import operators
+    from ..core.async_dataframe import AsyncDataFrame
+    from ..core.dataframe import DataFrame
+
+    count = length if length is not None else 1_000_000
+    plan = operators.limit(polars_df._df.plan, count=count, offset=offset)
+    if isinstance(polars_df._df, AsyncDataFrame):
+        return AsyncDataFrame(plan=plan, database=polars_df._df.database)
+    return DataFrame(plan=plan, database=polars_df._df.database)
 
 
 def build_polars_gather_every_operation(

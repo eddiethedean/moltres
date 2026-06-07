@@ -106,32 +106,18 @@ if DJANGO_AVAILABLE:
             return []
 
         try:
-            # Execute query
             if query:
-                # Execute custom query expression
-                from moltres import col
-                from moltres.expressions import functions as F
+                logger.error(
+                    "The 'query' parameter is no longer supported for security reasons. "
+                    "Use table_name only, e.g. {% moltres_query 'users' as users %}."
+                )
+                return []
+            if table_name:
+                from moltres.integrations.django.safe_query import execute_table_query
 
-                namespace = {
-                    "db": db,
-                    "col": col,
-                    "F": F,
-                    "__builtins__": __builtins__,
-                }
-
-                result = eval(query, namespace)  # noqa: S307
-
-                # If result is a DataFrame, collect it
-                if hasattr(result, "collect"):
-                    results = result.collect()
-                else:
-                    results = result
-            elif table_name:
-                # Simple table select
-                df = db.table(table_name).select()
-                results = df.collect()
+                results = execute_table_query(db, table_name)
             else:
-                logger.error("Either 'table_name' or 'query' must be provided")
+                logger.error("table_name must be provided")
                 return []
 
             # Cache results if caching is enabled

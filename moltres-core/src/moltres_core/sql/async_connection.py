@@ -27,6 +27,7 @@ from sqlalchemy import text
 
 from moltres_core.config import EngineConfig
 from moltres_core.sql.dialects import DialectSpec, get_dialect
+from moltres_core.sql.transaction_state import clear_transaction_state, get_transaction_state
 
 
 def _extract_postgres_server_settings(dsn: str) -> tuple[str, dict[str, str]]:
@@ -82,9 +83,38 @@ class AsyncConnectionManager:
         self.config = config
         self._engine: AsyncEngine | None = None
         self._session: object | None = None  # SQLAlchemy AsyncSession
-        self._active_transaction: Optional[AsyncConnection] = None
-        self._savepoint_stack: list[str] = []
-        self._transaction_metadata: Optional[dict[str, object]] = None
+
+    @property
+    def _active_transaction(self) -> Optional[AsyncConnection]:
+        return get_transaction_state().active_transaction
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: Optional[AsyncConnection]) -> None:
+        get_transaction_state().active_transaction = value
+
+    @property
+    def _savepoint_stack(self) -> list[str]:
+        return get_transaction_state().savepoint_stack
+
+    @_savepoint_stack.setter
+    def _savepoint_stack(self, value: list[str]) -> None:
+        get_transaction_state().savepoint_stack = value
+
+    @property
+    def _transaction_metadata(self) -> Optional[dict[str, object]]:
+        return get_transaction_state().transaction_metadata
+
+    @_transaction_metadata.setter
+    def _transaction_metadata(self, value: Optional[dict[str, object]]) -> None:
+        get_transaction_state().transaction_metadata = value
+
+    @property
+    def _owns_connection(self) -> bool:
+        return get_transaction_state().owns_connection
+
+    @_owns_connection.setter
+    def _owns_connection(self, value: bool) -> None:
+        get_transaction_state().owns_connection = value
 
     def _create_engine(self) -> AsyncEngine:
         """Create an async SQLAlchemy engine.
@@ -304,19 +334,35 @@ class AsyncConnectionManager:
             # Unknown dialect, use conservative defaults
             dialect_spec = DialectSpec(name=dialect_name)
 
-        self._active_transaction = await self.engine.connect()
-        self._savepoint_stack = []
-        self._transaction_metadata = {
+        metadata = {
             "readonly": readonly,
             "isolation_level": isolation_level,
             "timeout": timeout,
         }
 
+        if self._session is not None and hasattr(self._session, "connection"):
+            connection = await self._session.connection()
+            self._active_transaction = connection
+            self._owns_connection = False
+            self._savepoint_stack = []
+            self._transaction_metadata = metadata
+            if not connection.in_transaction():
+                await connection.begin()
+        else:
+            connection = await self.engine.connect()
+            self._active_transaction = connection
+            self._owns_connection = True
+            self._savepoint_stack = []
+            self._transaction_metadata = metadata
+            await connection.begin()
+
         # Set isolation level if specified
         if isolation_level:
             if not dialect_spec.supports_isolation_levels:
-                await self._active_transaction.close()
+                if self._owns_connection:
+                    await self._active_transaction.close()
                 self._active_transaction = None
+                clear_transaction_state()
                 raise ValueError(
                     f"Dialect '{dialect_name}' does not support isolation levels. "
                     "SQLite only supports SERIALIZABLE and READ UNCOMMITTED via PRAGMA."
@@ -326,8 +372,10 @@ class AsyncConnectionManager:
         # Set read-only mode if specified
         if readonly:
             if not dialect_spec.supports_read_only_transactions:
-                await self._active_transaction.close()
+                if self._owns_connection:
+                    await self._active_transaction.close()
                 self._active_transaction = None
+                clear_transaction_state()
                 raise ValueError(
                     f"Dialect '{dialect_name}' does not support read-only transactions."
                 )
@@ -337,7 +385,6 @@ class AsyncConnectionManager:
         if timeout:
             await self._set_timeout(self._active_transaction, timeout, dialect_name)
 
-        await self._active_transaction.begin()
         return self._active_transaction
 
     def _generate_savepoint_name(self) -> str:
@@ -470,14 +517,13 @@ class AsyncConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
+        owns = self._owns_connection
         try:
             await connection.commit()
         finally:
-            # Always close connection, even if commit fails
-            await connection.close()
-            self._active_transaction = None
-            self._savepoint_stack = []
-            self._transaction_metadata = None
+            if owns:
+                await connection.close()
+            clear_transaction_state()
 
     async def rollback_transaction(self, connection: AsyncConnection) -> None:
         """Rollback a transaction.
@@ -487,14 +533,13 @@ class AsyncConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
+        owns = self._owns_connection
         try:
             await connection.rollback()
         finally:
-            # Always close connection, even if rollback fails
-            await connection.close()
-            self._active_transaction = None
-            self._savepoint_stack = []
-            self._transaction_metadata = None
+            if owns:
+                await connection.close()
+            clear_transaction_state()
 
     @property
     def active_transaction(self) -> Optional[AsyncConnection]:
@@ -512,7 +557,18 @@ class AsyncConnectionManager:
         return self._savepoint_stack.copy()
 
     async def close(self) -> None:
-        """Close the engine and all connections."""
-        if self._engine is not None:
+        """Rollback any active transaction and dispose the engine if owned."""
+        if self._active_transaction is not None:
+            try:
+                await self._active_transaction.rollback()
+            except Exception:
+                pass
+            if self._owns_connection:
+                try:
+                    await self._active_transaction.close()
+                except Exception:
+                    pass
+            clear_transaction_state()
+        if self.config.owns_engine and self._engine is not None:
             await self._engine.dispose()
             self._engine = None

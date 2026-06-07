@@ -693,12 +693,10 @@ class PandasDataFrame(InterfaceCommonMixin):
             )
 
         # Collect the full DataFrame
-        import pandas as pd
-
         pdf = self.collect()
 
         # Use pandas describe
-        return cast(pd.DataFrame, pdf.describe())
+        return pdf.describe()
 
     def info(self) -> None:
         """Print a concise summary of the :class:`DataFrame` (pandas-style).

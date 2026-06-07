@@ -171,18 +171,22 @@ if DJANGO_AVAILABLE:
 # =========================================
 
 """
-Django management commands allow executing Moltres queries from the command line.
+Django management commands run safe, declarative Moltres table queries.
 
 Usage:
-    python manage.py moltres_query "db.table('users').select()"
-    python manage.py moltres_query "db.table('users').select().where(col('age') > 25)" --format=json
+    python manage.py moltres_query --table users
+    python manage.py moltres_query --table users --where-column age --where-op gt --where-value 25
+    python manage.py moltres_query "db.table('users').select()"  # legacy simple form
     python manage.py moltres_query --interactive
 
 Options:
+    --table: Table name to query (recommended)
+    --where-column, --where-op, --where-value: Optional WHERE filter (eq, ne, gt, gte, lt, lte)
+    --limit: Optional row limit
     --database: Django database alias (default: 'default')
     --format: Output format - json, table, or csv (default: table)
     --interactive: Start interactive query mode
-    --file: Read query from file
+    --file: Read legacy simple query from file (db.table('name').select() only)
 """
 
 # Example 4: Django Template Tags
@@ -199,15 +203,16 @@ In your template:
         <div>{{ user.name }} - {{ user.email }}</div>
     {% endfor %}
     
-    {% moltres_query query="db.table('users').select().where(col('active') == True)" cache_timeout=3600 as active_users %}
+    {# For filtered data, query in a view and pass active_users to the template #}
     <p>Active users: {{ active_users|moltres_format:"count" }}</p>
 
 Template tag options:
-    table_name: Simple table select
-    query: Moltres query expression
+    table_name: Full table select (required)
     database: Django database alias (default: 'default')
     cache_timeout: Cache timeout in seconds (optional)
     cache_key: Custom cache key (optional)
+
+Note: The query= parameter was removed for security. Use views for filtered queries.
 """
 
 # Example 5: Django URL Configuration

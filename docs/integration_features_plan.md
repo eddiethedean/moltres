@@ -66,8 +66,10 @@ def my_view(request):
 
 **API**:
 ```bash
-# Management command
-python manage.py moltres_query "db.table('users').select().where(col('age') > 25)"
+# Management command (safe declarative queries — no arbitrary Python)
+python manage.py moltres_query --table users
+python manage.py moltres_query --table users --where-column age --where-op gt --where-value 25
+python manage.py moltres_query "db.table('users').select()"  # legacy simple form
 ```
 
 #### 1.4 Django Template Tags

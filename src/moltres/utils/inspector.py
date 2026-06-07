@@ -56,6 +56,21 @@ class ColumnInfo:
         )
 
 
+def _reject_async_sync_inspection(
+    db: Union["Database", "AsyncDatabase"], engine: object, operation: str
+) -> None:
+    """Raise if sync inspector helpers are used with an async database/engine."""
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+    from ..table.async_table import AsyncDatabase
+
+    if isinstance(db, AsyncDatabase) or isinstance(engine, AsyncEngine):
+        raise RuntimeError(
+            f"Cannot {operation} synchronously on an async database. "
+            "Use the corresponding await database.<method>() API instead."
+        )
+
+
 def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -> List[ColumnInfo]:
     """Get column information for a table from the database.
 
@@ -91,12 +106,12 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
     # Handle async engines - SQLAlchemy Inspector doesn't work directly with AsyncEngine
     if isinstance(engine, AsyncEngine):
         import asyncio
-        import threading
         import concurrent.futures
+        import threading
 
         async def _get_columns_async() -> list[Any]:
             async with engine.begin() as conn:
-                # Use run_sync to call inspect on the underlying sync connection
+
                 def _inspect_sync(sync_conn: Any) -> list[Any]:
                     inspector = sa_inspect(sync_conn)
                     return cast(list[Any], inspector.get_columns(table_name))
@@ -104,10 +119,8 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
                 cols = await conn.run_sync(_inspect_sync)
                 return cols
 
-        # Check if we're in an async context
         try:
             asyncio.get_running_loop()
-            # We're in an async context - run in a separate thread with new event loop
             future: concurrent.futures.Future[list[Any]] = concurrent.futures.Future()
 
             def run_in_new_loop() -> None:
@@ -129,14 +142,14 @@ def get_table_columns(db: Union["Database", "AsyncDatabase"], table_name: str) -
             except Exception as e:
                 raise RuntimeError(f"Failed to inspect table '{table_name}': {e}") from e
         except RuntimeError:
-            # No running loop, we can create one
             try:
                 columns = asyncio.run(_get_columns_async())
             except Exception as e:
                 raise RuntimeError(f"Failed to inspect table '{table_name}': {e}") from e
     else:
-        # Sync engine - use inspector directly
         inspector = sa_inspect(engine)
+        if inspector is None:
+            raise RuntimeError(f"Failed to create inspector for table '{table_name}'")
         try:
             columns = cast(list[Any], inspector.get_columns(table_name))
         except Exception as e:
@@ -279,67 +292,22 @@ def get_table_names(
         >>> tables = get_table_names(db)
         >>> # Returns: ['users', 'orders', 'products']
     """
-    from sqlalchemy.ext.asyncio import AsyncEngine
 
     if db.connection_manager is None:
         raise ValueError("Database connection manager is not available")
 
     engine = db.connection_manager.engine
+    _reject_async_sync_inspection(db, engine, "list tables")
 
-    # Handle async engines
-    if isinstance(engine, AsyncEngine):
-        import asyncio
-        import threading
-        import concurrent.futures
+    from sqlalchemy import inspect as sa_inspect
 
-        async def _get_table_names_async() -> List[str]:
-            async with engine.begin() as conn:
-
-                def _inspect_sync(sync_conn: Any) -> List[str]:
-                    from sqlalchemy import inspect as sa_inspect
-
-                    inspector = sa_inspect(sync_conn)
-                    return cast(list[str], inspector.get_table_names(schema=schema))
-
-                table_names = await conn.run_sync(_inspect_sync)
-                return table_names
-
-        # Check if we're in an async context
-        try:
-            asyncio.get_running_loop()
-            # We're in an async context - run in a separate thread with new event loop
-            future: concurrent.futures.Future[List[str]] = concurrent.futures.Future()
-
-            def run_in_new_loop() -> None:
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    result = new_loop.run_until_complete(_get_table_names_async())
-                    future.set_result(result)
-                except Exception as e:
-                    future.set_exception(e)
-                finally:
-                    new_loop.close()
-
-            thread = threading.Thread(target=run_in_new_loop)
-            thread.start()
-            thread.join()
-            try:
-                return future.result()
-            except Exception as e:
-                raise RuntimeError(f"Failed to get table names: {e}") from e
-        except RuntimeError:
-            # No running loop, we can create one
-            return asyncio.run(_get_table_names_async())
-    else:
-        # Sync engine - use inspector directly
-        from sqlalchemy import inspect as sa_inspect
-
-        inspector = sa_inspect(engine)
-        try:
-            return inspector.get_table_names(schema=schema)
-        except Exception as e:
-            raise RuntimeError(f"Failed to get table names: {e}") from e
+    inspector = sa_inspect(engine)
+    if inspector is None:
+        raise RuntimeError("Failed to create inspector for table names")
+    try:
+        return list(inspector.get_table_names(schema=schema))
+    except Exception as e:
+        raise RuntimeError(f"Failed to get table names: {e}") from e
 
 
 def get_view_names(
@@ -366,67 +334,22 @@ def get_view_names(
         >>> views = get_view_names(db)
         >>> # Returns: ['active_users_view', 'order_summary_view']
     """
-    from sqlalchemy.ext.asyncio import AsyncEngine
 
     if db.connection_manager is None:
         raise ValueError("Database connection manager is not available")
 
     engine = db.connection_manager.engine
+    _reject_async_sync_inspection(db, engine, "list views")
 
-    # Handle async engines
-    if isinstance(engine, AsyncEngine):
-        import asyncio
-        import threading
-        import concurrent.futures
+    from sqlalchemy import inspect as sa_inspect
 
-        async def _get_view_names_async() -> List[str]:
-            async with engine.begin() as conn:
-
-                def _inspect_sync(sync_conn: Any) -> List[str]:
-                    from sqlalchemy import inspect as sa_inspect
-
-                    inspector = sa_inspect(sync_conn)
-                    return cast(list[str], inspector.get_view_names(schema=schema))
-
-                view_names = await conn.run_sync(_inspect_sync)
-                return view_names
-
-        # Check if we're in an async context
-        try:
-            asyncio.get_running_loop()
-            # We're in an async context - run in a separate thread with new event loop
-            future: concurrent.futures.Future[List[str]] = concurrent.futures.Future()
-
-            def run_in_new_loop() -> None:
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    result = new_loop.run_until_complete(_get_view_names_async())
-                    future.set_result(result)
-                except Exception as e:
-                    future.set_exception(e)
-                finally:
-                    new_loop.close()
-
-            thread = threading.Thread(target=run_in_new_loop)
-            thread.start()
-            thread.join()
-            try:
-                return future.result()
-            except Exception as e:
-                raise RuntimeError(f"Failed to get view names: {e}") from e
-        except RuntimeError:
-            # No running loop, we can create one
-            return asyncio.run(_get_view_names_async())
-    else:
-        # Sync engine - use inspector directly
-        from sqlalchemy import inspect as sa_inspect
-
-        inspector = sa_inspect(engine)
-        try:
-            return inspector.get_view_names(schema=schema)
-        except Exception as e:
-            raise RuntimeError(f"Failed to get view names: {e}") from e
+    inspector = sa_inspect(engine)
+    if inspector is None:
+        raise RuntimeError("Failed to create inspector for view names")
+    try:
+        return list(inspector.get_view_names(schema=schema))
+    except Exception as e:
+        raise RuntimeError(f"Failed to get view names: {e}") from e
 
 
 def reflect_table(

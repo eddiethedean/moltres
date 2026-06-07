@@ -17,6 +17,7 @@ from sqlalchemy.engine import Connection, Engine
 
 from moltres_core.config import EngineConfig
 from moltres_core.sql.dialects import DialectSpec, get_dialect
+from moltres_core.sql.transaction_state import clear_transaction_state, get_transaction_state
 
 
 class ConnectionManager:
@@ -26,9 +27,38 @@ class ConnectionManager:
         self.config = config
         self._engine: Engine | None = None
         self._session: object | None = None  # SQLAlchemy Session
-        self._active_transaction: Optional[Connection] = None
-        self._savepoint_stack: list[str] = []
-        self._transaction_metadata: Optional[dict[str, object]] = None
+
+    @property
+    def _active_transaction(self) -> Optional[Connection]:
+        return get_transaction_state().active_transaction
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: Optional[Connection]) -> None:
+        get_transaction_state().active_transaction = value
+
+    @property
+    def _savepoint_stack(self) -> list[str]:
+        return get_transaction_state().savepoint_stack
+
+    @_savepoint_stack.setter
+    def _savepoint_stack(self, value: list[str]) -> None:
+        get_transaction_state().savepoint_stack = value
+
+    @property
+    def _transaction_metadata(self) -> Optional[dict[str, object]]:
+        return get_transaction_state().transaction_metadata
+
+    @_transaction_metadata.setter
+    def _transaction_metadata(self, value: Optional[dict[str, object]]) -> None:
+        get_transaction_state().transaction_metadata = value
+
+    @property
+    def _owns_connection(self) -> bool:
+        return get_transaction_state().owns_connection
+
+    @_owns_connection.setter
+    def _owns_connection(self, value: bool) -> None:
+        get_transaction_state().owns_connection = value
 
     def _create_engine(self) -> Engine:
         # If a session is provided, extract engine from it
@@ -160,19 +190,35 @@ class ConnectionManager:
             # Unknown dialect, use conservative defaults
             dialect_spec = DialectSpec(name=dialect_name)
 
-        self._active_transaction = self.engine.connect()
-        self._savepoint_stack = []
-        self._transaction_metadata = {
+        metadata = {
             "readonly": readonly,
             "isolation_level": isolation_level,
             "timeout": timeout,
         }
 
+        if self._session is not None and hasattr(self._session, "connection"):
+            connection = self._session.connection()
+            self._active_transaction = connection
+            self._owns_connection = False
+            self._savepoint_stack = []
+            self._transaction_metadata = metadata
+            if not connection.in_transaction():
+                connection.begin()
+        else:
+            connection = self.engine.connect()
+            self._active_transaction = connection
+            self._owns_connection = True
+            self._savepoint_stack = []
+            self._transaction_metadata = metadata
+            connection.begin()
+
         # Set isolation level if specified
         if isolation_level:
             if not dialect_spec.supports_isolation_levels:
-                self._active_transaction.close()
+                if self._owns_connection:
+                    self._active_transaction.close()
                 self._active_transaction = None
+                clear_transaction_state()
                 raise ValueError(
                     f"Dialect '{dialect_name}' does not support isolation levels. "
                     "SQLite only supports SERIALIZABLE and READ UNCOMMITTED via PRAGMA."
@@ -182,8 +228,10 @@ class ConnectionManager:
         # Set read-only mode if specified
         if readonly:
             if not dialect_spec.supports_read_only_transactions:
-                self._active_transaction.close()
+                if self._owns_connection:
+                    self._active_transaction.close()
                 self._active_transaction = None
+                clear_transaction_state()
                 raise ValueError(
                     f"Dialect '{dialect_name}' does not support read-only transactions."
                 )
@@ -193,7 +241,6 @@ class ConnectionManager:
         if timeout:
             self._set_timeout(self._active_transaction, timeout, dialect_name)
 
-        self._active_transaction.begin()
         return self._active_transaction
 
     def _generate_savepoint_name(self) -> str:
@@ -324,14 +371,13 @@ class ConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
+        owns = self._owns_connection
         try:
             connection.commit()
         finally:
-            # Always close connection, even if commit fails
-            connection.close()
-            self._active_transaction = None
-            self._savepoint_stack = []
-            self._transaction_metadata = None
+            if owns:
+                connection.close()
+            clear_transaction_state()
 
     def rollback_transaction(self, connection: Connection) -> None:
         """Rollback a transaction.
@@ -341,14 +387,30 @@ class ConnectionManager:
         """
         if connection is not self._active_transaction:
             raise RuntimeError("Connection is not the active transaction")
+        owns = self._owns_connection
         try:
             connection.rollback()
         finally:
-            # Always close connection, even if rollback fails
-            connection.close()
-            self._active_transaction = None
-            self._savepoint_stack = []
-            self._transaction_metadata = None
+            if owns:
+                connection.close()
+            clear_transaction_state()
+
+    def close(self) -> None:
+        """Rollback any active transaction and dispose the engine if owned."""
+        if self._active_transaction is not None:
+            try:
+                self._active_transaction.rollback()
+            except Exception:
+                pass
+            if self._owns_connection:
+                try:
+                    self._active_transaction.close()
+                except Exception:
+                    pass
+            clear_transaction_state()
+        if self.config.owns_engine and self._engine is not None:
+            self._engine.dispose(close=True)
+            self._engine = None
 
     @property
     def active_transaction(self) -> Optional[Connection]:

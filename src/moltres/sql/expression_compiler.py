@@ -41,6 +41,22 @@ class ExpressionCompiler:
         """Compile a :class:`Column` expression to a SQLAlchemy column expression."""
         return self._compile(expression)
 
+    def _compile_null_aware_comparison(
+        self, left: Column, right: Column, *, is_equal: bool
+    ) -> ColumnElement[Any]:
+        """Compile eq/ne with SQL NULL semantics (IS NULL / IS NOT NULL)."""
+        if left.op == "literal" and left.args[0] is None:
+            compiled = self._compile(right)
+            return compiled.is_(null()) if is_equal else compiled.isnot(null())
+        if right.op == "literal" and right.args[0] is None:
+            compiled = self._compile(left)
+            return compiled.is_(null()) if is_equal else compiled.isnot(null())
+        left_compiled = self._compile(left)
+        right_compiled = self._compile(right)
+        if is_equal:
+            return left_compiled == right_compiled
+        return left_compiled != right_compiled
+
     def emit(self, expression: Column) -> str:
         """Compile a :class:`Column` expression to a SQL string.
 
@@ -171,13 +187,17 @@ class ExpressionCompiler:
                 return result
         if op == "eq":
             left, right = expression.args
-            result = self._compile(left) == self._compile(right)
+            result = self._compile_null_aware_comparison(
+                typing_cast(Column, left), typing_cast(Column, right), is_equal=True
+            )
             if expression._alias:
                 result = result.label(expression._alias)
             return result
         if op == "ne":
             left, right = expression.args
-            result = self._compile(left) != self._compile(right)
+            result = self._compile_null_aware_comparison(
+                typing_cast(Column, left), typing_cast(Column, right), is_equal=False
+            )
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -284,26 +304,18 @@ class ExpressionCompiler:
                 raise TypeError(f"Expected string for interval, got {type(interval_str).__name__}")
             from sqlalchemy import literal_column
 
-            # Parse interval string (format: "N UNIT" where N is number and UNIT is DAY, MONTH, YEAR, HOUR, etc.)
-            parts = interval_str.split()
-            if len(parts) != 2:
-                raise CompilationError(
-                    f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
-                )
-            num, unit = parts
-            unit_upper = unit.upper()
+            from .interval_helpers import parse_interval, safe_interval_literal
 
-            # For PostgreSQL/DuckDB, use INTERVAL literal
+            num, unit = parse_interval(interval_str)
+            interval_literal = safe_interval_literal(num, unit)
+
             if self.dialect.name in ("postgresql", "duckdb"):
-                interval_col: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
+                interval_col: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_literal}'")
                 result = col_expr + interval_col
             elif self.dialect.name == "mysql":
-                # MySQL uses DATE_ADD with INTERVAL
-                result = func.date_add(col_expr, literal_column(f"INTERVAL {num} {unit_upper}"))
+                result = func.date_add(col_expr, literal_column(f"INTERVAL {num} {unit}"))
             else:
-                # SQLite: use datetime() function with modifier
-                # SQLite format: datetime(col, '+1 day'), datetime(col, '-1 hour')
-                modifier = f"+{num} {unit_upper.lower()}"
+                modifier = f"+{num} {unit.lower()}"
                 result = func.datetime(col_expr, modifier)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -315,25 +327,18 @@ class ExpressionCompiler:
                 raise TypeError(f"Expected string for interval, got {type(interval_str).__name__}")
             from sqlalchemy import literal_column
 
-            # Parse interval string
-            parts = interval_str.split()
-            if len(parts) != 2:
-                raise CompilationError(
-                    f"Invalid interval format: {interval_str}. Expected format: 'N UNIT' (e.g., '1 DAY')"
-                )
-            num, unit = parts
-            unit_upper = unit.upper()
+            from .interval_helpers import parse_interval, safe_interval_literal
 
-            # For PostgreSQL/DuckDB, use INTERVAL literal
+            num, unit = parse_interval(interval_str)
+            interval_literal = safe_interval_literal(num, unit)
+
             if self.dialect.name in ("postgresql", "duckdb"):
-                interval_expr: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_str}'")
+                interval_expr: ColumnElement[Any] = literal_column(f"INTERVAL '{interval_literal}'")
                 result = col_expr - interval_expr
             elif self.dialect.name == "mysql":
-                # MySQL uses DATE_SUB with INTERVAL
-                result = func.date_sub(col_expr, literal_column(f"INTERVAL {num} {unit_upper}"))
+                result = func.date_sub(col_expr, literal_column(f"INTERVAL {num} {unit}"))
             else:
-                # SQLite: use datetime() function with modifier
-                modifier = f"-{num} {unit_upper.lower()}"
+                modifier = f"-{num} {unit.lower()}"
                 result = func.datetime(col_expr, modifier)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -376,18 +381,11 @@ class ExpressionCompiler:
                 if not isinstance(format_str, str):
                     raise TypeError(f"Expected string for format, got {type(format_str).__name__}")
                 if self.dialect.name == "duckdb":
-                    # DuckDB uses strptime for parsing with format (uses %Y format, not yyyy)
                     from sqlalchemy import literal_column
 
-                    # Convert PySpark format to strptime format
-                    duckdb_format = (
-                        format_str.replace("yyyy", "%Y")
-                        .replace("MM", "%m")
-                        .replace("dd", "%d")
-                        .replace("HH", "%H")
-                        .replace("mm", "%M")
-                        .replace("ss", "%S")
-                    )
+                    from .interval_helpers import validate_and_convert_strptime_format
+
+                    duckdb_format = validate_and_convert_strptime_format(format_str)
                     result = literal_column(f"strptime({col_expr}, '{duckdb_format}')")
                 else:
                     result = func.to_timestamp(col_expr, format_str)
@@ -763,10 +761,11 @@ class ExpressionCompiler:
         if op == "is_not_null":
             return self._compile(expression.args[0]).isnot(null())
         if op == "isnan":
-            # NaN check - SQL doesn't have direct isnan, use IS NULL or comparison
-            # This is a simplified implementation
             col_expr = self._compile(expression.args[0])
-            result = col_expr.is_(null())  # Simplified - actual NaN check varies by dialect
+            from sqlalchemy import case
+
+            nan_check = col_expr != col_expr
+            result = case((col_expr.is_(null()), null()), else_=nan_check)
             if expression._alias:
                 result = result.label(expression._alias)
             return result

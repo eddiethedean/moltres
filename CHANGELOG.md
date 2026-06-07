@@ -10,10 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - **Minimum Python is now 3.10** – Required by the **[pydantable-protocol](https://pypi.org/project/pydantable-protocol/)** dependency (e.g. `dataclass(slots=True)`). Python 3.9 is no longer supported.
+- **Django template tag** – The `query=` parameter on `{% moltres_query %}` is removed. Templates must use `table_name` only (full-table `SELECT`). Use a view for filtered or joined queries.
+- **Django management command** – Arbitrary Python query strings are no longer executed. Use `--table` with optional `--where-column`, `--where-op`, `--where-value`, and `--limit`, or the legacy form `db.table('name').select()` only.
+- **Async database inspection** – Sync `get_table_names()` and `get_view_names()` raise when called on an `AsyncDatabase`. Use `await db.get_table_names()` / `await db.get_view_names()` instead.
 
 ### Changed
 
 - **moltres-core** – Replaced the vendored `pydantable_protocol` copy with a runtime dependency on **[pydantable-protocol](https://pypi.org/project/pydantable-protocol/)** (≥1.14.0). The `moltres_core.embedded_protocol` module remains as a thin re-export for backward compatibility.
+- **Engine lifecycle** – `EngineConfig.owns_engine` tracks whether Moltres created the SQLAlchemy engine. `Database.close()` only disposes owned engines and rolls back active transactions first.
+- **Streaming inserts** – Chunked `Records` / `AsyncRecords` inserts run inside a transaction when no transaction is already active, so partial chunk failures roll back the whole insert.
+- **`dropDuplicates(subset=...)`** – Subset deduplication now keeps one row per key group (matching PySpark semantics) instead of treating non-key columns incorrectly.
+
+### Fixed
+
+- **Critical: Django RCE** – Removed `eval()` from the `moltres_query` template tag and management command; queries use a safe declarative API (`safe_query.py`).
+- **SQL injection in expressions** – Interval literals, `strftime`/`date_format` format strings, and join column names are validated or parameterized before compilation.
+- **SQL injection in writer** – `_table_exists()` uses `quote_identifier()` for table names.
+- **`insert_rows()` with streaming `Records`** – Detects streaming record sources and delegates to `insert_into()` instead of materializing incorrectly.
+- **Session / transaction connection sharing** – `connect(session=...)` and `db.transaction()` use the same underlying connection; transaction state is tracked per context via `ContextVar`.
+- **Async cleanup** – Async database atexit handlers run real connection cleanup instead of being no-ops.
+- **`Database._close_resources()`** – Uses `connection_manager.close()` for consistent teardown.
+- **NULL comparisons** – `col("x") == None` and `col("x") != None` compile to `IS NULL` / `IS NOT NULL` instead of `= NULL`.
+- **`isnan()`** – Compiles to a proper NaN check instead of `IS NULL`.
+- **Polars `slice()`** – Offset/limit slicing uses `operators.limit(..., offset=...)` correctly.
 
 ## [1.0.0] - 2026-04-03
 

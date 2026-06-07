@@ -377,10 +377,11 @@ df.dropDuplicates(["col1", "col2"])
 
 ```python
 df.distinct()
-df.dropDuplicates(["col1", "col2"])  # Simplified implementation
+df.dropDuplicates()
+df.dropDuplicates(["col1", "col2"])
 ```
 
-**Comparison:** Similar. Moltres `dropDuplicates()` with subset is simplified.
+**Comparison:** Similar. Moltres `dropDuplicates(subset=...)` keeps one row per key group, matching PySpark semantics.
 
 ### 3.7 Column Operations
 
@@ -1481,11 +1482,7 @@ df.write.update("customers", where=col("id") == 1, set={"active": 1})
    - Currently raises CompilationError for most dialects
    - Priority: High for PostgreSQL, MySQL 8.0+
 
-2. **Improve `dropDuplicates()` Implementation**
-   - Current implementation is simplified
-   - Should match PySpark's behavior more closely
-
-3. **Add More File Format Support**
+2. **Add More File Format Support**
    - Consider ORC, Avro if there's demand
    - Focus on formats that map well to SQL
 
@@ -1649,7 +1646,7 @@ For teams working with SQL databases who want a DataFrame API without the overhe
 | `intersect()` | ✅ | ✅ | Identical |
 | `except()` | ✅ | ✅ | Also `except_()` |
 | `distinct()` | ✅ | ✅ | Identical |
-| `dropDuplicates()` | ✅ | ✅ | Simplified in Moltres |
+| `dropDuplicates()` | ✅ | ✅ | Compatible (subset dedup matches PySpark) |
 | `withColumn()` | ✅ | ✅ | Identical - add/replace columns |
 | `withColumnRenamed()` | ✅ | ✅ | Identical |
 | `drop()` | ✅ | ✅ | Identical - Accepts both strings and Column objects |
