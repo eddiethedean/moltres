@@ -54,7 +54,7 @@ pip install -e ./moltres-core
 pip install -e .
 ```
 
-**1.0.0** ships this split on PyPI: `pip install moltres` pulls in **`moltres-core`** automatically. For breaking changes and upgrade notes, see [CHANGELOG.md](CHANGELOG.md).
+**1.0.1** ships this split on PyPI: `pip install moltres` pulls in **`moltres-core`** automatically. For breaking changes and upgrade notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ## 🚀 Quick Start
 

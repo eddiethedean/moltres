@@ -42,7 +42,7 @@ classifiers = [
 dependencies = [
   "SQLAlchemy>=2.0",
   "typing-extensions>=4.5",
-  "moltres-core>=1.0.0,<2",
+  "moltres-core>=1.0.1,<2",
 ]
 
 [project.urls]

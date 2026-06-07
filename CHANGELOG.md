@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-06-07
+
 ### Breaking
 
 - **Minimum Python is now 3.10** – Required by the **[pydantable-protocol](https://pypi.org/project/pydantable-protocol/)** dependency (e.g. `dataclass(slots=True)`). Python 3.9 is no longer supported.
@@ -21,11 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Streaming inserts** – Chunked `Records` / `AsyncRecords` inserts run inside a transaction when no transaction is already active, so partial chunk failures roll back the whole insert.
 - **`dropDuplicates(subset=...)`** – Subset deduplication now keeps one row per key group (matching PySpark semantics) instead of treating non-key columns incorrectly.
 
-### Fixed
+### Security
 
-- **Critical: Django RCE** – Removed `eval()` from the `moltres_query` template tag and management command; queries use a safe declarative API (`safe_query.py`).
+- **Django RCE** – Removed `eval()` from the `moltres_query` template tag and management command; queries use a safe declarative API (`safe_query.py`).
 - **SQL injection in expressions** – Interval literals, `strftime`/`date_format` format strings, and join column names are validated or parameterized before compilation.
 - **SQL injection in writer** – `_table_exists()` uses `quote_identifier()` for table names.
+
+### Fixed
+
 - **`insert_rows()` with streaming `Records`** – Detects streaming record sources and delegates to `insert_into()` instead of materializing incorrectly.
 - **Session / transaction connection sharing** – `connect(session=...)` and `db.transaction()` use the same underlying connection; transaction state is tracked per context via `ContextVar`.
 - **Async cleanup** – Async database atexit handlers run real connection cleanup instead of being no-ops.
