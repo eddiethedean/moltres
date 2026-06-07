@@ -17,7 +17,11 @@ from typing import Any, Callable, Dict, Optional, Sequence
 try:
     from airflow import AirflowException
     from airflow.models.baseoperator import BaseOperator
-    from airflow.utils.context import Context
+
+    try:
+        from airflow.sdk.definitions.context import Context
+    except ImportError:
+        from airflow.utils.context import Context
 
     AIRFLOW_AVAILABLE = True
 except ImportError:
