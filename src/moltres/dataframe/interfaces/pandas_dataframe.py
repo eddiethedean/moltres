@@ -698,7 +698,7 @@ class PandasDataFrame(InterfaceCommonMixin):
         pdf = self.collect()
 
         # Use pandas describe
-        return cast(pd.DataFrame, pdf.describe())  # type: ignore[redundant-cast]
+        return cast(pd.DataFrame, cast(Any, pdf.describe()))
 
     def info(self) -> None:
         """Print a concise summary of the :class:`DataFrame` (pandas-style).

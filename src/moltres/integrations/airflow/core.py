@@ -12,7 +12,10 @@ Key features:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
+
+if TYPE_CHECKING:
+    from airflow.sdk.definitions.context import Context
 
 try:
     from airflow import AirflowException
@@ -21,7 +24,7 @@ try:
     try:
         from airflow.sdk.definitions.context import Context
     except ImportError:
-        from airflow.utils.context import Context
+        Context = Any  # type: ignore[misc,assignment]
 
     AIRFLOW_AVAILABLE = True
 except ImportError:
@@ -29,7 +32,8 @@ except ImportError:
     # Create stubs for type checking
     BaseOperator: Any = None  # type: ignore[no-redef]
     AirflowException: Any = None  # type: ignore[no-redef]
-    Context: Any = None  # type: ignore[no-redef]
+    if not TYPE_CHECKING:
+        Context = Any  # type: ignore[misc,assignment]
 
 from ...utils.exceptions import (
     MoltresError,

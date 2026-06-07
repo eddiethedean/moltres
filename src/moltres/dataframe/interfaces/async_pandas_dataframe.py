@@ -589,7 +589,7 @@ class AsyncPandasDataFrame(AsyncInterfaceCommonMixin):
         pdf = await self.collect()
 
         # Use pandas describe
-        return cast(pd.DataFrame, pdf.describe())  # type: ignore[redundant-cast]
+        return cast(pd.DataFrame, cast(Any, pdf.describe()))
 
     async def info(self) -> None:
         """Print a concise summary of the :class:`DataFrame` (pandas-style, async).
