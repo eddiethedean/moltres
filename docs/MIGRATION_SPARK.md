@@ -254,7 +254,7 @@ df1.join(df2, on=[col("df1.id") == col("df2.customer_id")], how="left")
 
 ## Getting Help
 
-- Check the [API documentation](../README.md)
+- Check the [Public API](PUBLIC_API.md) and [API reference](api/dataframe)
 - Review [examples](../docs/EXAMPLES.md)
 - See [troubleshooting guide](./TROUBLESHOOTING.md)
 

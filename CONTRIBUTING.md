@@ -15,8 +15,9 @@ Thank you for your interest in contributing to Moltres! This document provides g
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
-4. **Install dependencies**:
+4. **Install dependencies** (monorepo: core package first):
    ```bash
+   pip install -e ./moltres-core
    pip install -e ".[dev]"
    ```
 5. **Install pre-commit hooks** (optional but recommended):
@@ -140,8 +141,14 @@ Add batch insert support for better performance
 
 4. **Ensure all tests pass**:
    ```bash
-   PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest
+   make ci-check
+   # Or run tests directly:
+   PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin -p xdist.plugin \
+     -m "not postgres and not mysql and not multidb and not tier2_integration and not tier3_integration" \
+     -n auto --dist loadgroup
    ```
+
+   Set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` if a broken third-party pytest plugin is installed in your environment.
 
 5. **Run code quality checks**:
    ```bash

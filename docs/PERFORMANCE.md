@@ -326,7 +326,7 @@ Compared to:
 10. **Benchmark and profile queries**
 
 For more information, see:
-- [Best Practices Guide](./BEST_PRACTICES.md)
+- [Best Practices Guide](./guides/best-practices.md)
 - [Troubleshooting Guide](./TROUBLESHOOTING.md)
 - [Deployment Guide](./DEPLOYMENT.md)
 

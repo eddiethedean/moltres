@@ -5,7 +5,7 @@ The DataFrame API provides a PySpark-like interface for querying SQL databases.
 All operations are **lazy** and compile to SQL that runs directly on your database.
 Use this reference alongside the getting-started and patterns guides.
 
-.. automodule:: moltres.dataframe.dataframe
+.. automodule:: moltres.dataframe.core.dataframe
    :members:
    :undoc-members:
    :show-inheritance:
@@ -13,7 +13,7 @@ Use this reference alongside the getting-started and patterns guides.
 AsyncDataFrame
 --------------
 
-.. automodule:: moltres.dataframe.async_dataframe
+.. automodule:: moltres.dataframe.core.async_dataframe
    :members:
    :undoc-members:
    :show-inheritance:
@@ -21,7 +21,7 @@ AsyncDataFrame
 GroupedDataFrame
 ----------------
 
-.. automodule:: moltres.dataframe.groupby
+.. automodule:: moltres.dataframe.groupby.groupby
    :members:
    :undoc-members:
    :show-inheritance:

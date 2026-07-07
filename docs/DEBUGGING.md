@@ -558,7 +558,7 @@ for suggestion in suggestions:
 
 For more help:
 - [Performance Guide](./PERFORMANCE.md)
-- [Best Practices](./BEST_PRACTICES.md)
+- [Best Practices](./guides/best-practices.md)
 - [FAQ](./FAQ.md)
 - [Troubleshooting Guide](./TROUBLESHOOTING.md)
 

@@ -12,26 +12,26 @@ Thank you for your interest in contributing to Moltres! This guide will help you
    cd moltres
    ```
 
-2. **Install Dependencies**
+2. **Install Dependencies** (monorepo: install `moltres-core` first):
    ```bash
+   pip install -e ./moltres-core
    pip install -e ".[dev]"
    ```
 
-3. **Run Tests**
+3. **Run pre-push checks** (matches CI lint/type/import gates):
    ```bash
-   pytest
+   make ci-check          # full checks including docs examples
+   make ci-check-lint     # lint + mypy only (faster for docs-only edits)
    ```
 
-4. **Run Linting**
+4. **Run tests**
    ```bash
-   ruff check .
-   ruff format .
+   PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin -p xdist.plugin \
+     -m "not postgres and not mysql and not multidb and not tier2_integration and not tier3_integration" \
+     -n auto --dist loadgroup
    ```
 
-5. **Run Type Checking**
-   ```bash
-   mypy src
-   ```
+   Set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` if a broken third-party pytest plugin is installed locally.
 
 ## Contribution Process
 

@@ -436,8 +436,8 @@ Check that:
 
 ## See Also
 
-- [SQLAlchemy Integration Guide](./11-sqlalchemy-integration.md) - For SQLAlchemy-specific integration
+- [SQLAlchemy Integration Guide](https://moltres.readthedocs.io/en/latest/guides/sqlalchemy-integration.html) - For SQLAlchemy-specific integration
 - [SQLModel Documentation](https://sqlmodel.tiangolo.com/) - Official SQLModel documentation
 - [Pydantic Documentation](https://docs.pydantic.dev/) - Official Pydantic documentation
-- [Examples](../docs/examples/21_sqlmodel_integration.py) - Complete working examples
+- Examples: ``docs/examples/21_sqlmodel_integration.py`` - Complete working examples
 

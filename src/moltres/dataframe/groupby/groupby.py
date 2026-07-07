@@ -31,10 +31,11 @@ class GroupedDataFrame:
 
         Args:
             *aggregations: One or more aggregation expressions. Can be:
-                - :class:`Column` expressions (e.g., sum(col("amount")))
-                - String column names (e.g., "amount" - defaults to sum())
+
+                - :class:`Column` expressions (e.g., ``sum(col("amount"))``)
+                - String column names (e.g., ``"amount"`` — defaults to ``sum()``)
                 - Dictionary mapping column names to aggregation functions
-                  (e.g., {"amount": "sum", "price": "avg"})
+                  (e.g., ``{"amount": "sum", "price": "avg"}``)
 
         Returns:
             :class:`DataFrame` with aggregated results
@@ -174,10 +175,11 @@ class PivotedGroupedDataFrame:
 
         Args:
             *aggregations: One or more aggregation expressions. Can be:
-                - :class:`Column` expressions (e.g., sum(col("amount")))
-                - String column names (e.g., "amount" - defaults to sum())
+
+                - :class:`Column` expressions (e.g., ``sum(col("amount"))``)
+                - String column names (e.g., ``"amount"`` — defaults to ``sum()``)
                 - Dictionary mapping column names to aggregation functions
-                  (e.g., {"amount": "sum", "price": "avg"})
+                  (e.g., ``{"amount": "sum", "price": "avg"}``)
 
         Returns:
             :class:`DataFrame` with pivoted aggregated results

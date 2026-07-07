@@ -176,6 +176,7 @@ test-output/
 *.swo
 
 # Project-specific
+todo.md
 *.plan.md
 !moltres_plan.md
 !docs/moltres_plan.md

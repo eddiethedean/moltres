@@ -21,7 +21,7 @@ Functions
    :show-inheritance:
 
 Window Functions
----------------
+----------------
 
 .. automodule:: moltres.expressions.window
    :members:

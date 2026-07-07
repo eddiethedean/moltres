@@ -421,7 +421,7 @@ See [Debugging Guide](./DEBUGGING.md) for more help.
 
 For more information:
 - [Performance Guide](./PERFORMANCE.md)
-- [Best Practices](./BEST_PRACTICES.md)
+- [Best Practices](./guides/best-practices.md)
 - [Debugging Guide](./DEBUGGING.md)
 - [Troubleshooting Guide](./TROUBLESHOOTING.md)
 

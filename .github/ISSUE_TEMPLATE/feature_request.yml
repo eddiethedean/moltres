@@ -1,0 +1,23 @@
+---
+name: Feature request
+about: Suggest an improvement or new capability
+title: ''
+labels: enhancement
+assignees: ''
+---
+
+## Problem
+
+What limitation or pain point does this address?
+
+## Proposed solution
+
+Describe the API or behavior you would like.
+
+## Alternatives considered
+
+Other approaches you have thought about.
+
+## Additional context
+
+Links to comparisons, PySpark parity gaps, or related issues.

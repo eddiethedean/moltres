@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://moltres.readthedocs.io/en/latest/
+    about: Read the guides, Public API reference, and examples
+  - name: Discussions
+    url: https://github.com/eddiethedean/moltres/discussions
+    about: Ask questions and share use cases

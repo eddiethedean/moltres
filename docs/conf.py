@@ -67,6 +67,18 @@ exclude_patterns = [
     # Avoid clashing with Sphinx's root `index` document.
     # `docs/index.md` is included via `moltres-design-notes.md` instead.
     "index.md",
+    # Maintainer / draft docs (not part of the published manual)
+    "README.md",
+    "blog_post.md",
+    "linkedin_post.md",
+    "docs_audit.md",
+    "BEST_PRACTICES.md",
+    "BUSINESS_CASE.md",
+    "PROJECT_CHARTER.md",
+    "PROJECT_SCOPE_STATEMENT.md",
+    "SQLALCHEMY_INTEGRATION.md",
+    "examples/README.md",
+    "examples/dbt_example_project/README.md",
 ]
 
 # MyST configuration for Markdown support

@@ -75,11 +75,6 @@ class DataFrame(DataFrameHelpersMixin):
     All operations compile to SQL and execute directly on the database - no
     data is loaded into memory until you explicitly request results.
 
-    Attributes:
-        plan: The logical plan representing this query
-        database: Optional :class:`Database` instance for executing the query
-        model: Optional SQLModel, Pydantic, or SQLAlchemy model class for type safety
-
     Example:
         >>> from moltres import connect, col
         >>> db = connect("sqlite:///example.db")
@@ -1000,8 +995,9 @@ class DataFrame(DataFrameHelpersMixin):
             how: Join type ("inner", "left", "right", "full", "cross")
             lateral: If True, create a LATERAL join (PostgreSQL, MySQL 8.0+).
                     Allows right side to reference columns from left side.
-            hints: Optional sequence of join hints (e.g., ["USE_INDEX(idx_name)", "FORCE_INDEX(idx_name)"]).
-                   Dialect-specific: MySQL uses USE INDEX, PostgreSQL uses /*+ ... */ comments.
+            hints: Optional sequence of join hints (e.g., ``USE_INDEX(idx_name)``).
+                   Dialect-specific: MySQL uses USE INDEX; PostgreSQL uses
+                   optimizer hint comments (``/*+ ... */``).
 
         Returns:
             New :class:`DataFrame` containing the join result

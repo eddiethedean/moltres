@@ -121,6 +121,6 @@ See `docs/examples/29_dbt_integration.py` for comprehensive examples.
 ## See Also
 
 - [dbt Documentation](https://docs.getdbt.com/)
-- [Moltres DataFrame API](../README.md)
+- [Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)
 - [Python Models in dbt](https://docs.getdbt.com/docs/build/python-models)
 

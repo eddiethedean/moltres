@@ -85,11 +85,6 @@ class TableHandle:
     A :class:`TableHandle` provides access to a specific table in the database.
     It can be created from a table name or from a SQLModel/Pydantic model class.
 
-    Attributes:
-        name: Name of the table
-        database: The :class:`Database` instance this handle belongs to
-        model: Optional SQLModel, Pydantic, or SQLAlchemy model class
-
     Example:
         >>> db = connect("sqlite:///:memory:")
         >>> handle = db.table("users")
@@ -398,10 +393,6 @@ class Database:
     The :class:`Database` class supports context manager protocol for automatic
     connection cleanup. Use it in a ``with`` statement to ensure the connection
     is properly closed.
-
-    Attributes:
-        config: The :class:`MoltresConfig` instance used for this database
-        dialect: The SQL dialect being used (e.g., "sqlite", "postgresql")
 
     Example:
         Basic usage::
@@ -1697,11 +1688,13 @@ class Database:
 
         Returns:
             Dictionary with transaction metadata including:
+
             - readonly: Whether the transaction is read-only
             - isolation_level: Transaction isolation level (if set)
             - timeout: Transaction timeout in seconds (if set)
             - savepoints: List of active savepoint names
-            None if no transaction is active
+
+            Returns ``None`` if no transaction is active.
 
         Example:
             >>> with db.transaction(isolation_level="SERIALIZABLE", readonly=True) as txn:

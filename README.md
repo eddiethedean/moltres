@@ -15,13 +15,13 @@
 
 ---
 
-**Moltres** combines a DataFrame API (like Pandas/Polars), SQL pushdown execution (no data loading into memory), and real SQL CRUD operations (INSERT, UPDATE, DELETE) in one unified interface.
+**Moltres** combines a DataFrame API (like Pandas/Polars), SQL pushdown execution (no data loading into memory), and real SQL CRUD operations (INSERT, UPDATE, DELETE) in one unified interface. See [why Moltres](docs/WHY_MOLTRES.md) and the [comparison guides](https://moltres.readthedocs.io/en/latest/#comparisons) for how it differs from Pandas, Ibis, and PySpark.
 
 Transform millions of rows using familiar DataFrame operations—all executed directly in SQL without materializing data.
 
 ## ✨ Key Features
 
-- 🚀 **PySpark-Style DataFrame API** - Primary API with 98% PySpark compatibility
+- 🚀 **PySpark-Style DataFrame API** - Primary API; see [PySpark compatibility notes](docs/PYSPARK_MIGRATION_INCONSISTENCIES.md) for details
 - 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database
 - ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE with DataFrame-style syntax
 - 🐼 **Pandas & Polars Interfaces** - Optional pandas/polars-style APIs
@@ -39,6 +39,9 @@ pip install moltres[async-postgresql]  # Async PostgreSQL
 pip install moltres[pandas,polars]     # Pandas/Polars result formats
 pip install moltres[sqlmodel]          # SQLModel/Pydantic integration
 pip install moltres[streamlit]        # Streamlit integration
+pip install moltres[parquet]          # Parquet file I/O (pyarrow)
+pip install moltres[fastapi]          # FastAPI integration helpers
+pip install moltres[duckdb]            # DuckDB SQLAlchemy dialect
 ```
 
 ### `moltres-core` and pydantable
@@ -97,7 +100,19 @@ db.update("users", where=col("active") == 0, set={"active": 1})
 db.delete("users", where=col("email").is_null())
 ```
 
+### Reading Data: Tables vs Files
+
+| Goal | API | Returns |
+|------|-----|---------|
+| Query a SQL table lazily | `db.table("orders").select()` | `DataFrame` (SQL pushdown) |
+| Load a file as a lazy DataFrame | `db.load.csv("data.csv")` | `DataFrame` (materialized via temp table) |
+| Load a file as in-memory rows | `db.read.records.csv("data.csv")` | `Records` (eager, for inserts) |
+
+See [Public API guide](docs/PUBLIC_API.md) for stable import paths.
+
 ## 📖 Documentation
+
+- **[Public API](https://moltres.readthedocs.io/en/latest/PUBLIC_API.html)** - Stable imports and I/O patterns
 
 - **[Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)** - Step-by-step introduction
 - **[Examples Directory](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - 29 comprehensive examples
@@ -123,15 +138,19 @@ db.delete("users", where=col("email").is_null())
 
 ## 🧪 Development
 
+From a git checkout, install **`moltres-core` before `moltres`** (the monorepo ships two packages):
+
 ```bash
-# Install in development mode
+pip install -e ./moltres-core
 pip install -e ".[dev]"
 
-# Run tests
-pytest
+# Run lint/type checks (same as CI)
+make ci-check
 
-# Code quality
-ruff check . && ruff format . && mypy src
+# Run tests (matches CI main matrix)
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin -p xdist.plugin \
+  -m "not postgres and not mysql and not multidb and not tier2_integration and not tier3_integration" \
+  -n auto --dist loadgroup
 ```
 
 ## 🤝 Contributing

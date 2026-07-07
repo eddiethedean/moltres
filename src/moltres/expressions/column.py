@@ -414,8 +414,8 @@ class Column(Expression):
         """Create a window function expression.
 
         Args:
-            partition_by: :class:`Column`(s) to partition by
-            order_by: :class:`Column`(s) to order by within partition
+            partition_by: One or more :class:`Column` expressions to partition by
+            order_by: One or more :class:`Column` expressions to order by within partition
             rows_between: Tuple of (start, end) for ROWS BETWEEN clause
             range_between: Tuple of (start, end) for RANGE BETWEEN clause
 

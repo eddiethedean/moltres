@@ -29,13 +29,12 @@ test-coverage-parallel:
 ci-check:
 	python scripts/pre_commit_ci_checks.py
 
-# Quick CI check (linting only, no tests)
+# Quick CI check (linting and type checks only, no docs validation)
 ci-check-lint:
-	python scripts/pre_commit_ci_checks.py --skip-tests
+	python scripts/pre_commit_ci_checks.py --skip-docs
 
-# Quick CI check with subset of tests
-ci-check-quick:
-	python scripts/pre_commit_ci_checks.py --quick
+# Alias for ci-check-lint
+ci-check-quick: ci-check-lint
 
 # Help target
 help:
@@ -51,8 +50,8 @@ help:
 	@echo ""
 	@echo "CI check commands (run before pushing):"
 	@echo "  make ci-check              - Run all CI checks (linting, type checking, tests)"
-	@echo "  make ci-check-lint         - Run linting checks only (fast, no tests)"
-	@echo "  make ci-check-quick        - Run all checks with quick test mode"
+	@echo "  make ci-check-lint         - Run lint/type checks only (skips docs validation)"
+	@echo "  make ci-check-quick        - Alias for ci-check-lint"
 	@echo ""
 	@echo "Note: Parallel test runs automatically skip pandas-dependent tests on macOS"
 	@echo "      to prevent fork-related crashes. Use 'make test-pandas' for full coverage."

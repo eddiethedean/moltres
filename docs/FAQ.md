@@ -348,14 +348,14 @@ Use exact column names as they appear in your database.
 
 ## Getting Help
 
-- **Documentation:** See [README](../README.md) and other guides
+- **Documentation:** See the [project README on GitHub](https://github.com/eddiethedean/moltres/blob/main/README.md) and other guides
 - **Examples:** See [Examples Guide](./EXAMPLES.md)
 - **Issues:** Report on GitHub
 - **Questions:** Check this FAQ first
 
 For more help:
 - [Performance Guide](./PERFORMANCE.md)
-- [Best Practices](./BEST_PRACTICES.md)
+- [Best Practices](./guides/best-practices.md)
 - [Debugging Guide](./DEBUGGING.md)
 - [Troubleshooting Guide](./TROUBLESHOOTING.md)
 

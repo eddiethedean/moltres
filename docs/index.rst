@@ -23,6 +23,7 @@ Quick navigation
 ----------------
 
 - :doc:`guides/getting-started`
+- :doc:`PUBLIC_API`
 - :doc:`EXAMPLES`
 - :doc:`api/dataframe`
 - :doc:`guides/performance-optimization`
@@ -37,6 +38,7 @@ Getting started & migration
    :caption: Getting started & migration
 
    guides/getting-started
+   PUBLIC_API
    guides/migrating-from-pandas
    guides/migrating-from-pyspark
 
@@ -103,18 +105,21 @@ Comparisons
    MOLTRES_VS_PYSPARK_COMPARISON
    MOLTRES_VS_SQLFRAME_COMPARISON
    MOLTRES_VS_IBIS_COMPARISON
+   PYSPARK_MIGRATION_INCONSISTENCIES
 
 
 Internal and archive docs
 =========================
 
+.. note::
+
+   Planning documents (``BUSINESS_CASE``, ``PROJECT_CHARTER``, ``PROJECT_SCOPE_STATEMENT``)
+   remain in the repository for maintainers but are omitted from this navigation.
+
 .. toctree::
    :maxdepth: 1
    :caption: Internal & archive
 
-   BUSINESS_CASE
-   PROJECT_CHARTER
-   PROJECT_SCOPE_STATEMENT
    moltres_plan
    moltres_advocacy
    integration_features_plan
@@ -123,7 +128,6 @@ Internal and archive docs
    MIGRATION_SPARK
    PYSPARK_FEATURE_COMPARISON
    PYSPARK_INTERFACE_AUDIT
-   PYSPARK_MIGRATION_INCONSISTENCIES
    PERFORMANCE_SLA
    RUNTIME_MATRIX
    TEST_HARNESSES
@@ -147,6 +151,12 @@ API reference
 
 Indices and tables
 ==================
+
+.. toctree::
+   :hidden:
+
+   CONTRIBUTING
+   PYDANTABLE_ENGINE
 
 * :ref:`genindex`
 * :ref:`modindex`

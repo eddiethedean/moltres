@@ -1308,11 +1308,13 @@ class AsyncDatabase:
 
         Returns:
             Dictionary with transaction metadata including:
+
             - readonly: Whether the transaction is read-only
             - isolation_level: Transaction isolation level (if set)
             - timeout: Transaction timeout in seconds (if set)
             - savepoints: List of active savepoint names
-            None if no transaction is active
+
+            Returns ``None`` if no transaction is active.
 
         Example:
             >>> async with db.transaction(isolation_level="SERIALIZABLE", readonly=True) as txn:

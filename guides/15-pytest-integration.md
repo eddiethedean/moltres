@@ -280,6 +280,6 @@ See `docs/examples/26_pytest_integration.py` for comprehensive examples.
 ## See Also
 
 - [Pytest Documentation](https://docs.pytest.org/)
-- [Moltres DataFrame API](../README.md)
-- [Testing Guide](../docs/TESTING.md)
+- [Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)
+- [Testing Guide](https://moltres.readthedocs.io/en/latest/TESTING.html)
 
