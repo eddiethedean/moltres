@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     AsyncIterator,
@@ -16,6 +15,7 @@ from typing import (
 
 from ....io.records import AsyncRecords
 from ....table.schema import ColumnDef
+from ...helpers.reader_helpers import resolve_read_path
 from .compression import read_compressed_async
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ async def read_text(
     Raises:
         FileNotFoundError: If file doesn't exist
     """
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 
@@ -99,7 +99,7 @@ async def read_text_stream(
         FileNotFoundError: If file doesn't exist
     """
     chunk_size = int(cast(int, options.get("chunk_size", 10000)))
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"Text file not found: {path}")
 

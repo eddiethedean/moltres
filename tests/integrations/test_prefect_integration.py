@@ -26,6 +26,8 @@ from moltres import col, column, connect
 from moltres.integrations.data_quality import DataQualityCheck
 from moltres.io.records import Records
 
+pytestmark = pytest.mark.tier3_integration
+
 
 @pytest.fixture
 def db_path(tmp_path):

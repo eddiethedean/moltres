@@ -34,6 +34,8 @@ except ImportError:
 # Airflow 3.0+ requires Python 3.10+
 PYTHON_310_PLUS = sys.version_info >= (3, 10)
 
+pytestmark = pytest.mark.tier3_integration
+
 
 @pytest.fixture
 def db_path(tmp_path):

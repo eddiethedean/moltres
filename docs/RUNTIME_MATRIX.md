@@ -98,7 +98,11 @@ Tested and supported on:
 #### Data Format Support
 - **pandas**: `>=2.1` (optional, for pandas DataFrame results)
 - **polars**: `>=1.0` (optional, for Polars DataFrame results)
-- **pyarrow**: `>=10.0` (optional, for Parquet file support)
+- **pyarrow**: `>=10.0` (optional, for Parquet file support; install via `moltres[parquet]`)
+
+#### Framework and Backend Extras
+- **fastapi**: FastAPI + Uvicorn (install via `moltres[fastapi]`)
+- **duckdb-engine**: `>=0.9.0` (install via `moltres[duckdb]`)
 
 #### Testing Dependencies
 - **pytest**: `>=8.0`
@@ -163,6 +167,19 @@ pip install moltres[pandas]
 
 # Polars support
 pip install moltres[polars]
+
+# Parquet file support
+pip install moltres[parquet]
+```
+
+### With Framework Integrations
+
+```bash
+# FastAPI dependency injection helpers
+pip install moltres[fastapi]
+
+# DuckDB SQLAlchemy dialect (auto-registered on import)
+pip install moltres[duckdb]
 ```
 
 ### Development Installation

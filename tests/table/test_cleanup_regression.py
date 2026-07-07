@@ -139,68 +139,60 @@ def test_ephemeral_table_cleanup_with_failed_drop(tmp_path, monkeypatch):
     assert call_count[0] == 2, "Both tables should have been attempted to be dropped"
 
 
+@pytest.mark.xdist_group("subprocess_cleanup")
 def test_cleanup_on_interpreter_shutdown(tmp_path):
     """Test that atexit handler cleans up databases on interpreter shutdown."""
-    # This test runs a subprocess that creates a database and exits
-    # The atexit handler should clean up ephemeral tables
-    # Use a unique database path to avoid conflicts in parallel execution
+    # This test runs a subprocess that creates a database and exits.
+    # The atexit handler should clean up ephemeral tables.
+    # Grouped for xdist loadgroup so subprocess spawns don't contend under -n auto.
     unique_id = uuid.uuid4().hex[:8]
     db_path_str = str(tmp_path / f"shutdown_test_{unique_id}.db")
-    # Get the project root (parent of tests directory)
-    # __file__ is tests/table/test_cleanup_regression.py
-    # parent is tests/table, parent.parent is tests, parent.parent.parent is project root
     project_root = Path(__file__).resolve().parent.parent.parent
-    src_path = project_root / "src"
+    pythonpath = os.pathsep.join(
+        [
+            str(project_root / "src"),
+            str(project_root / "moltres-core" / "src"),
+        ]
+    )
     script = f"""
-import sys
-import os
 from pathlib import Path
-sys.path.insert(0, {repr(str(src_path))})
 
-try:
-    from moltres import connect
+from moltres import connect
 
-    db_path = Path({repr(db_path_str)})
-    db = connect(f"sqlite:///{{db_path}}")
+db_path = Path({repr(db_path_str)})
+db = connect(f"sqlite:///{{db_path}}")
 
-    # Create ephemeral table
-    df = db.createDataFrame([{{"id": 1, "name": "Alice"}}], pk="id")
-    # Get the table name from the ephemeral tables set
-    table_name = next(iter(db._ephemeral_tables))
-
-    # Exit without explicit close - atexit should handle it
-    # Note: We can't easily verify this in-process, but we can check
-    # that the cleanup code path exists and is registered
-    sys.exit(0)
-except Exception as e:
-    # Print error for debugging but don't fail silently
-    print(f"Error in subprocess: {{e}}", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
-    sys.exit(1)
+# Create ephemeral table; atexit should register cleanup on interpreter exit.
+_ = db.createDataFrame([{{"id": 1, "name": "Alice"}}], pk="id")
+_ = next(iter(db._ephemeral_tables))
 """
-    # Use a unique working directory per test to avoid conflicts
     unique_work_dir = tmp_path / f"work_{unique_id}"
     unique_work_dir.mkdir(exist_ok=True)
 
-    # Create a clean environment to avoid interference
-    clean_env = {**os.environ, "PYTHONUNBUFFERED": "1"}
-    # Remove any test-specific env vars that might interfere
-    for key in list(clean_env.keys()):
-        if key.startswith("PYTEST_") or key.startswith("MOLTRES_"):
-            # Keep MOLTRES_USE_MOCK_DEPS if set, but remove others
-            if key not in ("MOLTRES_USE_MOCK_DEPS", "MOLTRES_SKIP_PANDAS_TESTS"):
-                del clean_env[key]
+    clean_env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("PYTEST_")
+    }
+    clean_env["PYTHONUNBUFFERED"] = "1"
+    clean_env["PYTHONPATH"] = pythonpath
+    for thread_key in (
+        "OPENBLAS_NUM_THREADS",
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_MAX_THREADS",
+    ):
+        if thread_key in os.environ:
+            clean_env[thread_key] = os.environ[thread_key]
 
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd=unique_work_dir,
         capture_output=True,
         text=True,
-        timeout=30,  # Increased timeout for CI environments
+        timeout=90,
         env=clean_env,
     )
-    # Script should run without error
     assert result.returncode == 0, (
         f"Script failed with return code {result.returncode}.\n"
         f"STDOUT: {result.stdout}\n"

@@ -18,6 +18,8 @@ from moltres.integrations.data_quality import (
 )
 from moltres.io.records import Records
 
+pytestmark = pytest.mark.tier1_integration
+
 
 @pytest.fixture
 def db(tmp_path):

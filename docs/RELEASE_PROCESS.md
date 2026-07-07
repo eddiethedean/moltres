@@ -102,6 +102,37 @@ Follow [Semantic Versioning](https://semver.org/):
 - `0.11.0` → `0.12.0`: Minor release (new feature)
 - `0.11.0` → `1.0.0`: Major release (breaking change)
 
+## Deprecation Policy (1.1+)
+
+Moltres follows semantic versioning with explicit deprecation windows:
+
+- **Patch releases (x.y.Z):** Bug fixes and security patches only; no API removals.
+- **Minor releases (x.Y.z):** New features and deprecations; existing public APIs remain
+  functional unless documented otherwise.
+- **Major releases (X.y.z):** Breaking changes allowed after at least one minor release
+  of `DeprecationWarning` for removed APIs.
+
+### Rules for maintainers
+
+1. Use `moltres.utils._compat.warn_deprecated()` before removing or renaming public APIs.
+2. Document deprecations in `CHANGELOG.md` under **Deprecated** with migration guidance.
+3. Public API is defined by `__all__` in `moltres`, `moltres.engine`, `moltres.expressions`,
+   and `moltres.dataframe`; contract-tested in `tests/api/test_public_imports.py`.
+4. Do not remove deprecated APIs until the next major version (2.0) unless explicitly
+   marked as experimental.
+
+### Example
+
+```python
+from moltres.utils._compat import warn_deprecated
+
+warn_deprecated(
+    "insert_rows() is deprecated. Use TableHandle.insert() instead.",
+    version="1.1",
+    removal_version="2.0",
+)
+```
+
 ## Release Types
 
 ### Patch Release (X.Y.Z → X.Y.Z+1)

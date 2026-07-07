@@ -15,6 +15,8 @@ try:
 except ImportError:
     DBT_AVAILABLE = False
 
+pytestmark = pytest.mark.tier3_integration
+
 
 @pytest.mark.skipif(not DBT_AVAILABLE, reason="dbt-core not installed")
 class TestDbtAdapter:

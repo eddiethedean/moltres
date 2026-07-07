@@ -434,6 +434,51 @@ df = (
 )
 ```
 
+## Performance
+
+### 1. Stream Large Result Sets
+
+Default `collect()` materializes all rows in memory. For large queries, use streaming:
+
+```python
+for chunk in df.collect(stream=True):
+    process_chunk(chunk)  # Each chunk is a list of dicts (default chunk_size=10000)
+```
+
+### 2. Avoid Recompiling Identical Queries
+
+Each `collect()` recompiles the logical plan to SQL. For hot loops, reuse a compiled
+SQLAlchemy statement when the plan is fixed:
+
+```python
+from sqlalchemy import text
+
+# Build once
+compiled = df.to_sqlalchemy()  # or cache the DataFrame and reuse it
+
+# Execute many times via db.sql with bind params, or reuse the same DataFrame instance
+results = df.collect()
+```
+
+Use `register_performance_hook` to measure compile vs execute time in production.
+
+### 3. FileScan Tradeoff (File → DataFrame)
+
+Loading files via `db.load.csv()` materializes data into a temporary database table
+so subsequent filters and joins push down to SQL. This enables SQL operations on file
+data but copies the entire file into the database.
+
+- **Default:** Chunked streaming into a temp table (good for ETL pipelines)
+- **Opt out of streaming:** `.option("stream", False)` loads the full file in Python first
+- **Large files:** Prefer loading directly to a staging table with `Records.insert_into()`
+  if you only need inserts, not SQL transforms
+
+### 4. Bulk Writes
+
+Use `INSERT INTO ... SELECT` patterns via DataFrame writers when writing query results
+to tables. For Python row data, use `Records` with a streaming generator and
+`insert_into()` for chunked inserts inside a transaction.
+
 ## Summary
 
 1. **Reuse database connections**

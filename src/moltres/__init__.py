@@ -34,6 +34,7 @@ except ImportError:
 from moltres_core import MoltresPydantableEngine, SqlPlan, SqlRootData
 
 from .config import EngineOptionValue, MoltresConfig, create_config
+from .engine import register_performance_hook, unregister_performance_hook
 from .expressions import col, lit
 from .table.schema import column
 from .table.table import Database
@@ -130,6 +131,8 @@ __all__ = [
     "column",
     "connect",
     "lit",
+    "register_performance_hook",
+    "unregister_performance_hook",
 ]
 
 # Optional FastAPI integration - only import if available

@@ -6,16 +6,18 @@ to reduce code duplication.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Sequence, TypeVar
 
 from ...logical.operators import file_scan
 from ...table.schema import ColumnDef
+from ...utils.path_security import validate_file_path
 
 if TYPE_CHECKING:
-    from ..core.dataframe import DataFrame
     from ..core.async_dataframe import AsyncDataFrame
-    from ...table.table import Database
+    from ..core.dataframe import DataFrame
     from ...table.async_table import AsyncDatabase
+    from ...table.table import Database
 
 # Type variable for generic Loader operations
 L = TypeVar("L", bound="LoaderProtocol")
@@ -33,6 +35,17 @@ if TYPE_CHECKING:
             ...
 else:
     LoaderProtocol = Any
+
+
+def resolve_read_path(
+    path: str,
+    database: "Database | AsyncDatabase",
+    *,
+    must_exist: bool = True,
+) -> Path:
+    """Resolve a read path and enforce optional ``allowed_paths`` from config."""
+    allowed = database.config.allowed_paths
+    return validate_file_path(path, allowed_paths=allowed, must_exist=must_exist)
 
 
 def get_format_from_path(path: str) -> str:
@@ -180,6 +193,8 @@ def build_file_scan_dataframe(
     """
     from ..core.dataframe import DataFrame  # noqa: F401
 
+    path = str(resolve_read_path(path, loader._database, must_exist=False))
+
     kwargs: Dict[str, Any] = {
         "path": path,
         "format": format_name,
@@ -211,6 +226,8 @@ def build_file_scan_async_dataframe(
         AsyncDataFrame with the file_scan plan
     """
     from ..core.async_dataframe import AsyncDataFrame  # noqa: F401
+
+    path = str(resolve_read_path(path, loader._database, must_exist=False))
 
     kwargs: Dict[str, Any] = {
         "path": path,

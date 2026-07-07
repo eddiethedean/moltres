@@ -27,6 +27,8 @@ except ImportError:
 from moltres import connect
 from moltres.table.schema import column
 
+pytestmark = pytest.mark.tier3_integration
+
 
 @pytest.fixture
 def db_path(tmp_path):

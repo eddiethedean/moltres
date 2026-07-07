@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Sequence, cast
 
 from ....io.records import Records
 from ....table.schema import ColumnDef
+from ...helpers.reader_helpers import resolve_read_path
 
 if TYPE_CHECKING:
     from ....table.table import Database
@@ -38,7 +38,7 @@ def read_parquet(
     get_pandas(required=True)
     pq = get_pyarrow_parquet(required=True)
 
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 
@@ -111,7 +111,7 @@ def read_parquet_stream(
     pq = get_pyarrow_parquet(required=True)
     get_pandas(required=True)
 
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 

@@ -244,6 +244,40 @@ def audit_hook(sql: str, elapsed: float, metadata: dict):
 register_performance_hook("query_end", audit_hook)
 ```
 
+## File Path Security
+
+When loading files via `db.load.csv(path)` or similar APIs, validate user-supplied paths.
+Moltres can restrict reads to configured directory roots:
+
+```python
+import os
+
+# Restrict file reads to a data directory (colon-separated on Linux/macOS)
+os.environ["MOLTRES_ALLOWED_PATHS"] = "/var/app/data"
+
+db = connect(
+    "sqlite:///app.db",
+    allowed_paths=("/var/app/data", "/tmp/uploads"),
+)
+```
+
+Paths outside `allowed_paths` raise `ValidationError`. Resolve symlinks are followed;
+use absolute roots in production.
+
+**Do not** pass unsanitized user input directly to file loaders without `allowed_paths`.
+
+## Integration Caching
+
+Django template tags and Streamlit helpers may cache query results. When caching
+enabled:
+
+- Scope cache keys per user/session where results are user-specific
+- Set short TTLs for sensitive data
+- Avoid caching PII in shared cache backends (Redis, Memcached) without encryption
+
+Performance hooks receive SQL and bind parameters — redact or omit `params` in
+production audit hooks when they may contain PII.
+
 ## Dependency Security
 
 ### Regular Updates

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     AsyncIterator,
@@ -17,6 +16,7 @@ from typing import (
 
 from ....io.records import AsyncRecords
 from ....table.schema import ColumnDef
+from ...helpers.reader_helpers import resolve_read_path
 from .compression import read_compressed_async
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ async def read_json(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty or invalid
     """
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSON file not found: {path}")
 
@@ -187,7 +187,7 @@ async def read_jsonl(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty
     """
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 
@@ -242,7 +242,7 @@ async def read_json_stream(
         ValueError: If file is empty or invalid
     """
     chunk_size = int(cast(int, options.get("chunk_size", 10000)))
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSON file not found: {path}")
 
@@ -323,7 +323,7 @@ async def read_jsonl_stream(
         ValueError: If file is empty
     """
     chunk_size = int(cast(int, options.get("chunk_size", 10000)))
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"JSONL file not found: {path}")
 

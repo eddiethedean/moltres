@@ -32,12 +32,14 @@ class MoltresConfig:
         engine: Engine configuration
         default_schema: Default database schema name
         include_metadata: Whether to include metadata in query results
+        allowed_paths: Optional filesystem roots for file read/write operations
         options: Additional configuration options
     """
 
     engine: EngineConfig
     default_schema: str | None = None
     include_metadata: bool = False
+    allowed_paths: tuple[str, ...] | None = None
     options: dict[str, object] = field(default_factory=dict)
 
 
@@ -82,6 +84,11 @@ def _load_env_config() -> dict[str, object]:
     if "MOLTRES_QUERY_TIMEOUT" in os.environ:
         config["query_timeout"] = float(os.environ["MOLTRES_QUERY_TIMEOUT"])
 
+    if "MOLTRES_ALLOWED_PATHS" in os.environ:
+        config["allowed_paths"] = tuple(
+            p.strip() for p in os.environ["MOLTRES_ALLOWED_PATHS"].split(os.pathsep) if p.strip()
+        )
+
     return config
 
 
@@ -104,6 +111,7 @@ def create_config(
     - MOLTRES_POOL_RECYCLE: Connection recycle time in seconds
     - MOLTRES_POOL_PRE_PING: Enable connection health checks (true/false)
     - MOLTRES_QUERY_TIMEOUT: Query execution timeout in seconds
+    - MOLTRES_ALLOWED_PATHS: OS-separated list of allowed filesystem roots for file I/O
 
     Args:
         dsn: :class:`Database` connection string (e.g., "sqlite:///example.db").
@@ -125,6 +133,7 @@ def create_config(
             - pool_recycle: Connection recycle time in seconds (ignored if engine is provided)
             - pool_pre_ping: Enable connection health checks (ignored if engine is provided)
             - query_timeout: Query execution timeout in seconds
+            - allowed_paths: Tuple of directory roots permitted for file read/write paths
             - future: Use SQLAlchemy 2.0 style (default: True)
             - Other options are stored in config.options
 
@@ -209,7 +218,19 @@ def create_config(
     engine_config = EngineConfig(
         dsn=dsn, engine=engine, session=session, **cast(Any, engine_kwargs)
     )
-    return MoltresConfig(engine=engine_config, options=merged_kwargs)
+
+    allowed_paths = merged_kwargs.pop("allowed_paths", None)
+    if allowed_paths is not None and not isinstance(allowed_paths, tuple):
+        if isinstance(allowed_paths, (list, set)):
+            allowed_paths = tuple(str(p) for p in allowed_paths)
+        else:
+            allowed_paths = (str(allowed_paths),)
+
+    return MoltresConfig(
+        engine=engine_config,
+        options=merged_kwargs,
+        allowed_paths=cast("tuple[str, ...] | None", allowed_paths),
+    )
 
 
 DEFAULT_CONFIG = create_config("sqlite:///:memory:")

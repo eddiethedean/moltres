@@ -64,6 +64,10 @@ async-postgresql = ["aiofiles>=23.0", "asyncpg>=0.29.0", "greenlet>=3.0.0"]
 async-mysql = ["aiofiles>=23.0", "aiomysql>=0.2.0", "greenlet>=3.0.0"]
 async-sqlite = ["aiofiles>=23.0", "aiosqlite>=0.19.0", "greenlet>=3.0.0"]
 
+parquet = ["pyarrow>=10.0"]
+fastapi = ["fastapi", "uvicorn[standard]"]
+duckdb = ["duckdb-engine>=0.9.0"]
+
 pydantable-integration = [
     "pydantable>=1.0",
 ]
@@ -118,6 +122,10 @@ markers = [
     "slow: marks tests as slow (may take longer to run)",
     "moltres_db(db_type): marks tests to use specific database backend (sqlite, postgresql, mysql)",
     "moltres_performance: marks tests as performance tests with timing",
+    "tier1_integration: required framework integration tests (pytest, data quality)",
+    "tier2_integration: optional integration tests (FastAPI, Django)",
+    "tier3_integration: best-effort integration tests (Airflow, Prefect, dbt, Streamlit)",
+    "xdist_group(name): group tests to run on the same xdist worker (use with --dist loadgroup)",
 ]
 
 [tool.coverage.run]
@@ -157,7 +165,6 @@ target-version = "py310"
 "docs/examples/*" = ["E402", "F841"]  # Allow imports not at top and unused variables for educational examples
 "tests/**/*.py" = ["F841"]  # Unused variables are acceptable in tests for clarity
 "notebooks/*.ipynb" = ["F821"]  # Notebooks have variables defined across cells
-"src/moltres/expressions/functions.py" = ["F405"]  # Star imports are intentional for API surface
 
 [tool.setuptools]
 packages = {find = {where = ["src"], exclude = ["tests*", "*.tests", "*.tests.*"]}}

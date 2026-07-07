@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Sequence, cast
 
 # aiofiles is not directly used here, but required for async file operations
@@ -10,6 +9,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Opti
 
 from ....io.records import AsyncRecords
 from ....table.schema import ColumnDef
+from ...helpers.reader_helpers import resolve_read_path
 
 if TYPE_CHECKING:
     from ....table.async_table import AsyncDatabase
@@ -36,7 +36,7 @@ async def read_parquet(
         FileNotFoundError: If file doesn't exist
         RuntimeError: If pandas or pyarrow are not installed
     """
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 
@@ -113,7 +113,7 @@ async def read_parquet_stream(
         FileNotFoundError: If file doesn't exist
         RuntimeError: If pyarrow is not installed
     """
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"Parquet file not found: {path}")
 

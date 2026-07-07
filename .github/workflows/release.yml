@@ -64,18 +64,31 @@ jobs:
           def read_version(pyproject_path: Path) -> str:
             data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
             return data["project"]["version"]
+
+          def read_init_version(init_path: Path) -> str:
+            text = init_path.read_text(encoding="utf-8")
+            for line in text.splitlines():
+              if line.startswith("__version__"):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+            raise ValueError(f"__version__ not found in {init_path}")
           
           root = Path(".")
           core = Path("moltres-core")
           
           root_v = read_version(root / "pyproject.toml")
           core_v = read_version(core / "pyproject.toml")
+          root_init_v = read_init_version(root / "src/moltres/__init__.py")
+          core_init_v = read_init_version(core / "moltres-core/src/moltres_core/__init__.py")
           
           mismatches = []
           if root_v != version:
             mismatches.append(f"root pyproject.toml version={root_v!r} != tag version={version!r}")
           if core_v != version:
             mismatches.append(f"moltres-core/pyproject.toml version={core_v!r} != tag version={version!r}")
+          if root_init_v != version:
+            mismatches.append(f"src/moltres/__init__.py __version__={root_init_v!r} != tag version={version!r}")
+          if core_init_v != version:
+            mismatches.append(f"moltres-core/src/moltres_core/__init__.py __version__={core_init_v!r} != tag version={version!r}")
           
           if mismatches:
             print("Version mismatch:", file=sys.stderr)

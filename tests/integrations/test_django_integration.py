@@ -96,6 +96,8 @@ from moltres.utils.exceptions import (
     ValidationError,
 )
 
+pytestmark = pytest.mark.tier2_integration
+
 
 @pytest.fixture
 def db_path(tmp_path):

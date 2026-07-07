@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Sequence, cast
 
 from ....io.records import Records
 from ....table.schema import ColumnDef
+from ...helpers.reader_helpers import resolve_read_path
 from .compression import open_compressed
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ def read_csv(
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty or invalid
     """
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"CSV file not found: {path}")
 
@@ -261,7 +261,7 @@ def read_csv_stream(
         ValueError: If file is empty or invalid
     """
     chunk_size = int(cast(Any, options.get("chunk_size", 10000)))
-    path_obj = Path(path)
+    path_obj = resolve_read_path(path, database, must_exist=False)
     if not path_obj.exists():
         raise FileNotFoundError(f"CSV file not found: {path}")
 

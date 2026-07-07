@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-# Import fixtures and utilities
 from moltres.integrations.pytest import (
     assert_dataframe_equal,
     assert_query_results,
@@ -17,6 +16,8 @@ from moltres.integrations.pytest import (
 from moltres import col
 from moltres.table.schema import column
 from moltres.utils.inspector import get_table_columns
+
+pytestmark = pytest.mark.tier1_integration
 
 
 @pytest.fixture

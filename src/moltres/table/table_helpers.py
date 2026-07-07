@@ -8,8 +8,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
+from ..sql.builders import format_literal, quote_identifier
+
 if TYPE_CHECKING:
     from ..engine.dialects import DialectSpec
+
+
+def _schema_literal(schema: str) -> str:
+    """Return a safely quoted schema name literal for information_schema queries."""
+    quote_identifier(schema)
+    return format_literal(schema)
+
+
+def _table_literal(table_name: str) -> str:
+    """Return a safely quoted table name literal for information_schema queries."""
+    quote_identifier(table_name)
+    return format_literal(table_name)
 
 
 def build_table_names_query(dialect: "DialectSpec", schema: Optional[str] = None) -> str:
@@ -26,19 +40,38 @@ def build_table_names_query(dialect: "DialectSpec", schema: Optional[str] = None
         return "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     elif dialect.name == "postgresql":
         if schema:
+            schema_sql = _schema_literal(schema)
             return (
-                f"SELECT tablename FROM pg_tables WHERE schemaname = '{schema}' ORDER BY tablename"
+                f"SELECT tablename FROM pg_tables WHERE schemaname = {schema_sql} "
+                "ORDER BY tablename"
             )
         return "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
     elif dialect.name == "mysql":
         if schema:
-            return f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_type = 'BASE TABLE' ORDER BY table_name"
-        return "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name"
+            schema_sql = _schema_literal(schema)
+            return (
+                "SELECT table_name FROM information_schema.tables "
+                f"WHERE table_schema = {schema_sql} AND table_type = 'BASE TABLE' "
+                "ORDER BY table_name"
+            )
+        return (
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' "
+            "ORDER BY table_name"
+        )
     else:
-        # Generic ANSI SQL
         if schema:
-            return f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_type = 'BASE TABLE' ORDER BY table_name"
-        return "SELECT table_name FROM information_schema.tables WHERE table_schema = 'PUBLIC' AND table_type = 'BASE TABLE' ORDER BY table_name"
+            schema_sql = _schema_literal(schema)
+            return (
+                "SELECT table_name FROM information_schema.tables "
+                f"WHERE table_schema = {schema_sql} AND table_type = 'BASE TABLE' "
+                "ORDER BY table_name"
+            )
+        return (
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'PUBLIC' AND table_type = 'BASE TABLE' "
+            "ORDER BY table_name"
+        )
 
 
 def build_view_names_query(dialect: "DialectSpec", schema: Optional[str] = None) -> str:
@@ -55,17 +88,33 @@ def build_view_names_query(dialect: "DialectSpec", schema: Optional[str] = None)
         return "SELECT name FROM sqlite_master WHERE type='view' ORDER BY name"
     elif dialect.name == "postgresql":
         if schema:
-            return f"SELECT viewname FROM pg_views WHERE schemaname = '{schema}' ORDER BY viewname"
+            schema_sql = _schema_literal(schema)
+            return (
+                f"SELECT viewname FROM pg_views WHERE schemaname = {schema_sql} ORDER BY viewname"
+            )
         return "SELECT viewname FROM pg_views WHERE schemaname = 'public' ORDER BY viewname"
     elif dialect.name == "mysql":
         if schema:
-            return f"SELECT table_name FROM information_schema.views WHERE table_schema = '{schema}' ORDER BY table_name"
-        return "SELECT table_name FROM information_schema.views WHERE table_schema = DATABASE() ORDER BY table_name"
+            schema_sql = _schema_literal(schema)
+            return (
+                "SELECT table_name FROM information_schema.views "
+                f"WHERE table_schema = {schema_sql} ORDER BY table_name"
+            )
+        return (
+            "SELECT table_name FROM information_schema.views "
+            "WHERE table_schema = DATABASE() ORDER BY table_name"
+        )
     else:
-        # Generic ANSI SQL
         if schema:
-            return f"SELECT table_name FROM information_schema.views WHERE table_schema = '{schema}' ORDER BY table_name"
-        return "SELECT table_name FROM information_schema.views WHERE table_schema = 'PUBLIC' ORDER BY table_name"
+            schema_sql = _schema_literal(schema)
+            return (
+                "SELECT table_name FROM information_schema.views "
+                f"WHERE table_schema = {schema_sql} ORDER BY table_name"
+            )
+        return (
+            "SELECT table_name FROM information_schema.views "
+            "WHERE table_schema = 'PUBLIC' ORDER BY table_name"
+        )
 
 
 def build_columns_query(
@@ -82,13 +131,16 @@ def build_columns_query(
         SQL query string
     """
     quote = dialect.quote_char
+    quoted_table = quote_identifier(table_name, quote_char=quote)
 
     if dialect.name == "sqlite":
-        return f"PRAGMA table_info({quote}{table_name}{quote})"
+        return f"PRAGMA table_info({quoted_table})"
     elif dialect.name in ("postgresql", "mysql"):
+        table_sql = _table_literal(table_name)
         if schema:
+            schema_sql = _schema_literal(schema)
             return f"""
-                SELECT 
+                SELECT
                     column_name,
                     data_type,
                     is_nullable,
@@ -97,12 +149,12 @@ def build_columns_query(
                     numeric_precision,
                     numeric_scale
                 FROM information_schema.columns
-                WHERE table_schema = '{schema}' AND table_name = '{table_name}'
+                WHERE table_schema = {schema_sql} AND table_name = {table_sql}
                 ORDER BY ordinal_position
             """
         schema_name = "public" if dialect.name == "postgresql" else "DATABASE()"
         return f"""
-            SELECT 
+            SELECT
                 column_name,
                 data_type,
                 is_nullable,
@@ -111,14 +163,14 @@ def build_columns_query(
                 numeric_precision,
                 numeric_scale
             FROM information_schema.columns
-            WHERE table_schema = {schema_name} AND table_name = '{table_name}'
+            WHERE table_schema = {schema_name} AND table_name = {table_sql}
             ORDER BY ordinal_position
         """
     else:
-        # Generic ANSI SQL
-        schema_name = f"'{schema}'" if schema else "'PUBLIC'"
+        schema_name = _schema_literal(schema) if schema else "'PUBLIC'"
+        table_sql = _table_literal(table_name)
         return f"""
-            SELECT 
+            SELECT
                 column_name,
                 data_type,
                 is_nullable,
@@ -127,7 +179,7 @@ def build_columns_query(
                 numeric_precision,
                 numeric_scale
             FROM information_schema.columns
-            WHERE table_schema = {schema_name} AND table_name = '{table_name}'
+            WHERE table_schema = {schema_name} AND table_name = {table_sql}
             ORDER BY ordinal_position
         """
 
