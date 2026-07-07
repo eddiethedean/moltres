@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import re
 from pathlib import Path
 from typing import Sequence
 
 from .exceptions import ValidationError
+
+_PARTITION_UNSAFE = re.compile(r"(\.\.)|[/\\]|\x00")
 
 
 def validate_file_path(
@@ -41,14 +45,28 @@ def validate_file_path(
         raise FileNotFoundError(f"File not found: {path}")
 
     if allowed_paths:
-        allowed_roots = [Path(p).expanduser().resolve() for p in allowed_paths]
-        if not any(_is_under_root(resolved, root) for root in allowed_roots):
+        real_resolved = Path(os.path.realpath(resolved))
+        allowed_roots = [Path(os.path.realpath(Path(p).expanduser())) for p in allowed_paths]
+        if not any(_is_under_root(real_resolved, root) for root in allowed_roots):
             raise ValidationError(
                 f"Path {path!r} is outside allowed directories. "
                 "Configure allowed_paths on connect() or set MOLTRES_ALLOWED_PATHS."
             )
+        for root in allowed_roots:
+            if _path_contains_symlink_outside_root(resolved, root):
+                raise ValidationError(
+                    f"Path {path!r} resolves outside allowed directories via symlink."
+                )
 
     return resolved
+
+
+def validate_partition_segment(value: object) -> str:
+    """Validate a partition path segment for safe filesystem use."""
+    text = str(value)
+    if _PARTITION_UNSAFE.search(text):
+        raise ValidationError(f"Partition value {value!r} contains unsafe path characters.")
+    return text
 
 
 def _is_under_root(path: Path, root: Path) -> bool:
@@ -58,3 +76,26 @@ def _is_under_root(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _path_contains_symlink_outside_root(path: Path, root: Path) -> bool:
+    """Return True if any symlink component escapes ``root``."""
+    root_real = Path(os.path.realpath(root))
+    current = Path(path)
+    parts: list[str] = []
+    while True:
+        parts.append(current.name if current.name else str(current))
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    parts.reverse()
+
+    built = Path(parts[0]) if parts else Path(".")
+    for part in parts[1:]:
+        built = built / part
+        if built.is_symlink():
+            target_real = Path(os.path.realpath(built))
+            if not _is_under_root(target_real, root_real):
+                return True
+    return False

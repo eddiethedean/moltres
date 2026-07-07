@@ -65,7 +65,8 @@ class OperationBatch:
             return []
 
         # Execute all operations in a transaction
-        with self.database.transaction():
+        use_savepoint = self.database.connection_manager.active_transaction is not None
+        with self.database.transaction(savepoint=use_savepoint):
             results = []
             for op in self._operations:
                 result = op.collect()

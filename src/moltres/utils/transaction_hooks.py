@@ -7,9 +7,11 @@ at various points in the transaction lifecycle (begin, commit, rollback).
 from __future__ import annotations
 
 import logging
+import threading
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 logger = logging.getLogger(__name__)
+_hooks_lock = threading.Lock()
 
 if TYPE_CHECKING:
     from ..table.table import Transaction
@@ -57,11 +59,14 @@ def register_transaction_hook(
         raise ValueError(f"Invalid event: {event}. Must be 'begin', 'commit', or 'rollback'")
 
     if event == "begin":
-        _on_begin_hooks.append(callback)
+        with _hooks_lock:
+            _on_begin_hooks.append(callback)
     elif event == "commit":
-        _on_commit_hooks.append(callback)
+        with _hooks_lock:
+            _on_commit_hooks.append(callback)
     elif event == "rollback":
-        _on_rollback_hooks.append(callback)
+        with _hooks_lock:
+            _on_rollback_hooks.append(callback)
 
     logger.debug(f"Registered transaction hook for event '{event}': {callback.__name__}")
 
@@ -182,7 +187,7 @@ def _execute_hooks(
         hooks: List of hook functions to execute
         transaction: Transaction instance to pass to hooks
     """
-    for hook in hooks:
+    for hook in list(hooks):
         try:
             hook(transaction)
         except Exception as exc:

@@ -14,8 +14,8 @@ Use these docs to:
 
 .. note::
 
-   **New to Moltres?** Start with :doc:`guides/getting-started`, then :doc:`PUBLIC_API`,
-   then :doc:`EXAMPLE_SCRIPTS` for runnable scripts.
+   **New to Moltres?** Start with :doc:`guides/quick-start` (5 minutes), then :doc:`guides/getting-started` for the full tutorial,
+   then :doc:`PUBLIC_API`, then :doc:`EXAMPLE_SCRIPTS` for runnable scripts.
 
 
 Start here
@@ -25,9 +25,11 @@ Start here
    :maxdepth: 1
    :caption: Start here
 
+   guides/quick-start
    guides/getting-started
    PUBLIC_API
    EXAMPLE_SCRIPTS
+   CHANGELOG
    FAQ
    ROADMAP
 
@@ -94,15 +96,16 @@ Concepts, operations, and internals
    DEBUGGING
    DEPLOYMENT
    TROUBLESHOOTING
-   EXAMPLES
 
 
-Comparisons
-===========
+Comparisons (reference)
+=======================
+
+Historical comparison reports. For current migration guidance, prefer :doc:`guides/migrating-from-pyspark` and :doc:`PYSPARK_MIGRATION_INCONSISTENCIES`.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Comparisons
+   :caption: Comparisons (reference)
 
    MOLTRES_VS_PYSPARK_COMPARISON
    MOLTRES_VS_SQLFRAME_COMPARISON
@@ -132,6 +135,7 @@ Indices and tables
    :hidden:
 
    CONTRIBUTING
+   EXAMPLES
    PYDANTABLE_ENGINE
    RELEASE_PROCESS
 

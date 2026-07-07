@@ -15,7 +15,7 @@ Report security issues by emailing **odosmatthews@gmail.com** (project maintaine
 - Affected versions
 - Potential impact
 
-You should receive an acknowledgment within 72 hours. We will work with you on a fix and coordinated disclosure when appropriate.
+You should receive an acknowledgment within 48 hours. We will work with you on a fix and coordinated disclosure when appropriate.
 
 ## Security Documentation
 

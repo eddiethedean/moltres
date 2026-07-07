@@ -1,59 +1,77 @@
 # Moltres Examples
 
-This directory contains example code demonstrating various features of Moltres.
+This directory contains **31** self-contained example scripts demonstrating Moltres features.
 
-## Examples
+## Core usage (01–14, 17)
 
-1. **01_connecting.py** - Connecting to databases (sync and async)
-2. **02_dataframe_basics.py** - Basic DataFrame operations (select, filter, order by)
-3. **03_async_dataframe.py** - Asynchronous DataFrame operations
-4. **04_joins.py** - Join operations (inner, left, right, etc.)
-5. **05_groupby.py** - GroupBy and aggregation operations
-6. **06_expressions.py** - Column expressions, functions, and operators
-7. **07_file_reading.py** - Reading files (CSV, JSON, Parquet, Text)
-8. **08_file_writing.py** - Writing DataFrames to files
-9. **09_table_operations.py** - Table operations (create, drop, mutations)
-10. **10_create_dataframe.py** - Creating DataFrames from Python data
-11. **11_window_functions.py** - Window functions for analytical queries
-12. **12_sql_operations.py** - Raw SQL and SQL operations (CTEs, unions, etc.)
-13. **13_transactions.py** - Transaction management
-14. **14_reflection.py** - Schema inspection and reflection
-15. **15_pandas_polars_dataframes.py** - Using pandas and polars DataFrames with moltres
-16. **16_ux_features.py** - UX improvements and convenience methods
-17. **17_sqlalchemy_models.py** - SQLAlchemy model integration
-18. **18_pandas_interface.py** - Pandas-style DataFrame interface with string accessor, query() improvements, and data inspection methods
-19. **19_polars_interface.py** - Polars-style DataFrame interface
-20. **20_sqlalchemy_integration.py** - SQLAlchemy integration patterns
-21. **21_sqlmodel_integration.py** - SQLModel and Pydantic integration
-22. **22_fastapi_integration.py** - FastAPI integration with sync and async endpoints
-30. **30_sql_output_demo.py** - Show raw SQL output for DataFrame queries (to_sql, show_sql, .sql)
+| # | Script | Topic |
+|---|--------|-------|
+| 01 | `01_connecting.py` | Connecting to databases (sync and async) |
+| 02 | `02_dataframe_basics.py` | Basic DataFrame operations |
+| 03 | `03_async_dataframe.py` | Asynchronous DataFrame operations |
+| 04 | `04_joins.py` | Join operations |
+| 05 | `05_groupby.py` | GroupBy and aggregation |
+| 06 | `06_expressions.py` | Column expressions and functions |
+| 07 | `07_file_reading.py` | Reading files (`db.load.*` vs `db.read.records.*`) |
+| 08 | `08_file_writing.py` | Writing DataFrames to files |
+| 09 | `09_table_operations.py` | Table CRUD and merge |
+| 10 | `10_create_dataframe.py` | Creating DataFrames from Python data |
+| 11 | `11_window_functions.py` | Window functions |
+| 12 | `12_sql_operations.py` | Raw SQL, CTEs, unions |
+| 13 | `13_transactions.py` | Transaction management |
+| 14 | `14_reflection.py` | Schema inspection |
+| 17 | `17_sqlalchemy_models.py` | SQLAlchemy model integration |
 
-## Running Examples
+## Interfaces and UX (15–16, 18–19, 30)
 
-Each example file is self-contained and can be run independently:
+| # | Script | Topic |
+|---|--------|-------|
+| 15 | `15_pandas_polars_dataframes.py` | Pandas and Polars wrappers |
+| 16 | `16_ux_features.py` | UX features (`show_sql`, hints) |
+| 18 | `18_pandas_interface.py` | Pandas-style interface |
+| 19 | `19_polars_interface.py` | Polars-style interface |
+| 30 | `30_sql_output_demo.py` | SQL output formats |
+
+## Integrations (20–23, 25–29)
+
+| # | Script | Topic |
+|---|--------|-------|
+| 20 | `20_sqlalchemy_integration.py` | SQLAlchemy integration |
+| 21 | `21_sqlmodel_integration.py` | SQLModel and Pydantic |
+| 22 | `22_fastapi_integration.py` | FastAPI |
+| 23 | `23_django_integration.py` | Django |
+| 25 | `25_streamlit_integration.py` | Streamlit |
+| 26 | `26_pytest_integration.py` | pytest |
+| 27 | `27_airflow_integration.py` | Airflow |
+| 28 | `28_prefect_integration.py` | Prefect |
+| 29 | `29_dbt_integration.py` | dbt |
+
+## Transactions (31–32)
+
+| # | Script | Topic |
+|---|--------|-------|
+| 31 | `31_transaction_control.py` | Savepoints, isolation, locking |
+| 32 | `32_transaction_utilities.py` | Decorators, hooks, retries, metrics |
+
+> There is no `24_*` script. Transaction examples use `31_*`/`32_*` to avoid numbering collisions with integration scripts.
+
+## Running examples
 
 ```bash
 python docs/examples/01_connecting.py
 ```
 
-Note: Some examples require additional dependencies:
-- Async examples require: `pip install moltres[async]`
-- Parquet examples require: `pip install pyarrow`
-- Pandas/polars examples require: `pip install moltres[pandas,polars]` or `pip install pandas polars`
-- PostgreSQL examples require: `pip install moltres[async-postgresql]` or `psycopg2-binary`
-- MySQL examples require: `pip install moltres[async-mysql]` or `pymysql`
+### Optional dependencies
 
-## Database Setup
+| Scripts | Install |
+|---------|---------|
+| Async (03) | `pip install moltres[async-sqlite]` |
+| Parquet (07–08) | `pip install moltres[parquet]` |
+| Pandas/Polars (15, 18–19) | `pip install moltres[pandas,polars]` |
+| Integrations (22–29) | See each script header and [Public API extras](../PUBLIC_API.md#optional-extras) |
 
-Most examples use SQLite, which requires no additional setup. For PostgreSQL or MySQL examples, you'll need to:
+Most examples use SQLite in-memory and require no database server.
 
-1. Install the database server
-2. Update the connection strings in the examples
-3. Ensure the database exists
+## Index
 
-## Notes
-
-- Examples create temporary files and databases in the current directory
-- Clean up example files and databases after running examples
-- Some examples may skip certain operations if optional dependencies are not installed
-
+See also [EXAMPLE_SCRIPTS.md](../EXAMPLE_SCRIPTS.md) on Read the Docs.

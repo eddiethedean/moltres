@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import warnings
 from dataclasses import dataclass
@@ -35,11 +36,34 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _sql_for_logging(stmt: Union[str, "Select"]) -> str:
+    from sqlalchemy.sql import Select
+
+    if isinstance(stmt, Select):
+        return str(stmt.compile(compile_kwargs={"literal_binds": False}))
+    if len(stmt) > 200:
+        return stmt[:200] + "..."
+    return stmt
+
+
+def _safe_execution_context(
+    *,
+    elapsed_seconds: float,
+    params: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build error context without embedding literal SQL or parameter values."""
+    context: Dict[str, Any] = {"elapsed_seconds": elapsed_seconds}
+    if params:
+        context["param_keys"] = sorted(params.keys())
+    return context
+
 # Optional performance monitoring hooks
 _perf_hooks: dict[str, list[Callable[[str, float, dict[str, Any]], None]]] = {
     "query_start": [],
     "query_end": [],
 }
+_perf_hooks_lock = threading.Lock()
 
 # Type alias for result rows - can be records, pandas DataFrame, or polars DataFrame
 if TYPE_CHECKING:
@@ -91,9 +115,9 @@ class QueryExecutor:
 
         # Convert SQLAlchemy statement to string for logging
         if isinstance(stmt, Select):
-            sql_str = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+            sql_str = _sql_for_logging(stmt)
         else:
-            sql_str = str(stmt)[:200] if len(str(stmt)) > 200 else str(stmt)
+            sql_str = _sql_for_logging(stmt)
 
         logger.debug("Executing query: %s", sql_str)
 
@@ -269,17 +293,20 @@ class QueryExecutor:
             # Check if it's a timeout error
             error_str = str(exc).lower()
             # Include SQL query text in the error message for easier debugging
-            sql_preview = sql_str[:500] + "..." if len(sql_str) > 500 else sql_str
+            sql_preview = _sql_for_logging(stmt if isinstance(stmt, str) else sql_str)
             if "timeout" in error_str or "timed out" in error_str:
                 from moltres_core.exceptions import QueryTimeoutError
 
                 raise QueryTimeoutError(
-                    f"Query exceeded timeout: {exc}\nSQL query: {sql_preview}",
+                    f"Query exceeded timeout: {exc}",
                     timeout=self._config.query_timeout,
                 ) from exc
             raise ExecutionError(
-                f"SQL execution failed: {exc}\nSQL query: {sql_preview}",
-                context={"sql": sql_str, "params": params, "elapsed_seconds": elapsed},
+                f"SQL execution failed: {exc}",
+                context=_safe_execution_context(
+                    elapsed_seconds=elapsed,
+                    params=params,
+                ),
             ) from exc
 
     def execute(
@@ -453,7 +480,8 @@ def register_performance_hook(
     """
     if event not in _perf_hooks:
         raise ValueError(f"Unknown event type: {event}. Valid events: {list(_perf_hooks.keys())}")
-    _perf_hooks[event].append(callback)
+    with _perf_hooks_lock:
+        _perf_hooks[event].append(callback)
 
 
 def unregister_performance_hook(
@@ -471,7 +499,7 @@ def unregister_performance_hook(
 
 def _call_hooks(event: str, sql: str, elapsed: float, metadata: dict[str, Any]) -> None:
     """Call all registered hooks for an event."""
-    for hook in _perf_hooks.get(event, []):
+    for hook in list(_perf_hooks.get(event, [])):
         try:
             hook(sql, elapsed, metadata)
         except Exception as exc:

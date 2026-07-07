@@ -55,7 +55,7 @@ def example_basic_transaction():
         update_rows(
             table,
             where=col("id") == 1,
-            values={"balance": col("balance") - 100.0},
+            values={"balance": 900.0},
             transaction=txn.connection,
         )
 
@@ -63,7 +63,7 @@ def example_basic_transaction():
         update_rows(
             table,
             where=col("id") == 2,
-            values={"balance": col("balance") + 100.0},
+            values={"balance": 600.0},
             transaction=txn.connection,
         )
 
@@ -162,7 +162,7 @@ def example_nested_transactions():
         update_rows(
             table,
             where=col("product_id") == 1,
-            values={"quantity": col("quantity") - 10},
+            values={"quantity": 90},
             transaction=outer.connection,
         )
 
@@ -173,7 +173,7 @@ def example_nested_transactions():
                 update_rows(
                     table,
                     where=col("product_id") == 2,
-                    values={"quantity": col("quantity") - 20},
+                    values={"quantity": 30},
                     transaction=inner.connection,
                 )
 

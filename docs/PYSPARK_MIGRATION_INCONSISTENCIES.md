@@ -6,7 +6,9 @@ This guide helps you work around known API inconsistencies when migrating from P
 
 ## Overview
 
-Moltres achieves **100% API compatibility** with PySpark for core DataFrame operations (v0.16.0+). This guide documents the fixes that were made and any remaining considerations.
+Moltres provides **high PySpark API compatibility** for core DataFrame operations, with [documented exceptions](MOLTRES_VS_PYSPARK_COMPARISON.md). This guide documents fixes that were made and remaining considerations when porting production jobs.
+
+> **Before migrating:** Review union semantics (`union` vs `unionAll`), file I/O paths (`db.load.*` vs deprecated `db.read.*`), and write execution behavior in the [Public API](PUBLIC_API.md) and [PySpark migration guide](guides/migrating-from-pyspark.html#migration-footguns).
 
 ---
 
@@ -311,7 +313,7 @@ The Moltres team has recently fixed all PySpark compatibility issues:
 2. ✅ **Column object support in `drop()`** - Fixed in v0.16.0
 3. ✅ **Window functions in `withColumn()`** - Fixed in v0.16.0
 
-**Result:** Moltres now achieves **100% PySpark API compatibility** for core DataFrame operations!
+**Result:** Moltres provides high PySpark API compatibility for core DataFrame operations, with documented exceptions listed above and in the [migration guide](guides/migrating-from-pyspark.html#migration-footguns).
 
 See the [Moltres vs PySpark comparison](MOLTRES_VS_PYSPARK_COMPARISON.md) for the complete roadmap.
 

@@ -200,7 +200,14 @@ def merge_rows(
 
     if isinstance(rows, DataFrame):
         raise TypeError("DataFrame should have been converted to Records")
-    # At this point, rows is guaranteed to be Sequence[Mapping[str, object]]
+
+    normalized_rows: list[Dict[str, object]] = []
+    for row in rows:
+        merged = dict(when_not_matched or {})
+        merged.update(row)
+        normalized_rows.append(merged)
+    rows = normalized_rows
+
     columns = list(rows[0].keys())
     if not columns:
         raise ValidationError(f"merge requires column values for table '{handle.name}'")
@@ -251,19 +258,7 @@ def merge_rows(
                 f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {update_clause}"
             )
         else:
-            # MySQL requires ON DUPLICATE KEY UPDATE even if no update
-            # Use VALUES() to keep existing values
-            updates = [
-                f"{quote_identifier(col, quote)} = VALUES({quote_identifier(col, quote)})"
-                for col in columns
-                if col not in on
-            ]
-            if updates:
-                update_clause = f"ON DUPLICATE KEY UPDATE {', '.join(updates)}"
-                sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {update_clause}"
-            else:
-                # All columns are in 'on', so no update needed
-                sql = f"INSERT IGNORE INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
+            sql = f"INSERT IGNORE INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
     else:
         # Generic fallback - try INSERT ... ON CONFLICT
         on_columns_sql = comma_separated(quote_identifier(col, quote) for col in on)

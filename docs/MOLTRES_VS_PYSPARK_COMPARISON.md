@@ -1,5 +1,7 @@
 # Moltres vs PySpark API Comparison Report
 
+> **Note:** This is a historical reference report (generated 2024, Moltres 0.8.0+). For current migration guidance, use the [PySpark migration guide](guides/migrating-from-pyspark.html) and [migration footguns](PYSPARK_MIGRATION_INCONSISTENCIES.md). Moltres provides **high PySpark API compatibility** for core DataFrame operations, not a byte-for-byte Spark replacement.
+
 ## Executive Summary
 
 This report provides a comprehensive comparison between Moltres and PySpark APIs, analyzing their similarities, differences, strengths, and areas for improvement. Both libraries provide DataFrame APIs for data manipulation, but they differ significantly in their execution models, target use cases, and feature sets.

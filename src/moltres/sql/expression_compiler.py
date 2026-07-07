@@ -27,6 +27,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _escape_like_literal(value: str) -> str:
+    """Escape SQL LIKE wildcard characters in a literal substring."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class ExpressionCompiler:
     """Compile expression trees into SQLAlchemy column expressions."""
 
@@ -455,21 +460,10 @@ class ExpressionCompiler:
                 elif self.dialect.name == "mysql":
                     result = func.from_unixtime(col_expr, format_str)
                 elif self.dialect.name == "duckdb":
-                    # DuckDB: to_timestamp(unix_time) then format with strftime
-                    # DuckDB's strftime is strftime(timestamp, format)
-                    from sqlalchemy import literal_column
+                    from .interval_helpers import validate_and_convert_strptime_format
 
-                    duckdb_format = (
-                        format_str.replace("yyyy", "%Y")
-                        .replace("MM", "%m")
-                        .replace("dd", "%d")
-                        .replace("HH", "%H")
-                        .replace("mm", "%M")
-                        .replace("ss", "%S")
-                    )
-                    result = literal_column(
-                        f"strftime(to_timestamp({col_expr}), '{duckdb_format}')"
-                    )
+                    duckdb_format = validate_and_convert_strptime_format(format_str)
+                    result = func.strftime(func.to_timestamp(col_expr), duckdb_format)
                 else:
                     # SQLite: datetime(unix_time, 'unixepoch')
                     result = func.strftime(format_str, func.datetime(col_expr, "unixepoch"))
@@ -494,10 +488,9 @@ class ExpressionCompiler:
             col_expr = self._compile(expression.args[1])
             if self.dialect.name == "postgresql":
                 result = func.date_trunc(trunc_unit, col_expr)
+            elif self.dialect.name == "duckdb":
+                result = func.date_trunc(trunc_unit, col_expr)
             elif self.dialect.name == "mysql":
-                # MySQL: use DATE_FORMAT with truncation
-                from sqlalchemy import literal_column
-
                 unit_map = {
                     "year": "%Y-01-01",
                     "month": "%Y-%m-01",
@@ -506,10 +499,9 @@ class ExpressionCompiler:
                     "minute": "%Y-%m-%d %H:%i:00",
                     "second": "%Y-%m-%d %H:%i:%s",
                 }
-                format_str = unit_map.get(unit.lower(), "%Y-%m-%d")
+                format_str = unit_map.get(trunc_unit.lower(), "%Y-%m-%d")
                 result = func.date_format(col_expr, format_str)
             else:
-                # SQLite: use strftime
                 unit_map = {
                     "year": "%Y-01-01",
                     "month": "%Y-%m-01",
@@ -518,7 +510,7 @@ class ExpressionCompiler:
                     "minute": "%Y-%m-%d %H:%M:00",
                     "second": "%Y-%m-%d %H:%M:%S",
                 }
-                format_str = unit_map.get(unit.lower(), "%Y-%m-%d")
+                format_str = unit_map.get(trunc_unit.lower(), "%Y-%m-%d")
                 result = func.strftime(format_str, col_expr)
             if expression._alias:
                 result = result.label(expression._alias)
@@ -729,26 +721,25 @@ class ExpressionCompiler:
             return result
         if op == "contains":
             column, substring = expression.args
-            # substring might be a Column or a string
             if isinstance(substring, Column):
                 pattern = func.concat(literal("%"), self._compile(substring), literal("%"))
-            else:
-                pattern = f"%{substring}%"
-            return self._compile(column).like(pattern)
+                return self._compile(column).like(pattern)
+            pattern = f"%{_escape_like_literal(str(substring))}%"
+            return self._compile(column).like(pattern, escape="\\")
         if op == "startswith":
             column, prefix = expression.args
             if isinstance(prefix, Column):
                 pattern = func.concat(self._compile(prefix), literal("%"))
-            else:
-                pattern = f"{prefix}%"
-            return self._compile(column).like(pattern)
+                return self._compile(column).like(pattern)
+            pattern = f"{_escape_like_literal(str(prefix))}%"
+            return self._compile(column).like(pattern, escape="\\")
         if op == "endswith":
             column, suffix = expression.args
             if isinstance(suffix, Column):
                 pattern = func.concat(literal("%"), self._compile(suffix))
-            else:
-                pattern = f"%{suffix}"
-            return self._compile(column).like(pattern)
+                return self._compile(column).like(pattern)
+            pattern = f"%{_escape_like_literal(str(suffix))}"
+            return self._compile(column).like(pattern, escape="\\")
         # Try type casting compiler
         if op == "cast":
             from .expression_compilers.type_casting import compile_type_casting_operation
@@ -1057,18 +1048,10 @@ class ExpressionCompiler:
             if self.dialect.name in ("postgresql", "duckdb"):
                 result = func.array_position(col_expr, value_expr)
             elif self.dialect.name == "sqlite":
-                # SQLite: Use json_each to find position
-                # We need to use a subquery approach, but for simplicity in compilation,
-                # we'll use a CASE expression with json_array_length and iteration
-                # This is a simplified approach - a full implementation would use json_each in a subquery
-                from sqlalchemy import literal_column, cast
-
-                # For SQLite, we'll use a workaround with json_extract and iteration
-                # This is not perfect but works for most cases
-                # Full implementation would require a correlated subquery with json_each
-                result = literal_column(
-                    "NULL"
-                )  # Simplified - full implementation requires subquery
+                raise CompilationError(
+                    "array_position is not supported on SQLite. "
+                    "Use PostgreSQL or DuckDB, or rewrite with json_each manually."
+                )
             elif self.dialect.name == "mysql":
                 # MySQL: JSON_SEARCH returns a path like "$[0]", need to extract index
                 # Extract index from JSON path: "$[0]" -> 0

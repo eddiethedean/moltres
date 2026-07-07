@@ -70,6 +70,11 @@ def register_exception_handlers(app: "FastAPI") -> None:
         ValidationError,
     )
 
+    def _public_error_context(context: dict[str, object] | None) -> dict[str, object]:
+        if not context:
+            return {}
+        return {key: value for key, value in context.items() if key not in {"sql", "params"}}
+
     @app.exception_handler(DatabaseConnectionError)
     async def database_connection_error_handler(
         request: "Request", exc: DatabaseConnectionError
@@ -81,7 +86,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "error": "Database connection error",
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 
@@ -96,7 +101,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "error": "Connection pool error",
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 
@@ -112,7 +117,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
                 "timeout_seconds": exc.context.get("timeout_seconds"),
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 
@@ -136,7 +141,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "error": "SQL execution error",
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 
@@ -151,7 +156,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "error": "SQL compilation error",
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 
@@ -164,7 +169,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "error": "Validation error",
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 
@@ -195,7 +200,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "error": "Transaction error",
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 
@@ -208,7 +213,7 @@ def register_exception_handlers(app: "FastAPI") -> None:
                 "error": "Moltres error",
                 "message": str(exc.message),
                 "suggestion": exc.suggestion,
-                "detail": exc.context,
+                "detail": _public_error_context(exc.context),
             },
         )
 

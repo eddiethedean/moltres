@@ -78,8 +78,6 @@ def compile_json_operation(
 
         # For PostgreSQL, use json_extract_path_text for each key
         if compiler.dialect.name == "postgresql":
-            from sqlalchemy import literal_column
-
             # Build multiple json_extract_path_text calls
             # This is a simplified implementation - full json_tuple would return multiple columns
             # For now, return the first key's value
@@ -115,23 +113,6 @@ def compile_json_operation(
             result = func.json_length(col_expr)
         else:
             result = func.json_array_length(col_expr)
-        if expression._alias:
-            result = result.label(expression._alias)
-        return result
-
-    if op == "json_tuple":
-        col_expr = compiler._compile(expression.args[0])
-        paths = expression.args[1:]
-        if compiler.dialect.name == "postgresql":
-            from sqlalchemy import literal_column
-
-            path_list = ", ".join(f"'{p}'" for p in paths)
-            result = literal_column(
-                f"ARRAY(SELECT jsonb_path_query({col_expr}, p) FROM unnest(ARRAY[{path_list}]) AS p)"
-            )
-        else:
-            results = [func.json_extract(col_expr, path) for path in paths]
-            result = func.json_array(*results)
         if expression._alias:
             result = result.label(expression._alias)
         return result

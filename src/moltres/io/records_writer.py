@@ -58,7 +58,20 @@ class RecordsWriter:
         def _insert_chunks(active_tx: "Connection | None") -> int:
             total_inserted = 0
             chunk_iter = self._records._generator()  # type: ignore[misc]
-            for chunk in chunk_iter:
+            expected_columns: list[str] | None = None
+            for chunk_idx, chunk in enumerate(chunk_iter):
+                if not chunk:
+                    continue
+                chunk_columns = list(chunk[0].keys())
+                if expected_columns is None:
+                    expected_columns = chunk_columns
+                elif set(chunk_columns) != set(expected_columns):
+                    from ..utils.exceptions import ValidationError
+
+                    raise ValidationError(
+                        f"Streaming insert chunk {chunk_idx} schema mismatch. "
+                        f"Expected columns {expected_columns}, got {chunk_columns}."
+                    )
                 from .records import Records
 
                 chunk_records = Records(_data=chunk, _database=db)

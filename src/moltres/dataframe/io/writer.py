@@ -77,6 +77,14 @@ class DataFrameWriter:
 
         return build_stream_setter(self, enabled)
 
+    def _resolve_output_path(self, path: str) -> Path:
+        from ..helpers.reader_helpers import resolve_write_path
+
+        database = self._df.database
+        if database is None:
+            raise ValueError("DataFrame must be associated with a database to resolve output paths")
+        return resolve_write_path(path, database)
+
     def partitionBy(self, *columns: str) -> "DataFrameWriter":
         """Partition data by the given columns when writing to files."""
         from ..helpers.writer_helpers import build_partition_by_setter
@@ -713,7 +721,7 @@ class DataFrameWriter:
             headers = list(rows[0].keys())
 
         # Write CSV file
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -729,7 +737,7 @@ class DataFrameWriter:
 
     def _save_csv_stream(self, path: str) -> None:
         """Save :class:`DataFrame` as CSV file in streaming mode."""
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -774,7 +782,7 @@ class DataFrameWriter:
 
         use_stream = self._should_stream_output() and indent_val in (None, 0)
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -829,7 +837,7 @@ class DataFrameWriter:
                 return float(obj)
             raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -840,7 +848,7 @@ class DataFrameWriter:
 
     def _save_jsonl_stream(self, path: str) -> None:
         """Save :class:`DataFrame` as JSONL file in streaming mode."""
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -875,7 +883,7 @@ class DataFrameWriter:
                 "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -918,7 +926,7 @@ class DataFrameWriter:
             self._save_partitioned(path, "parquet", rows, None)
             return
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -970,18 +978,29 @@ class DataFrameWriter:
             partitions[partition_key].append(row)
 
         # Write each partition to a subdirectory
-        base_path_obj = Path(base_path)
+        from ...utils.path_security import validate_partition_segment
+
+        base_path_obj = self._resolve_output_path(base_path)
         partition_root = base_path_obj.parent / base_path_obj.stem
         if not self._prepare_file_target(partition_root):
             return
+        partition_root = partition_root.resolve()
         partition_root.parent.mkdir(parents=True, exist_ok=True)
 
         for partition_key, partition_rows in partitions.items():
-            # Create partition directory path
-            partition_parts = [f"{col}={val}" for col, val in zip(partition_cols, partition_key)]
-            partition_dir = base_path_obj.parent / base_path_obj.stem
+            partition_parts = [
+                f"{col}={validate_partition_segment(val)}"
+                for col, val in zip(partition_cols, partition_key)
+            ]
+            partition_dir = partition_root
             for part in partition_parts:
                 partition_dir = partition_dir / part
+            try:
+                partition_dir.resolve().relative_to(partition_root)
+            except ValueError as exc:
+                raise ValidationError(
+                    f"Partition path escapes output directory: {partition_dir}"
+                ) from exc
             partition_dir.mkdir(parents=True, exist_ok=True)
 
             # Determine filename

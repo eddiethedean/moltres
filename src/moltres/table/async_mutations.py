@@ -199,6 +199,14 @@ async def merge_rows_async(
 
     # Type narrowing: after conversion, rows is Sequence[Mapping[str, object]]
     rows_seq: Sequence[Mapping[str, object]] = rows  # type: ignore[assignment]
+
+    normalized_rows: list[Dict[str, object]] = []
+    for row in rows_seq:
+        merged = dict(when_not_matched or {})
+        merged.update(row)
+        normalized_rows.append(merged)
+    rows_seq = normalized_rows
+
     columns = list(rows_seq[0].keys())
 
     if not columns:
@@ -246,16 +254,7 @@ async def merge_rows_async(
                 f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {update_clause}"
             )
         else:
-            updates = [
-                f"{quote_identifier(col, quote)} = VALUES({quote_identifier(col, quote)})"
-                for col in columns
-                if col not in on
-            ]
-            if updates:
-                update_clause = f"ON DUPLICATE KEY UPDATE {', '.join(updates)}"
-                sql = f"INSERT INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql}) {update_clause}"
-            else:
-                sql = f"INSERT IGNORE INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
+            sql = f"INSERT IGNORE INTO {table_sql} ({column_sql}) VALUES ({placeholder_sql})"
     else:
         on_columns_sql = comma_separated(quote_identifier(col, quote) for col in on)
         conflict_clause = f"ON CONFLICT ({on_columns_sql})"

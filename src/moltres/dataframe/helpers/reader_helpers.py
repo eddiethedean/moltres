@@ -48,6 +48,15 @@ def resolve_read_path(
     return validate_file_path(path, allowed_paths=allowed, must_exist=must_exist)
 
 
+def resolve_write_path(
+    path: str,
+    database: "Database | AsyncDatabase",
+) -> Path:
+    """Resolve a write path and enforce optional ``allowed_paths`` from config."""
+    allowed = database.config.allowed_paths
+    return validate_file_path(path, allowed_paths=allowed, must_exist=False)
+
+
 def get_format_from_path(path: str) -> str:
     """Infer file format from file extension.
 

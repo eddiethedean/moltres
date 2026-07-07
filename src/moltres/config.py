@@ -54,16 +54,28 @@ def _load_env_config() -> dict[str, object]:
         config["dialect"] = os.environ["MOLTRES_DIALECT"]
 
     if "MOLTRES_POOL_SIZE" in os.environ:
-        config["pool_size"] = int(os.environ["MOLTRES_POOL_SIZE"])
+        try:
+            config["pool_size"] = int(os.environ["MOLTRES_POOL_SIZE"])
+        except ValueError as exc:
+            raise ValueError("MOLTRES_POOL_SIZE must be an integer") from exc
 
     if "MOLTRES_MAX_OVERFLOW" in os.environ:
-        config["max_overflow"] = int(os.environ["MOLTRES_MAX_OVERFLOW"])
+        try:
+            config["max_overflow"] = int(os.environ["MOLTRES_MAX_OVERFLOW"])
+        except ValueError as exc:
+            raise ValueError("MOLTRES_MAX_OVERFLOW must be an integer") from exc
 
     if "MOLTRES_POOL_TIMEOUT" in os.environ:
-        config["pool_timeout"] = int(os.environ["MOLTRES_POOL_TIMEOUT"])
+        try:
+            config["pool_timeout"] = int(os.environ["MOLTRES_POOL_TIMEOUT"])
+        except ValueError as exc:
+            raise ValueError("MOLTRES_POOL_TIMEOUT must be an integer") from exc
 
     if "MOLTRES_POOL_RECYCLE" in os.environ:
-        config["pool_recycle"] = int(os.environ["MOLTRES_POOL_RECYCLE"])
+        try:
+            config["pool_recycle"] = int(os.environ["MOLTRES_POOL_RECYCLE"])
+        except ValueError as exc:
+            raise ValueError("MOLTRES_POOL_RECYCLE must be an integer") from exc
 
     if "MOLTRES_POOL_PRE_PING" in os.environ:
         config["pool_pre_ping"] = os.environ["MOLTRES_POOL_PRE_PING"].lower() in (
@@ -74,7 +86,10 @@ def _load_env_config() -> dict[str, object]:
         )
 
     if "MOLTRES_QUERY_TIMEOUT" in os.environ:
-        config["query_timeout"] = float(os.environ["MOLTRES_QUERY_TIMEOUT"])
+        try:
+            config["query_timeout"] = float(os.environ["MOLTRES_QUERY_TIMEOUT"])
+        except ValueError as exc:
+            raise ValueError("MOLTRES_QUERY_TIMEOUT must be a number") from exc
 
     if "MOLTRES_ALLOWED_PATHS" in os.environ:
         config["allowed_paths"] = tuple(
@@ -82,6 +97,42 @@ def _load_env_config() -> dict[str, object]:
         )
 
     return config
+
+
+def validate_connection_string(dsn: str, *, is_async: bool = False) -> None:
+    """Validate a database connection string."""
+    from .utils.exceptions import DatabaseConnectionError
+
+    if not dsn or not isinstance(dsn, str):
+        raise DatabaseConnectionError(
+            f"Connection string must be a non-empty string, got: {type(dsn).__name__}"
+        )
+
+    dsn_lower = dsn.lower()
+    if dsn_lower.startswith("sqlite"):
+        if is_async and "+aiosqlite" not in dsn_lower:
+            raise DatabaseConnectionError(
+                f"Async SQLite connection requires 'sqlite+aiosqlite://' prefix. Got: {dsn[:50]}...",
+                suggestion="Use 'sqlite+aiosqlite:///path/to/db.db' for async SQLite connections.",
+            )
+    elif dsn_lower.startswith("postgresql"):
+        if is_async and "+asyncpg" not in dsn_lower:
+            raise DatabaseConnectionError(
+                f"Async PostgreSQL connection requires 'postgresql+asyncpg://' prefix. Got: {dsn[:50]}...",
+                suggestion="Use 'postgresql+asyncpg://user:pass@host:port/dbname' for async PostgreSQL connections.",
+            )
+    elif dsn_lower.startswith("mysql"):
+        if is_async and "+aiomysql" not in dsn_lower:
+            raise DatabaseConnectionError(
+                f"Async MySQL connection requires 'mysql+aiomysql://' prefix. Got: {dsn[:50]}...",
+                suggestion="Use 'mysql+aiomysql://user:pass@host:port/dbname' for async MySQL connections.",
+            )
+
+    if "://" not in dsn:
+        raise DatabaseConnectionError(
+            f"Connection string must include '://' separator. Got: {dsn[:50]}...",
+            suggestion="Connection strings should follow the format: 'dialect://user:pass@host:port/dbname'",
+        )
 
 
 def create_config(
@@ -160,6 +211,8 @@ def create_config(
         if dsn and (dsn.startswith("sqlite:///") or dsn.startswith("sqlite+aiosqlite:///")):
             # Replace backslashes with forward slashes in the path part
             dsn = dsn.replace("\\", "/")
+        if dsn is not None:
+            validate_connection_string(dsn, is_async=False)
     else:
         # If engine or session is provided, ignore dsn
         if dsn is not None:

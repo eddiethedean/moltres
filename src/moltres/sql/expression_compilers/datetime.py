@@ -288,17 +288,21 @@ def compile_datetime_operation(
         return result
 
     if op == "date_trunc":
-        col_expr = compiler._compile(expression.args[0])
-        unit = expression.args[1]
+        trunc_unit_arg = expression.args[0]
+        if not isinstance(trunc_unit_arg, str):
+            raise TypeError(
+                f"Expected string for date_trunc unit, got {type(trunc_unit_arg).__name__}"
+            )
+        trunc_unit: str = trunc_unit_arg
+        col_expr = compiler._compile(expression.args[1])
         if compiler.dialect.name == "postgresql":
-            result = func.date_trunc(unit, col_expr)
+            result = func.date_trunc(trunc_unit, col_expr)
         elif compiler.dialect.name == "duckdb":
-            result = func.date_trunc(unit, col_expr)
+            result = func.date_trunc(trunc_unit, col_expr)
         else:
-            # MySQL/SQLite: use workaround
             from sqlalchemy import literal_column
 
-            result = literal_column(f"DATE_TRUNC('{unit}', {col_expr})")
+            result = literal_column(f"DATE_TRUNC('{trunc_unit}', {col_expr})")
         if expression._alias:
             result = result.label(expression._alias)
         return result

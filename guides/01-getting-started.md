@@ -1,6 +1,8 @@
-# Getting Started with Moltres
+# Complete Getting Started Tutorial
 
-This guide will help you get up and running with Moltres in minutes.
+**Time:** ~30 minutes for this full tutorial. For a faster path, start with the [5-minute quick start](https://moltres.readthedocs.io/en/latest/guides/quick-start.html) and run `docs/examples/01_connecting.py` and `02_dataframe_basics.py`.
+
+This guide walks through Moltres step by step with runnable examples.
 
 ## Installation
 
@@ -187,7 +189,7 @@ df = (
 # SQL is compiled and executed here
 results = df.collect()
 print(results)
-# Output: [{'id': 1, 'name': 'Alice', 'age': 30, 'email': 'alice@example.com', 'active': 1}, {'id': 2, 'name': 'Bob', 'age': 25, 'email': 'bob@example.com', 'active': 1}]
+# Output: [{'name': 'Alice', 'email': 'alice@example.com'}, {'name': 'Bob', 'email': 'bob@example.com'}]
 
 ```
 

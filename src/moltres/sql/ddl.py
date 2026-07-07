@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 from sqlalchemy import (
@@ -31,6 +32,21 @@ from ..table.schema import (  # noqa: E402
     ForeignKeyConstraint as MoltresForeignKeyConstraint,
 )
 from .builders import format_literal  # noqa: E402
+from ..utils.exceptions import ValidationError  # noqa: E402
+
+_CHECK_EXPRESSION_UNSAFE = re.compile(
+    r"[;]|--|/\*|\b(select|insert|update|delete|drop|create|alter|union)\b",
+    re.IGNORECASE,
+)
+
+
+def _validate_check_expression(expression: str) -> None:
+    if _CHECK_EXPRESSION_UNSAFE.search(expression):
+        raise ValidationError(
+            "CHECK constraint expression contains unsupported SQL constructs. "
+            "Provide a simple boolean expression using column references and literals."
+        )
+
 
 if TYPE_CHECKING:
     pass
@@ -148,6 +164,7 @@ def _compile_create_table_sqlalchemy(schema: TableSchema, engine: Any) -> str:
             )
             sa_constraints.append(UniqueConstraint(*cols, name=constraint.name))
         elif isinstance(constraint, MoltresCheckConstraint):
+            _validate_check_expression(constraint.expression)
             sa_constraints.append(
                 CheckConstraint(text(constraint.expression), name=constraint.name)
             )
@@ -251,6 +268,7 @@ def _compile_create_table_with_string_fks(schema: TableSchema, engine: Any) -> s
             )
             sa_constraints.append(UniqueConstraint(*cols, name=constraint.name))
         elif isinstance(constraint, MoltresCheckConstraint):
+            _validate_check_expression(constraint.expression)
             sa_constraints.append(
                 CheckConstraint(text(constraint.expression), name=constraint.name)
             )

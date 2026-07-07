@@ -24,6 +24,7 @@ python docs/examples/01_connecting.py
 | `12_sql_operations.py` | SQL introspection, union semantics |
 | `13_transactions.py` | Transactions |
 | `14_reflection.py` | Schema reflection |
+| `17_sqlalchemy_models.py` | SQLAlchemy model integration |
 
 ## Interfaces and UX
 
@@ -40,9 +41,7 @@ python docs/examples/01_connecting.py
 | Script | Topic |
 |--------|-------|
 | `20_sqlalchemy_integration.py` | SQLAlchemy engine/session |
-| `20_transaction_control.py` | Transaction control patterns |
 | `21_sqlmodel_integration.py` | SQLModel / Pydantic |
-| `21_transaction_utilities.py` | Transaction helpers |
 | `22_fastapi_integration.py` | FastAPI |
 | `23_django_integration.py` | Django |
 | `25_streamlit_integration.py` | Streamlit |
@@ -51,4 +50,13 @@ python docs/examples/01_connecting.py
 | `28_prefect_integration.py` | Prefect |
 | `29_dbt_integration.py` | dbt |
 
-See also the narrative [Common Patterns](EXAMPLES.md) guide and the [Getting Started](guides/getting-started.md) tutorial.
+## Transactions (advanced)
+
+| Script | Topic |
+|--------|-------|
+| `31_transaction_control.py` | Savepoints, isolation, locking |
+| `32_transaction_utilities.py` | Decorators, hooks, retries, metrics |
+
+> **Note:** Scripts `20` and `31`/`32` use distinct number ranges. Transaction examples were renumbered to `31_*` and `32_*` to avoid colliding with SQLAlchemy/SQLModel integration scripts.
+
+See also the [Common Patterns](guides/common-patterns.md) guide and the [Quick Start](guides/quick-start.md) tutorial.

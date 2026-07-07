@@ -62,6 +62,13 @@ def compile_logical_operation(
         value, options = expression.args
         if not isinstance(options, (list, tuple)):
             raise TypeError(f"Expected iterable for 'in' options, got {type(options).__name__}")
+        if not options:
+            from sqlalchemy import false
+
+            result = false()
+            if expression._alias:
+                result = result.label(expression._alias)
+            return result
         option_values = [compiler._compile(opt) for opt in options]
         result = compiler._compile(value).in_(option_values)
         if expression._alias:

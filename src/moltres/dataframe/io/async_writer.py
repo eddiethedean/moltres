@@ -85,6 +85,14 @@ class AsyncDataFrameWriter:
 
         return build_stream_setter(self, enabled)
 
+    def _resolve_output_path(self, path: str) -> Path:
+        from ..helpers.reader_helpers import resolve_write_path
+
+        database = self._df.database
+        if database is None:
+            raise ValueError("DataFrame must be associated with a database to resolve output paths")
+        return resolve_write_path(path, database)
+
     def partitionBy(self, *columns: str) -> AsyncDataFrameWriter:
         """Partition data by the given columns when writing to files."""
         from ..helpers.writer_helpers import build_partition_by_setter
@@ -704,7 +712,7 @@ class AsyncDataFrameWriter:
         header = cast(bool, self._options.get("header", True))
         delimiter = cast(str, self._options.get("delimiter", ","))
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -748,7 +756,7 @@ class AsyncDataFrameWriter:
 
         indent = cast(Optional[int], self._options.get("indent"))
         use_stream = self._should_stream_output() and indent in (None, 0)
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -783,7 +791,7 @@ class AsyncDataFrameWriter:
                 "See https://github.com/eddiethedean/moltres/issues for feature requests."
             )
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -813,7 +821,7 @@ class AsyncDataFrameWriter:
         line_sep = cast(str, self._options.get("lineSep", "\n"))
         encoding = cast(str, self._options.get("encoding", "utf-8"))
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -857,7 +865,7 @@ class AsyncDataFrameWriter:
         pa_mod = cast(Any, pa)
         pq_mod = cast(Any, pq)
 
-        path_obj = Path(path)
+        path_obj = self._resolve_output_path(path)
         if not self._prepare_file_target(path_obj):
             return
         path_obj.parent.mkdir(parents=True, exist_ok=True)

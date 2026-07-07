@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Quick validation that all examples are runnable."""
+"""Validate documentation examples: syntax-check markdown snippets and run example scripts."""
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -103,6 +104,33 @@ def validate_examples(markdown_path: Path) -> tuple[int, int]:
     return passed, failed
 
 
+def validate_example_scripts(project_root: Path) -> tuple[int, int]:
+    """Run all docs/examples/*.py scripts and return (passed, failed) counts."""
+    examples_dir = project_root / "docs" / "examples"
+    scripts = sorted(examples_dir.glob("*.py"))
+    if not scripts:
+        return 0, 0
+
+    passed = 0
+    failed = 0
+    for script in scripts:
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"❌ {script.name} failed (exit {result.returncode})")
+            if result.stderr:
+                print(result.stderr.strip()[:500])
+            failed += 1
+        else:
+            passed += 1
+
+    return passed, failed
+
+
 def main():
     """Main entry point."""
     project_root = Path(__file__).parent.parent
@@ -128,12 +156,22 @@ def main():
     total_passed = 0
     total_failed = 0
 
+    print("Validating markdown code blocks...")
     for file_path in markdown_files:
         passed, failed = validate_examples(file_path)
         total_passed += passed
         total_failed += failed
 
-    print(f"\nSummary: {total_passed} examples passed, {total_failed} failed")
+    print("\nRunning docs/examples/*.py scripts...")
+    script_passed, script_failed = validate_example_scripts(project_root)
+    total_passed += script_passed
+    total_failed += script_failed
+    if script_failed:
+        print(f"  {script_passed} scripts passed, {script_failed} failed")
+    else:
+        print(f"  {script_passed} scripts passed")
+
+    print(f"\nSummary: {total_passed} checks passed, {total_failed} failed")
 
     if total_failed > 0:
         return 1

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 from moltres import col, lit
-from moltres.expressions.when import when
+from moltres.expressions import when
 
 
 class TestWhenBuilder:
@@ -14,7 +14,6 @@ class TestWhenBuilder:
         """Test WhenBuilder initialization."""
         builder = when(col("age") >= 18, "adult")
         assert len(builder._conditions) == 1
-        assert builder._otherwise is None
 
     def test_when_builder_chaining(self):
         """Test chaining multiple WHEN clauses."""
@@ -29,7 +28,8 @@ class TestWhenBuilder:
         """Test adding ELSE clause."""
         expr = when(col("age") >= 18, "adult").otherwise("minor")
         assert expr.op == "case_when"
-        assert len(expr.args) == 3  # condition, value, otherwise
+        assert len(expr.args) == 2
+        assert len(expr.args[0]) == 1
 
     def test_when_builder_multiple_conditions(self):
         """Test multiple WHEN conditions."""
@@ -40,8 +40,8 @@ class TestWhenBuilder:
             .otherwise("F")
         )
         assert expr.op == "case_when"
-        # Should have 7 args: 3 conditions (6) + 1 otherwise
-        assert len(expr.args) == 7
+        assert len(expr.args) == 2
+        assert len(expr.args[0]) == 3
 
     def test_when_builder_without_otherwise(self):
         """Test WHEN without otherwise (should still work)."""

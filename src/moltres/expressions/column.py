@@ -385,6 +385,13 @@ class Column(Expression):
         if hasattr(values, "plan") and hasattr(values, "database"):
             # It's a DataFrame - store the plan for subquery compilation
             return Column(op="in_subquery", args=(self, values.plan))
+        if isinstance(values, (str, bytes)):
+            raise TypeError(
+                "isin() expects an iterable of values, not a single string. "
+                "Use isin([value]) for a single string value."
+            )
+        if not values:
+            return Column(op="in", args=(self, ()))
         # Otherwise, it's an iterable of values
         expr_values = tuple(ensure_column(value) for value in values)
         return Column(op="in", args=(self, expr_values))

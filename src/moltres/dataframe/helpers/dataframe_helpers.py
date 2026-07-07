@@ -526,6 +526,6 @@ class DataFrameHelpersMixin:
                 normalized.append((entry[0], entry[1]))
             else:
                 # At this point, entry must be a string (not a Column, as we've already checked)
-                assert isinstance(entry, str), "entry must be a string at this point"
+                raise ValueError(f"Join key entry must be a string, got {type(entry).__name__}")
                 normalized.append((entry, entry))
         return normalized

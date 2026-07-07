@@ -174,7 +174,13 @@ class EphemeralTableManager:
 
         # Insert data (exclude new auto-increment columns from INSERT)
         if rows:
-            # Filter rows to only include columns that exist in schema and are not new auto-increment columns
+            expected_keys = {col.name for col in inferred_schema_list}
+            for row in rows:
+                extra_keys = set(row.keys()) - expected_keys - set(new_auto_increment_cols)
+                if extra_keys:
+                    raise ValidationError(
+                        f"Unexpected columns in createDataFrame data: {sorted(extra_keys)}"
+                    )
             filtered_rows = []
             for row in rows:
                 filtered_row = {

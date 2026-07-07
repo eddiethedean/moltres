@@ -6,7 +6,7 @@ Moltres DataFrames and SQLAlchemy statements.
 """
 
 from moltres import connect, col
-from moltres.dataframe.dataframe import DataFrame
+from moltres.dataframe import DataFrame
 from moltres.table.schema import column
 from moltres.integrations.sqlalchemy import (
     execute_with_connection,

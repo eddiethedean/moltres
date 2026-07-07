@@ -730,8 +730,8 @@ db = connect(
 ### ETL Pipeline
 
 ```python
-# Extract: Load from CSV (returns Records)
-raw_records = db.load.csv("raw_data.csv")
+# Extract: Load from CSV as Records (for inserts)
+raw_records = db.read.records.csv("raw_data.csv")
 
 # Load raw data into staging table first
 db.create_table("staging", [
@@ -739,7 +739,7 @@ db.create_table("staging", [
     column("name", "TEXT"),
     column("amount", "REAL"),
     column("category", "TEXT"),
-])
+]).collect()
 raw_records.insert_into("staging")
 
 # Transform: Use SQL operations on the table
@@ -957,7 +957,7 @@ db.delete(
     "orders",
     where=(
         (col("status") == "cancelled")
-        (col("cancelled_at") < "2023-01-01")
+        & (col("cancelled_at") < "2023-01-01")
     )
 )
 ```
@@ -967,6 +967,9 @@ db.delete(
 #### Express SQL Models in Python with DataFrame Chaining
 
 ```python
+# requires: db, col, F; from moltres.expressions import when
+from moltres.expressions import when
+
 # Build analytics models using DataFrame chaining
 # Similar to dbt, but in Python with full type safety
 

@@ -21,7 +21,7 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 
 ## ✨ Key Features
 
-- 🚀 **PySpark-Style DataFrame API** - Primary API; see [PySpark compatibility notes](docs/PYSPARK_MIGRATION_INCONSISTENCIES.md) for details
+- 🚀 **PySpark-Style DataFrame API** - High compatibility for core operations; see [migration footguns](docs/PYSPARK_MIGRATION_INCONSISTENCIES.md)
 - 🗄️ **SQL Pushdown Execution** - All operations compile to SQL and run on your database
 - ✏️ **Real SQL CRUD** - INSERT, UPDATE, DELETE with DataFrame-style syntax
 - 🐼 **Pandas & Polars Interfaces** - Optional pandas/polars-style APIs
@@ -34,14 +34,12 @@ Transform millions of rows using familiar DataFrame operations—all executed di
 ```bash
 pip install moltres
 
-# Optional extras
-pip install moltres[async-postgresql]  # Async PostgreSQL
+# Common optional extras
 pip install moltres[pandas,polars]     # Pandas/Polars result formats
-pip install moltres[sqlmodel]          # SQLModel/Pydantic integration
-pip install moltres[streamlit]        # Streamlit integration
-pip install moltres[parquet]          # Parquet file I/O (pyarrow)
-pip install moltres[fastapi]          # FastAPI integration helpers
-pip install moltres[duckdb]            # DuckDB SQLAlchemy dialect
+pip install moltres[async-postgresql]  # Async PostgreSQL
+pip install moltres[parquet,duckdb,fastapi]  # File I/O, DuckDB, FastAPI helpers
+
+# Full extras table: docs/PUBLIC_API.md#optional-extras
 ```
 
 ### `moltres-core` and pydantable
@@ -68,7 +66,7 @@ pip install -e .
 
 ## 🚀 Quick Start
 
-**New here?** Follow the [5-minute getting started guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html) first.
+**New here?** Start with the [5-minute quick start](https://moltres.readthedocs.io/en/latest/guides/quick-start.html), then the [complete tutorial](https://moltres.readthedocs.io/en/latest/guides/getting-started.html) when you want more depth.
 
 ```python
 from moltres import col, connect
@@ -94,25 +92,13 @@ with connect("sqlite:///:memory:") as db:
         .agg(F.sum(col("amount")).alias("total_amount"))
     )
     print(df.collect())  # [{'country': 'US', 'total_amount': 100.0}]
+
+    # CRUD: update and delete rows
+    db.update("orders", where=col("country") == "US", set={"amount": 150.0})
+    db.delete("orders", where=col("amount") < 50)
 ```
 
-### CRUD Operations
-
-```python
-from moltres.io.records import Records
-
-# Insert rows
-Records.from_list([
-    {"id": 1, "name": "Alice", "email": "alice@example.com"},
-    {"id": 2, "name": "Bob", "email": "bob@example.com"},
-], database=db).insert_into("users")
-
-# Update rows
-db.update("users", where=col("active") == 0, set={"active": 1})
-
-# Delete rows
-db.delete("users", where=col("email").is_null())
-```
+For a fuller CRUD walkthrough (separate tables, `Records`, merge), see the [complete tutorial](https://moltres.readthedocs.io/en/latest/guides/getting-started.html#inserting-data).
 
 ### Reading Data: Tables vs Files
 
@@ -129,7 +115,8 @@ See [Public API guide](docs/PUBLIC_API.md) for stable import paths.
 - **[Roadmap](ROADMAP.md)** - Future 1.x release phases and competitive priorities
 - **[Public API](https://moltres.readthedocs.io/en/latest/PUBLIC_API.html)** - Stable imports and I/O patterns
 
-- **[Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)** - Step-by-step introduction (start here)
+- **[Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/quick-start.html)** - 5-minute quick start (start here)
+- **[Complete Tutorial](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)** - Full step-by-step introduction
 - **[Examples](https://moltres.readthedocs.io/en/latest/EXAMPLE_SCRIPTS.html)** - Runnable example scripts
 - **[User Guides](https://moltres.readthedocs.io/en/latest/#guides-how-to)** - Complete guides for all features
 - **[API Reference](https://moltres.readthedocs.io/en/latest/api/dataframe.html)** - Complete API documentation

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import warnings
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ from sqlalchemy.exc import SAWarning
 from moltres_core.config import EngineConfig
 from moltres_core.exceptions import ExecutionError
 from moltres_core.sql.async_connection import AsyncConnectionManager
+from moltres_core.sql.execution import _safe_execution_context, _sql_for_logging
 
 if TYPE_CHECKING:
     from sqlalchemy.sql import Select
@@ -43,6 +45,7 @@ _async_perf_hooks: dict[str, list[Callable[[str, float, dict[str, Any]], None]]]
     "query_start": [],
     "query_end": [],
 }
+_perf_hooks_lock = threading.Lock()
 
 # Type alias for result rows - can be records, pandas DataFrame, or polars DataFrame
 if TYPE_CHECKING:
@@ -96,9 +99,9 @@ class AsyncQueryExecutor:
 
         # Convert SQLAlchemy statement to string for logging
         if isinstance(stmt, Select):
-            sql_str = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+            sql_str = _sql_for_logging(stmt)
         else:
-            sql_str = str(stmt)[:200] if len(str(stmt)) > 200 else str(stmt)
+            sql_str = _sql_for_logging(stmt)
 
         logger.debug("Executing async query: %s", sql_str)
 
@@ -140,6 +143,13 @@ class AsyncQueryExecutor:
                             exec_result = await sqlmodel_session.exec(stmt)
                             # .exec() returns an iterable of SQLModel instances
                             sqlmodel_instances = list(exec_result)
+                            elapsed = time.perf_counter() - start_time
+                            _call_async_hooks(
+                                "query_end",
+                                sql_str,
+                                elapsed,
+                                {"rowcount": len(sqlmodel_instances)},
+                            )
                             return AsyncQueryResult(
                                 rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
                             )
@@ -185,6 +195,13 @@ class AsyncQueryExecutor:
                             exec_result = await sqlmodel_session.exec(stmt)
                             # .exec() returns an iterable of SQLModel instances
                             sqlmodel_instances = list(exec_result)
+                            elapsed = time.perf_counter() - start_time
+                            _call_async_hooks(
+                                "query_end",
+                                sql_str,
+                                elapsed,
+                                {"rowcount": len(sqlmodel_instances)},
+                            )
                             return AsyncQueryResult(
                                 rows=sqlmodel_instances, rowcount=len(sqlmodel_instances)
                             )
@@ -253,8 +270,11 @@ class AsyncQueryExecutor:
             # Include SQL query text in the error message for easier debugging
             sql_preview = sql_str[:500] + "..." if len(sql_str) > 500 else sql_str
             raise ExecutionError(
-                f"Async SQL execution failed: {exc}\nSQL query: {sql_preview}",
-                context={"sql": sql_str, "params": params, "elapsed_seconds": elapsed},
+                f"Async SQL execution failed: {exc}",
+                context=_safe_execution_context(
+                    elapsed_seconds=elapsed,
+                    params=params,
+                ),
             ) from exc
 
     async def execute(
@@ -424,7 +444,8 @@ def register_async_performance_hook(
         raise ValueError(
             f"Unknown event type: {event}. Valid events: {list(_async_perf_hooks.keys())}"
         )
-    _async_perf_hooks[event].append(callback)
+    with _perf_hooks_lock:
+        _async_perf_hooks[event].append(callback)
 
 
 def unregister_async_performance_hook(
@@ -442,7 +463,7 @@ def unregister_async_performance_hook(
 
 def _call_async_hooks(event: str, sql: str, elapsed: float, metadata: dict[str, Any]) -> None:
     """Call all registered async hooks for an event."""
-    for hook in _async_perf_hooks.get(event, []):
+    for hook in list(_async_perf_hooks.get(event, [])):
         try:
             hook(sql, elapsed, metadata)
         except Exception as exc:

@@ -535,13 +535,18 @@ class SQLCompiler:
             agg = agg_func_map.get(plan.agg_func.lower(), func.sum)
             assert agg is not None  # Always has default
 
+            from ..expressions.column import col
+
+            pivot_col_expr = self._expr.compile_expr(col(plan.pivot_column))
+            value_col_expr = self._expr.compile_expr(col(plan.value_column))
+
             for pivot_value in plan.pivot_values:
                 # Create aggregation with CASE WHEN
                 case_expr = agg(
                     sa_case(
                         (
-                            literal_column(plan.pivot_column) == literal(pivot_value),
-                            literal_column(plan.value_column),
+                            pivot_col_expr == literal(pivot_value),
+                            value_col_expr,
                         ),
                         else_=None,
                     )
@@ -592,18 +597,17 @@ class SQLCompiler:
             agg = grouped_agg_func_map.get(plan.agg_func.lower(), func.sum)
             assert agg is not None  # Always has default
 
-            for pivot_value in plan.pivot_values:
-                # Create aggregation with CASE WHEN
-                # Reference columns from the child subquery using literal_column
-                # SQLAlchemy will resolve these from the subquery context
+            from ..expressions.column import col
 
-                pivot_col_ref: ColumnElement[Any] = literal_column(plan.pivot_column)
-                value_col_ref: ColumnElement[Any] = literal_column(plan.value_column)
+            pivot_col_expr = self._expr.compile_expr(col(plan.pivot_column))
+            value_col_expr = self._expr.compile_expr(col(plan.value_column))
+
+            for pivot_value in plan.pivot_values:
                 case_expr = agg(
                     sa_case(
                         (
-                            pivot_col_ref == literal(pivot_value),
-                            value_col_ref,
+                            pivot_col_expr == literal(pivot_value),
+                            value_col_expr,
                         ),
                         else_=None,
                     )

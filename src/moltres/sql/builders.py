@@ -28,21 +28,30 @@ def quote_identifier(identifier: str, quote_char: str = '"') -> str:
     if not identifier or not identifier.strip():
         raise ValidationError("SQL identifier cannot be empty")
 
-    # Validate identifier parts (alphanumeric, underscore, and dot for qualified names)
-    # SQL identifiers can contain letters, digits, underscores, and dots for schema.table
-    # We allow dots for qualified names like "schema.table"
     parts = identifier.split(".")
     for part in parts:
         if not part:
             raise ValidationError(f"SQL identifier contains empty part: {identifier!r}")
-        # Check for SQL injection patterns (semicolons, comments, etc.)
-        if re.search(r"[;\'\"\\]", part):
+        if re.search(r"[;\'\"\\`]", part):
+            raise ValidationError(
+                f"SQL identifier contains invalid characters: {identifier!r}. "
+                "Identifiers may only contain letters, digits, underscores, and dots."
+            )
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", part):
             raise ValidationError(
                 f"SQL identifier contains invalid characters: {identifier!r}. "
                 "Identifiers may only contain letters, digits, underscores, and dots."
             )
 
-    quoted = [f"{quote_char}{part}{quote_char}" for part in parts if part]
+    if quote_char == "`":
+        quoted = [f"`{part.replace('`', '``')}`" for part in parts if part]
+    else:
+        escaped_char = quote_char * 2
+        quoted = [
+            f"{quote_char}{part.replace(quote_char, escaped_char)}{quote_char}"
+            for part in parts
+            if part
+        ]
     return ".".join(quoted) if quoted else identifier
 
 

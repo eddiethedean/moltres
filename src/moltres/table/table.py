@@ -199,6 +199,7 @@ class Transaction:
         readonly: bool = False,
         isolation_level: Optional[str] = None,
         is_savepoint: bool = False,
+        savepoint_name: Optional[str] = None,
     ):
         """Initialize a transaction context.
 
@@ -208,6 +209,7 @@ class Transaction:
             readonly: Whether this transaction is read-only
             isolation_level: Transaction isolation level
             is_savepoint: Whether this transaction is actually a savepoint
+            savepoint_name: Name of the savepoint when ``is_savepoint`` is True
         """
         self.database = database
         self.connection = connection
@@ -216,6 +218,15 @@ class Transaction:
         self._readonly = readonly
         self._isolation_level = isolation_level
         self._is_savepoint = is_savepoint
+        self._savepoint_name = savepoint_name
+
+    def _resolve_savepoint_name(self) -> str:
+        if self._savepoint_name:
+            return self._savepoint_name
+        stack = self.database.connection_manager.savepoint_stack
+        if stack:
+            return stack[-1]
+        raise RuntimeError("Savepoint transaction has no associated savepoint name")
 
     def commit(self) -> None:
         """Explicitly commit the transaction.
@@ -225,6 +236,10 @@ class Transaction:
         """
         if self._committed or self._rolled_back:
             raise RuntimeError("Transaction already committed or rolled back")
+        if self._is_savepoint:
+            self.release_savepoint(self._resolve_savepoint_name())
+            self._committed = True
+            return
         self.database.connection_manager.commit_transaction(self.connection)
         self._committed = True
 
@@ -241,6 +256,10 @@ class Transaction:
         """
         if self._committed or self._rolled_back:
             raise RuntimeError("Transaction already committed or rolled back")
+        if self._is_savepoint:
+            self.rollback_to_savepoint(self._resolve_savepoint_name())
+            self._rolled_back = True
+            return
         self.database.connection_manager.rollback_transaction(self.connection)
         self._rolled_back = True
 
@@ -419,6 +438,10 @@ class Database:
         self._ephemeral_tables: set[str] = set()
         self._closed = False
         _ACTIVE_DATABASES.add(self)
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("Database is closed")
 
     def __repr__(self) -> str:
         """Return a user-friendly string representation of the Database."""
@@ -680,9 +703,9 @@ class Database:
         for table_name in list(self._ephemeral_tables):
             try:
                 self.drop_table(table_name, if_exists=True).collect()
+                self._ephemeral_tables.discard(table_name)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.debug("Failed to drop ephemeral table %s: %s", table_name, exc)
-        self._ephemeral_tables.clear()
 
     @overload
     def table(self, name: str) -> TableHandle:
@@ -742,6 +765,7 @@ class Database:
         """
         from .table_manager import TableManager
 
+        self._ensure_open()
         table_manager = TableManager(self)
         return table_manager.table(name_or_model)
 
@@ -991,6 +1015,7 @@ class Database:
             150.0
             >>> db.close()
         """
+        self._ensure_open()
         from ..dataframe.core.dataframe import DataFrame
         from ..logical import operators
 
@@ -1792,6 +1817,7 @@ class Database:
                 >>> with db.transaction(isolation_level="SERIALIZABLE") as txn:
                 ...     # ... critical operations requiring highest isolation ...
         """
+        self._ensure_open()
         # Check if there's already an active transaction (for savepoint detection)
         had_active_transaction = self._connections.active_transaction is not None
 
@@ -1807,6 +1833,12 @@ class Database:
         # this is a savepoint transaction
         is_savepoint_txn = savepoint and had_active_transaction
 
+        savepoint_name: Optional[str] = None
+        if is_savepoint_txn:
+            savepoint_stack = self._connections.savepoint_stack
+            if savepoint_stack:
+                savepoint_name = savepoint_stack[-1]
+
         txn = Transaction(
             self,
             connection,
@@ -1815,14 +1847,8 @@ class Database:
             if metadata
             else isolation_level,
             is_savepoint=is_savepoint_txn,
+            savepoint_name=savepoint_name,
         )
-
-        # Track savepoint name if this is a savepoint
-        savepoint_name: Optional[str] = None
-        if is_savepoint_txn:
-            savepoint_stack = self._connections.savepoint_stack
-            if savepoint_stack:
-                savepoint_name = savepoint_stack[-1]
 
         # Call Transaction's __enter__ to set up hooks and metrics
         from ..utils.transaction_hooks import _execute_hooks, _on_begin_hooks
@@ -1857,12 +1883,7 @@ class Database:
             exc_info = exc
             if not txn._rolled_back:
                 if is_savepoint_txn and savepoint_name:
-                    # For savepoints, rollback to the savepoint
-                    try:
-                        txn.rollback_to_savepoint(savepoint_name)
-                    except RuntimeError:
-                        # Fallback to regular rollback if savepoint rollback fails
-                        txn.rollback()
+                    txn.rollback_to_savepoint(savepoint_name)
                 else:
                     txn.rollback()
             raise
@@ -1946,6 +1967,7 @@ class Database:
             >>> plf = pl.DataFrame([{"id": 1, "name": "Alice"}])
             >>> df = db.createDataFrame(plf, pk="id")
         """
+        self._ensure_open()
         from .ephemeral_manager import EphemeralTableManager
 
         manager = EphemeralTableManager(self)

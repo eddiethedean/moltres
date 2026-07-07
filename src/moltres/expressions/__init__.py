@@ -132,7 +132,7 @@ from .functions import (
     weekofyear,
     year,
 )
-from .when import when
+from .functions.misc import when
 from .window import (
     Window,
     WindowSpec,

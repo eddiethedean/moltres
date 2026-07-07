@@ -27,6 +27,8 @@ class ConnectionManager:
         self.config = config
         self._engine: Engine | None = None
         self._session: object | None = None  # SQLAlchemy Session
+        self._disposed = False
+        self._open_transaction_count = 0
 
     @property
     def _active_transaction(self) -> Optional[Connection]:
@@ -111,6 +113,8 @@ class ConnectionManager:
 
     @property
     def engine(self) -> Engine:
+        if self._disposed:
+            raise RuntimeError("Connection manager has been closed")
         if self._engine is None:
             self._engine = self._create_engine()
         return self._engine
@@ -149,6 +153,23 @@ class ConnectionManager:
             with self.engine.begin() as connection:
                 yield connection
 
+    def _abort_failed_begin(self, connection: Connection) -> None:
+        """Roll back and reset state after a failed ``begin_transaction`` setup."""
+        try:
+            if connection.in_transaction():
+                connection.rollback()
+        except Exception:
+            pass
+        if self._owns_connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+        self._active_transaction = None
+        self._savepoint_stack = []
+        self._transaction_metadata = None
+        clear_transaction_state()
+
     def begin_transaction(
         self,
         savepoint: bool = False,
@@ -174,7 +195,11 @@ class ConnectionManager:
         """
         if self._active_transaction is not None:
             if savepoint:
-                # Create a savepoint instead of a new transaction
+                if readonly or isolation_level is not None or timeout is not None:
+                    raise ValueError(
+                        "readonly, isolation_level, and timeout cannot be set on "
+                        "nested savepoint transactions"
+                    )
                 savepoint_name = self._generate_savepoint_name()
                 return self.create_savepoint(self._active_transaction, savepoint_name)
             else:
@@ -215,10 +240,7 @@ class ConnectionManager:
         # Set isolation level if specified
         if isolation_level:
             if not dialect_spec.supports_isolation_levels:
-                if self._owns_connection:
-                    self._active_transaction.close()
-                self._active_transaction = None
-                clear_transaction_state()
+                self._abort_failed_begin(connection)
                 raise ValueError(
                     f"Dialect '{dialect_name}' does not support isolation levels. "
                     "SQLite only supports SERIALIZABLE and READ UNCOMMITTED via PRAGMA."
@@ -228,10 +250,7 @@ class ConnectionManager:
         # Set read-only mode if specified
         if readonly:
             if not dialect_spec.supports_read_only_transactions:
-                if self._owns_connection:
-                    self._active_transaction.close()
-                self._active_transaction = None
-                clear_transaction_state()
+                self._abort_failed_begin(connection)
                 raise ValueError(
                     f"Dialect '{dialect_name}' does not support read-only transactions."
                 )
@@ -241,6 +260,7 @@ class ConnectionManager:
         if timeout:
             self._set_timeout(self._active_transaction, timeout, dialect_name)
 
+        self._open_transaction_count += 1
         return self._active_transaction
 
     def _generate_savepoint_name(self) -> str:
@@ -378,6 +398,7 @@ class ConnectionManager:
             if owns:
                 connection.close()
             clear_transaction_state()
+            self._open_transaction_count = max(0, self._open_transaction_count - 1)
 
     def rollback_transaction(self, connection: Connection) -> None:
         """Rollback a transaction.
@@ -394,6 +415,7 @@ class ConnectionManager:
             if owns:
                 connection.close()
             clear_transaction_state()
+            self._open_transaction_count = max(0, self._open_transaction_count - 1)
 
     def close(self) -> None:
         """Rollback any active transaction and dispose the engine if owned."""
@@ -408,9 +430,13 @@ class ConnectionManager:
                 except Exception:
                     pass
             clear_transaction_state()
+            self._open_transaction_count = max(0, self._open_transaction_count - 1)
+        if self._open_transaction_count > 0:
+            raise RuntimeError("Cannot close database while transactions are active")
         if self.config.owns_engine and self._engine is not None:
             self._engine.dispose(close=True)
             self._engine = None
+        self._disposed = True
 
     @property
     def active_transaction(self) -> Optional[Connection]:

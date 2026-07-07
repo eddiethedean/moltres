@@ -142,6 +142,7 @@ class AsyncTransaction:
         readonly: bool = False,
         isolation_level: Optional[str] = None,
         is_savepoint: bool = False,
+        savepoint_name: Optional[str] = None,
     ):
         """Initialize an async transaction context.
 
@@ -151,6 +152,7 @@ class AsyncTransaction:
             readonly: Whether this transaction is read-only
             isolation_level: Transaction isolation level
             is_savepoint: Whether this transaction is actually a savepoint
+            savepoint_name: Name of the savepoint when ``is_savepoint`` is True
         """
         self.database = database
         self.connection = connection
@@ -159,11 +161,24 @@ class AsyncTransaction:
         self._readonly = readonly
         self._isolation_level = isolation_level
         self._is_savepoint = is_savepoint
+        self._savepoint_name = savepoint_name
+
+    def _resolve_savepoint_name(self) -> str:
+        if self._savepoint_name:
+            return self._savepoint_name
+        stack = self.database.connection_manager.savepoint_stack
+        if stack:
+            return stack[-1]
+        raise RuntimeError("Savepoint transaction has no associated savepoint name")
 
     async def commit(self) -> None:
         """Explicitly commit the transaction."""
         if self._committed or self._rolled_back:
             raise RuntimeError("Transaction already committed or rolled back")
+        if self._is_savepoint:
+            await self.release_savepoint(self._resolve_savepoint_name())
+            self._committed = True
+            return
         await self.database.connection_manager.commit_transaction(self.connection)
         self._committed = True
 
@@ -176,6 +191,10 @@ class AsyncTransaction:
         """Explicitly rollback the transaction."""
         if self._committed or self._rolled_back:
             raise RuntimeError("Transaction already committed or rolled back")
+        if self._is_savepoint:
+            await self.rollback_to_savepoint(self._resolve_savepoint_name())
+            self._rolled_back = True
+            return
         await self.database.connection_manager.rollback_transaction(self.connection)
         self._rolled_back = True
 
@@ -341,7 +360,12 @@ class AsyncDatabase:
         self._dialect = get_dialect(self._dialect_name)
         self._ephemeral_tables: set[str] = set()
         self._closed = False
+        self._close_lock = asyncio.Lock()
         _ACTIVE_ASYNC_DATABASES.add(self)
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("Database is closed")
 
     @property
     def connection_manager(self) -> AsyncConnectionManager:
@@ -1483,6 +1507,12 @@ class AsyncDatabase:
         # this is a savepoint transaction
         is_savepoint_txn = savepoint and had_active_transaction
 
+        savepoint_name: Optional[str] = None
+        if is_savepoint_txn:
+            savepoint_stack = self._connections.savepoint_stack
+            if savepoint_stack:
+                savepoint_name = savepoint_stack[-1]
+
         txn = AsyncTransaction(
             self,
             connection,
@@ -1491,40 +1521,53 @@ class AsyncDatabase:
             if metadata
             else isolation_level,
             is_savepoint=is_savepoint_txn,
+            savepoint_name=savepoint_name,
         )
 
-        # Track savepoint name if this is a savepoint
-        savepoint_name: Optional[str] = None
-        if is_savepoint_txn:
-            savepoint_stack = self._connections.savepoint_stack
-            if savepoint_stack:
-                savepoint_name = savepoint_stack[-1]
+        from ..utils.transaction_hooks import _execute_hooks_async, _on_begin_hooks_async
 
+        await _execute_hooks_async(_on_begin_hooks_async, txn)
+
+        import time
+
+        metrics_start_time = time.time()
+        exc_info = None
+        committed = False
         try:
             yield txn
             if not txn._committed and not txn._rolled_back:
                 if is_savepoint_txn and savepoint_name:
-                    # For savepoints, we don't commit - the outer transaction handles it
-                    # But we should release the savepoint
                     try:
                         await txn.release_savepoint(savepoint_name)
                     except RuntimeError:
-                        # Savepoint may have already been released
                         pass
                 else:
                     await txn.commit()
-        except Exception:
+                    committed = True
+            else:
+                committed = txn._committed
+        except Exception as exc:
+            exc_info = exc
             if not txn._rolled_back:
                 if is_savepoint_txn and savepoint_name:
-                    # For savepoints, rollback to the savepoint
-                    try:
-                        await txn.rollback_to_savepoint(savepoint_name)
-                    except RuntimeError:
-                        # Fallback to regular rollback if savepoint rollback fails
-                        await txn.rollback()
+                    await txn.rollback_to_savepoint(savepoint_name)
                 else:
                     await txn.rollback()
             raise
+        finally:
+            from ..utils.transaction_metrics import get_transaction_metrics
+
+            duration = time.time() - metrics_start_time
+            final_committed = committed if not exc_info else False
+            metrics = get_transaction_metrics()
+            metrics.record_transaction(
+                duration=duration,
+                committed=final_committed,
+                has_savepoint=is_savepoint_txn,
+                readonly=readonly,
+                isolation_level=isolation_level,
+                error=exc_info if exc_info else None,
+            )
 
     async def createDataFrame(
         self,
@@ -1729,7 +1772,8 @@ class AsyncDatabase:
 
     async def close(self) -> None:
         """Close the database connection and cleanup resources."""
-        await self._close_resources()
+        async with self._close_lock:
+            await self._close_resources()
 
     async def __aenter__(self) -> "AsyncDatabase":
         """Enter the async database context manager.
@@ -1767,7 +1811,10 @@ class AsyncDatabase:
         if self._closed:
             return
         await self._cleanup_ephemeral_tables()
-        await self._connections.close()
+        try:
+            await self._connections.close()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Error closing async connection manager during close: %s", exc)
         self._closed = True
         _ACTIVE_ASYNC_DATABASES.discard(self)
 
@@ -1783,9 +1830,9 @@ class AsyncDatabase:
         for table_name in list(self._ephemeral_tables):
             try:
                 await self.drop_table(table_name, if_exists=True).collect()
+                self._ephemeral_tables.discard(table_name)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.debug("Failed to drop async ephemeral table %s: %s", table_name, exc)
-        self._ephemeral_tables.clear()
 
     # ----------------------------------------------------------------- internals
     @property
@@ -1831,8 +1878,6 @@ def _cleanup_all_async_databases() -> None:
             len(_ACTIVE_ASYNC_DATABASES),
             exc,
         )
-        for db in list(_ACTIVE_ASYNC_DATABASES):
-            db._closed = True
 
 
 async def _cleanup_all_async_databases_async() -> None:

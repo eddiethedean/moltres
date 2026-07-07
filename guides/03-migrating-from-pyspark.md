@@ -7,7 +7,7 @@ This guide helps you transition from PySpark to Moltres, highlighting similariti
 - **No cluster required**: Run on any SQL database without Spark infrastructure
 - **Simpler deployment**: No need for Spark clusters, YARN, or Kubernetes
 - **Direct SQL execution**: Operations compile directly to SQL
-- **Familiar API**: 98% PySpark API compatibility
+- **Familiar API**: High PySpark API compatibility for core DataFrame operations (see [migration footguns](#migration-footguns))
 - **Real CRUD**: Full INSERT, UPDATE, DELETE support (not just SELECT)
 
 ## Key Similarities
@@ -36,6 +36,29 @@ Moltres maintains high compatibility with PySpark:
 | **CRUD Operations** | Limited (mostly SELECT) | Full INSERT, UPDATE, DELETE |
 | **Connection** | `SparkSession.builder` | `connect("database://...")` |
 | **DataFrames** | Spark DataFrames | Moltres DataFrames (SQL-backed) |
+
+## Migration footguns
+
+Read these before porting production PySpark jobs. Full details: [PySpark migration footguns](../docs/PYSPARK_MIGRATION_INCONSISTENCIES.md).
+
+### `union` vs `unionAll`
+
+PySpark's `union()` does **not** deduplicate rows (like SQL `UNION ALL`). Moltres `df.union(other)` follows SQL `UNION` semantics and **deduplicates**. Use `df.union_all(other)` for PySpark-compatible behavior.
+
+### File I/O: `db.load.*` vs `db.read.*`
+
+| Goal | API | Returns |
+|------|-----|---------|
+| Lazy DataFrame from a file | `db.load.csv("data.csv")` | `DataFrame` |
+| Eager rows for inserts | `db.read.records.csv("data.csv")` | `Records` |
+
+`db.read.csv()` and similar DataFrame readers are **deprecated** — use `db.load.*` instead. See [Public API](../docs/PUBLIC_API.md).
+
+### Writes and execution
+
+- Moltres compiles DataFrame transforms to SQL and executes on your database; there is no Spark cluster or RDD layer.
+- DDL and mutations (`create_table`, `insert`, `update`, `delete`) execute when you call `.collect()` or the mutation method — not lazily like some PySpark write paths.
+- Window functions must appear in `.select()` (or equivalent projection), not as standalone pipeline steps after aggregation.
 
 ## Migration Patterns
 

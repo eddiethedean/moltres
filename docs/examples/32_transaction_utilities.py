@@ -8,7 +8,7 @@ This example demonstrates Moltres's transaction utility features:
 - Transaction testing utilities
 
 Run this example:
-    python docs/examples/21_transaction_utilities.py
+    python docs/examples/32_transaction_utilities.py
 """
 
 from moltres import connect, async_connect
@@ -124,9 +124,14 @@ def example_transaction_metrics():
             Records.from_list([{"id": i, "value": i * 10}], database=db).insert_into("counters")
             time.sleep(0.01)  # Small delay
 
-    # One read-only transaction
-    with db.transaction(readonly=True) as txn:
-        results = db.table("counters").select().collect()
+    # One read-only transaction (skipped on SQLite — no read-only txn support)
+    try:
+        with db.transaction(readonly=True) as txn:
+            results = db.table("counters").select().collect()
+    except ValueError as exc:
+        if "read-only" not in str(exc).lower():
+            raise
+        print("Skipping read-only transaction (not supported on SQLite)")
 
     # One that fails
     try:
@@ -224,7 +229,8 @@ async def example_async_transaction_decorator():
 
     await create_user_async("AsyncUser")
 
-    results = await async_db.table("async_users").select().collect()
+    async_table = await async_db.table("async_users")
+    results = await async_table.select().collect()
     print(f"Async users in database: {len(results)}")
 
     await async_db.close()
