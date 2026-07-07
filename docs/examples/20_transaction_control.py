@@ -98,21 +98,21 @@ def example_savepoints():
 
     with db.transaction() as txn:
         # Initial insert
-        Records.from_list([{"id": 1, "amount": 100.0, "status": "pending"}], database=db).insert_into(
-            "orders"
-        )
+        Records.from_list(
+            [{"id": 1, "amount": 100.0, "status": "pending"}], database=db
+        ).insert_into("orders")
 
         # Create a savepoint
         checkpoint = txn.savepoint("processing_checkpoint")
         print(f"Created savepoint: {checkpoint}")
 
         # More operations after savepoint
-        Records.from_list([{"id": 2, "amount": 200.0, "status": "pending"}], database=db).insert_into(
-            "orders"
-        )
-        Records.from_list([{"id": 3, "amount": 300.0, "status": "pending"}], database=db).insert_into(
-            "orders"
-        )
+        Records.from_list(
+            [{"id": 2, "amount": 200.0, "status": "pending"}], database=db
+        ).insert_into("orders")
+        Records.from_list(
+            [{"id": 3, "amount": 300.0, "status": "pending"}], database=db
+        ).insert_into("orders")
 
         print(f"Orders after savepoint: {len(db.table('orders').select().collect())}")
 

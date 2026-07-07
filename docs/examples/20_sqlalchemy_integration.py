@@ -135,9 +135,9 @@ db.create_table(
     ],
 ).collect()
 
-Records.from_list([{"id": 1, "name": "Alice", "email": "alice@example.com"}], database=db).insert_into(
-    "customers"
-)
+Records.from_list(
+    [{"id": 1, "name": "Alice", "email": "alice@example.com"}], database=db
+).insert_into("customers")
 
 # Create a Moltres DataFrame
 df = db.table("customers").select().where(col("id") == 1)
