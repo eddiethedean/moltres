@@ -17,35 +17,10 @@ from moltres.table.schema import ColumnDef
 
 
 def test_read_table(tmp_path):
-    """Test reading from database table as DataFrame."""
+    """Test reading from database table via load.table() and read.table()."""
     db_path = tmp_path / "read_table.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
-    # Create and populate table
-    db.create_table(
-        "source",
-        [column("id", "INTEGER"), column("name", "TEXT")],
-    ).collect()
-    from moltres.io.records import Records
-
-    records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
-    records.insert_into("source")
-
-    # Read using load.table() - returns DataFrame
-    df = db.load.table("source")
-    rows = df.collect()
-
-    assert len(rows) == 2
-    assert rows[0]["name"] == "Alice"
-    assert rows[1]["name"] == "Bob"
-
-
-def test_read_table_pyspark_style(tmp_path):
-    """Test PySpark-style db.read.table() returning a DataFrame."""
-    db_path = tmp_path / "read_table_pyspark.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    # Create and populate table
     db.create_table(
         "users",
         [column("id", "INTEGER"), column("name", "TEXT")],
@@ -55,17 +30,15 @@ def test_read_table_pyspark_style(tmp_path):
     records = Records(_data=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}], _database=db)
     records.insert_into("users")
 
-    # Read using PySpark-style db.read.table() - returns DataFrame
+    load_rows = db.load.table("users").collect()
+    assert len(load_rows) == 2
+
     df = db.read.table("users")
     rows = df.collect()
-
     assert len(rows) == 2
     assert rows[0]["name"] == "Alice"
-    assert rows[1]["name"] == "Bob"
 
-    # Verify it's a DataFrame (can be transformed)
-    filtered_df = df.where(col("id") == 1)
-    filtered_rows = filtered_df.collect()
+    filtered_rows = df.where(col("id") == 1).collect()
     assert len(filtered_rows) == 1
     assert filtered_rows[0]["name"] == "Alice"
 

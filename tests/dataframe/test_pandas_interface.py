@@ -765,9 +765,12 @@ def test_merge_after_filter(sample_db):
 
     # Merge filtered DataFrames
     merged = filtered_users.merge(filtered_orders, on="id")
-    results = merged.collect()
+    results = _to_dict_list(merged.collect())
 
-    assert len(results) >= 0  # May be empty depending on filters
+    assert len(results) == 1
+    assert results[0]["id"] == 1
+    assert results[0]["name"] == "Alice"
+    assert results[0]["amount"] == 150.0
 
 
 def test_nested_operations(sample_db):
@@ -890,19 +893,14 @@ def test_query_invalid_syntax(sample_db):
 
 
 def test_merge_missing_columns(sample_db):
-    """Test merge validates column existence."""
+    """Test merge rejects unknown join key at execution."""
+    from moltres.utils.exceptions import ExecutionError
+
     df1 = sample_db.table("users").pandas()[["id", "name"]]
     df2 = sample_db.table("orders").pandas()[["user_id", "amount"]]
 
-    # Missing required columns - merge may fail at execution or validation
-    # The actual behavior depends on implementation - just verify it doesn't crash silently
-    try:
-        result = df1.merge(df2, on="nonexistent")
-        # If it doesn't raise, that's okay - validation might happen later
-        assert result is not None
-    except (ValueError, KeyError):
-        # Expected behavior - validation caught the error
-        pass
+    with pytest.raises(ExecutionError, match="nonexistent"):
+        df1.merge(df2, on="nonexistent").collect()
 
 
 def test_from_dataframe_classmethod(sample_db):
@@ -1116,7 +1114,8 @@ def test_string_accessor_upper(sample_db):
     results_list = _to_dict_list(results)
 
     # Should work - using in boolean indexing
-    assert len(results_list) >= 0
+    assert len(results_list) == 1
+    assert results_list[0]["name"] == "Alice"
 
 
 def test_string_accessor_lower(sample_db):
@@ -1140,7 +1139,7 @@ def test_string_accessor_contains(sample_db):
 
     # Should find Alice
     names = [r["name"] for r in results_list]
-    assert any("Ali" in name for name in names) or len(results_list) == 0
+    assert names == ["Alice"]
 
 
 def test_string_accessor_startswith(sample_db):
@@ -1181,9 +1180,8 @@ def test_query_with_double_equals(sample_db):
     results_list = _to_dict_list(results)
 
     # Should find Alice (age 30)
-    assert len(results_list) >= 0
-    if results_list:
-        assert all(r["age"] == 30 for r in results_list)
+    assert len(results_list) == 1
+    assert results_list[0]["name"] == "Alice"
 
 
 def test_query_with_and_keyword(sample_db):
@@ -1196,9 +1194,8 @@ def test_query_with_and_keyword(sample_db):
     results_list = _to_dict_list(results)
 
     # Should find matching rows
-    assert len(results_list) >= 0
-    if results_list:
-        assert all(r["age"] > 25 and r["country"] == "USA" for r in results_list)
+    assert len(results_list) == 2
+    assert all(r["age"] > 25 and r["country"] == "USA" for r in results_list)
 
 
 def test_groupby_sum(sample_db):
@@ -1207,9 +1204,10 @@ def test_groupby_sum(sample_db):
 
     grouped = df.groupby("status")
     result_df = grouped.sum()
-    results = result_df.collect()
+    results = _to_dict_list(result_df.collect())
 
-    assert len(results) >= 0
+    by_status = {r["status"]: r["amount_sum"] for r in results}
+    assert by_status == {"active": 300.0, "completed": 150.0}
 
 
 def test_groupby_mean(sample_db):
@@ -1218,9 +1216,10 @@ def test_groupby_mean(sample_db):
 
     grouped = df.groupby("status")
     result_df = grouped.mean()
-    results = result_df.collect()
+    results = _to_dict_list(result_df.collect())
 
-    assert len(results) >= 0
+    by_status = {r["status"]: r["amount_mean"] for r in results}
+    assert by_status == {"active": 150.0, "completed": 150.0}
 
 
 def test_groupby_min(sample_db):
@@ -1229,9 +1228,10 @@ def test_groupby_min(sample_db):
 
     grouped = df.groupby("status")
     result_df = grouped.min()
-    results = result_df.collect()
+    results = _to_dict_list(result_df.collect())
 
-    assert len(results) >= 0
+    by_status = {r["status"]: r["amount_min"] for r in results}
+    assert by_status == {"active": 100.0, "completed": 150.0}
 
 
 def test_groupby_max(sample_db):
@@ -1240,9 +1240,10 @@ def test_groupby_max(sample_db):
 
     grouped = df.groupby("status")
     result_df = grouped.max()
-    results = result_df.collect()
+    results = _to_dict_list(result_df.collect())
 
-    assert len(results) >= 0
+    by_status = {r["status"]: r["amount_max"] for r in results}
+    assert by_status == {"active": 200.0, "completed": 150.0}
 
 
 def test_groupby_nunique(sample_db):
@@ -1251,9 +1252,10 @@ def test_groupby_nunique(sample_db):
 
     grouped = df.groupby("status")
     result_df = grouped.nunique()
-    results = result_df.collect()
+    results = _to_dict_list(result_df.collect())
 
-    assert len(results) >= 0
+    by_status = {r["status"]: r["user_id_nunique"] for r in results}
+    assert by_status == {"active": 2, "completed": 1}
 
 
 def test_groupby_agg_with_nunique(sample_db):
@@ -1262,103 +1264,71 @@ def test_groupby_agg_with_nunique(sample_db):
 
     grouped = df.groupby("status")
     result_df = grouped.agg(user_id="nunique")
-    results = result_df.collect()
+    results = _to_dict_list(result_df.collect())
 
-    assert len(results) >= 0
+    by_status = {r["status"]: r["user_id_nunique"] for r in results}
+    assert by_status == {"active": 2, "completed": 1}
 
 
 def test_column_validation_error(sample_db):
-    """Test that column validation raises helpful errors."""
+    """Test that invalid column access fails when the query is executed."""
+    from moltres.utils.exceptions import ExecutionError
+
     df = sample_db.table("users").pandas()
 
-    # Try to access non-existent column - should raise ValidationError
-    # Note: Validation may be skipped for complex plans, so this might not always raise
-    from moltres.utils.exceptions import ValidationError
-
-    try:
-        _ = df["nonexistent_column"]
-        # If validation doesn't raise, that's okay - error will be caught at execution time
-    except ValidationError:
-        # Expected behavior
-        pass
+    with pytest.raises(ExecutionError, match="nonexistent_column"):
+        df[["nonexistent_column"]].collect()
 
 
 def test_query_column_validation(sample_db):
-    """Test that query() validates columns exist."""
+    """Test that query() rejects unknown columns at execution."""
+    from moltres.utils.exceptions import ExecutionError
+
     df = sample_db.table("users").pandas()
 
-    from moltres.utils.exceptions import ValidationError, PandasAPIError
-
-    # Query with non-existent column - may raise error at validation or execution
-    try:
-        result = df.query("nonexistent > 5")
-        # If no error, that's okay - validation might happen later
-        assert result is not None
-    except (ValidationError, PandasAPIError, ValueError):
-        # Expected - validation caught the error
-        pass
+    with pytest.raises(ExecutionError, match="nonexistent"):
+        df.query("nonexistent > 5").collect()
 
 
 def test_merge_column_validation(sample_db):
-    """Test that merge() validates join columns exist."""
+    """Test that merge() rejects unknown join columns at execution."""
+    from moltres.utils.exceptions import ExecutionError
+
     df1 = sample_db.table("users").pandas()
     df2 = sample_db.table("orders").pandas()
 
-    from moltres.utils.exceptions import ValidationError
-
-    # Try to merge on non-existent column
-    try:
-        result = df1.merge(df2, left_on="nonexistent", right_on="user_id")
-        assert result is not None
-    except ValidationError:
-        # Expected - validation caught the error
-        pass
+    with pytest.raises(ExecutionError, match="nonexistent"):
+        df1.merge(df2, left_on="nonexistent", right_on="user_id").collect()
 
 
 def test_sort_values_column_validation(sample_db):
-    """Test that sort_values() validates columns exist."""
+    """Test that sort_values() rejects unknown columns at execution."""
+    from moltres.utils.exceptions import ExecutionError
+
     df = sample_db.table("users").pandas()
 
-    from moltres.utils.exceptions import ValidationError
-
-    # Try to sort by non-existent column - validation may skip for complex plans
-    try:
-        _ = df.sort_values("nonexistent_column")
-        # If no error, validation was skipped - that's okay
-    except ValidationError:
-        # Expected if validation is enabled
-        pass
+    with pytest.raises(ExecutionError, match="nonexistent_column"):
+        df.sort_values("nonexistent_column").collect()
 
 
 def test_groupby_column_validation(sample_db):
-    """Test that groupby() validates columns exist."""
+    """Test that groupby() rejects unknown columns at execution."""
+    from moltres.utils.exceptions import ExecutionError
+
     df = sample_db.table("users").pandas()
 
-    from moltres.utils.exceptions import ValidationError
-
-    # Try to group by non-existent column - validation may skip for complex plans
-    try:
-        _ = df.groupby("nonexistent_column")
-        # If no error, validation was skipped - that's okay
-    except ValidationError:
-        # Expected if validation is enabled
-        pass
+    with pytest.raises(ExecutionError, match="nonexistent_column"):
+        df.groupby("nonexistent_column").sum().collect()
 
 
 def test_drop_duplicates_subset_validation(sample_db):
-    """Test that drop_duplicates() validates subset columns exist."""
+    """Test that drop_duplicates() rejects unknown subset columns at execution."""
+    from moltres.utils.exceptions import ExecutionError
+
     df = sample_db.table("users").pandas()
 
-    from moltres.utils.exceptions import ValidationError, PandasAPIError
-
-    # Try to drop duplicates on non-existent column
-    # Should raise error either at validation or during execution
-    try:
-        _ = df.drop_duplicates(subset=["nonexistent_column"])
-        # If no error here, error will be caught during collect()
-    except (ValidationError, PandasAPIError, ValueError):
-        # Expected - validation or execution caught the error
-        pass
+    with pytest.raises(ExecutionError, match="nonexistent_column"):
+        df.drop_duplicates(subset=["nonexistent_column"]).collect()
 
 
 def test_shape_caching(sample_db):
@@ -1401,8 +1371,10 @@ def test_string_accessor_replace(sample_db):
     # Replace in name - use underlying DataFrame's select
     result_df = df._df.select(df["name"].str.replace("Alice", "Alicia").alias("new_name"))
     results = PandasDataFrame.from_dataframe(result_df).collect()
+    results_list = _to_dict_list(results)
 
-    assert len(results) >= 0
+    assert len(results_list) == 3
+    assert results_list[0]["new_name"] == "Alicia"
 
 
 # ============================================================================
@@ -1411,21 +1383,11 @@ def test_string_accessor_replace(sample_db):
 
 
 def test_explode(sample_db):
-    """Test explode() method."""
-
-    # Note: explode requires array/JSON columns which SQLite doesn't fully support
-    # This test verifies the method exists and works with the interface
+    """Test explode() on a missing array column yields an empty result set."""
     df = sample_db.table("users").pandas()
 
-    # explode() should work even if the column doesn't exist in the schema
-    # The actual SQL execution will fail, but the interface should work
-    try:
-        exploded = df.explode("tags")
-        # If we get here, the method works
-        assert isinstance(exploded, PandasDataFrame)
-    except Exception:
-        # Expected if explode isn't fully supported
-        pass
+    result = _to_dict_list(df.explode("tags").collect())
+    assert result == []
 
 
 def test_pivot(sample_db):
@@ -1527,7 +1489,8 @@ def test_sample(sample_db):
     results_frac = sampled_frac.collect()
     results_list_frac = _to_dict_list(results_frac)
 
-    assert len(results_list_frac) >= 0
+    assert len(results_list_frac) <= 3
+    assert len(results_list_frac) >= 1
 
 
 def test_limit(sample_db):
@@ -1589,9 +1552,8 @@ def test_isin_dict(sample_db):
     results_list = _to_dict_list(results)
 
     # Should have users with age 30 or 35
-    assert len(results_list) >= 0
-    for row in results_list:
-        assert row["age"] in [30, 35]
+    assert len(results_list) == 2
+    assert {r["name"] for r in results_list} == {"Alice", "Charlie"}
 
 
 def test_isin_sequence(sample_db):
@@ -1603,7 +1565,7 @@ def test_isin_sequence(sample_db):
     results_list = _to_dict_list(results)
 
     # Should filter based on first column (id)
-    assert len(results_list) >= 0
+    assert len(results_list) == 3
 
 
 def test_between_scalar(sample_db):
@@ -1615,10 +1577,8 @@ def test_between_scalar(sample_db):
     results_list = _to_dict_list(results)
 
     # Should have users with age between 25 and 35
-    assert len(results_list) >= 0
-
-
-def test_between_dict(sample_db):
+    assert len(results_list) == 3
+    assert all(25 <= row["age"] <= 35 for row in results_list)
     """Test between() method with dictionary."""
     df = sample_db.table("users").pandas()
 
@@ -1627,7 +1587,7 @@ def test_between_dict(sample_db):
     results_list = _to_dict_list(results)
 
     # Should have users with age between 25 and 35
-    assert len(results_list) >= 0
+    assert len(results_list) == 3
     for row in results_list:
         assert 25 <= row["age"] <= 35
 

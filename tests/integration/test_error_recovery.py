@@ -250,8 +250,8 @@ def test_streaming_error_recovery(empty_database, tmp_path):
 
     # Verify valid data was inserted (if any)
     results = db.table("test_table").select().collect()
-    # Should have at least the valid rows
-    assert len(results) >= 0  # May be 0 if all data was invalid
+    assert len(results) == 2
+    assert {r["id"] for r in results} == {1, 3}
 
 
 @pytest.mark.integration

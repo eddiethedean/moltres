@@ -139,8 +139,8 @@ def test_merge_rows_when_matched_invalid_column(tmp_path):
         )
 
 
-def test_merge_rows_sqlite_no_update(tmp_path):
-    """Test merge_rows on SQLite without when_matched (line 188)."""
+def test_merge_rows_sqlite_conflict_no_update(tmp_path):
+    """Test merge_rows on SQLite without when_matched keeps original row."""
     db_path = tmp_path / "test.db"
     db = connect(f"sqlite:///{db_path}")
     db.create_table(
@@ -148,44 +148,24 @@ def test_merge_rows_sqlite_no_update(tmp_path):
     ).collect()
     handle = db.table("test")
 
-    # Insert initial row
     insert_rows(handle, [{"id": 1, "name": "Alice"}])
-
-    # Merge with conflict but no update
     merge_rows(handle, [{"id": 1, "name": "Bob"}], on=["id"])
-    # Should not update, so name should still be "Alice"
+
     rows = read_table(db, "test")
     assert rows == [{"id": 1, "name": "Alice"}]
 
 
-def test_merge_rows_mysql_no_update(tmp_path):
-    """Test merge_rows on MySQL without when_matched (lines 201-214)."""
-    db = connect("sqlite:///:memory:")  # SQLite for testing, but we'll test the logic
-    # Note: This test structure works for SQLite, actual MySQL would need mysql_connection fixture
-    db.create_table(
-        "test", [column("id", "INTEGER", primary_key=True), column("name", "TEXT")]
-    ).collect()
-    handle = db.table("test")
-
-    # Insert initial row
-    insert_rows(handle, [{"id": 1, "name": "Alice"}])
-
-    # For SQLite, this will use the SQLite path, but we can test the validation logic
-    result = merge_rows(handle, [{"id": 1, "name": "Bob"}], on=["id"])
-    assert result >= 0
-
-
-def test_merge_rows_mysql_all_columns_in_on(tmp_path):
-    """Test merge_rows on MySQL when all columns are in 'on' (line 213)."""
+def test_merge_rows_sqlite_single_column_on(tmp_path):
+    """Test merge_rows on SQLite when all row columns are in the ON clause."""
     db_path = tmp_path / "test.db"
     db = connect(f"sqlite:///{db_path}")
     db.create_table("test", [column("id", "INTEGER", primary_key=True)]).collect()
     handle = db.table("test")
 
-    # When all columns are in 'on', MySQL uses INSERT IGNORE
-    # For SQLite, this will use ON CONFLICT DO NOTHING
+    insert_rows(handle, [{"id": 1}])
     result = merge_rows(handle, [{"id": 1}], on=["id"])
-    assert result >= 0
+    assert result == 0
+    assert read_table(db, "test") == [{"id": 1}]
 
 
 def test_merge_rows_generic_dialect(tmp_path):
@@ -197,19 +177,20 @@ def test_merge_rows_generic_dialect(tmp_path):
     ).collect()
     handle = db.table("test")
 
-    # SQLite will use the generic path if dialect detection fails
-    # But in practice, SQLite is detected, so this tests the generic fallback logic
+    insert_rows(handle, [{"id": 1, "name": "Alice"}])
     result = merge_rows(
         handle,
         [{"id": 1, "name": "Alice"}],
         on=["id"],
         when_matched={"name": "Bob"},
     )
-    assert result >= 0
+    rows = read_table(db, "test")
+    assert result == 1
+    assert rows == [{"id": 1, "name": "Bob"}]
 
 
-def test_merge_rows_generic_dialect_no_update(tmp_path):
-    """Test merge_rows with generic dialect without when_matched (line 228)."""
+def test_merge_rows_sqlite_insert_only(tmp_path):
+    """Test merge_rows on SQLite without when_matched inserts new rows only."""
     db_path = tmp_path / "test.db"
     db = connect(f"sqlite:///{db_path}")
     db.create_table(
@@ -218,11 +199,12 @@ def test_merge_rows_generic_dialect_no_update(tmp_path):
     handle = db.table("test")
 
     result = merge_rows(handle, [{"id": 1, "name": "Alice"}], on=["id"])
-    assert result >= 0
+    assert result == 1
+    assert read_table(db, "test") == [{"id": 1, "name": "Alice"}]
 
 
-def test_merge_rows_postgresql_with_update(tmp_path):
-    """Test merge_rows on PostgreSQL with when_matched (lines 177-185)."""
+def test_merge_rows_sqlite_with_update(tmp_path):
+    """Test merge_rows on SQLite with when_matched updates existing rows."""
     db_path = tmp_path / "test.db"
     db = connect(f"sqlite:///{db_path}")
     db.create_table(
@@ -230,42 +212,15 @@ def test_merge_rows_postgresql_with_update(tmp_path):
     ).collect()
     handle = db.table("test")
 
-    # Insert initial row
     insert_rows(handle, [{"id": 1, "name": "Alice"}])
-
-    # Merge with update
     result = merge_rows(
         handle,
         [{"id": 1, "name": "Bob"}],
         on=["id"],
         when_matched={"name": "Updated"},
     )
-    assert result >= 0
-    rows = read_table(db, "test")
-    # Should have updated the name
-    assert len(rows) == 1
-
-
-def test_merge_rows_mysql_with_update(tmp_path):
-    """Test merge_rows on MySQL with when_matched (lines 191-200)."""
-    db_path = tmp_path / "test.db"
-    db = connect(f"sqlite:///{db_path}")
-    db.create_table(
-        "test", [column("id", "INTEGER", primary_key=True), column("name", "TEXT")]
-    ).collect()
-    handle = db.table("test")
-
-    # Insert initial row
-    insert_rows(handle, [{"id": 1, "name": "Alice"}])
-
-    # Merge with update
-    result = merge_rows(
-        handle,
-        [{"id": 1, "name": "Bob"}],
-        on=["id"],
-        when_matched={"name": "Updated"},
-    )
-    assert result >= 0
+    assert result == 1
+    assert read_table(db, "test") == [{"id": 1, "name": "Updated"}]
 
 
 def test_validate_row_shapes_mismatch(tmp_path):
@@ -290,3 +245,49 @@ def test_validate_row_shapes_with_table_name(tmp_path):
     # Rows with different schemas
     with pytest.raises(ValidationError, match="customers"):
         insert_rows(handle, [{"id": 1, "name": "Alice"}, {"id": 2, "status": "active"}])
+
+
+@pytest.mark.mysql
+def test_merge_rows_mysql_with_update(mysql_connection, unique_table_name):
+    """Test merge_rows on MySQL with when_matched updates existing rows."""
+    db = mysql_connection
+    table = unique_table_name
+
+    db.create_table(
+        table,
+        [column("id", "INTEGER", primary_key=True), column("name", "TEXT")],
+    ).collect()
+    handle = db.table(table)
+
+    insert_rows(handle, [{"id": 1, "name": "Alice"}])
+    result = merge_rows(
+        handle,
+        [{"id": 1, "name": "Bob"}],
+        on=["id"],
+        when_matched={"name": "Updated"},
+    )
+    assert result == 1
+    assert read_table(db, table) == [{"id": 1, "name": "Updated"}]
+
+
+@pytest.mark.postgres
+def test_merge_rows_postgresql_with_update(postgresql_connection, unique_table_name):
+    """Test merge_rows on PostgreSQL with when_matched updates existing rows."""
+    db = postgresql_connection
+    table = unique_table_name
+
+    db.create_table(
+        table,
+        [column("id", "INTEGER", primary_key=True), column("name", "TEXT")],
+    ).collect()
+    handle = db.table(table)
+
+    insert_rows(handle, [{"id": 1, "name": "Alice"}])
+    result = merge_rows(
+        handle,
+        [{"id": 1, "name": "Bob"}],
+        on=["id"],
+        when_matched={"name": "Updated"},
+    )
+    assert result == 1
+    assert read_table(db, table) == [{"id": 1, "name": "Updated"}]

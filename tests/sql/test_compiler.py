@@ -139,7 +139,8 @@ def test_compile_cte():
     cte = operators.cte(proj, name="user_cte")
     stmt = compile_plan(cte)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "user_cte" in sql or "WITH" in sql
+    assert "WITH" in sql
+    assert "user_cte" in sql
 
 
 def test_compile_recursive_cte():
@@ -151,7 +152,8 @@ def test_compile_recursive_cte():
     )
     stmt = compile_plan(recursive_cte)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "org_chart" in sql or "WITH" in sql
+    assert "WITH" in sql
+    assert "org_chart" in sql
 
 
 def test_compile_raw_sql():
@@ -189,7 +191,9 @@ def test_compile_union():
     union = operators.union(left, right, distinct=True)
     stmt = compile_plan(union)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "UNION" in sql or "users1" in sql
+    assert "UNION" in sql
+    assert "users1" in sql
+    assert "users2" in sql
 
 
 def test_compile_union_all():
@@ -199,7 +203,9 @@ def test_compile_union_all():
     union = operators.union(left, right, distinct=False)
     stmt = compile_plan(union)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "UNION" in sql or "users1" in sql
+    assert "UNION ALL" in sql
+    assert "users1" in sql
+    assert "users2" in sql
 
 
 def test_compile_intersect():
@@ -209,7 +215,9 @@ def test_compile_intersect():
     intersect = operators.intersect(left, right, distinct=True)
     stmt = compile_plan(intersect)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "INTERSECT" in sql or "users1" in sql
+    assert "INTERSECT" in sql
+    assert "users1" in sql
+    assert "users2" in sql
 
 
 def test_compile_intersect_all():
@@ -219,7 +227,9 @@ def test_compile_intersect_all():
     intersect = operators.intersect(left, right, distinct=False)
     stmt = compile_plan(intersect)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "INTERSECT" in sql or "users1" in sql
+    assert "INTERSECT ALL" in sql
+    assert "users1" in sql
+    assert "users2" in sql
 
 
 def test_compile_except():
@@ -229,7 +239,9 @@ def test_compile_except():
     except_plan = operators.except_(left, right, distinct=True)
     stmt = compile_plan(except_plan)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "EXCEPT" in sql or "users1" in sql
+    assert "EXCEPT" in sql
+    assert "users1" in sql
+    assert "users2" in sql
 
 
 def test_compile_except_all():
@@ -239,7 +251,9 @@ def test_compile_except_all():
     except_plan = operators.except_(left, right, distinct=False)
     stmt = compile_plan(except_plan)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "EXCEPT" in sql or "users1" in sql
+    assert "EXCEPT ALL" in sql
+    assert "users1" in sql
+    assert "users2" in sql
 
 
 def test_compile_sample():
@@ -439,7 +453,9 @@ def test_compile_antijoin():
     antijoin = operators.anti_join(left, right, on=[("customer_id", "id")])
     stmt = compile_plan(antijoin)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "JOIN" in sql or "NOT EXISTS" in sql or "NOT IN" in sql
+    sql_upper = sql.upper()
+    assert "LEFT" in sql_upper and "JOIN" in sql_upper
+    assert "IS NULL" in sql_upper
 
 
 def test_compile_antijoin_with_condition():
@@ -450,7 +466,9 @@ def test_compile_antijoin_with_condition():
     antijoin = operators.anti_join(left, right, condition=join_cond)
     stmt = compile_plan(antijoin)
     sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    assert "JOIN" in sql or "NOT EXISTS" in sql
+    sql_upper = sql.upper()
+    assert "LEFT" in sql_upper and "JOIN" in sql_upper
+    assert "IS NULL" in sql_upper
 
 
 def test_compile_antijoin_error():

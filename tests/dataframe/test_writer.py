@@ -578,223 +578,23 @@ def test_write_optimized_with_filter(tmp_path):
     assert all(row["status"] == "active" for row in rows)
 
 
-def test_write_optimized_with_project(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with projected columns."""
-    db_path = tmp_path / "write_optimized_project.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    db.create_table(
-        "source",
-        [
-            column("id", "INTEGER"),
-            column("name", "TEXT"),
-            column("email", "TEXT"),
-        ],
-    ).collect()
-    records = Records(
-        _data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db
-    )
-    records.insert_into("source")
-
-    # Write with selected columns only
-    df = db.table("source").select(col("name"), col("email"))
-    df.write.save_as_table("target")
-
-    # Verify only selected columns were written
-    target = db.table("target")
-    rows = target.select().collect()
-    assert len(rows) == 1
-    assert "name" in rows[0]
-    assert "email" in rows[0]
-    assert "id" not in rows[0]
-
-
-def test_write_optimized_with_join(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with join."""
-    db_path = tmp_path / "write_optimized_join.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    db.create_table(
-        "customers",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("name", "TEXT"),
-        ],
-    ).collect()
-    db.create_table(
-        "orders",
-        [
-            column("id", "INTEGER", primary_key=True),
-            column("customer_id", "INTEGER"),
-            column("amount", "REAL"),
-        ],
-    ).collect()
-
-    records_customers = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
-    records_customers.insert_into("customers")
-    records_orders = Records(_data=[{"id": 100, "customer_id": 1, "amount": 50.0}], _database=db)
-    records_orders.insert_into("orders")
-
-    # Write joined data using optimization
-    # Select with aliases before join to avoid column qualification issues
-    orders_df = db.table("orders").select(col("id").alias("order_id"), col("customer_id"))
-    customers_df = db.table("customers").select(col("id").alias("customer_id"), col("name"))
-    df = orders_df.join(customers_df, on=[("customer_id", "customer_id")]).select(
-        col("order_id"), col("name").alias("customer")
-    )
-    df.write.save_as_table("target")
-
-    # Verify joined data was written
-    target = db.table("target")
-    rows = target.select().collect()
-    assert len(rows) == 1
-    assert rows[0]["order_id"] == 100
-    assert rows[0]["customer"] == "Alice"
-
-
-def test_write_optimized_with_aggregate(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with aggregation."""
-    db_path = tmp_path / "write_optimized_aggregate.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    from moltres.expressions.functions import sum as sum_
-
-    db.create_table(
-        "orders",
-        [
-            column("customer_id", "INTEGER"),
-            column("amount", "REAL"),
-        ],
-    ).collect()
-    records = Records(
-        _data=[
-            {"customer_id": 1, "amount": 10.0},
-            {"customer_id": 1, "amount": 20.0},
-            {"customer_id": 2, "amount": 15.0},
-        ],
-        _database=db,
-    )
-    records.insert_into("orders")
-
-    # Write aggregated data using optimization
-    df = (
-        db.table("orders")
-        .select()
-        .group_by(col("customer_id"))
-        .agg(sum_(col("amount")).alias("total"))
-    )
-    df.write.save_as_table("target")
-
-    # Verify aggregated data was written
-    target = db.table("target")
-    rows = target.select().collect()
-    assert len(rows) == 2
-    totals = {row["customer_id"]: row["total"] for row in rows}
-    assert totals[1] == 30.0
-    assert totals[2] == 15.0
-
-
-def test_write_optimized_overwrite_mode(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with overwrite mode."""
-    db_path = tmp_path / "write_optimized_overwrite.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    db.create_table(
-        "source",
-        [column("id", "INTEGER"), column("value", "INTEGER")],
-    ).collect()
-    records = Records(_data=[{"id": 1, "value": 100}], _database=db)
-    records.insert_into("source")
-
-    # Write initial data
-    df = db.table("source").select()
-    df.write.save_as_table("target")
-
-    # Overwrite with new data using optimization
-    records2 = Records(_data=[{"id": 2, "value": 200}], _database=db)
-    records2.insert_into("source")
-    df2 = db.table("source").select()
-    df2.write.mode("overwrite").save_as_table("target")
-
-    # Verify overwrite (should have both rows)
-    target = db.table("target")
-    rows = target.select().collect()
-    assert len(rows) == 2
-
-
-def test_write_optimized_append_mode(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with append mode."""
-    db_path = tmp_path / "write_optimized_append.sqlite"
+def test_write_optimized_empty_result_set(tmp_path):
+    """Test optimized INSERT INTO ... SELECT with empty result set."""
+    db_path = tmp_path / "write_optimized_empty.sqlite"
     db = connect(f"sqlite:///{db_path}")
 
     db.create_table(
         "source",
         [column("id", "INTEGER"), column("name", "TEXT")],
     ).collect()
-    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
-    records.insert_into("source")
 
-    # Write initial data
-    df = db.table("source").select()
-    df.write.save_as_table("target")
-
-    # Append more data using optimization
-    records2 = Records(_data=[{"id": 2, "name": "Bob"}], _database=db)
-    records2.insert_into("source")
-    df2 = db.table("source").select().where(col("id") == 2)
-    df2.write.mode("append").save_as_table("target")
-
-    # Verify append worked
-    target = db.table("target")
-    rows = target.select().collect()
-    assert len(rows) == 2
-
-
-def test_write_optimized_with_explicit_schema(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with explicit schema."""
-    db_path = tmp_path / "write_optimized_schema.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    db.create_table(
-        "source",
-        [column("id", "INTEGER"), column("name", "TEXT")],
-    ).collect()
-    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
-    records.insert_into("source")
-
-    # Write with explicit schema using optimization
     schema = [ColumnDef("id", "INTEGER"), ColumnDef("name", "TEXT")]
     df = db.table("source").select()
     df.write.schema(schema).save_as_table("target")
 
-    # Verify data was written
     target = db.table("target")
     rows = target.select().collect()
-    assert len(rows) == 1
-    assert rows[0]["name"] == "Alice"
-
-
-def test_write_optimized_with_primary_key(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with primary key."""
-    db_path = tmp_path / "write_optimized_pk.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    db.create_table(
-        "source",
-        [column("id", "INTEGER"), column("name", "TEXT")],
-    ).collect()
-    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
-    records.insert_into("source")
-
-    # Write with primary key using optimization
-    df = db.table("source").select()
-    df.write.primaryKey("id").save_as_table("target")
-
-    # Verify table was created with primary key
-    target = db.table("target")
-    rows = target.select().collect()
-    assert len(rows) == 1
-    # Primary key constraint should be enforced (we can't easily test this without trying to insert duplicates)
+    assert len(rows) == 0
 
 
 def test_write_fallback_to_materialization(tmp_path):
@@ -818,28 +618,6 @@ def test_write_fallback_to_materialization(tmp_path):
     rows = target.select().collect()
     assert len(rows) == 1
     assert rows[0]["name"] == "Alice"
-
-
-def test_write_optimized_empty_result_set(tmp_path):
-    """Test optimized INSERT INTO ... SELECT with empty result set."""
-    db_path = tmp_path / "write_optimized_empty.sqlite"
-    db = connect(f"sqlite:///{db_path}")
-
-    db.create_table(
-        "source",
-        [column("id", "INTEGER"), column("name", "TEXT")],
-    ).collect()
-    # Don't insert any data
-
-    # Write empty result set with explicit schema
-    schema = [ColumnDef("id", "INTEGER"), ColumnDef("name", "TEXT")]
-    df = db.table("source").select()
-    df.write.schema(schema).save_as_table("target")
-
-    # Verify table was created (even though empty)
-    target = db.table("target")
-    rows = target.select().collect()
-    assert len(rows) == 0
 
 
 def test_write_update(tmp_path):

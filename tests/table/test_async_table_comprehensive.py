@@ -233,11 +233,6 @@ class TestAsyncDatabase:
             "temp_table", [column("id", "INTEGER", primary_key=True)], temporary=True
         ).collect()
 
-        # Verify table creation succeeded by checking it doesn't raise an error
-        # Note: We can't query it reliably due to connection pooling, but the
-        # creation itself validates the temporary flag works
-        assert True  # Table creation succeeded
-
         await db.close()
 
     async def test_create_table_if_not_exists(self, tmp_path):

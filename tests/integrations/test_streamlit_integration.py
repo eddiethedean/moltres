@@ -172,9 +172,8 @@ if df:
         at = AppTest.from_string(app_code)
         at.run()
 
-        # Query builder should work (may return None if no table selected)
-        # At minimum, the app should run without errors
-        assert True
+        assert len(at.selectbox) >= 1
+        assert "users" in at.selectbox[0].options
 
     def test_query_builder_no_tables(self, tmp_path):
         """Test query builder with no tables."""
@@ -314,8 +313,7 @@ st.write("Database initialized")
         at = AppTest.from_string(app_code)
         at.run()
 
-        # Should run without errors
-        assert True
+        assert any("Database initialized" in w.value for w in at.markdown)
 
 
 @pytest.mark.skipif(not STREAMLIT_AVAILABLE, reason="Streamlit not installed")
@@ -378,10 +376,8 @@ visualize_query(df, show_sql=True, show_plan=True, show_metrics=True)
         at = AppTest.from_string(app_code)
         at.run()
 
-        # Should have metrics displayed
-        # Metrics are displayed using st.metric which may not be directly accessible
-        # but the app should run without errors
-        assert True
+        assert len(at.expander) >= 3
+        assert len(at.code) >= 1
 
 
 @pytest.mark.skipif(not STREAMLIT_AVAILABLE, reason="Streamlit not installed")

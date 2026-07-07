@@ -607,7 +607,7 @@ def test_withColumn_window_function_replacing_column(tmp_path):
 
 
 def test_dot_notation_methods_still_work(tmp_path):
-    """Test that existing methods still work when using dot notation."""
+    """Test that dot notation methods execute correctly."""
     db_path = tmp_path / "dot_notation_methods.sqlite"
     db = connect(f"sqlite:///{db_path}")
     engine = db.connection_manager.engine
@@ -618,18 +618,11 @@ def test_dot_notation_methods_still_work(tmp_path):
 
     df = db.table("users").select()
 
-    # Test that methods still work
-    assert hasattr(df, "select")
-    assert hasattr(df, "where")
-    assert hasattr(df, "limit")
-    assert callable(df.select)
-    assert callable(df.where)
-
-    # Test that properties still work
-    assert hasattr(df, "na")
-    assert hasattr(df, "write")
-    assert df.na is not None
+    result = df.where(df.age > 25).limit(10).collect()
+    assert len(result) == 1
+    assert result[0]["name"] == "Alice"
     assert df.write is not None
+    assert df.na is not None
 
 
 def test_dot_notation_combined_with_col(tmp_path):
