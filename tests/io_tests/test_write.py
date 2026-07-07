@@ -15,4 +15,4 @@ def test_insert_rows_placeholder():
 
     error_msg = str(exc_info.value)
     assert "not implemented" in error_msg.lower() or "placeholder" in error_msg.lower()
-    assert "TableHandle.insert()" in error_msg or "table().insert()" in error_msg.lower()
+    assert "db.insert" in error_msg or "Records.from_list" in error_msg

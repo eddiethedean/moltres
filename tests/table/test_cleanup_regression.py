@@ -169,11 +169,7 @@ _ = next(iter(db._ephemeral_tables))
     unique_work_dir = tmp_path / f"work_{unique_id}"
     unique_work_dir.mkdir(exist_ok=True)
 
-    clean_env = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith("PYTEST_")
-    }
+    clean_env = {key: value for key, value in os.environ.items() if not key.startswith("PYTEST_")}
     clean_env["PYTHONUNBUFFERED"] = "1"
     clean_env["PYTHONPATH"] = pythonpath
     for thread_key in (

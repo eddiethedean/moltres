@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Sequence, cast
 
 from ...io.records import LazyRecords, Records
 from ...table.schema import ColumnDef
+from ...utils._compat import warn_deprecated
 from ..core.dataframe import DataFrame
 from .readers import (
     read_csv,
@@ -22,6 +23,18 @@ from .readers import (
 
 if TYPE_CHECKING:
     from ...table.table import Database
+
+
+def _warn_read_dataframe_path(method: str, *, load_method: str | None = None) -> None:
+    """Emit deprecation for db.read.* paths that duplicate db.load.*."""
+    target = load_method or method
+    warn_deprecated(
+        f"db.read.{method}() for lazy DataFrame reads is deprecated. "
+        f"Use db.load.{target}() instead. "
+        f"Use db.read.records.{target}() for eager Records.",
+        version="1.2",
+        removal_version="2.0",
+    )
 
 
 class DataLoader:
@@ -564,89 +577,38 @@ class ReadAccessor:
 
     # DataFrame read methods (delegate to DataLoader)
     def table(self, name: str) -> DataFrame:
-        """Read from a database table as a :class:`DataFrame`.
-
-        Args:
-            name: Name of the table to read
-
-        Returns:
-            :class:`DataFrame` that can be transformed before execution
-
-        Example:
-            >>> df = db.read.table("users")
-            >>> results = df.collect()
-        """
+        """Read from a database table as a :class:`DataFrame`."""
+        _warn_read_dataframe_path("table", load_method="table")
         return self._loader.table(name)
 
     def csv(self, path: str) -> DataFrame:
-        """Read a CSV file as a :class:`DataFrame`.
-
-        Args:
-            path: Path to the CSV file
-
-        Returns:
-            :class:`DataFrame` containing the CSV data (lazy, materialized on .collect())
-        """
+        """Read a CSV file as a :class:`DataFrame`."""
+        _warn_read_dataframe_path("csv")
         return self._loader.csv(path)
 
     def json(self, path: str) -> DataFrame:
-        """Read a JSON file (array of objects) as a :class:`DataFrame`.
-
-        Args:
-            path: Path to the JSON file
-
-        Returns:
-            :class:`DataFrame` containing the JSON data (lazy, materialized on .collect())
-        """
+        """Read a JSON file (array of objects) as a :class:`DataFrame`."""
+        _warn_read_dataframe_path("json")
         return self._loader.json(path)
 
     def jsonl(self, path: str) -> DataFrame:
-        """Read a JSONL file (one JSON object per line) as a :class:`DataFrame`.
-
-        Args:
-            path: Path to the JSONL file
-
-        Returns:
-            :class:`DataFrame` containing the JSONL data (lazy, materialized on .collect())
-        """
+        """Read a JSONL file (one JSON object per line) as a :class:`DataFrame`."""
+        _warn_read_dataframe_path("jsonl")
         return self._loader.jsonl(path)
 
     def parquet(self, path: str) -> DataFrame:
-        """Read a Parquet file as a :class:`DataFrame`.
-
-        Args:
-            path: Path to the Parquet file
-
-        Returns:
-            :class:`DataFrame` containing the Parquet data (lazy, materialized on .collect())
-
-        Raises:
-            RuntimeError: If pandas or pyarrow are not installed
-        """
+        """Read a Parquet file as a :class:`DataFrame`."""
+        _warn_read_dataframe_path("parquet")
         return self._loader.parquet(path)
 
     def text(self, path: str, column_name: str = "value") -> DataFrame:
-        """Read a text file as a single column (one line per row) as a :class:`DataFrame`.
-
-        Args:
-            path: Path to the text file
-            column_name: Name of the column to create (default: "value")
-
-        Returns:
-            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
-        """
+        """Read a text file as a single column DataFrame."""
+        _warn_read_dataframe_path("text")
         return self._loader.text(path, column_name)
 
     def textFile(self, path: str, column_name: str = "value") -> DataFrame:
-        """Read a text file as a single column (PySpark-compatible alias for text()).
-
-        Args:
-            path: Path to the text file
-            column_name: Name of the column to create (default: "value")
-
-        Returns:
-            :class:`DataFrame` containing the text file lines (lazy, materialized on .collect())
-        """
+        """Read a text file (PySpark-compatible alias for text())."""
+        _warn_read_dataframe_path("textFile", load_method="text")
         return self._loader.textFile(path, column_name)
 
     def text_file(self, path: str, column_name: str = "value") -> DataFrame:
@@ -664,12 +626,6 @@ class ReadAccessor:
         return self.textFile(path, column_name)
 
     def format(self, source: str) -> FormatReader:
-        """Specify the data source format.
-
-        Args:
-            source: Format name (e.g., "csv", "json", "parquet")
-
-        Returns:
-            FormatReader for the specified format
-        """
+        """Specify the data source format."""
+        _warn_read_dataframe_path("format", load_method=f"format('{source}')")
         return self._loader.format(source)

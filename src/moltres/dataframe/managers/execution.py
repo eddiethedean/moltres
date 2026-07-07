@@ -142,12 +142,13 @@ class DataFrameExecutor:
             return _convert_rows(rows)
         return _convert_rows(result.rows)
 
-    def show(self, n: int = 20, truncate: bool = True) -> None:
+    def show(self, n: int = 20, truncate: bool = True, *, count_total: bool = False) -> None:
         """Print the first n rows of the DataFrame in a tabular format.
 
         Args:
             n: Number of rows to show (default: 20)
             truncate: If True, truncate long strings to 20 characters (default: True)
+            count_total: If True, run an extra ``count()`` query to print total row count
         """
         if self._df.database is None:
             raise RuntimeError("Cannot show a plan without an attached Database")
@@ -192,10 +193,11 @@ class DataFrameExecutor:
                 row_strs.append(value_str.ljust(col_widths[col]))
             print(" | ".join(row_strs))
 
-        # Print summary
-        total_rows = self._df.count() if self._df.database else len(rows)
-        if total_rows > n:
-            print(f"\nshowing top {n} of {total_rows} rows")
+        # Print summary only when explicitly requested (avoids surprise COUNT(*) queries)
+        if count_total:
+            total_rows = self._df.count() if self._df.database else len(rows)
+            if total_rows > n:
+                print(f"\nshowing top {n} of {total_rows} rows")
 
     def take(self, num: int) -> List[Dict[str, object]]:
         """Take the first num rows from the DataFrame.

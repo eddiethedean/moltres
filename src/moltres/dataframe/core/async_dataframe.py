@@ -1215,7 +1215,7 @@ class AsyncDataFrame(DataFrameHelpersMixin):
         else:
             return self
 
-    async def show(self, n: int = 20, truncate: bool = True) -> None:
+    async def show(self, n: int = 20, truncate: bool = True, *, count_total: bool = False) -> None:
         """Print the first n rows of the :class:`DataFrame`."""
         rows = await self.limit(n).collect()
         # collect() with stream=False returns a list, not an iterator
@@ -1249,6 +1249,11 @@ class AsyncDataFrame(DataFrameHelpersMixin):
                 for col_name in columns
             )
             print(row_str)
+
+        if count_total:
+            total_rows = await self.count()
+            if total_rows > n:
+                print(f"\nshowing top {n} of {total_rows} rows")
 
     async def take(self, num: int) -> List[Dict[str, object]]:
         """Take the first num rows as a list."""

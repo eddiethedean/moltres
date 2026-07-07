@@ -60,6 +60,47 @@ async def test_async_table_operations(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_async_database_crud(tmp_path):
+    """Test AsyncDatabase insert/update/delete/merge parity with sync Database."""
+    db_path = tmp_path / "crud.db"
+    db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+
+    from moltres.table.schema import column
+
+    await db.create_table(
+        "items",
+        [
+            column("id", "INTEGER", primary_key=True),
+            column("name", "TEXT"),
+            column("qty", "INTEGER"),
+        ],
+    ).collect()
+
+    inserted = await db.insert("items", [{"id": 1, "name": "a", "qty": 1}])
+    assert inserted == 1
+
+    updated = await db.update("items", where=col("id") == 1, set={"qty": 2})
+    assert updated == 1
+
+    merged = await db.merge(
+        "items",
+        [{"id": 2, "name": "b", "qty": 3}],
+        on=["id"],
+        when_matched={"qty": 4},
+    )
+    assert merged >= 1
+
+    deleted = await db.delete("items", where=col("id") == 2)
+    assert deleted == 1
+
+    rows = await (await db.table("items")).select().collect()
+    assert len(rows) == 1
+    assert rows[0]["qty"] == 2
+
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_drop_table(tmp_path):
     """Test async table dropping."""
     db_path = tmp_path / "test.db"

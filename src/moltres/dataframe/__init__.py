@@ -29,15 +29,6 @@ from .columns import (
     BaseColumnWrapper,
 )
 
-# Manager classes (SRP refactoring)
-from .managers import (
-    DataFrameExecutor,
-    SchemaInspector,
-    StatisticsCalculator,
-    MaterializationHandler,
-    ModelIntegrator,
-)
-
 # I/O operations
 from .io import (
     DataLoader,
@@ -69,12 +60,6 @@ __all__ = [
     "PolarsColumn",
     "PySparkColumn",
     "BaseColumnWrapper",
-    # Managers
-    "DataFrameExecutor",
-    "SchemaInspector",
-    "StatisticsCalculator",
-    "MaterializationHandler",
-    "ModelIntegrator",
     # I/O
     "DataLoader",
     "ReadAccessor",

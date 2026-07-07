@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, overload
 
 # Import conversion functions from records_conversion
@@ -52,37 +52,67 @@ def _dataframe_to_records(df: Any, database: Optional["Database"] = None) -> "Re
     schema = extract_schema_from_dataframe(df)
 
     return Records(
-        _data=None,
+        data=None,
         _generator=None,
         _dataframe=df,
         _schema=schema,
-        _database=database,
+        database=database,
     )
 
 
-@dataclass
+@dataclass(init=False)
 class Records(Sequence[Mapping[str, object]]):
     """Container for file data that can be materialized or streaming.
 
     :class:`Records` is NOT a :class:`DataFrame` - it does not support SQL operations.
     It is designed for file reads and can be used with SQL insert operations.
 
-    Attributes:
-        _data: Materialized list of row dictionaries (for small files)
-        _generator: Callable that returns an iterator of row chunks (for large files)
-        _dataframe: Optional pandas/polars :class:`DataFrame` or polars LazyFrame for lazy conversion
-        _schema: Optional schema information
-        _database: Optional database reference for insert operations
+    Prefer :meth:`from_list` or the ``data`` / ``database`` keyword arguments.
+    Underscore-prefixed fields (``_data``, ``_database``) are deprecated and will be
+    removed in 2.0.
     """
 
-    _data: Optional[List[dict[str, object]]] = None
-    _generator: Optional[Callable[[], Iterator[List[dict[str, object]]]]] = None
-    _dataframe: Optional[Any] = None  # pandas DataFrame, polars DataFrame, or polars LazyFrame
-    _schema: Optional[Sequence["ColumnDef"]] = None
-    _database: Optional["Database"] = None
-    _accessor: "RecordsAccessor" = field(init=False)
-    _schema_manager: "RecordsSchema" = field(init=False)
-    _writer: "RecordsWriter" = field(init=False)
+    _data: Optional[List[dict[str, object]]]
+    _generator: Optional[Callable[[], Iterator[List[dict[str, object]]]]]
+    _dataframe: Optional[Any]
+    _schema: Optional[Sequence["ColumnDef"]]
+    _database: Optional["Database"]
+    _accessor: "RecordsAccessor"
+    _schema_manager: "RecordsSchema"
+    _writer: "RecordsWriter"
+
+    def __init__(
+        self,
+        *,
+        data: Optional[List[dict[str, object]]] = None,
+        database: Optional["Database"] = None,
+        _data: Optional[List[dict[str, object]]] = None,
+        _generator: Optional[Callable[[], Iterator[List[dict[str, object]]]]] = None,
+        _dataframe: Optional[Any] = None,
+        _schema: Optional[Sequence["ColumnDef"]] = None,
+        _database: Optional["Database"] = None,
+    ) -> None:
+        from ..utils._compat import warn_deprecated
+
+        if _data is not None:
+            warn_deprecated(
+                "Records(_data=...) is deprecated. Use Records(data=...) or Records.from_list().",
+                version="1.2",
+                removal_version="2.0",
+            )
+        if _database is not None:
+            warn_deprecated(
+                "Records(_database=...) is deprecated. Use Records(database=...) or "
+                "Records.from_list(..., database=db).",
+                version="1.2",
+                removal_version="2.0",
+            )
+        self._data = data if data is not None else _data
+        self._generator = _generator
+        self._dataframe = _dataframe
+        self._schema = _schema
+        self._database = database if database is not None else _database
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         """Initialize specialized managers after dataclass initialization."""
@@ -116,7 +146,7 @@ class Records(Sequence[Mapping[str, object]]):
             ... )
             >>> records.insert_into("users")
         """
-        return cls(_data=data, _database=database)
+        return cls(data=data, database=database)
 
     @classmethod
     def from_dicts(
@@ -141,7 +171,7 @@ class Records(Sequence[Mapping[str, object]]):
             ... )
             >>> records.insert_into("users")
         """
-        return cls(_data=list(dicts), _database=database)
+        return cls(data=list(dicts), database=database)
 
     @classmethod
     def from_dataframe(cls, df: Any, database: Optional["Database"] = None) -> "Records":
@@ -345,24 +375,73 @@ class Records(Sequence[Mapping[str, object]]):
         return self._writer.insert_into(table)
 
 
-@dataclass
+@dataclass(init=False)
 class AsyncRecords:
     """Async container for file data that can be materialized or streaming.
 
     :class:`AsyncRecords` is NOT an AsyncDataFrame - it does not support SQL operations.
     It is designed for file reads and can be used with SQL insert operations.
 
-    Attributes:
-        _data: Materialized list of row dictionaries (for small files)
-        _generator: Async callable that returns an async iterator of row chunks (for large files)
-        _schema: Optional schema information
-        _database: Optional database reference for insert operations
+    Prefer :meth:`from_list` or the ``data`` / ``database`` keyword arguments.
     """
 
-    _data: Optional[List[dict[str, object]]] = None
-    _generator: Optional[Callable[[], AsyncIterator[List[dict[str, object]]]]] = None
-    _schema: Optional[Sequence["ColumnDef"]] = None
-    _database: Optional["AsyncDatabase"] = None
+    _data: Optional[List[dict[str, object]]]
+    _generator: Optional[Callable[[], AsyncIterator[List[dict[str, object]]]]]
+    _schema: Optional[Sequence["ColumnDef"]]
+    _database: Optional["AsyncDatabase"]
+
+    def __init__(
+        self,
+        *,
+        data: Optional[List[dict[str, object]]] = None,
+        database: Optional["AsyncDatabase"] = None,
+        _data: Optional[List[dict[str, object]]] = None,
+        _generator: Optional[Callable[[], AsyncIterator[List[dict[str, object]]]]] = None,
+        _schema: Optional[Sequence["ColumnDef"]] = None,
+        _database: Optional["AsyncDatabase"] = None,
+    ) -> None:
+        from ..utils._compat import warn_deprecated
+
+        if _data is not None:
+            warn_deprecated(
+                "AsyncRecords(_data=...) is deprecated. Use AsyncRecords(data=...) or "
+                "AsyncRecords.from_list().",
+                version="1.2",
+                removal_version="2.0",
+            )
+        if _database is not None:
+            warn_deprecated(
+                "AsyncRecords(_database=...) is deprecated. Use AsyncRecords(database=...) or "
+                "AsyncRecords.from_list(..., database=db).",
+                version="1.2",
+                removal_version="2.0",
+            )
+        self._data = data if data is not None else _data
+        self._generator = _generator
+        self._schema = _schema
+        self._database = database if database is not None else _database
+
+    @classmethod
+    def from_list(
+        cls,
+        data: List[dict[str, object]],
+        database: Optional["AsyncDatabase"] = None,
+    ) -> "AsyncRecords":
+        """Create :class:`AsyncRecords` from a list of dictionaries."""
+        return cls(data=data, database=database)
+
+    @classmethod
+    def from_dicts(
+        cls, *dicts: dict[str, object], database: Optional["AsyncDatabase"] = None
+    ) -> "AsyncRecords":
+        """Create :class:`AsyncRecords` from individual row dictionaries."""
+        return cls(data=list(dicts), database=database)
+
+    @classmethod
+    def from_dataframe(cls, df: Any, database: Optional["AsyncDatabase"] = None) -> "AsyncRecords":
+        """Create :class:`AsyncRecords` from pandas/polars data (materialized)."""
+        rows = convert_dataframe_to_rows(df)
+        return cls(data=rows, database=database)
 
     async def __aiter__(self) -> AsyncIterator[dict[str, object]]:
         """Make :class:`AsyncRecords` directly async iterable."""
@@ -457,10 +536,10 @@ class AsyncRecords:
             filtered_schema = [schema_dict[col] for col in columns if col in schema_dict]
 
         return AsyncRecords(
-            _data=filtered_rows,
+            data=filtered_rows,
+            database=self._database,
             _generator=None,
             _schema=filtered_schema,
-            _database=self._database,
         )
 
     async def rename(
@@ -553,10 +632,10 @@ class AsyncRecords:
                     updated_schema.append(col_def)
 
         return AsyncRecords(
-            _data=renamed_rows,
+            data=renamed_rows,
+            database=self._database,
             _generator=None,
             _schema=updated_schema,
-            _database=self._database,
         )
 
     async def head(self, n: int = 5) -> List[dict[str, object]]:
@@ -1001,3 +1080,11 @@ class AsyncLazyRecords:
             RuntimeError: If no database is attached
         """
         return await (await self.collect()).insert_into(table)
+
+
+__all__ = [
+    "Records",
+    "AsyncRecords",
+    "LazyRecords",
+    "AsyncLazyRecords",
+]

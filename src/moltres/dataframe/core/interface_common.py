@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class DataFrameProtocol(Protocol):
     """Protocol defining the interface that _df must implement."""
 
-    def show(self, n: int = 20, truncate: bool = True) -> None:
+    def show(self, n: int = 20, truncate: bool = True, *, count_total: bool = False) -> None:
         """Print the first n rows of the :class:`DataFrame`."""
         ...
 
@@ -35,7 +35,7 @@ class DataFrameProtocol(Protocol):
 class AsyncDataFrameProtocol(Protocol):
     """Protocol defining the interface that async _df must implement."""
 
-    async def show(self, n: int = 20, truncate: bool = True) -> None:
+    async def show(self, n: int = 20, truncate: bool = True, *, count_total: bool = False) -> None:
         """Print the first n rows of the :class:`DataFrame` (async)."""
         ...
 
@@ -63,17 +63,18 @@ class InterfaceCommonMixin:
     # - _df: DataFrameProtocol - the underlying DataFrame
     _df: DataFrameProtocol
 
-    def show(self, n: int = 20, truncate: bool = True) -> None:
+    def show(self, n: int = 20, truncate: bool = True, *, count_total: bool = False) -> None:
         """Print the first n rows of the :class:`DataFrame`.
 
         Args:
             n: Number of rows to show (default: 20)
             truncate: If True, truncate long strings (default: True)
+            count_total: If True, run an extra ``count()`` query to print total row count
 
         Example:
             >>> df.show(2)
         """
-        self._df.show(n, truncate)
+        self._df.show(n, truncate, count_total=count_total)
 
     def take(self, num: int) -> List[Dict[str, object]]:
         """Take the first num rows as a list.
@@ -119,17 +120,18 @@ class AsyncInterfaceCommonMixin:
     # - _df: AsyncDataFrameProtocol - the underlying AsyncDataFrame
     _df: AsyncDataFrameProtocol
 
-    async def show(self, n: int = 20, truncate: bool = True) -> None:
+    async def show(self, n: int = 20, truncate: bool = True, *, count_total: bool = False) -> None:
         """Print the first n rows of the :class:`DataFrame` (async).
 
         Args:
             n: Number of rows to show (default: 20)
             truncate: If True, truncate long strings (default: True)
+            count_total: If True, run an extra ``count()`` query to print total row count
 
         Example:
             >>> await df.show(2)
         """
-        await self._df.show(n, truncate)
+        await self._df.show(n, truncate, count_total=count_total)
 
     async def take(self, num: int) -> List[Dict[str, object]]:
         """Take the first num rows as a list (async).

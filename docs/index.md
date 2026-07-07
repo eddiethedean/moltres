@@ -15,14 +15,12 @@
    streaming execution via `fetch_stream()` for cursor-based pagination of large result sets.
 5. **DDL Layer** – `moltres.sql.ddl` and `moltres.table.schema` provide table creation and schema
    definition utilities that compile to CREATE TABLE and DROP TABLE statements.
-6. **Data Loading Layer** – `moltres.dataframe.reader` (now `DataLoader`) provides data source loaders with:
-   - File formats: `load.csv()`, `load.json()`, `load.jsonl()`, `load.parquet()`, `load.text()` - all return `Records`
-   - Generic format: `load.format(format_name).load(path)` - returns `Records`
-   - Schema inference: automatic type detection from data
-   - Explicit schemas: `.schema([ColumnDef(...), ...])` for type control
-   - Format options: `.option(key, value)` for format-specific settings
-   - Streaming: `.stream()` for chunked reading of large files (configurable chunk_size)
-   - **Note:** File readers return `Records` (not `DataFrame`). For SQL operations, use `db.table(name).select()`
+6. **Data Loading Layer** – `db.load` (`DataLoader`) provides lazy file reads as `DataFrame`:
+   - File formats: `db.load.csv()`, `db.load.json()`, `db.load.jsonl()`, `db.load.parquet()`, `db.load.text()`
+   - Eager row reads: `db.read.records.csv()` and siblings return `Records`
+   - Generic format: `db.load.format(format_name).load(path)`
+   - Schema inference, explicit schemas, format options, and streaming via `.stream()`
+   - **Note:** `db.load.*` returns lazy `DataFrame`. Use `db.read.records.*` for eager `Records` (inserts).
 7. **Write Layer** – `moltres.dataframe.writer` provides DataFrame persistence with:
    - Table writes: `save_as_table()` with schema inference and automatic table creation
    - Existing table inserts: `insertInto()` for appending to pre-existing tables
@@ -37,9 +35,8 @@
 
 - Create tables programmatically using `db.create_table(name, columns, ...)` with schema definitions
   built from `column()` helpers. Drop tables with `db.drop_table(name)`.
-- Load data from files using `db.load.csv(path)`, `db.load.json(path)`, `db.load.parquet(path)`, etc.
-  These return `Records` which can be inserted into tables or iterated. Use `.schema([...])` for
-  explicit schemas and `.option(key, value)` for format-specific settings.
+- Load lazy file DataFrames using `db.load.csv(path)`, `db.load.json(path)`, `db.load.parquet(path)`, etc.
+  Use `db.read.records.csv(path)` when you need eager `Records` for inserts.
 - For SQL operations on database tables, use `db.table("name").select(...)` to get a DataFrame.
 - Use `db.table("name").select(...)` to construct lazy DataFrames.
 - Compose joins via `df.join(other_df, on=[col("left_col") == col("right_col")])` and aggregations via

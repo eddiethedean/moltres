@@ -2654,7 +2654,7 @@ class DataFrame(DataFrameHelpersMixin):
         handler = MaterializationHandler(self)
         return handler.read_file_streaming(filescan)
 
-    def show(self, n: int = 20, truncate: bool = True) -> None:
+    def show(self, n: int = 20, truncate: bool = True, *, count_total: bool = False) -> None:
         """Print the first n rows of the :class:`DataFrame`.
 
         Delegates to :class:`DataFrameExecutor`.
@@ -2662,6 +2662,7 @@ class DataFrame(DataFrameHelpersMixin):
         Args:
             n: Number of rows to show (default: 20)
             truncate: If True, truncate long strings (default: True)
+            count_total: If True, run an extra ``count()`` query to print total row count
 
         Example:
             >>> from moltres import connect
@@ -2681,7 +2682,7 @@ class DataFrame(DataFrameHelpersMixin):
         from ..managers.execution import DataFrameExecutor
 
         executor = DataFrameExecutor(self)
-        executor.show(n=n, truncate=truncate)
+        executor.show(n=n, truncate=truncate, count_total=count_total)
 
     def take(self, num: int) -> List[Dict[str, object]]:
         """Take the first num rows as a list.

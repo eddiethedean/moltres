@@ -605,7 +605,7 @@ df.write.delete("table_name", where=col("id") == 1)
 | **Partitioning** | `partitionBy()` | `partitionBy()` / `partition_by()` |
 | **UPDATE Operation** | ❌ Not available | ✅ `df.write.update()` |
 | **DELETE Operation** | ❌ Not available | ✅ `df.write.delete()` |
-| **MERGE/UPSERT** | ❌ Must use SQL | ✅ `table.merge()` (v0.5.0+) |
+| **MERGE/UPSERT** | ❌ Must use SQL | ✅ `db.merge()` (v0.5.0+) |
 | **Execution Model** | Eager (writes execute immediately) | Lazy (v0.8.0+ requires `.collect()`) |
 
 **Key Differences:**
@@ -683,16 +683,14 @@ spark.sql("""
 
 **Moltres:**
 ```python
-# MERGE/UPSERT with DataFrame syntax (v0.5.0+)
-from moltres.table.table import TableHandle
-
-table = db.table("target_table")
-table.merge(
-    source_df,
-    on="id",
-    when_matched={"status": col("source.status"), "updated_at": "NOW()"},
-    when_not_matched={"id": col("source.id"), "name": col("source.name")}
+# MERGE/UPSERT on Database (v0.5.0+)
+db.merge(
+    "target_table",
+    [{"id": 1, "name": "Alice", "status": "active"}],
+    on=["id"],
+    when_matched={"status": "updated"},
 )
+```
 
 # Dialect-specific support:
 # - SQLite: ON CONFLICT
@@ -1330,7 +1328,7 @@ Moltres has made significant strides in PySpark API compatibility. Recent update
    - PySpark: Must use SQL
 
 3. **MERGE/UPSERT Operations**
-   - Moltres: `table.merge()` with DataFrame syntax (v0.5.0+)
+   - Moltres: `db.merge()` with row dicts or `Records` (v0.5.0+)
    - PySpark: Must use SQL MERGE statements
 
 4. **Full Async Support**
@@ -1703,7 +1701,7 @@ For teams working with SQL databases who want a DataFrame API without the overhe
 | `write.jsonl()` | ❌ | ✅ | Moltres only |
 | `write.update()` | ❌ | ✅ | Moltres only |
 | `write.delete()` | ❌ | ✅ | Moltres only |
-| `table.merge()` | ❌ | ✅ | MERGE/UPSERT (v0.5.0+) |
+| `db.merge()` | ❌ | ✅ | MERGE/UPSERT (v0.5.0+) |
 | `write.partitionBy()` | ✅ | ✅ `partitionBy()` | Identical |
 
 ---

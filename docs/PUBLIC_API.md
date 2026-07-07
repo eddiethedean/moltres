@@ -23,18 +23,50 @@ from moltres import (
 )
 ```
 
-Optional interface wrappers (`PandasDataFrame`, `PolarsDataFrame`, and their async
-variants) are exported when the corresponding extras are installed; otherwise they
-are `None`. Install `moltres[pandas]` or `moltres[polars]` before using them.
+### `col` vs `column`
+
+| Symbol | Purpose |
+|--------|---------|
+| `col("name")` | Column expression for queries (`where`, `select`, etc.) |
+| `column("name", "TEXT")` | DDL helper for `db.create_table()` schemas |
+
+### Optional interface wrappers
+
+`PandasDataFrame`, `PolarsDataFrame`, `AsyncPandasDataFrame`, `AsyncPolarsDataFrame`,
+and `AsyncDatabase` are loaded lazily. Accessing them without the required extra
+raises `ImportError` with an install hint (they are never `None`).
+
+```python
+# pip install moltres[pandas]
+from moltres import PandasDataFrame
+```
 
 ## DataFrame (`moltres.dataframe`)
 
 ```python
-from moltres.dataframe import DataFrame, AsyncDataFrame, DataLoader, DataFrameWriter
+from moltres.dataframe import (
+    DataFrame,
+    AsyncDataFrame,
+    DataLoader,
+    DataFrameWriter,
+    ReadAccessor,
+)
 ```
 
 Use the PySpark-style API on `DataFrame` returned from `db.table(...).select()` or
 `db.load.*` file readers.
+
+### Union semantics (PySpark difference)
+
+| Moltres | PySpark equivalent |
+|---------|-------------------|
+| `df.union(other)` | `union().distinct()` — **distinct** rows |
+| `df.unionAll(other)` | `union()` — **all** rows |
+
+When migrating PySpark `df1.union(df2)`, use **`df1.unionAll(df2)`** in Moltres.
+
+`df.show()` prints rows only by default. Pass `count_total=True` to include a full-table
+row count (this runs an extra `COUNT(*)` query).
 
 ## Expressions (`moltres.expressions`)
 
@@ -59,31 +91,54 @@ from moltres.engine import (
 )
 ```
 
-Performance hooks are also available from the top-level `moltres` package.
-
 ## Records and CRUD (`moltres.io.records`)
 
 ```python
-from moltres.io.records import Records
+from moltres.io.records import Records, AsyncRecords, LazyRecords, AsyncLazyRecords
 ```
 
-`Records` holds eager row dicts for inserts and file materialization workflows.
+Prefer factories and public keyword arguments:
+
+```python
+Records.from_list([{"id": 1}], database=db).insert_into("users")
+# or
+Records(data=[{"id": 1}], database=db).insert_into("users")
+```
+
+`Records(_data=...)` and `Records(_database=...)` are **deprecated** (removed in 2.0).
+
+### Database CRUD (sync and async)
+
+Sync:
+
+```python
+db.insert("users", rows)
+db.update("users", where=col("id") == 1, set={"name": "Alice"})
+db.delete("users", where=col("id") == 1)
+db.merge("users", rows, on=["id"], when_matched={"name": "Bob"})
+```
+
+Async (`AsyncDatabase` — same method signatures):
+
+```python
+async def insert_users(db, rows):
+    return await db.insert("users", rows)
+```
 
 ## Reading data: choose the right API
 
-| Goal | API | Returns | When to use |
-|------|-----|---------|-------------|
-| Query a SQL table | `db.table("t").select().where(...)` | `DataFrame` | Lazy SQL pushdown on existing tables |
-| Load a file for querying | `db.load.csv("data.csv")` | `DataFrame` | Lazy scan; file staged via temp table |
-| Load a file as row dicts | `db.read.records.csv("data.csv")` | `Records` | Eager rows for `insert_into()` or Python logic |
-| Insert / update / delete | `Records(...).insert_into("t")`, `db.update(...)`, `db.delete(...)` | — | CRUD on SQL tables |
+| Goal | API | Returns |
+|------|-----|---------|
+| Query a SQL table | `db.table("t").select().where(...)` | `DataFrame` |
+| Load a file for querying | `db.load.csv("data.csv")` | `DataFrame` |
+| Load a file as row dicts | `db.read.records.csv("data.csv")` | `Records` / `LazyRecords` |
+| Polars-style file scan | `db.scan_csv("data.csv")` | `PolarsDataFrame` (optional) |
 
-**Mental model**
+**Canonical paths (1.2+)**
 
-- **`table().select()`** — SQL tables, lazy `DataFrame`, operations compile to SQL.
-- **`load.*`** — files → lazy `DataFrame` (query with `.where()`, `.join()`, etc.).
-- **`read.records.*`** — files → eager `Records` (row materialization, inserts).
-- **`Records`** — in-memory rows for CRUD helpers.
+- **Lazy DataFrame from files:** `db.load.csv()` — preferred
+- **Eager rows from files:** `db.read.records.csv()`
+- **`db.read.csv()` etc.:** deprecated for DataFrame reads; use `db.load.*` instead
 
 ## Optional extras
 
@@ -94,7 +149,7 @@ from moltres.io.records import Records
 | `parquet` | `pip install moltres[parquet]` | Parquet file I/O via pyarrow |
 | `fastapi` | `pip install moltres[fastapi]` | FastAPI integration helpers |
 | `duckdb` | `pip install moltres[duckdb]` | DuckDB SQLAlchemy dialect |
-| `async-postgresql` | `pip install moltres[async-postgresql]` | Async PostgreSQL driver |
+| `async` / `async-sqlite` | `pip install moltres[async-sqlite]` | `AsyncDatabase`, async file I/O |
 | `sqlmodel` | `pip install moltres[sqlmodel]` | SQLModel / Pydantic model integration |
 | `streamlit` | `pip install moltres[streamlit]` | Streamlit components |
 
@@ -109,6 +164,5 @@ dialect. See:
 
 ## What is not public API
 
-Modules under `moltres.sql`, `moltres.logical`, and empty `__init__.py` packages
-are internal implementation details. Import from the paths above unless you are
-contributing to Moltres itself.
+Modules under `moltres.sql`, `moltres.logical`, `moltres.dataframe.managers`, and
+empty `__init__.py` packages are internal implementation details.

@@ -127,7 +127,8 @@ Moltres follows semantic versioning with explicit deprecation windows:
 from moltres.utils._compat import warn_deprecated
 
 warn_deprecated(
-    "insert_rows() is deprecated. Use TableHandle.insert() instead.",
+    "insert_rows() is deprecated. Use db.insert(table, rows) or "
+    "Records.from_list(rows, database=db).insert_into(table) instead.",
     version="1.1",
     removal_version="2.0",
 )

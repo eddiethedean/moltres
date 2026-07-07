@@ -16,6 +16,7 @@ from typing import (
     AsyncIterator,
     Dict,
     List,
+    Mapping,
     Optional,
     Union,
     cast,
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from ..dataframe.interfaces.async_pandas_dataframe import AsyncPandasDataFrame
     from ..dataframe.interfaces.async_polars_dataframe import AsyncPolarsDataFrame
     from ..dataframe.io.async_reader import AsyncDataLoader, AsyncReadAccessor
+    from ..expressions.column import Column
     from ..io.records import AsyncLazyRecords, AsyncRecords
     from ..utils.inspector import ColumnInfo
     from .async_actions import (
@@ -550,6 +552,78 @@ class AsyncDatabase:
             # Validate table name format
             quote_identifier(table_name, self._dialect.quote_char)
             return AsyncTableHandle(name=table_name, database=self)
+
+    async def insert(
+        self,
+        table_name: str,
+        rows: Union[
+            Sequence[Mapping[str, object]],
+            "AsyncRecords",
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
+        ],
+    ) -> int:
+        """Insert rows into a table.
+
+        Args:
+            table_name: Name of the table to insert into
+            rows: Row dicts, :class:`AsyncRecords`, or pandas/polars data
+
+        Returns:
+            Number of rows inserted
+        """
+        from .async_mutations import insert_rows_async
+
+        handle = await self.table(table_name)
+        return await insert_rows_async(handle, rows)
+
+    async def update(
+        self,
+        table_name: str,
+        *,
+        where: "Column",
+        set: Mapping[str, object],  # noqa: A002
+    ) -> int:
+        """Update rows in a table."""
+        from .async_mutations import update_rows_async
+
+        handle = await self.table(table_name)
+        return await update_rows_async(handle, where=where, values=set)
+
+    async def delete(self, table_name: str, *, where: "Column") -> int:
+        """Delete rows from a table."""
+        from .async_mutations import delete_rows_async
+
+        handle = await self.table(table_name)
+        return await delete_rows_async(handle, where=where)
+
+    async def merge(
+        self,
+        table_name: str,
+        rows: Union[
+            Sequence[Mapping[str, object]],
+            "AsyncRecords",
+            "pd.DataFrame",
+            "pl.DataFrame",
+            "pl.LazyFrame",
+        ],
+        *,
+        on: Sequence[str],
+        when_matched: Optional[Mapping[str, object]] = None,
+        when_not_matched: Optional[Mapping[str, object]] = None,
+    ) -> int:
+        """Merge (upsert) rows into a table."""
+        from .async_mutations import merge_rows_async
+
+        handle = await self.table(table_name)
+        return await merge_rows_async(
+            handle,
+            rows,
+            on=on,
+            when_matched=when_matched,
+            when_not_matched=when_not_matched,
+        )
 
     @property
     def load(self) -> "AsyncDataLoader":

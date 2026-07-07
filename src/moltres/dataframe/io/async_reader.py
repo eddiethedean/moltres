@@ -7,6 +7,7 @@ from typing import cast, TYPE_CHECKING, Any, Dict, Optional, Sequence
 from ...io.records import AsyncLazyRecords, AsyncRecords
 from ...table.schema import ColumnDef
 from ..core.async_dataframe import AsyncDataFrame
+from .reader import _warn_read_dataframe_path
 from .readers.async_csv_reader import read_csv, read_csv_stream
 from .readers.async_json_reader import (
     read_json,
@@ -418,7 +419,7 @@ class AsyncRecordsLoader:
         Returns:
             :class:`AsyncRecords` containing the data (already materialized)
         """
-        return AsyncRecords(_data=list(data), _database=self._database, _schema=self._schema)
+        return AsyncRecords(data=list(data), database=self._database, _schema=self._schema)
 
 
 class AsyncReadAccessor:
@@ -471,29 +472,13 @@ class AsyncReadAccessor:
 
     # AsyncDataFrame read methods (delegate to AsyncDataLoader)
     async def table(self, name: str) -> AsyncDataFrame:
-        """Read from a database table as an AsyncDataFrame.
-
-        Args:
-            name: Name of the table to read
-
-        Returns:
-            AsyncDataFrame that can be transformed before execution
-
-        Example:
-            >>> df = await db.read.table("users")
-            >>> results = await df.collect()
-        """
+        """Read from a database table as an AsyncDataFrame."""
+        _warn_read_dataframe_path("table", load_method="table")
         return await self._loader.table(name)
 
     async def csv(self, path: str) -> AsyncDataFrame:
-        """Read a CSV file as an AsyncDataFrame.
-
-        Args:
-            path: Path to the CSV file
-
-        Returns:
-            AsyncDataFrame containing the CSV data (lazy, materialized on .collect())
-        """
+        """Read a CSV file as an AsyncDataFrame."""
+        _warn_read_dataframe_path("csv")
         return await self._loader.csv(path)
 
     async def json(self, path: str) -> AsyncDataFrame:
@@ -505,55 +490,27 @@ class AsyncReadAccessor:
         Returns:
             AsyncDataFrame containing the JSON data (lazy, materialized on .collect())
         """
+        _warn_read_dataframe_path("json")
         return await self._loader.json(path)
 
     async def jsonl(self, path: str) -> AsyncDataFrame:
-        """Read a JSONL file (one JSON object per line) as an AsyncDataFrame.
-
-        Args:
-            path: Path to the JSONL file
-
-        Returns:
-            AsyncDataFrame containing the JSONL data (lazy, materialized on .collect())
-        """
+        """Read a JSONL file as an AsyncDataFrame."""
+        _warn_read_dataframe_path("jsonl")
         return await self._loader.jsonl(path)
 
     async def parquet(self, path: str) -> AsyncDataFrame:
-        """Read a Parquet file as an AsyncDataFrame.
-
-        Args:
-            path: Path to the Parquet file
-
-        Returns:
-            AsyncDataFrame containing the Parquet data (lazy, materialized on .collect())
-
-        Raises:
-            RuntimeError: If pandas or pyarrow are not installed
-        """
+        """Read a Parquet file as an AsyncDataFrame."""
+        _warn_read_dataframe_path("parquet")
         return await self._loader.parquet(path)
 
     async def text(self, path: str, column_name: str = "value") -> AsyncDataFrame:
-        """Read a text file as a single column (one line per row) as an AsyncDataFrame.
-
-        Args:
-            path: Path to the text file
-            column_name: Name of the column to create (default: "value")
-
-        Returns:
-            AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
-        """
+        """Read a text file as an AsyncDataFrame."""
+        _warn_read_dataframe_path("text")
         return await self._loader.text(path, column_name)
 
     async def textFile(self, path: str, column_name: str = "value") -> AsyncDataFrame:
-        """Read a text file as a single column (PySpark-compatible alias for text()).
-
-        Args:
-            path: Path to the text file
-            column_name: Name of the column to create (default: "value")
-
-        Returns:
-            AsyncDataFrame containing the text file lines (lazy, materialized on .collect())
-        """
+        """Read a text file (PySpark alias)."""
+        _warn_read_dataframe_path("textFile", load_method="text")
         return await self._loader.textFile(path, column_name)
 
     async def text_file(self, path: str, column_name: str = "value") -> AsyncDataFrame:
@@ -571,12 +528,6 @@ class AsyncReadAccessor:
         return await self.textFile(path, column_name)
 
     async def format(self, source: str) -> AsyncFormatReader:
-        """Specify the data source format.
-
-        Args:
-            source: Format name (e.g., "csv", "json", "parquet")
-
-        Returns:
-            AsyncFormatReader for the specified format
-        """
+        """Specify the data source format."""
+        _warn_read_dataframe_path("format", load_method=f"format('{source}')")
         return await self._loader.format(source)

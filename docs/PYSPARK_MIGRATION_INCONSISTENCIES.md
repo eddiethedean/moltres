@@ -172,16 +172,17 @@ df.drop("col1", "col2")
 from moltres import col  # Essential for column operations
 ```
 
-### 2. Use `col()` Wrapper for Column References
+### 2. Column References for Sorting and Grouping
 
-When in doubt, wrap column names with `col()`:
+Strings work for `order_by()`, `sort()`, and `group_by()` (v0.16.0+). Use `col()` when you need expressions (e.g. descending sort or computed columns):
 
 ```python
-# Safe pattern
+# Safe patterns
 df.select(col("name"), col("amount"))
 df.filter(col("age") > 18)
-df.group_by(col("category"))  # Works, but strings also work
-df.order_by(col("name"))  # Required for order_by
+df.group_by("category")  # strings work
+df.order_by("name")  # strings work
+df.order_by(col("amount").desc())  # expressions need col()
 ```
 
 ### 3. Check Method Signatures
@@ -190,8 +191,8 @@ If a method doesn't work as expected, check the method signature:
 
 ```python
 # Check what types are accepted
-help(df.order_by)  # Shows: order_by(*columns: Column)
-help(df.group_by)  # Shows: group_by(*columns: Union[Column, str])
+help(df.order_by)  # Accepts Column expressions and column name strings
+help(df.group_by)  # Accepts Column expressions and column name strings
 ```
 
 ### 4. Use PySpark-Style Aliases
@@ -230,7 +231,7 @@ result = (
 result.show()
 ```
 
-### Moltres Code (With Workarounds)
+### Moltres Code
 
 ```python
 from moltres import connect, col
@@ -244,7 +245,7 @@ result = (
     .where(col("amount") > 100)
     .group_by("category")
     .agg(F.sum(col("amount")).alias("total"), F.avg(col("amount")).alias("avg"))
-    .order_by(col("total"))  # Must use col() wrapper
+    .order_by("total")  # strings work on output column names
 )
 result.show()
 ```
@@ -254,7 +255,7 @@ result.show()
 2. `read.table()` → `table().select()`
 3. `filter()` → `where()` (or use `filter()`)
 4. `groupBy()` → `group_by()` (or use `groupBy()`)
-5. `orderBy("total")` → `order_by(col("total"))` ⚠️ **Must use col()**
+5. `orderBy("total")` → `order_by("total")` (strings supported)
 
 ---
 
@@ -267,8 +268,8 @@ After migrating, test your code to ensure it works:
 df = db.table("orders").select()
 assert df.count() > 0
 
-# Test sorting (with col() wrapper)
-sorted_df = df.order_by(col("amount"))
+# Test sorting (strings supported)
+sorted_df = df.order_by("amount")
 results = sorted_df.collect()
 assert len(results) > 0
 
@@ -289,7 +290,20 @@ assert len(results) > 0
 
 ---
 
-## Recent Improvements (v0.16.0)
+## Union Semantics (Important Difference from PySpark)
+
+PySpark `union()` returns **all rows** (like SQL `UNION ALL`). Moltres uses SQL semantics:
+
+| Moltres | PySpark equivalent | Behavior |
+|---------|-------------------|----------|
+| `df.union(other)` | `union().distinct()` | **DISTINCT** rows only |
+| `df.unionAll(other)` | `union()` | **ALL** rows |
+
+When migrating PySpark `df1.union(df2)`, use **`df1.unionAll(df2)`** in Moltres.
+
+---
+
+## Recent Improvements (v0.16.0+)
 
 The Moltres team has recently fixed all PySpark compatibility issues:
 
@@ -303,6 +317,6 @@ See [PYSPARK_INTERFACE_AUDIT.md](PYSPARK_INTERFACE_AUDIT.md) for the complete ro
 
 ---
 
-*Last Updated: 2025*
-*Moltres Version: 0.16.0*
+*Last Updated: 2026-07-07*
+*Moltres Version: 1.1.0*
 

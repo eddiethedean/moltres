@@ -23,7 +23,8 @@ Example:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import importlib
+from typing import TYPE_CHECKING, Any
 
 # Import duckdb_engine early to register the dialect with SQLAlchemy
 try:
@@ -39,29 +40,63 @@ from .expressions import col, lit
 from .table.schema import column
 from .table.table import Database
 
-# Optional pandas interface - only import if available
-try:
-    from .dataframe.interfaces.pandas_dataframe import PandasDataFrame
-except ImportError:
-    PandasDataFrame = None  # type: ignore
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+    from sqlalchemy.orm import Session
 
-# Optional polars interface - only import if available
-try:
-    from .dataframe.interfaces.polars_dataframe import PolarsDataFrame
-except ImportError:
-    PolarsDataFrame = None  # type: ignore
-
-# Optional async polars interface - only import if available
-try:
-    from .dataframe.interfaces.async_polars_dataframe import AsyncPolarsDataFrame
-except ImportError:
-    AsyncPolarsDataFrame = None  # type: ignore
-
-# Optional async pandas interface - only import if available
-try:
     from .dataframe.interfaces.async_pandas_dataframe import AsyncPandasDataFrame
-except ImportError:
-    AsyncPandasDataFrame = None  # type: ignore
+    from .dataframe.interfaces.async_polars_dataframe import AsyncPolarsDataFrame
+    from .dataframe.interfaces.pandas_dataframe import PandasDataFrame
+    from .dataframe.interfaces.polars_dataframe import PolarsDataFrame
+    from .table.async_table import AsyncDatabase
+
+_OPTIONAL_EXPORTS: dict[str, tuple[str, str, str]] = {
+    "PandasDataFrame": (
+        "moltres.dataframe.interfaces.pandas_dataframe",
+        "PandasDataFrame",
+        "pandas",
+    ),
+    "PolarsDataFrame": (
+        "moltres.dataframe.interfaces.polars_dataframe",
+        "PolarsDataFrame",
+        "polars",
+    ),
+    "AsyncPandasDataFrame": (
+        "moltres.dataframe.interfaces.async_pandas_dataframe",
+        "AsyncPandasDataFrame",
+        "pandas",
+    ),
+    "AsyncPolarsDataFrame": (
+        "moltres.dataframe.interfaces.async_polars_dataframe",
+        "AsyncPolarsDataFrame",
+        "polars",
+    ),
+    "AsyncDatabase": (
+        "moltres.table.async_table",
+        "AsyncDatabase",
+        "async",
+    ),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy-load optional integrations with clear ImportError messages."""
+    if name in _OPTIONAL_EXPORTS:
+        module_path, attr, extra = _OPTIONAL_EXPORTS[name]
+        try:
+            module = importlib.import_module(module_path)
+            return getattr(module, attr)
+        except ImportError as exc:
+            raise ImportError(f"Install moltres[{extra}] to use moltres.{name}.") from exc
+    if name == "fastapi_integration":
+        try:
+            return importlib.import_module("moltres.integrations.fastapi")
+        except ImportError as exc:
+            raise ImportError(
+                "Install moltres[fastapi] to use moltres.fastapi_integration."
+            ) from exc
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
@@ -133,30 +168,18 @@ __all__ = [
     "lit",
     "register_performance_hook",
     "unregister_performance_hook",
+    "fastapi_integration",
 ]
 
-# Optional FastAPI integration - only import if available
-try:
-    from .integrations import fastapi as fastapi_integration
 
-    __all__.append("fastapi_integration")
-except ImportError:
-    fastapi_integration = None  # type: ignore[assignment]
-
-# Async imports - only available if async dependencies are installed
-if TYPE_CHECKING:
-    from .table.async_table import AsyncDatabase
-else:
-    try:
-        from .table.async_table import AsyncDatabase
-    except ImportError:
-        AsyncDatabase = None
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__) | set(_OPTIONAL_EXPORTS) | {"fastapi_integration"})
 
 
 def connect(
     dsn: str | None = None,
-    engine: object | None = None,
-    session: object | None = None,
+    engine: "Engine | None" = None,
+    session: "Session | None" = None,
     **options: EngineOptionValue,
 ) -> Database:
     """Connect to a SQL database and return a :class:`Database` handle.
@@ -218,7 +241,7 @@ def connect(
         ...     from moltres.table.schema import column
         ...     _ = db.create_table("users", [column("id", "INTEGER"), column("active", "BOOLEAN")]).collect()  # doctest: +ELLIPSIS
         ...     from moltres.io.records import Records
-        ...     _ = Records(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
+        ...     _ = Records.from_list([{"id": 1, "active": True}], database=db).insert_into("users")
         ...     df = db.table("users").select().where(col("active") == True)
         ...     results = df.collect()
         ...     # db.close() called automatically on exit
@@ -228,7 +251,7 @@ def connect(
         >>> from moltres.table.schema import column
         >>> _ = db.create_table("users", [column("id", "INTEGER"), column("active", "BOOLEAN")]).collect()  # doctest: +ELLIPSIS
         >>> from moltres.io.records import Records
-        >>> _ = Records(_data=[{"id": 1, "active": True}], _database=db).insert_into("users")
+        >>> _ = Records.from_list([{"id": 1, "active": True}], database=db).insert_into("users")
         >>> df = db.table("users").select().where(col("active") == True)
         >>> results = df.collect()
         >>> db.close()
@@ -300,10 +323,10 @@ def connect(
 
 def async_connect(
     dsn: str | None = None,
-    engine: object | None = None,
-    session: object | None = None,
+    engine: "AsyncEngine | None" = None,
+    session: "AsyncSession | None" = None,
     **options: EngineOptionValue,
-) -> AsyncDatabase:
+) -> "AsyncDatabase":
     """Connect to a SQL database asynchronously and return an :class:`AsyncDatabase` handle.
 
     This function requires async dependencies. Install with:
@@ -371,8 +394,8 @@ def async_connect(
         ...     async with async_connect("sqlite+aiosqlite:///:memory:") as db:
         ...         from moltres.table.schema import column
         ...         await db.create_table("users", [column("id", "INTEGER")]).collect()
-        ...         from moltres.io.records import :class:`AsyncRecords`
-        ...         records = :class:`AsyncRecords`(_data=[{"id": 1}], _database=db)
+        ...         from moltres.io.records import AsyncRecords
+        ...         records = AsyncRecords.from_list([{"id": 1}], database=db)
         ...         await records.insert_into("users")
         ...         table_handle = await db.table("users")
         ...         df = table_handle.select()
