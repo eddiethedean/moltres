@@ -59,27 +59,41 @@ pip install -e .
 
 **1.1.0** ships this split on PyPI: `pip install moltres` pulls in **`moltres-core`** automatically. For breaking changes and upgrade notes, see [CHANGELOG.md](CHANGELOG.md).
 
+### Prerequisites
+
+- **Python 3.10+** (see [Runtime support](docs/RUNTIME_SUPPORT.md))
+- **SQLAlchemy 2.0+** (installed automatically with `moltres`)
+- **Database driver** for your backend (e.g. `psycopg2-binary` for PostgreSQL, `pymysql` for MySQL; SQLite needs no extra driver)
+- **Optional extras**: full list in [Public API — Optional extras](docs/PUBLIC_API.md#optional-extras)
+
 ## 🚀 Quick Start
+
+**New here?** Follow the [5-minute getting started guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html) first.
 
 ```python
 from moltres import col, connect
 from moltres.expressions import functions as F
+from moltres.io.records import Records
+from moltres.table.schema import column
 
-# Connect to your database
-db = connect("sqlite:///example.db")
+with connect("sqlite:///:memory:") as db:
+    db.create_table("orders", [
+        column("id", "INTEGER"),
+        column("country", "TEXT"),
+        column("amount", "REAL"),
+    ]).collect()
+    Records.from_list([
+        {"id": 1, "country": "US", "amount": 100.0},
+        {"id": 2, "country": "UK", "amount": 200.0},
+    ], database=db).insert_into("orders")
 
-# DataFrame operations with SQL pushdown (no data loading into memory)
-df = (
-    db.table("orders")
-    .select()
-    .join(db.table("customers").select(), on=[col("orders.customer_id") == col("customers.id")])
-    .where(col("active") == True)
-    .group_by("country")
-    .agg(F.sum(col("amount")).alias("total_amount"))
-)
-
-# Execute and get results
-results = df.collect()  # Returns list of dicts by default
+    df = (
+        db.table("orders").select()
+        .where(col("country") == "US")
+        .group_by("country")
+        .agg(F.sum(col("amount")).alias("total_amount"))
+    )
+    print(df.collect())  # [{'country': 'US', 'total_amount': 100.0}]
 ```
 
 ### CRUD Operations
@@ -115,16 +129,16 @@ See [Public API guide](docs/PUBLIC_API.md) for stable import paths.
 - **[Roadmap](ROADMAP.md)** - Future 1.x release phases and competitive priorities
 - **[Public API](https://moltres.readthedocs.io/en/latest/PUBLIC_API.html)** - Stable imports and I/O patterns
 
-- **[Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)** - Step-by-step introduction
-- **[Examples Directory](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - 29 comprehensive examples
+- **[Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)** - Step-by-step introduction (start here)
+- **[Examples](https://moltres.readthedocs.io/en/latest/EXAMPLE_SCRIPTS.html)** - Runnable example scripts
 - **[User Guides](https://moltres.readthedocs.io/en/latest/#guides-how-to)** - Complete guides for all features
 - **[API Reference](https://moltres.readthedocs.io/en/latest/api/dataframe.html)** - Complete API documentation
 
 ### Framework Integrations
 
-- **[FastAPI Integration](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - Error handling, dependency injection
-- **[Django Integration](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - Middleware, template tags, management commands
-- **[Streamlit Integration](https://moltres.readthedocs.io/en/latest/EXAMPLES.html)** - Components, caching, query visualization
+- **[FastAPI Integration](https://moltres.readthedocs.io/en/latest/EXAMPLE_SCRIPTS.html)** - See `docs/examples/22_fastapi_integration.py`
+- **[Django Integration](https://moltres.readthedocs.io/en/latest/guides/django-integration.html)**
+- **[Streamlit Integration](https://moltres.readthedocs.io/en/latest/guides/streamlit-integration.html)**
 - **[SQLModel & Pydantic](https://moltres.readthedocs.io/en/latest/guides/sqlmodel-integration.html)** - Type-safe models
 
 ## 🛠️ Supported Operations
@@ -133,7 +147,7 @@ See [Public API guide](docs/PUBLIC_API.md) for stable import paths.
 
 **130+ Functions**: Mathematical, string, date/time, aggregate, window, array, JSON, and utility functions
 
-**SQL Dialects**: SQLite, PostgreSQL, MySQL, DuckDB, and any SQLAlchemy-supported database
+**SQL Dialects**: SQLite, PostgreSQL, MySQL, and DuckDB are CI-tested; other SQLAlchemy-supported databases are best-effort (see [Runtime support](docs/RUNTIME_SUPPORT.md))
 
 **UX Features**: Enhanced SQL display (`show_sql()`, `sql` property), query plan visualization (`plan_summary()`, `visualize_plan()`), schema discovery (`db.schema()`, `db.tables()`), query validation (`validate()`), performance hints (`performance_hints()`), and interactive help (`help()`, `suggest_next()`)
 
@@ -145,7 +159,7 @@ From a git checkout, install **`moltres-core` before `moltres`** (the monorepo s
 pip install -e ./moltres-core
 pip install -e ".[dev]"
 
-# Run lint/type checks (same as CI)
+# Run lint/type/doc-example checks (does NOT run the test suite)
 make ci-check
 
 # Run tests (matches CI main matrix)
@@ -156,7 +170,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin -p xdist.plugin
 
 ## 🤝 Contributing
 
-Contributions are welcome! See [`CONTRIBUTING.md`](https://moltres.readthedocs.io/en/latest/CONTRIBUTING.html) for guidelines.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 

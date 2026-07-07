@@ -39,7 +39,7 @@ def example_basic_fixture():
                 {"id": 1, "name": "Alice", "email": "alice@example.com"},
                 {"id": 2, "name": "Bob", "email": "bob@example.com"},
             ],
-            _database=db,
+            database=db,
         ).insert_into("users")
         
         # Query and verify
@@ -117,7 +117,7 @@ def example_test_data_fixture():
         ).collect()
         
         # Insert loaded data
-        Records(_data=users_data, _database=db).insert_into("users")
+        Records.from_list(users_data, database=db).insert_into("users")
         
         # Verify
         df = db.table("users").select()
@@ -140,10 +140,10 @@ def example_custom_assertions():
         
         # Create and populate two tables
         db.create_table("source", [...]).collect()
-        Records(_data=[...], _database=db).insert_into("source")
+        Records.from_list([...], database=db).insert_into("source")
         
         db.create_table("target", [...]).collect()
-        Records(_data=[...], _database=db).insert_into("target")
+        Records.from_list([...], database=db).insert_into("target")
         
         # Compare DataFrames
         df1 = db.table("source").select()

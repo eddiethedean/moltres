@@ -107,9 +107,10 @@ top_customers = customer_stats.collect()
 # Step 3: Update based on analysis (executes UPDATE SQL directly)
 # Mark high-value customers as VIP
 for customer in top_customers:
-    customers.update(
+    db.update(
+        "customers",
         where=col("id") == customer["customers.id"],
-        set={"tier": "VIP", "updated_at": "2024-01-15"}
+        set={"tier": "VIP", "updated_at": "2024-01-15"},
     )
 
 # Or update all at once using a subquery approach
@@ -140,15 +141,17 @@ inactive_customers = (
 inactive_ids = [row["id"] for row in inactive_customers.collect()]
 
 # Update all inactive customers in one operation
-customers.update(
+db.update(
+    "customers",
     where=col("id").isin(inactive_ids),
-    set={"status": "inactive", "inactive_since": "2024-01-15"}
+    set={"status": "inactive", "inactive_since": "2024-01-15"},
 )
 
 # Delete old inactive customers (executes DELETE SQL)
-customers.delete(
-    where=(col("status") == "inactive") & 
-          (col("inactive_since") < "2023-01-01")
+db.delete(
+    "customers",
+    where=(col("status") == "inactive")
+    & (col("inactive_since") < "2023-01-01"),
 )
 ```
 
@@ -182,16 +185,15 @@ from moltres import async_connect
 
 async def main():
     db = async_connect("sqlite+aiosqlite:///example.db")
-    
-    # Load CSV asynchronously (returns AsyncRecords)
-    records = await db.load.csv("data.csv")
-    rows = await records.rows()  # Get all rows
-    
-    # Stream large files (returns AsyncRecords)
-    records_stream = await db.load.stream().csv("large_file.csv")
-    async for row in records_stream:
-        process(row)
-    
+
+    # Load CSV as lazy AsyncDataFrame
+    df = await db.load.csv("data.csv")
+    rows = await df.collect()
+
+    # Eager rows for inserts
+    records = await db.read.records.csv("data.csv")
+    rows = await records.rows()
+
     await db.close()
 
 asyncio.run(main())
@@ -205,24 +207,23 @@ from moltres import async_connect, col
 
 async def main():
     db = async_connect("sqlite+aiosqlite:///example.db")
-    
-    table = await db.table("users")
-    
+
     # Insert rows
-    await table.insert([
+    await db.insert("users", [
         {"name": "Alice", "age": 30},
         {"name": "Bob", "age": 25},
     ])
-    
+
     # Update rows
-    await table.update(
+    await db.update(
+        "users",
         where=col("age") < 30,
         set={"status": "young"},
     )
-    
+
     # Delete rows
-    await table.delete(where=col("age") > 100)
-    
+    await db.delete("users", where=col("age") > 100)
+
     await db.close()
 
 asyncio.run(main())
@@ -457,19 +458,29 @@ df = (
 
 ## Data Mutations
 
+CRUD operations use **`Database.insert/update/delete/merge`** (or `Records.insert_into` for row bags).
+`TableHandle` from `db.table("name")` is for **queries only**.
+
 ### Insert Data
 
 ```python
-# Single row
-table = db.table("users")
-table.insert([{"name": "Alice", "email": "alice@example.com"}])
+from moltres.io.records import Records
 
-# Multiple rows (batch insert)
-table.insert([
+# Single batch insert
+db.insert("users", [{"name": "Alice", "email": "alice@example.com"}])
+
+# Multiple rows
+db.insert("users", [
     {"name": "Alice", "email": "alice@example.com"},
     {"name": "Bob", "email": "bob@example.com"},
     {"name": "Charlie", "email": "charlie@example.com"},
 ])
+
+# Or via Records
+Records.from_list(
+    [{"name": "Alice", "email": "alice@example.com"}],
+    database=db,
+).insert_into("users")
 ```
 
 ### Update Data
@@ -478,18 +489,20 @@ table.insert([
 from moltres import col
 
 # Update single column
-table.update(
+db.update(
+    "users",
     where=col("id") == 1,
-    set={"name": "Alice Updated"}
+    set={"name": "Alice Updated"},
 )
 
 # Update multiple columns
-table.update(
+db.update(
+    "users",
     where=col("status") == "pending",
     set={
         "status": "processed",
-        "processed_at": "2024-01-01 12:00:00"
-    }
+        "processed_at": "2024-01-01 12:00:00",
+    },
 )
 ```
 
@@ -497,11 +510,12 @@ table.update(
 
 ```python
 # Delete with condition
-table.delete(where=col("status") == "deleted")
+db.delete("users", where=col("status") == "deleted")
 
 # Delete with complex condition
-table.delete(
-    where=(col("status") == "deleted") & (col("deleted_at") < "2024-01-01")
+db.delete(
+    "users",
+    where=(col("status") == "deleted") & (col("deleted_at") < "2024-01-01"),
 )
 ```
 
@@ -509,32 +523,32 @@ table.delete(
 
 ### Loading Files
 
-File readers return `Records`, not `DataFrame`. Records are materialized data that can be inserted into tables or iterated.
+| Goal | API | Returns |
+|------|-----|---------|
+| Lazy DataFrame for SQL transforms | `db.load.csv(path)` | `DataFrame` |
+| Eager rows for inserts | `db.read.records.csv(path)` | `Records` |
 
 ```python
-# CSV - returns Records
-records = db.load.csv("data.csv")
-records = db.load.option("delimiter", "|").csv("pipe_delimited.csv")
-records = db.load.option("header", False).csv("no_header.csv")
+from moltres.io.records import Records
 
-# JSON - returns Records
-records = db.load.json("data.json")  # Array of objects
-records = db.load.jsonl("data.jsonl")  # One object per line
+# Lazy DataFrame (query with .where(), .join(), etc.)
+df = db.load.csv("data.csv")
+df = db.load.option("delimiter", "|").csv("pipe_delimited.csv")
+results = df.collect()
 
-# Parquet (requires pandas and pyarrow) - returns Records
-records = db.load.parquet("data.parquet")
+# Eager Records (insert into tables, Python iteration)
+records = db.read.records.csv("data.csv")
+records = db.read.records.json("data.json")
+records = db.read.records.parquet("data.parquet")  # requires moltres[parquet]
 
-# Text file - returns Records
-records = db.load.text("log.txt", column_name="line")
+# Insert Records into a table
+Records.from_list(list(records), database=db).insert_into("staging")
+# Or
+db.insert("staging", list(records))
 
-# Use Records with insert operations
-table.insert(records)  # Records implements Sequence protocol
-# Or use convenience method
-records.insert_into("table_name")
-
-# Access data
-rows = records.rows()  # Get all rows as a list
-for row in records:  # Iterate directly
+# Access eager row data
+rows = records.rows()
+for row in records:
     process(row)
 ```
 
@@ -678,11 +692,11 @@ except ExecutionError as e:
 
 ```python
 # ✅ Good: Batch insert
-table.insert([row1, row2, ..., row1000])
+db.insert("users", [row1, row2, ..., row1000])
 
 # ❌ Avoid: Individual inserts in loop
 for row in rows:
-    table.insert([row])  # Much slower
+    db.insert("users", [row])  # Much slower
 ```
 
 ### Use Streaming for Large Data
@@ -773,9 +787,10 @@ cleaned = (
 )
 
 # Update null values
-db.table("users").update(
+db.update(
+    "users",
     where=col("status").is_null(),
-    set={"status": "unknown"}
+    set={"status": "unknown"},
 )
 ```
 
@@ -790,24 +805,24 @@ db.table("users").update(
 # With Pandas: Would require loading all data, filtering, then updating
 # With Moltres: Single UPDATE SQL statement, zero memory usage
 
-orders = db.table("orders")
-
 # Update based on complex DataFrame query logic
 # All executed in SQL—no data materialization
-orders.update(
+db.update(
+    "orders",
     where=(
-        (col("status") == "pending") & 
-        (col("created_at") < "2024-01-01") &
-        (col("payment_confirmed") == True)
+        (col("status") == "pending")
+        & (col("created_at") < "2024-01-01")
+        & (col("payment_confirmed") == True)
     ),
     set={
         "status": "processing",
         "updated_at": "2024-01-15",
-        "processed_by": "batch_job"
-    }
+        "processed_by": "batch_job",
+    },
 )
 
 # Verify the update with a DataFrame query (also executes in SQL)
+orders = db.table("orders")
 updated_count = (
     orders.select()
     .where(col("status") == "processing")
@@ -824,8 +839,8 @@ print(f"Updated {updated_count[0]['count']} orders")
 # Complete ETL pipeline where intermediate results never materialize
 # All transformations happen in SQL
 
-# Extract: Load from file (only this step materializes data)
-raw_records = db.load.csv("raw_sales.csv")
+# Extract: Load from file into staging (DataFrame → temp table, or eager Records)
+raw_df = db.load.csv("raw_sales.csv")
 
 # Load into staging (batch insert, efficient)
 db.create_table("staging_sales", [
@@ -835,7 +850,7 @@ db.create_table("staging_sales", [
     column("date", "DATE"),
     column("region", "TEXT"),
 ])
-raw_records.insert_into("staging_sales")
+raw_df.write.mode("overwrite").insertInto("staging_sales")
 
 # Transform: All operations execute in SQL, no intermediate materialization
 cleaned = (
@@ -865,7 +880,7 @@ aggregated = (
 aggregated.write.mode("overwrite").save_as_table("daily_sales_summary")
 
 # Cleanup staging (SQL DELETE)
-db.table("staging_sales").delete(where=col("date") < "2024-01-01")
+db.delete("staging_sales", where=col("date") < "2024-01-01")
 ```
 
 ### For Backend Developers
@@ -873,23 +888,16 @@ db.table("staging_sales").delete(where=col("date") < "2024-01-01")
 #### Replace ORM Operations with DataFrame CRUD
 
 ```python
-# Instead of ORM-style row-by-row operations, use DataFrame-style bulk operations
-
-users = db.table("users")
-
-# Traditional ORM approach (slow, many queries):
-# for user in User.query.filter_by(status='pending'):
-#     user.status = 'active'
-#     user.updated_at = datetime.now()
-#     db.session.commit()
+# Instead of ORM-style row-by-row operations, use Database-level bulk CRUD
 
 # Moltres approach (single UPDATE SQL statement):
-users.update(
+db.update(
+    "users",
     where=col("status") == "pending",
     set={
         "status": "active",
-        "updated_at": "2024-01-15 10:00:00"
-    }
+        "updated_at": "2024-01-15 10:00:00",
+    },
 )
 
 # Bulk insert instead of loop
@@ -898,10 +906,10 @@ new_users = [
     {"name": "Bob", "email": "bob@example.com", "role": "admin"},
     {"name": "Charlie", "email": "charlie@example.com", "role": "user"},
 ]
-users.insert(new_users)  # Single batch INSERT
+db.insert("users", new_users)
 
 # Column-aware updates based on queries
-# Find users who need role updates
+users = db.table("users")
 users_needing_update = (
     users.select()
     .join(db.table("permissions").select(), on=[col("users.id") == col("permissions.user_id")])
@@ -911,9 +919,10 @@ users_needing_update = (
 
 # Update all at once
 user_ids = [row["id"] for row in users_needing_update.collect()]
-users.update(
+db.update(
+    "users",
     where=col("id").isin(user_ids),
-    set={"role": "admin", "role_updated_at": "2024-01-15"}
+    set={"role": "admin", "role_updated_at": "2024-01-15"},
 )
 ```
 
@@ -923,31 +932,31 @@ users.update(
 # Moltres provides validated, type-safe CRUD operations
 # No need to hand-write SQL strings
 
-orders = db.table("orders")
-
 # Insert with validation (table schema is checked)
-orders.insert([
+db.insert("orders", [
     {
         "customer_id": 123,
         "product_id": 456,
         "amount": 99.99,
-        "status": "pending"
+        "status": "pending",
     }
 ])
 
 # Update with column expressions (type-safe, validated)
-orders.update(
+db.update(
+    "orders",
     where=col("status") == "pending",
     set={
         "status": "confirmed",
-        "confirmed_at": "2024-01-15 10:00:00"
-    }
+        "confirmed_at": "2024-01-15 10:00:00",
+    },
 )
 
 # Delete with complex conditions (compiled to safe SQL)
-orders.delete(
+db.delete(
+    "orders",
     where=(
-        (col("status") == "cancelled") & 
+        (col("status") == "cancelled")
         (col("cancelled_at") < "2023-01-01")
     )
 )
@@ -1073,7 +1082,7 @@ engagement_features = (
             count("*").alias("event_count"),
             max(col("event_date")).alias("last_active_date"),
         ),
-        on=[col("users.id") == col("user_events.user_id")],
+        on=[col("users.id") == col("events.user_id")],
         how="left"
     )
     .select(
@@ -1093,9 +1102,10 @@ for user in engagement_data:
         user["event_count"],
         user["account_age_days"]
     )
-    db.table("users").update(
+    db.update(
+        "users",
         where=col("id") == user["id"],
-        set={"engagement_score": score, "score_updated_at": "2024-01-15"}
+        set={"engagement_score": score, "score_updated_at": "2024-01-15"},
     )
 ```
 

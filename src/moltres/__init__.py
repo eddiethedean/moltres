@@ -215,16 +215,11 @@ def connect(
             - echo: Enable SQLAlchemy echo mode for debugging (default: False)
             - fetch_format: Result format - "records", "pandas", or "polars" (default: "records")
             - dialect: Override SQL dialect detection (e.g., "postgresql", "mysql")
-            - pool_size: Connection pool size (default: None, uses SQLAlchemy default)
-                         Ignored if engine is provided.
-            - max_overflow: Maximum pool overflow connections (default: None)
-                            Ignored if engine is provided.
-            - pool_timeout: Pool timeout in seconds (default: None)
-                           Ignored if engine is provided.
-            - pool_recycle: Connection recycle time in seconds (default: None)
-                           Ignored if engine is provided.
-            - pool_pre_ping: Enable connection health checks (default: False)
-                            Ignored if engine is provided.
+            - pool_size: Connection pool size (default: None, uses SQLAlchemy default). Ignored if engine is provided.
+            - max_overflow: Maximum pool overflow connections (default: None). Ignored if engine is provided.
+            - pool_timeout: Pool timeout in seconds (default: None). Ignored if engine is provided.
+            - pool_recycle: Connection recycle time in seconds (default: None). Ignored if engine is provided.
+            - pool_pre_ping: Enable connection health checks (default: False). Ignored if engine is provided.
             - future: Use SQLAlchemy 2.0 style (default: True)
 
     Returns:
@@ -367,16 +362,11 @@ def async_connect(
             - echo: Enable SQLAlchemy echo mode for debugging (default: False)
             - fetch_format: Result format - "records", "pandas", or "polars" (default: "records")
             - dialect: Override SQL dialect detection (e.g., "postgresql", "mysql")
-            - pool_size: Connection pool size (default: None, uses SQLAlchemy default)
-                         Ignored if engine is provided.
-            - max_overflow: Maximum pool overflow connections (default: None)
-                            Ignored if engine is provided.
-            - pool_timeout: Pool timeout in seconds (default: None)
-                           Ignored if engine is provided.
-            - pool_recycle: Connection recycle time in seconds (default: None)
-                           Ignored if engine is provided.
-            - pool_pre_ping: Enable connection health checks (default: False)
-                            Ignored if engine is provided.
+            - pool_size: Connection pool size (default: None, uses SQLAlchemy default). Ignored if engine is provided.
+            - max_overflow: Maximum pool overflow connections (default: None). Ignored if engine is provided.
+            - pool_timeout: Pool timeout in seconds (default: None). Ignored if engine is provided.
+            - pool_recycle: Connection recycle time in seconds (default: None). Ignored if engine is provided.
+            - pool_pre_ping: Enable connection health checks (default: False). Ignored if engine is provided.
 
     Returns:
         :class:`AsyncDatabase`: :class:`AsyncDatabase` instance for async querying and table operations

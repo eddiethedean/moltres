@@ -17,6 +17,9 @@ from moltres import (
     MoltresConfig,
     Database,
     AsyncDatabase,
+    MoltresPydantableEngine,
+    SqlPlan,
+    SqlRootData,
     register_performance_hook,
     unregister_performance_hook,
     __version__,
@@ -50,6 +53,17 @@ from moltres.dataframe import (
     DataLoader,
     DataFrameWriter,
     ReadAccessor,
+    AsyncDataLoader,
+    AsyncReadAccessor,
+    AsyncDataFrameWriter,
+    # Interface wrappers (require extras)
+    PandasDataFrame,
+    PolarsDataFrame,
+    AsyncPandasDataFrame,
+    AsyncPolarsDataFrame,
+    # GroupBy
+    GroupedDataFrame,
+    AsyncGroupedDataFrame,
 )
 ```
 
@@ -134,7 +148,7 @@ async def insert_users(db, rows):
 | Load a file as row dicts | `db.read.records.csv("data.csv")` | `Records` / `LazyRecords` |
 | Polars-style file scan | `db.scan_csv("data.csv")` | `PolarsDataFrame` (optional) |
 
-**Canonical paths (1.2+)**
+**Canonical paths**
 
 - **Lazy DataFrame from files:** `db.load.csv()` — preferred
 - **Eager rows from files:** `db.read.records.csv()`
@@ -152,6 +166,38 @@ async def insert_users(db, rows):
 | `async` / `async-sqlite` | `pip install moltres[async-sqlite]` | `AsyncDatabase`, async file I/O |
 | `sqlmodel` | `pip install moltres[sqlmodel]` | SQLModel / Pydantic model integration |
 | `streamlit` | `pip install moltres[streamlit]` | Streamlit components |
+| `django` | `pip install moltres[django]` | Django middleware and template tags |
+| `airflow` | `pip install moltres[airflow]` | Airflow operators |
+| `prefect` | `pip install moltres[prefect]` | Prefect tasks |
+| `dbt` | `pip install moltres[dbt]` | dbt adapter helpers |
+| `async-postgresql` | `pip install moltres[async-postgresql]` | Async PostgreSQL (`asyncpg`) |
+| `async-mysql` | `pip install moltres[async-mysql]` | Async MySQL (`aiomysql`) |
+| `pydantable-integration` | `pip install moltres[pydantable-integration]` | pydantable engine integration |
+
+## Integrations (`moltres.integrations`)
+
+Optional framework helpers (install the matching extra first):
+
+```python
+from moltres.integrations import (
+    fastapi_integration,
+    pytest_integration,
+    dbt_integration,
+    django_integration,
+    sqlalchemy_integration,
+)
+```
+
+See integration guides under **Integrations** in the docs sidebar.
+
+## API decision guide
+
+| Type | Role | CRUD? |
+|------|------|-------|
+| `Database` / `AsyncDatabase` | Connection + `db.table()` + `db.insert/update/delete/merge` | Yes |
+| `TableHandle` / `AsyncTableHandle` | `db.table("t").select()` query entry | No (query only) |
+| `DataFrame` / `AsyncDataFrame` | Lazy SQL transforms | Via `df.write.*` or collect then `db.insert` |
+| `Records` / `AsyncRecords` | Eager row dicts from files or Python | `insert_into()` |
 
 ## PySpark compatibility
 
@@ -160,7 +206,6 @@ dialect. See:
 
 - [PySpark migration inconsistencies](PYSPARK_MIGRATION_INCONSISTENCIES.md)
 - [Moltres vs PySpark comparison](MOLTRES_VS_PYSPARK_COMPARISON.md)
-- [PySpark feature comparison](PYSPARK_FEATURE_COMPARISON.md)
 
 ## What is not public API
 

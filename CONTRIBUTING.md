@@ -139,10 +139,12 @@ Add batch insert support for better performance
 
 3. **Write or update tests** for your changes
 
-4. **Ensure all tests pass**:
+4. **Ensure all checks pass**:
    ```bash
+   # Lint, type check, and doc-example syntax (does NOT run tests)
    make ci-check
-   # Or run tests directly:
+
+   # Full test suite (matches CI main matrix)
    PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -p pytest_asyncio.plugin -p xdist.plugin \
      -m "not postgres and not mysql and not multidb and not tier2_integration and not tier3_integration" \
      -n auto --dist loadgroup

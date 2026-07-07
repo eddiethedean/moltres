@@ -69,7 +69,7 @@ sales_data = [
     },
 ]
 
-Records(_data=sales_data, _database=db).insert_into("sales")
+Records.from_list(sales_data, database=db).insert_into("sales")
 
 # Group by single column
 df = db.table("sales").select()

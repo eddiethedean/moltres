@@ -93,7 +93,7 @@ db.insert("users", users_data)
 print("✓ Inserted 3 users using db.insert()")
 
 # Method 2: Using Records API
-# Records(_data=users_data, _database=db).insert_into("users")
+# Records.from_list(users_data, database=db).insert_into("users")
 # Or using the new convenience methods:
 # Records.from_list(users_data, database=db).insert_into("users")
 
@@ -103,7 +103,7 @@ orders_data = [
     {"id": 3, "user_id": 2, "order_number": "ORD-003", "total": 79.99, "status": "pending"},
 ]
 
-Records(_data=orders_data, _database=db).insert_into("orders")
+Records.from_list(orders_data, database=db).insert_into("orders")
 print("✓ Inserted 3 orders")
 
 # Query data

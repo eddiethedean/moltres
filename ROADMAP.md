@@ -2,14 +2,14 @@
 
 This document outlines **future 1.x release phases** to close competitive gaps identified in our
 market positioning review. It complements maintainer policy in
-[`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) and the stable surface in
-[`docs/PUBLIC_API.md`](docs/PUBLIC_API.md).
+[`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) and the stable surface in
+[`PUBLIC_API.md`](PUBLIC_API.md).
 
 **Positioning:** Moltres is not trying to replace Polars, Ibis, or PySpark at everything. The goal
 for 1.x is to become the **obvious choice** for *PySpark-style transforms + SQL pushdown + CRUD +
 async* on traditional RDBMS workloads (PostgreSQL, MySQL, SQLite, DuckDB).
 
-**Current release:** [1.1.0](CHANGELOG.md) — public API contracts, async CRUD parity, Records
+**Current release:** [1.1.0](https://github.com/eddiethedean/moltres/blob/main/CHANGELOG.md) — public API contracts, async CRUD parity, Records
 constructors, optional-export guardrails, canonical I/O documentation.
 
 ---
@@ -33,30 +33,20 @@ constructors, optional-export guardrails, canonical I/O documentation.
 ## Release philosophy (1.x)
 
 - **Semver:** 1.x releases are additive and deprecation-driven. Breaking removals land in **2.0**
-  with warnings in 1.x per [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md).
+  with warnings in 1.x per [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md).
 - **Theme per release:** One headline user-facing improvement, not a grab bag.
 - **Dialect strategy:** Go deep on **PostgreSQL + SQLite** first; treat other SQLAlchemy dialects as
   best-effort until explicitly promoted.
 - **Out of scope for 1.x:** Distributed compute, UDFs, MLlib, Structured Streaming, native
   BigQuery/Snowflake engines (investigate in 1.6+, ship in 2.x if pursued).
 
-```mermaid
-gantt
-    title Moltres 1.x release phases
-    dateFormat YYYY-MM
-    axisFormat %Y-%m
-
-    section API
-    v1_2_APIConsolidation     :2026-07, 2M
-    section SQL
-    v1_3_SQLDepth             :2026-09, 2M
-    section Performance
-    v1_4_FileIOBenchmarks     :2026-11, 2M
-    section Backends
-    v1_5_PostgresFirst        :2027-01, 2M
-    section Ecosystem
-    v1_6_Adoption             :2027-03, 2M
-```
+| Phase | Target window | Theme |
+|-------|---------------|-------|
+| v1.2 | 2026-07 | API consolidation |
+| v1.3 | 2026-09 | Dialect depth + SQL escape hatch |
+| v1.4 | 2026-11 | File I/O honesty + benchmarks |
+| v1.5 | 2027-01 | PostgreSQL-first backend depth |
+| v1.6 | 2027-03 | Community + integrations |
 
 ---
 
@@ -102,8 +92,8 @@ gantt
 
 ### Deliverables
 
-- [ ] **`explode()` / UNNEST** on MySQL and remaining dialect gaps ([`plan_compiler.py`](src/moltres/sql/plan_compiler.py))
-- [ ] **Table-valued / UNNEST functions** ([`docs/PRIORITY_IMPLEMENTATION.md`](docs/PRIORITY_IMPLEMENTATION.md))
+- [ ] **`explode()` / UNNEST** on MySQL and remaining dialect gaps ([`plan_compiler.py`](https://github.com/eddiethedean/moltres/blob/main/src/moltres/sql/plan_compiler.py))
+- [ ] **Table-valued / UNNEST functions** ([maintainer notes](https://github.com/eddiethedean/moltres/blob/main/docs/PRIORITY_IMPLEMENTATION.md))
 - [ ] **SQL escape hatch** — `df.sql("SELECT ...")` or `db.sql(...)` returning `DataFrame` (Ibis parity)
 - [ ] **Dialect capability matrix** — published table: which ops work on which dialect
 - [ ] **Compilation errors** — actionable messages with dialect hint and suggested workaround
@@ -131,7 +121,7 @@ gantt
   - Skip re-staging when same file path + mtime unchanged (session cache)
   - `INSERT INTO ... SELECT` from staged files without Python round-trip where possible
 - [ ] **Writer memory posture** — default streaming for large writes; document `.stream()` requirement
-- [ ] **Benchmark suite** ([`docs/PERFORMANCE.md`](docs/PERFORMANCE.md))
+- [ ] **Benchmark suite** ([`PERFORMANCE.md`](PERFORMANCE.md))
   - Moltres vs raw SQLAlchemy vs Ibis (PostgreSQL) on TPC-H–style queries
   - Publish results in docs and CI regression threshold (non-blocking initially)
 - [ ] **ORC read support** (optional extra) — writer remains out of scope until demand proven
@@ -237,8 +227,8 @@ These are competitor strengths Moltres should **not** chase without a 2.0 archit
 
 ## Related documents
 
-- [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md) — stable import surface
-- [`docs/WHY_MOLTRES.md`](docs/WHY_MOLTRES.md) — positioning and unique value
-- [`docs/PRIORITY_IMPLEMENTATION.md`](docs/PRIORITY_IMPLEMENTATION.md) — feature-level implementation notes
-- [`docs/MOLTRES_VS_IBIS_COMPARISON.md`](docs/MOLTRES_VS_IBIS_COMPARISON.md) — Ibis comparison
-- [`docs/MOLTRES_VS_PYSPARK_COMPARISON.md`](docs/MOLTRES_VS_PYSPARK_COMPARISON.md) — PySpark comparison
+- [`PUBLIC_API.md`](PUBLIC_API.md) — stable import surface
+- [`WHY_MOLTRES.md`](WHY_MOLTRES.md) — positioning and unique value
+- [Priority implementation notes](https://github.com/eddiethedean/moltres/blob/main/docs/PRIORITY_IMPLEMENTATION.md) — feature-level implementation notes
+- [`MOLTRES_VS_IBIS_COMPARISON.md`](MOLTRES_VS_IBIS_COMPARISON.md) — Ibis comparison
+- [`MOLTRES_VS_PYSPARK_COMPARISON.md`](MOLTRES_VS_PYSPARK_COMPARISON.md) — PySpark comparison

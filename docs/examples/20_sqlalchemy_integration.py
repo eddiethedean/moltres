@@ -44,7 +44,7 @@ db.create_table(
 from moltres.io.records import Records
 
 Records(
-    _data=[{"id": 1, "name": "Alice", "age": 30}, {"id": 2, "name": "Bob", "age": 25}], _database=db
+    _data=[{"id": 1, "name": "Alice", "age": 30}, {"id": 2, "name": "Bob", "age": 25}], database=db
 ).insert_into("users")
 
 # Query with Moltres
@@ -76,7 +76,7 @@ with engine.connect() as conn:
         ],
     ).collect()
 
-    Records(_data=[{"id": 1, "amount": 100.0, "status": "active"}], _database=db).insert_into(
+    Records.from_list([{"id": 1, "amount": 100.0, "status": "active"}], database=db).insert_into(
         "orders"
     )
 
@@ -109,7 +109,7 @@ with Session() as session:
         ],
     ).collect()
 
-    Records(_data=[{"id": 1, "name": "Widget", "price": 19.99}], _database=db).insert_into(
+    Records.from_list([{"id": 1, "name": "Widget", "price": 19.99}], database=db).insert_into(
         "products"
     )
 
@@ -135,7 +135,7 @@ db.create_table(
     ],
 ).collect()
 
-Records(_data=[{"id": 1, "name": "Alice", "email": "alice@example.com"}], _database=db).insert_into(
+Records.from_list([{"id": 1, "name": "Alice", "email": "alice@example.com"}], database=db).insert_into(
     "customers"
 )
 
@@ -197,7 +197,7 @@ db.create_table(
     ],
 ).collect()
 
-Records(_data=[{"id": 1, "name": "Item A", "quantity": 10}], _database=db).insert_into("items")
+Records.from_list([{"id": 1, "name": "Item A", "quantity": 10}], database=db).insert_into("items")
 
 # Create DataFrame
 df = db.table("items").select().where(col("quantity") > 5)
@@ -227,7 +227,7 @@ db.create_table(
     ],
 ).collect()
 
-Records(_data=[{"id": 1, "product": "Product X", "stock": 50}], _database=db).insert_into(
+Records.from_list([{"id": 1, "product": "Product X", "stock": 50}], database=db).insert_into(
     "inventory"
 )
 
@@ -269,7 +269,7 @@ db.create_table(
     ],
 ).collect()
 
-Records(_data=[{"id": 1, "balance": 100.0}], _database=db).insert_into("accounts")
+Records.from_list([{"id": 1, "balance": 100.0}], database=db).insert_into("accounts")
 
 # Use Moltres within a transaction
 with engine.begin() as conn:

@@ -1,6 +1,14 @@
 # Performance Service Level Agreements (SLAs)
 
-This document defines performance expectations and SLAs for Moltres operations. These benchmarks are based on representative datasets and typical production workloads.
+```{admonition} Aspirational targets — not guaranteed
+:class: warning
+
+These are **design targets and informal benchmarks**, not contractual SLAs.
+Moltres does not currently run automated performance regression tests in CI.
+See [PERFORMANCE.md](PERFORMANCE.md) for practical tuning guidance.
+```
+
+This document defines performance expectations and targets for Moltres operations. These benchmarks are based on representative datasets and typical production workloads.
 
 ## Benchmark Methodology
 

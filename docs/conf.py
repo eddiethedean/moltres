@@ -79,6 +79,20 @@ exclude_patterns = [
     "SQLALCHEMY_INTEGRATION.md",
     "examples/README.md",
     "examples/dbt_example_project/README.md",
+    # Internal / archive (repo-only; see docs/RELEASE_PROCESS.md)
+    "moltres_plan.md",
+    "moltres_advocacy.md",
+    "integration_features_plan.md",
+    "PRIORITY_IMPLEMENTATION.md",
+    "MIGRATION_GUIDE.md",
+    "MIGRATION_SPARK.md",
+    "PYSPARK_FEATURE_COMPARISON.md",
+    "PYSPARK_INTERFACE_AUDIT.md",
+    "PERFORMANCE_SLA.md",
+    "RUNTIME_MATRIX.md",
+    "TEST_HARNESSES.md",
+    "OPS_RUNBOOKS.md",
+    "IMPROVE_PYTEST_GREEN_LIGHT.md",
 ]
 
 # MyST configuration for Markdown support

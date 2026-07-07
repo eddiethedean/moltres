@@ -30,7 +30,7 @@ products_data = [
     {"id": 3, "name": "Desk", "price": 199.99, "category": "Furniture"},
 ]
 
-Records(_data=products_data, _database=db).insert_into("products")
+Records.from_list(products_data, database=db).insert_into("products")
 
 df = db.table("products").select()
 

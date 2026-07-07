@@ -29,7 +29,7 @@ orders_data = [
     {"id": 3, "customer_id": 2, "amount": 150.0, "order_date": "2024-02-01"},
 ]
 
-Records(_data=orders_data, _database=db).insert_into("orders")
+Records.from_list(orders_data, database=db).insert_into("orders")
 
 # Raw SQL query
 df = db.sql("SELECT * FROM orders WHERE amount > :min_amount", min_amount=120.0)

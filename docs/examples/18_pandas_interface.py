@@ -402,7 +402,7 @@ Records(
         {"category": "A", "status": "inactive", "amount": 50.0},
         {"category": "B", "status": "active", "amount": 200.0},
     ],
-    _database=db,
+    database=db,
 ).insert_into("sales")
 
 df_sales = db.table("sales").pandas()

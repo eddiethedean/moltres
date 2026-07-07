@@ -48,8 +48,8 @@ orders_data = [
     {"id": 3, "customer_id": 2, "amount": 150.0, "order_date": "2024-02-01"},
 ]
 
-Records(_data=customers_data, _database=db).insert_into("customers")
-Records(_data=orders_data, _database=db).insert_into("orders")
+Records.from_list(customers_data, database=db).insert_into("customers")
+Records.from_list(orders_data, database=db).insert_into("orders")
 
 # Inner join
 from moltres import col

@@ -41,13 +41,13 @@ def example_transaction_decorator():
     # Method 1: Database instance provided to decorator
     @transaction(db)
     def create_user(name: str):
-        Records(_data=[{"id": 1, "name": name}], _database=db).insert_into("users")
+        Records.from_list([{"id": 1, "name": name}], database=db).insert_into("users")
         print(f"Created user: {name}")
 
     # Method 2: Database as parameter
     @transaction
     def create_user_with_db(db, name: str):
-        Records(_data=[{"id": 2, "name": name}], _database=db).insert_into("users")
+        Records.from_list([{"id": 2, "name": name}], database=db).insert_into("users")
         print(f"Created user with db param: {name}")
 
     create_user("Alice")
@@ -88,12 +88,12 @@ def example_transaction_hooks():
 
     # Successful transaction
     with db.transaction() as txn:
-        Records(_data=[{"id": 1, "message": "Success"}], _database=db).insert_into("logs")
+        Records.from_list([{"id": 1, "message": "Success"}], database=db).insert_into("logs")
 
     # Failed transaction
     try:
         with db.transaction() as txn:
-            Records(_data=[{"id": 2, "message": "Fail"}], _database=db).insert_into("logs")
+            Records.from_list([{"id": 2, "message": "Fail"}], database=db).insert_into("logs")
             raise ValueError("Simulated error")
     except ValueError:
         pass
@@ -121,7 +121,7 @@ def example_transaction_metrics():
     # Run some transactions
     for i in range(5):
         with db.transaction() as txn:
-            Records(_data=[{"id": i, "value": i * 10}], _database=db).insert_into("counters")
+            Records.from_list([{"id": i, "value": i * 10}], database=db).insert_into("counters")
             time.sleep(0.01)  # Small delay
 
     # One read-only transaction
@@ -131,7 +131,7 @@ def example_transaction_metrics():
     # One that fails
     try:
         with db.transaction() as txn:
-            Records(_data=[{"id": 99, "value": 999}], _database=db).insert_into("counters")
+            Records.from_list([{"id": 99, "value": 999}], database=db).insert_into("counters")
             raise ValueError("Test error")
     except ValueError:
         pass
@@ -166,7 +166,7 @@ def example_transaction_retry():
         with db.transaction() as txn:
             Records(
                 _data=[{"id": 1, "attempt_num": attempt_count[0]}],
-                _database=db,
+                database=db,
             ).insert_into("attempts")
             print(f"Attempt {attempt_count[0]}")
 
@@ -192,7 +192,7 @@ def example_concurrent_transactions():
 
     def update_operation(db):
         with db.transaction() as txn:
-            Records(_data=[{"id": 1, "value": "test"}], _database=db).insert_into("concurrent")
+            Records.from_list([{"id": 1, "value": "test"}], database=db).insert_into("concurrent")
             return {"success": True}
 
     results = tester.run_concurrent_transactions(update_operation, num_transactions=10)
@@ -217,7 +217,7 @@ async def example_async_transaction_decorator():
 
     @transaction(async_db)
     async def create_user_async(name: str):
-        await AsyncRecords(_data=[{"id": 1, "name": name}], _database=async_db).insert_into(
+        await AsyncRecords.from_list([{"id": 1, "name": name}], database=async_db).insert_into(
             "async_users"
         )
         print(f"Created async user: {name}")

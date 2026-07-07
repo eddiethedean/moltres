@@ -52,7 +52,7 @@ employees_data = [
     },
 ]
 
-Records(_data=employees_data, _database=db).insert_into("employees")
+Records.from_list(employees_data, database=db).insert_into("employees")
 
 df = db.table("employees").select()
 

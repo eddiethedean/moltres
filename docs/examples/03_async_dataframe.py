@@ -39,7 +39,7 @@ try:
 
         from moltres.io.records import AsyncRecords
 
-        records = AsyncRecords(_data=products_data, _database=db)
+        records = AsyncRecords.from_list(products_data, database=db)
         await records.insert_into("products")
 
         # Async DataFrame operations

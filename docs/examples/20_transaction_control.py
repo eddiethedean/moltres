@@ -43,7 +43,7 @@ def example_basic_transaction():
             {"id": 1, "balance": 1000.0},
             {"id": 2, "balance": 500.0},
         ],
-        _database=db,
+        database=db,
     ).insert_into("accounts")
 
     # Transfer money in a transaction
@@ -98,7 +98,7 @@ def example_savepoints():
 
     with db.transaction() as txn:
         # Initial insert
-        Records(_data=[{"id": 1, "amount": 100.0, "status": "pending"}], _database=db).insert_into(
+        Records.from_list([{"id": 1, "amount": 100.0, "status": "pending"}], database=db).insert_into(
             "orders"
         )
 
@@ -107,10 +107,10 @@ def example_savepoints():
         print(f"Created savepoint: {checkpoint}")
 
         # More operations after savepoint
-        Records(_data=[{"id": 2, "amount": 200.0, "status": "pending"}], _database=db).insert_into(
+        Records.from_list([{"id": 2, "amount": 200.0, "status": "pending"}], database=db).insert_into(
             "orders"
         )
-        Records(_data=[{"id": 3, "amount": 300.0, "status": "pending"}], _database=db).insert_into(
+        Records.from_list([{"id": 3, "amount": 300.0, "status": "pending"}], database=db).insert_into(
             "orders"
         )
 
@@ -151,7 +151,7 @@ def example_nested_transactions():
             {"product_id": 1, "quantity": 100},
             {"product_id": 2, "quantity": 50},
         ],
-        _database=db,
+        database=db,
     ).insert_into("inventory")
 
     with db.transaction() as outer:
@@ -247,7 +247,7 @@ def example_row_level_locking():
             {"id": 1, "status": "pending", "processed_by": None},
             {"id": 2, "status": "pending", "processed_by": None},
         ],
-        _database=db,
+        database=db,
     ).insert_into("orders")
 
     with db.transaction() as txn:
@@ -296,7 +296,7 @@ def example_transaction_with_error_handling():
         ],
     ).collect()
 
-    Records(_data=[{"id": 1, "amount": 100.0, "status": "pending"}], _database=db).insert_into(
+    Records.from_list([{"id": 1, "amount": 100.0, "status": "pending"}], database=db).insert_into(
         "payments"
     )
 

@@ -2,6 +2,22 @@
 
 Common questions about Moltres and their answers.
 
+## Installation
+
+### What are the prerequisites?
+
+- **Python 3.10+**
+- **`pip install moltres`** (pulls in `moltres-core` and SQLAlchemy 2.0+)
+- **Database driver** for your backend: e.g. `psycopg2-binary` (PostgreSQL), `pymysql` (MySQL); SQLite needs no extra package
+- **Optional extras**: `moltres[pandas]`, `moltres[parquet]`, `moltres[duckdb]`, `moltres[async-sqlite]`, etc. — see [Public API](PUBLIC_API.md#optional-extras)
+
+From source (monorepo):
+
+```bash
+pip install -e ./moltres-core
+pip install -e ".[dev]"
+```
+
 ## General Questions
 
 ### What is Moltres?
@@ -285,22 +301,23 @@ df = customers.join(
 
 ### Can I use raw SQL?
 
-Yes, you can execute raw SQL:
+Yes:
 
 ```python
-# Execute raw SQL
-results = db.execute("SELECT * FROM users WHERE age > 18")
+# Returns a lazy DataFrame
+df = db.sql("SELECT * FROM users WHERE age > 18")
+rows = df.collect()
 
-# Use in subqueries
-subquery = db.execute("SELECT id FROM active_users")
-df = db.table("orders").select().where(col("user_id").isin(subquery))
+# Returns QueryResult (for statements that don't return rows)
+result = db.execute_sql("DELETE FROM users WHERE active = 0")
 ```
 
 ## Migration Questions
 
 ### How do I migrate from PySpark?
 
-See the [Migration Guide](./MIGRATION_SPARK.md) for detailed instructions.
+See [PySpark migration inconsistencies](PYSPARK_MIGRATION_INCONSISTENCIES.md) and
+[Moltres vs PySpark comparison](MOLTRES_VS_PYSPARK_COMPARISON.md) for migration guidance.
 
 Key differences:
 - Replace `SparkSession` with `connect()`
@@ -335,7 +352,7 @@ Key differences:
 1. Verify table name spelling
 2. Check database connection
 3. Ensure table is in the correct schema
-4. Use `db.execute("SHOW TABLES")` to list tables
+4. Use `db.get_table_names()` to list tables
 
 ### Column names are case-sensitive
 

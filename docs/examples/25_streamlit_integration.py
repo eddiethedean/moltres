@@ -143,7 +143,7 @@ if STREAMLIT_AVAILABLE:
                     "city": "New York",
                 },
             ],
-            _database=demo_db,
+            database=demo_db,
         ).insert_into("users")
 
         Records(
@@ -184,7 +184,7 @@ if STREAMLIT_AVAILABLE:
                     "order_date": "2024-01-19",
                 },
             ],
-            _database=demo_db,
+            database=demo_db,
         ).insert_into("orders")
 
         st.session_state["demo_db"] = demo_db

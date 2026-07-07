@@ -690,7 +690,6 @@ db.merge(
     on=["id"],
     when_matched={"status": "updated"},
 )
-```
 
 # Dialect-specific support:
 # - SQLite: ON CONFLICT
@@ -1579,7 +1578,7 @@ df.orderBy("name")  # ✅ PySpark-style alias works
 df.sort("name")  # ✅ PySpark-style alias works
 ```
 
-**See:** [PySpark Interface Audit](PYSPARK_INTERFACE_AUDIT.md) for detailed analysis.
+**See:** [Moltres vs PySpark comparison](MOLTRES_VS_PYSPARK_COMPARISON.md) for detailed analysis.
 
 #### 2. Window Functions Usage Pattern ✅ **FIXED**
 

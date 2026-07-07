@@ -113,6 +113,10 @@ def main():
         "IMPROVE_PYTEST_GREEN_LIGHT.md",
         "integration_features_plan.md",
         "moltres_plan.md",
+        # Reference docs with non-Python comparison tables / emoji blocks
+        "MOLTRES_VS_PYSPARK_COMPARISON.md",
+        "OPS_RUNBOOKS.md",
+        "PERFORMANCE_SLA.md",
     }
     markdown_files = [
         f

@@ -43,7 +43,7 @@ users_data = [
     {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
 ]
 
-records = Records(_data=users_data, _database=db)
+records = Records.from_list(users_data, database=db)
 records.insert_into("users")
 
 # Schema Inspection - Get table names

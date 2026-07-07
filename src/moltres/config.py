@@ -26,15 +26,7 @@ __all__ = [
 
 @dataclass
 class MoltresConfig:
-    """Container for all runtime configuration knobs.
-
-    Attributes:
-        engine: Engine configuration
-        default_schema: Default database schema name
-        include_metadata: Whether to include metadata in query results
-        allowed_paths: Optional filesystem roots for file read/write operations
-        options: Additional configuration options
-    """
+    """Container for all runtime configuration knobs."""
 
     engine: EngineConfig
     default_schema: str | None = None

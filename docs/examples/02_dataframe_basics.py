@@ -33,7 +33,7 @@ users_data = [
 
 from moltres.io.records import Records
 
-records = Records(_data=users_data, _database=db)
+records = Records.from_list(users_data, database=db)
 records.insert_into("users")
 
 # Basic DataFrame operations

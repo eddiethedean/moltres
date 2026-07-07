@@ -46,7 +46,7 @@ try:
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": "charlie@example.com", "age": 35},
         ],
-        _database=db,
+        database=db,
     ).insert_into("users")
 
     # Method 1: Attach model when creating DataFrame from table

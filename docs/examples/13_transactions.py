@@ -29,7 +29,7 @@ accounts_data = [
     {"id": 2, "name": "Bob", "balance": 500.0},
 ]
 
-Records(_data=accounts_data, _database=db).insert_into("accounts")
+Records.from_list(accounts_data, database=db).insert_into("accounts")
 
 # Transaction: Transfer money
 from moltres.table.mutations import update_rows

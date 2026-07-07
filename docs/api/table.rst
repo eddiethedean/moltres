@@ -1,8 +1,8 @@
 Table API
 =========
 
-Table handles are the entry point for **CRUD** operations and schema management.
-They provide eager helpers for inserts, updates, deletes, and DDL.
+Table handles are the entry point for **queries** on a table (`select`, interface wrappers).
+**CRUD** (insert, update, delete, merge) lives on :class:`~moltres.table.table.Database`.
 
 TableHandle
 -----------

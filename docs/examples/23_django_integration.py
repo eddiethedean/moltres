@@ -161,7 +161,7 @@ if DJANGO_AVAILABLE:
             # Insert user
             Records(
                 _data=[{"name": name, "email": email, "age": age}],
-                _database=db,
+                database=db,
             ).insert_into("users")
 
             return JsonResponse({"status": "created", "name": name}, status=201)
@@ -323,8 +323,8 @@ Moltres integrates with Django's transaction management:
         db = get_moltres_db(using='default')
         
         # All operations in this function are part of the same transaction
-        Records(_data=[{"name": "Alice"}], _database=db).insert_into("users")
-        Records(_data=[{"user_id": 1, "product": "Widget"}], _database=db).insert_into("orders")
+        Records.from_list([{"name": "Alice"}], database=db).insert_into("users")
+        Records.from_list([{"user_id": 1, "product": "Widget"}], database=db).insert_into("orders")
         
         # If any operation fails, all are rolled back
 """

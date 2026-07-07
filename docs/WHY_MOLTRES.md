@@ -4,7 +4,7 @@
 
 Moltres fills a major, long-standing gap in the Python data ecosystem. It provides a **DataFrame API** whose operations are **pushed down into SQL**, **without loading data into memory**, **while also supporting real SQL CRUD** (INSERT, UPDATE, DELETE).
 
-**This combination does not exist anywhere else in Python today.**
+**This combination is rare in Python today** — see [comparisons](MOLTRES_VS_IBIS_COMPARISON.md) for how Moltres differs from Ibis, PySpark, and SQLAlchemy.
 
 ## The Gap in Python's Ecosystem
 
@@ -23,11 +23,11 @@ Across all of these, developers repeatedly ask for:
 
 > "A Pandas/DataFrame-like interface backed by SQL instead of memory."
 
-But until Moltres, **nobody built it**.
+But until Moltres, **few libraries combined all three** in one ergonomic API.
 
 ## What Makes Moltres Unique
 
-Moltres is the **only** Python library that provides:
+Moltres is among the few Python libraries that provides:
 
 | Feature | Pandas/Polars | Ibis | SQLAlchemy | SQLModel | **Moltres** |
 |--------|----------------|------|-------------|-----------|-------------|
@@ -49,11 +49,13 @@ Moltres solves real problems for:
 **Solution:** Use Moltres DataFrame operations that compile to SQL UPDATE statements. No data loading required.
 
 ```python
+from moltres import col, connect
+
 # Update millions of rows without loading into memory
-orders = db.table("orders")
-orders.update(
+db.update(
+    "orders",
     where=col("status") == "pending",
-    set={"status": "processing", "updated_at": "2024-01-15"}
+    set={"status": "processing", "updated_at": "2024-01-15"},
 )
 ```
 
@@ -64,10 +66,13 @@ orders.update(
 **Solution:** Replace many ORM operations with cleaner, column-aware DataFrame syntax.
 
 ```python
+from moltres import col, connect
+
 # Instead of row-by-row ORM updates
-users.update(
+db.update(
+    "users",
     where=col("status") == "pending",
-    set={"status": "active", "updated_at": "2024-01-15"}
+    set={"status": "active", "updated_at": "2024-01-15"},
 )
 ```
 
@@ -93,9 +98,15 @@ customer_metrics = (
 **Solution:** Moltres provides type-safe CRUD operations with DataFrame-style syntax.
 
 ```python
+from moltres import col, connect
+from moltres.io.records import Records
+
 # Type-safe, validated CRUD
-users.insert([{"name": "Alice", "email": "alice@example.com"}])
-users.update(where=col("id") == 1, set={"status": "active"})
+Records.from_list(
+    [{"name": "Alice", "email": "alice@example.com"}],
+    database=db,
+).insert_into("users")
+db.update("users", where=col("id") == 1, set={"status": "active"})
 ```
 
 ### Teams Migrating Off Spark
@@ -164,6 +175,6 @@ If you work with SQL and Python—**Moltres solves problems you've had for years
 ## See Also
 
 - [Examples](EXAMPLES.md) - Practical examples for each use case
-- [Advocacy Document](moltres_advocacy.md) - Detailed positioning and comparison
-- [Design Notes](moltres_plan.md) - Architecture and design decisions
+- [Moltres vs PySpark comparison](MOLTRES_VS_PYSPARK_COMPARISON.md) - Detailed API comparison
+- [Public API](PUBLIC_API.md) - Stable import surface and API boundaries
 

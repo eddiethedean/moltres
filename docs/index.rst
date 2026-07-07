@@ -14,20 +14,22 @@ Use these docs to:
 
 .. note::
 
-   **New to Moltres?** Start with :doc:`guides/getting-started`, then explore the
-   “Guides & How‑To” and “Integrations” sections below. The API reference is designed
-   for day‑to‑day lookups once you are familiar with the basics.
+   **New to Moltres?** Start with :doc:`guides/getting-started`, then :doc:`PUBLIC_API`,
+   then :doc:`EXAMPLE_SCRIPTS` for runnable scripts.
 
 
-Quick navigation
-----------------
+Start here
+==========
 
-- :doc:`guides/getting-started`
-- :doc:`PUBLIC_API`
-- :doc:`EXAMPLES`
-- :doc:`api/dataframe`
-- :doc:`guides/performance-optimization`
-- :doc:`WHY_MOLTRES`
+.. toctree::
+   :maxdepth: 1
+   :caption: Start here
+
+   guides/getting-started
+   PUBLIC_API
+   EXAMPLE_SCRIPTS
+   FAQ
+   ROADMAP
 
 
 Getting started & migration
@@ -37,8 +39,6 @@ Getting started & migration
    :maxdepth: 2
    :caption: Getting started & migration
 
-   guides/getting-started
-   PUBLIC_API
    guides/migrating-from-pandas
    guides/migrating-from-pyspark
 
@@ -57,6 +57,9 @@ Guides & how-to
    guides/best-practices
    guides/pandas-interface
    guides/polars-interface
+   guides/sql-approaches-comparison
+   guides/transaction-control
+   guides/transaction-utilities
 
 
 Framework & tooling integrations
@@ -92,7 +95,6 @@ Concepts, operations, and internals
    DEPLOYMENT
    TROUBLESHOOTING
    EXAMPLES
-   FAQ
 
 
 Comparisons
@@ -108,34 +110,6 @@ Comparisons
    PYSPARK_MIGRATION_INCONSISTENCIES
 
 
-Internal and archive docs
-=========================
-
-.. note::
-
-   Planning documents (``BUSINESS_CASE``, ``PROJECT_CHARTER``, ``PROJECT_SCOPE_STATEMENT``)
-   remain in the repository for maintainers but are omitted from this navigation.
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Internal & archive
-
-   moltres_plan
-   moltres_advocacy
-   integration_features_plan
-   PRIORITY_IMPLEMENTATION
-   MIGRATION_GUIDE
-   MIGRATION_SPARK
-   PYSPARK_FEATURE_COMPARISON
-   PYSPARK_INTERFACE_AUDIT
-   PERFORMANCE_SLA
-   RUNTIME_MATRIX
-   TEST_HARNESSES
-   OPS_RUNBOOKS
-   IMPROVE_PYTEST_GREEN_LIGHT
-   RELEASE_PROCESS
-
-
 API reference
 =============
 
@@ -143,6 +117,8 @@ API reference
    :maxdepth: 2
    :caption: API reference
 
+   api/moltres
+   api/records
    api/dataframe
    api/expressions
    api/table
@@ -157,6 +133,7 @@ Indices and tables
 
    CONTRIBUTING
    PYDANTABLE_ENGINE
+   RELEASE_PROCESS
 
 * :ref:`genindex`
 * :ref:`modindex`

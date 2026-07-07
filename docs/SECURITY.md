@@ -438,7 +438,7 @@ log_security_event("auth_failure", {
 If you discover a security vulnerability, please report it responsibly:
 
 1. **Do not** open a public GitHub issue
-2. Email security concerns to: [security contact email]
+2. Email security concerns to: **odosmatthews@gmail.com** (see [GitHub security policy](https://github.com/eddiethedean/moltres/blob/main/.github/SECURITY.md))
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

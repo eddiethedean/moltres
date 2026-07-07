@@ -372,6 +372,21 @@ db.create_table("orders", [
     column("amount", "REAL"),
 ]).collect()
 
+# Create tables and data for the join demo
+db.create_table("users", [
+    column("id", "INTEGER", primary_key=True),
+    column("name", "TEXT"),
+]).collect()
+Records.from_list([
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"},
+], database=db).insert_into("users")
+
+Records.from_list([
+    {"id": 1, "user_id": 1, "amount": 100.0},
+    {"id": 2, "user_id": 2, "amount": 50.0},
+], database=db).insert_into("orders")
+
 # Inner join
 df = (
     db.table("users")
@@ -494,7 +509,7 @@ print(f"Updated {result} rows")
 # Delete rows
 result = db.delete(
     "users",
-    where=col("age") < 18
+    where=col("active") == 0
 )
 print(f"Deleted {result} rows")
 

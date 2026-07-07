@@ -284,7 +284,7 @@ assert len(results) > 0
 ## Getting Help
 
 - **Full API Comparison:** See [MOLTRES_VS_PYSPARK_COMPARISON.md](MOLTRES_VS_PYSPARK_COMPARISON.md)
-- **Detailed Audit:** See [PYSPARK_INTERFACE_AUDIT.md](PYSPARK_INTERFACE_AUDIT.md)
+- **Detailed Audit:** See the [Moltres vs PySpark comparison](MOLTRES_VS_PYSPARK_COMPARISON.md)
 - **Examples:** See `docs/examples/` directory for working code samples
 - **Issues:** Report inconsistencies or request features on GitHub
 
@@ -313,7 +313,7 @@ The Moltres team has recently fixed all PySpark compatibility issues:
 
 **Result:** Moltres now achieves **100% PySpark API compatibility** for core DataFrame operations!
 
-See [PYSPARK_INTERFACE_AUDIT.md](PYSPARK_INTERFACE_AUDIT.md) for the complete roadmap.
+See the [Moltres vs PySpark comparison](MOLTRES_VS_PYSPARK_COMPARISON.md) for the complete roadmap.
 
 ---
 

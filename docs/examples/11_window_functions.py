@@ -34,7 +34,7 @@ sales_data = [
     {"id": 5, "product": "Widget", "amount": 120.0, "sale_date": "2024-01-05", "region": "North"},
 ]
 
-Records(_data=sales_data, _database=db).insert_into("sales")
+Records.from_list(sales_data, database=db).insert_into("sales")
 
 df = db.table("sales").select()
 
