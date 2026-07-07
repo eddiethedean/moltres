@@ -112,6 +112,7 @@ See [Public API guide](docs/PUBLIC_API.md) for stable import paths.
 
 ## 📖 Documentation
 
+- **[Roadmap](ROADMAP.md)** - Future 1.x release phases and competitive priorities
 - **[Public API](https://moltres.readthedocs.io/en/latest/PUBLIC_API.html)** - Stable imports and I/O patterns
 
 - **[Getting Started Guide](https://moltres.readthedocs.io/en/latest/guides/getting-started.html)** - Step-by-step introduction
