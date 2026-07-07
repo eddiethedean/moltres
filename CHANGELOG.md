@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-07
+
+### Added
+
+- **Public API surface** – `register_performance_hook` / `unregister_performance_hook` exported from top-level `moltres`; contract tests in `tests/api/test_public_imports.py`.
+- **Optional extras** – `moltres[parquet]`, `moltres[fastapi]`, and `moltres[duckdb]` install groups.
+- **Path sandboxing** – `MoltresConfig.allowed_paths` and validation for file readers to restrict reads to approved directories.
+- **Deprecation helpers** – `moltres.utils._compat` utilities for staged API removals.
+- **Tiered integration CI** – `tier2_integration` / `tier3_integration` markers with dedicated CI jobs and `xdist` load-group scheduling.
+- **Onboarding docs** – `docs/PUBLIC_API.md`, contributor install fixes, GitHub issue/PR templates, and warning-free Sphinx builds (`-W`).
+
+### Changed
+
+- **Expressions package** – Removed shadowed `expressions/functions.py` module file; `moltres.expressions.functions` package is the single implementation.
+- **Release workflow** – Tag builds verify `__init__.py` versions match the release tag for both `moltres` and `moltres-core`.
+
+### Security
+
+- **File read paths** – Readers and `FileScan` builders validate paths against `allowed_paths` when configured.
+
+### Fixed
+
+- **Flaky sampling test** – Probabilistic SQL `sample()` test tolerates engine variance on Windows.
+- **Interpreter shutdown cleanup** – Database atexit cleanup regression hardened.
+- **File reader errors** – `resolve_read_path(..., must_exist=False)` preserves format-specific `FileNotFoundError` messages for lazy scans.
+
 ## [1.0.1] - 2026-06-07
 
 ### Breaking

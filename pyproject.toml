@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moltres"
-version = "1.0.1"
+version = "1.1.0"
 description = "DataFrame API with SQL pushdown execution and real SQL CRUD - the missing layer for SQL in Python"
 readme = "README.md"
 authors = [{name = "Odos Matthews", email = "odosmatthews@gmail.com"}]
@@ -42,7 +42,7 @@ classifiers = [
 dependencies = [
   "SQLAlchemy>=2.0",
   "typing-extensions>=4.5",
-  "moltres-core>=1.0.1,<2",
+  "moltres-core>=1.1.0,<2",
 ]
 
 [project.urls]
