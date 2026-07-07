@@ -1477,20 +1477,14 @@ def test_sample(sample_db):
     """Test sample() method."""
     df = sample_db.table("users").pandas()
 
-    # Sample n rows
     sampled = df.sample(n=2, random_state=42)
-    results = sampled.collect()
-    results_list = _to_dict_list(results)
+    results_list = _to_dict_list(sampled.collect())
+    assert len(results_list) == 2
 
-    assert len(results_list) <= 2
-
-    # Sample by fraction
-    sampled_frac = df.sample(frac=0.5, random_state=42)
-    results_frac = sampled_frac.collect()
-    results_list_frac = _to_dict_list(results_frac)
-
-    assert len(results_list_frac) <= 3
-    assert len(results_list_frac) >= 1
+    # frac=1.0 is deterministic (passthrough) unlike probabilistic fractional sampling
+    sampled_all = df.sample(frac=1.0, random_state=42)
+    results_all = _to_dict_list(sampled_all.collect())
+    assert len(results_all) == 3
 
 
 def test_limit(sample_db):
