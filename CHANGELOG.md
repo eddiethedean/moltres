@@ -1181,7 +1181,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v0.19.5...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/eddiethedean/moltres/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/eddiethedean/moltres/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/eddiethedean/moltres/compare/v0.22.0...v1.0.0
 [0.19.5]: https://github.com/eddiethedean/moltres/compare/v0.19.4...v0.19.5
 [0.19.4]: https://github.com/eddiethedean/moltres/compare/v0.19.3...v0.19.4
 [0.19.3]: https://github.com/eddiethedean/moltres/compare/v0.19.2...v0.19.3
