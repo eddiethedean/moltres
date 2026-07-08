@@ -12,22 +12,12 @@ on:
         type: string
 
 jobs:
-  build-and-publish:
+  resolve:
     runs-on: ubuntu-latest
-
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install build tooling
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build twine
-
       - name: Determine tag and version
         id: tag
         shell: bash
@@ -49,57 +39,146 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+  verify:
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
       - name: Verify versions match tag
         shell: bash
         run: |
-          VERSION="${{ steps.tag.outputs.version }}"
           python - <<'PY'
           import os
           import sys
           from pathlib import Path
           import tomllib
-          
+
           version = os.environ["VERSION"]
-          
+
           def read_version(pyproject_path: Path) -> str:
-            data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-            return data["project"]["version"]
+              data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+              return data["project"]["version"]
 
           def read_init_version(init_path: Path) -> str:
-            text = init_path.read_text(encoding="utf-8")
-            for line in text.splitlines():
-              if line.startswith("__version__"):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
-            raise ValueError(f"__version__ not found in {init_path}")
-          
+              text = init_path.read_text(encoding="utf-8")
+              for line in text.splitlines():
+                  if line.startswith("__version__"):
+                      return line.split("=", 1)[1].strip().strip('"').strip("'")
+              raise ValueError(f"__version__ not found in {init_path}")
+
           root = Path(".")
           core = Path("moltres-core")
-          
+
           root_v = read_version(root / "pyproject.toml")
           core_v = read_version(core / "pyproject.toml")
           root_init_v = read_init_version(root / "src/moltres/__init__.py")
           core_init_v = read_init_version(core / "src/moltres_core/__init__.py")
-          
+
           mismatches = []
           if root_v != version:
-            mismatches.append(f"root pyproject.toml version={root_v!r} != tag version={version!r}")
+              mismatches.append(
+                  f"root pyproject.toml version={root_v!r} != tag version={version!r}"
+              )
           if core_v != version:
-            mismatches.append(f"moltres-core/pyproject.toml version={core_v!r} != tag version={version!r}")
+              mismatches.append(
+                  f"moltres-core/pyproject.toml version={core_v!r} != tag version={version!r}"
+              )
           if root_init_v != version:
-            mismatches.append(f"src/moltres/__init__.py __version__={root_init_v!r} != tag version={version!r}")
+              mismatches.append(
+                  f"src/moltres/__init__.py __version__={root_init_v!r} != tag version={version!r}"
+              )
           if core_init_v != version:
-            mismatches.append(f"moltres-core/src/moltres_core/__init__.py __version__={core_init_v!r} != tag version={version!r}")
-          
+              mismatches.append(
+                  f"moltres-core/src/moltres_core/__init__.py __version__={core_init_v!r} != tag version={version!r}"
+              )
+
           if mismatches:
-            print("Version mismatch:", file=sys.stderr)
-            for m in mismatches:
-              print(f"- {m}", file=sys.stderr)
-            sys.exit(1)
-          
+              print("Version mismatch:", file=sys.stderr)
+              for m in mismatches:
+                  print(f"- {m}", file=sys.stderr)
+              sys.exit(1)
+
           print(f"Versions OK: moltres={root_v}, moltres-core={core_v}")
           PY
         env:
-          VERSION: ${{ steps.tag.outputs.version }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+
+  lint-type:
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./moltres-core
+          pip install -e ".[dev]"
+
+      - name: Run Ruff
+        run: |
+          ruff check src docs/examples tests
+          ruff format --check src docs/examples tests
+
+      - name: Run mypy
+        run: mypy src
+
+      - name: Validate documentation examples
+        run: python scripts/validate_examples.py
+
+  tests:
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./moltres-core
+          pip install -e ".[dev,pydantable-integration]"
+
+      - name: Run pytest
+        env:
+          PYTEST_ADDOPTS: -ra
+        run: |
+          pytest -p pytest_asyncio -m "not postgres and not mysql and not multidb and not tier2_integration and not tier3_integration" -n auto --dist loadgroup
+
+  build-and-publish:
+    needs: [resolve, verify, lint-type, tests]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
 
       - name: Build moltres-core (sdist + wheel)
         working-directory: moltres-core
