@@ -78,7 +78,7 @@ jobs:
           root_v = read_version(root / "pyproject.toml")
           core_v = read_version(core / "pyproject.toml")
           root_init_v = read_init_version(root / "src/moltres/__init__.py")
-          core_init_v = read_init_version(core / "moltres-core/src/moltres_core/__init__.py")
+          core_init_v = read_init_version(core / "src/moltres_core/__init__.py")
           
           mismatches = []
           if root_v != version:
