@@ -379,19 +379,22 @@ def test_unique_constraint_single_column(tmp_path):
     ).collect()
 
     # Insert valid data
-    records = Records(
-        _data=[
+    Records.from_list(
+        [
             {"id": 1, "email": "alice@example.com"},
             {"id": 2, "email": "bob@example.com"},
         ],
-        _database=db,
-    )
-    records.insert_into("users")
+        database=db,
+    ).insert_into("users")
+    assert len(db.table("users").select().collect()) == 2
 
     # Try to insert duplicate email (should fail)
-    with pytest.raises(Exception):  # SQLite raises OperationalError
-        duplicate = Records(_data=[{"id": 3, "email": "alice@example.com"}], _database=db)
-        duplicate.insert_into("users")
+    from moltres.utils.exceptions import ExecutionError
+
+    with pytest.raises(ExecutionError, match="(?i)unique|constraint"):
+        Records.from_list([{"id": 3, "email": "alice@example.com"}], database=db).insert_into(
+            "users"
+        )
 
 
 def test_unique_constraint_multi_column(tmp_path):

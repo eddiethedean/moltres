@@ -359,7 +359,9 @@ class TestDataFrameMutations:
         # Merge with pandas DataFrame
         df = pd.DataFrame([{"id": 1, "name": "Bob"}])
         merged = merge_rows(handle, df, on=["id"], when_matched={"name": "Updated"})
-        assert merged >= 0
+        assert merged == 1
+        rows = handle.select().collect()
+        assert rows == [{"id": 1, "name": "Updated"}]
 
     def test_merge_polars_dataframe(self, tmp_path):
         """Test merging polars DataFrame directly."""
@@ -378,7 +380,9 @@ class TestDataFrameMutations:
         # Merge with polars DataFrame
         df = pl.DataFrame([{"id": 1, "name": "Bob"}])
         merged = merge_rows(handle, df, on=["id"], when_matched={"name": "Updated"})
-        assert merged >= 0
+        assert merged == 1
+        rows = handle.select().collect()
+        assert rows == [{"id": 1, "name": "Updated"}]
 
 
 class TestDataFrameActions:

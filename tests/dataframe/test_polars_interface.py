@@ -700,6 +700,12 @@ def test_write_jsonl(sample_db, tmp_path):
 
 def test_write_parquet(sample_db, tmp_path):
     """Test df.write_parquet() method."""
+    import os
+
+    if os.environ.get("MOLTRES_SKIP_PANDAS_TESTS", "0") == "1":
+        pytest.skip(
+            "Parquet write requires real pyarrow (disabled under MOLTRES_SKIP_PANDAS_TESTS)"
+        )
     try:
         import importlib.util
 

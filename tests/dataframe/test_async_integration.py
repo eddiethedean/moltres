@@ -340,8 +340,8 @@ async def test_async_multi_table_operations(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_async_union_and_distinct_workflow(tmp_path):
-    """Test async workflow with union and distinct operations."""
+async def test_async_union_and_union_all_workflow(tmp_path):
+    """Test async workflow proving union DISTINCT vs unionAll ALL with overlaps."""
     db_path = tmp_path / "test.db"
     db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
@@ -386,14 +386,15 @@ async def test_async_union_and_distinct_workflow(tmp_path):
         )
     ).write.insertInto("table2")
 
-    # Union and get distinct values
+    # Overlapping values B,C — union() alone must DISTINCT; unionAll keeps dupes.
     df1 = (await db.table("table1")).select(col("value"))
     df2 = (await db.table("table2")).select(col("value"))
 
-    result = await df1.union(df2).distinct().order_by(col("value")).collect()
+    distinct_result = await df1.union(df2).order_by(col("value")).collect()
+    assert [r["value"] for r in distinct_result] == ["A", "B", "C", "D"]
 
-    assert len(result) == 4  # A, B, C, D (distinct)
-    assert [r["value"] for r in result] == ["A", "B", "C", "D"]
+    all_result = await df1.unionAll(df2).order_by(col("value")).collect()
+    assert [r["value"] for r in all_result] == ["A", "B", "B", "C", "C", "D"]
 
     await db.close()
 

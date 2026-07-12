@@ -162,6 +162,11 @@ class DataFrameWriter:
         if self._df.database is None:
             raise RuntimeError("Cannot write DataFrame without an attached Database")
 
+        from ...sql.builders import quote_identifier
+
+        # Validate before any DDL/DML — reject injection in table identifiers
+        quote_identifier(name, self._df.database.dialect.quote_char)
+
         # Use parameter if provided, otherwise use field
         if primary_key is not None:
             self._primary_key = primary_key
@@ -193,6 +198,10 @@ class DataFrameWriter:
         """
         if self._df.database is None:
             raise RuntimeError("Cannot write DataFrame without an attached Database")
+
+        from ...sql.builders import quote_identifier
+
+        quote_identifier(table_name, self._df.database.dialect.quote_char)
 
         db = self._df.database
         if not self._table_exists(db, table_name):

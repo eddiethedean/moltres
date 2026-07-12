@@ -89,14 +89,18 @@ def test_insert_missing_columns(tmp_path):
         records.insert_into("test")
 
     # Valid insert - all rows have same structure
-    records = Records(_data=[{"id": 1, "name": "Alice"}], _database=db)
+    records = Records.from_list([{"id": 1, "name": "Alice"}], database=db)
     result = records.insert_into("test")
     assert result == 1
+    assert db.table("test").select().collect() == [{"id": 1, "name": "Alice"}]
 
     # Valid insert with fewer columns (SQLite allows this)
-    records = Records(_data=[{"id": 2}], _database=db)
+    records = Records.from_list([{"id": 2}], database=db)
     result = records.insert_into("test")
     assert result == 1
+    rows = {r["id"]: r for r in db.table("test").select().collect()}
+    assert rows[2]["id"] == 2
+    assert rows[2].get("name") is None
 
 
 def test_update_empty_set(tmp_path):

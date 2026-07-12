@@ -222,7 +222,7 @@ def test_merge_upsert_basic(tmp_path):
         on=["email"],
         when_matched={"name": "Alice Updated", "status": "active"},
     )
-    assert count >= 0  # May be 1 (updated) or 2 (inserted + updated) depending on implementation
+    assert count == 1
 
     # Verify update
     result = table.select().where(col("email") == "alice@example.com").collect()
@@ -254,13 +254,14 @@ def test_merge_upsert_insert_new(tmp_path):
         [{"id": 2, "email": "bob@example.com", "name": "Bob"}],
         on=["email"],
     )
-    assert count >= 0
+    assert count == 1
 
     # Verify both users exist
     result = table.select().order_by(col("id")).collect()
     assert len(result) == 2
     assert result[0]["email"] == "alice@example.com"
     assert result[1]["email"] == "bob@example.com"
+    assert result[1]["name"] == "Bob"
 
 
 def test_sample_method(tmp_path):
@@ -298,8 +299,11 @@ def test_sample_method(tmp_path):
     # Test sample() with very small fraction
     sampled3 = df.sample(0.01)  # 1% of rows
     result3 = sampled3.collect()
-    # Bernoulli sampling can legitimately return zero rows for small fractions; ensure no errors.
-    assert 0 <= len(result3) <= 100
+    # Bernoulli sampling can return zero rows; must not exceed table size
+    assert len(result3) <= 100
+    for row in result3:
+        assert 1 <= row["id"] <= 100
+        assert row["value"] == row["id"]
 
     # Test sample() with fraction=1.0 (should return all or most rows)
     sampled4 = df.sample(1.0)
@@ -366,9 +370,9 @@ def test_merge_upsert_without_when_matched(tmp_path):
         [{"id": 1, "email": "alice@example.com", "name": "Should Not Update"}],
         on=["email"],
     )
-    assert count >= 0
+    assert count == 0
 
-    # Name should remain unchanged (or be updated depending on dialect behavior)
+    # Name should remain unchanged (SQLite ON CONFLICT DO NOTHING)
     result = table.select().where(col("email") == "alice@example.com").collect()
     assert len(result) == 1
-    # The behavior may vary by dialect - SQLite ON CONFLICT DO NOTHING won't update
+    assert result[0]["name"] == "Alice"

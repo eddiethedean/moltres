@@ -227,11 +227,12 @@ class TestMergeMutation:
             handle=table, rows=rows, on=["id"], when_matched={"name": "updated"}
         )
         result = mutation.collect()
-        assert result >= 1
+        assert result == 2  # 1 update + 1 insert
 
-        # Verify merge
-        all_rows = table.select().collect()
-        assert len(all_rows) >= 1
+        # Verify merge: id=1 updated, id=2 inserted
+        all_rows = {r["id"]: r["name"] for r in table.select().collect()}
+        assert all_rows[1] == "updated"
+        assert all_rows[2] == "Charlie"
 
     def test_merge_mutation_to_sql(self, tmp_path):
         """Test MergeMutation.to_sql()."""

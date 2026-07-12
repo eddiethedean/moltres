@@ -53,21 +53,13 @@ class TestHealthCheckResult:
         """Test __bool__ method returns True for healthy result."""
         result = HealthCheckResult(healthy=True, message="OK")
         assert bool(result) is True
-        # Test in conditional context
-        if result:
-            assert True
-        else:
-            assert False, "Healthy result should be truthy"
+        assert result  # truthy in conditional context
 
     def test_bool_method_false(self):
         """Test __bool__ method returns False for unhealthy result."""
         result = HealthCheckResult(healthy=False, message="Error")
         assert bool(result) is False
-        # Test in conditional context
-        if result:
-            assert False, "Unhealthy result should be falsy"
-        else:
-            assert True
+        assert not result  # falsy in conditional context
 
     def test_repr_with_latency(self):
         """Test __repr__ with latency."""

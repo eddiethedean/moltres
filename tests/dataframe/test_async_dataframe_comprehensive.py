@@ -194,60 +194,62 @@ class TestAsyncDataFrameOperations:
         await db.close()
 
     async def test_union(self, tmp_path):
-        """Test union() method."""
+        """union() returns DISTINCT rows when inputs overlap."""
+        from moltres import col
+
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
         from moltres.table.schema import column
 
         await db.create_table(
-            "a", [column("id", "INTEGER", primary_key=True), column("value", "INTEGER")]
+            "a", [column("id", "INTEGER", primary_key=True), column("value", "TEXT")]
         ).collect()
         await db.create_table(
-            "b", [column("id", "INTEGER", primary_key=True), column("value", "INTEGER")]
+            "b", [column("id", "INTEGER", primary_key=True), column("value", "TEXT")]
         ).collect()
 
-        df_a = await db.createDataFrame([{"id": 1, "value": 10}, {"id": 2, "value": 20}], pk="id")
+        df_a = await db.createDataFrame([{"id": 1, "value": "A"}, {"id": 2, "value": "B"}], pk="id")
         await df_a.write.insertInto("a")
 
-        df_b = await db.createDataFrame([{"id": 3, "value": 30}], pk="id")
+        df_b = await db.createDataFrame([{"id": 3, "value": "B"}, {"id": 4, "value": "C"}], pk="id")
         await df_b.write.insertInto("b")
 
         a_df = (await db.table("a")).select("value")
         b_df = (await db.table("b")).select("value")
 
-        unioned = a_df.union(b_df)
-        result = await unioned.collect()
-        assert len(result) == 3
+        result = await a_df.union(b_df).order_by(col("value")).collect()
+        assert [r["value"] for r in result] == ["A", "B", "C"]
 
         await db.close()
 
     async def test_union_all(self, tmp_path):
-        """Test unionAll() method."""
+        """unionAll() keeps duplicate values across overlapping inputs."""
+        from moltres import col
+
         db_path = tmp_path / "test.db"
         db = async_connect(f"sqlite+aiosqlite:///{db_path}")
 
         from moltres.table.schema import column
 
         await db.create_table(
-            "a", [column("id", "INTEGER", primary_key=True), column("value", "INTEGER")]
+            "a", [column("id", "INTEGER", primary_key=True), column("value", "TEXT")]
         ).collect()
         await db.create_table(
-            "b", [column("id", "INTEGER", primary_key=True), column("value", "INTEGER")]
+            "b", [column("id", "INTEGER", primary_key=True), column("value", "TEXT")]
         ).collect()
 
-        df_a = await db.createDataFrame([{"id": 1, "value": 10}], pk="id")
+        df_a = await db.createDataFrame([{"id": 1, "value": "A"}, {"id": 2, "value": "B"}], pk="id")
         await df_a.write.insertInto("a")
 
-        df_b = await db.createDataFrame([{"id": 2, "value": 10}], pk="id")
+        df_b = await db.createDataFrame([{"id": 3, "value": "B"}, {"id": 4, "value": "C"}], pk="id")
         await df_b.write.insertInto("b")
 
         a_df = (await db.table("a")).select("value")
         b_df = (await db.table("b")).select("value")
 
-        unioned = a_df.unionAll(b_df)
-        result = await unioned.collect()
-        assert len(result) == 2  # unionAll keeps duplicates
+        result = await a_df.unionAll(b_df).order_by(col("value")).collect()
+        assert [r["value"] for r in result] == ["A", "B", "B", "C"]
 
         await db.close()
 

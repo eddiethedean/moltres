@@ -248,7 +248,17 @@ class ExpressionCompiler:
                 result = result.label(expression._alias)
             return result
         if op == "dayofweek":
-            result = func.extract("dow", self._compile(expression.args[0]))  # Day of week
+            # Contract (Spark-style): 1=Sunday .. 7=Saturday.
+            from sqlalchemy import types as sa_types
+
+            col_expr = self._compile(expression.args[0])
+            dialect = self.dialect.name
+            if dialect == "mysql":
+                result = func.dayofweek(col_expr)
+            elif dialect == "sqlite":
+                result = func.cast(func.strftime("%w", col_expr), sa_types.Integer) + 1
+            else:
+                result = func.extract("dow", col_expr) + 1
             if expression._alias:
                 result = result.label(expression._alias)
             return result
@@ -296,9 +306,19 @@ class ExpressionCompiler:
                 result = result.label(expression._alias)
             return result
         if op == "datediff":
+            from sqlalchemy import types as sa_types
+
             end = self._compile(expression.args[0])
             start = self._compile(expression.args[1])
-            result = end - start  # Simplified - actual datediff varies by dialect
+            dialect = self.dialect.name
+            if dialect == "mysql":
+                result = func.datediff(end, start)
+            elif dialect == "sqlite":
+                result = func.julianday(end) - func.julianday(start)
+            elif dialect == "duckdb":
+                result = func.date_diff("day", start, end)
+            else:
+                result = func.cast(end, sa_types.Date) - func.cast(start, sa_types.Date)
             if expression._alias:
                 result = result.label(expression._alias)
             return result

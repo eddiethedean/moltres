@@ -48,7 +48,18 @@ def compile_datetime_operation(
         return result
 
     if op == "dayofweek":
-        result = func.extract("dow", compiler._compile(expression.args[0]))  # Day of week
+        # Contract (Spark-style): 1=Sunday .. 7=Saturday.
+        # PostgreSQL/DuckDB EXTRACT(dow) and SQLite strftime('%w') use 0=Sunday.
+        # MySQL DAYOFWEEK already uses 1=Sunday.
+        col_expr = compiler._compile(expression.args[0])
+        dialect = compiler.dialect.name
+        if dialect == "mysql":
+            result = func.dayofweek(col_expr)
+        elif dialect == "sqlite":
+            result = func.cast(func.strftime("%w", col_expr), sa_types.Integer) + 1
+        else:
+            # postgresql, duckdb, and others with EXTRACT(dow) in 0..6
+            result = func.extract("dow", col_expr) + 1
         if expression._alias:
             result = result.label(expression._alias)
         return result
@@ -106,7 +117,16 @@ def compile_datetime_operation(
     if op == "datediff":
         end = compiler._compile(expression.args[0])
         start = compiler._compile(expression.args[1])
-        result = end - start  # Simplified - actual datediff varies by dialect
+        dialect = compiler.dialect.name
+        if dialect == "mysql":
+            result = func.datediff(end, start)
+        elif dialect == "sqlite":
+            result = func.julianday(end) - func.julianday(start)
+        elif dialect == "duckdb":
+            result = func.date_diff("day", start, end)
+        else:
+            # PostgreSQL: date subtraction yields integer days
+            result = func.cast(end, sa_types.Date) - func.cast(start, sa_types.Date)
         if expression._alias:
             result = result.label(expression._alias)
         return result

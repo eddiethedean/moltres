@@ -205,15 +205,14 @@ def sample_table(sqlite_db):
 
     from moltres.io.records import Records
 
-    records = Records(
-        _data=[
+    Records.from_list(
+        [
             {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": None, "age": 35},
         ],
-        _database=sqlite_db,
-    )
-    records.insert_into("users")
+        database=sqlite_db,
+    ).insert_into("users")
 
     return sqlite_db.table("users")
 
@@ -236,15 +235,14 @@ def create_sample_table(db, table_name: str = "users"):
 
     from moltres.io.records import Records
 
-    records = Records(
-        _data=[
+    Records.from_list(
+        [
             {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": None, "age": 35},
         ],
-        _database=db,
-    )
-    records.insert_into(table_name)
+        database=db,
+    ).insert_into(table_name)
 
     return db.table(table_name)
 

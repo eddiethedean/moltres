@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 
 from moltres import col, connect, lit
 from moltres.table.schema import ColumnDef
@@ -278,7 +279,7 @@ class TestStringFunctions:
             assert expr.op == "regexp_extract"
 
     def test_regexp_replace_function(self, tmp_path):
-        """Test regexp_replace() function."""
+        """Test regexp_replace() — assert exact output or skip if dialect lacks regex."""
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
         df = db.createDataFrame([{"text": "Hello123World"}], pk="text")
@@ -286,26 +287,25 @@ class TestStringFunctions:
             result = df.select(
                 regexp_replace(col("text"), r"\d+", "XXX").alias("replaced")
             ).collect()
-            # SQLite regex support varies
-            assert result[0]["replaced"] is not None
-        except Exception:
-            # SQLite may not support regexp_replace - test that function creates expression
-            expr = regexp_replace(col("text"), r"\d+", "XXX")
-            assert expr.op == "regexp_replace"
+        except Exception as exc:
+            pytest.skip(f"regexp_replace unsupported on this dialect: {exc}")
+        assert result[0]["replaced"] == "HelloXXXWorld"
 
     def test_split_function(self, tmp_path):
-        """Test split() function."""
+        """Test split() — assert parts or skip if unsupported."""
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
         df = db.createDataFrame([{"text": "a,b,c"}], pk="text")
         try:
             result = df.select(split(col("text"), ",").alias("split")).collect()
-            # Split returns an array, which may be serialized differently
-            assert result[0]["split"] is not None
-        except Exception:
-            # SQLite may not support split - test that function creates expression
-            expr = split(col("text"), ",")
-            assert expr.op == "split"
+        except Exception as exc:
+            pytest.skip(f"split unsupported on this dialect: {exc}")
+        split_val = result[0]["split"]
+        # Array may be list or serialized string depending on dialect
+        if isinstance(split_val, (list, tuple)):
+            assert list(split_val) == ["a", "b", "c"]
+        else:
+            assert "a" in str(split_val) and "c" in str(split_val)
 
     def test_replace_function(self, tmp_path):
         """Test replace() function."""
@@ -512,12 +512,22 @@ class TestDateFunctions:
         assert result[0]["d"] == 15
 
     def test_dayofweek_function(self, tmp_path):
-        """Test dayofweek() function."""
+        """dayofweek for a known calendar date (docs: 1=Sunday..7=Saturday)."""
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
-        df = db.createDataFrame([{"date": "2023-05-15"}], pk="date")
-        result = df.select(dayofweek(col("date")).alias("dow")).collect()
-        assert result[0]["dow"] is not None
+        # 2023-05-14 was Sunday → Spark-style dayofweek = 1
+        # 2023-05-15 was Monday → Spark-style dayofweek = 2
+        df = db.createDataFrame(
+            [{"date": "2023-05-14", "label": "sun"}, {"date": "2023-05-15", "label": "mon"}],
+            pk="label",
+        )
+        result = {
+            r["label"]: int(r["dow"])
+            for r in df.select("label", dayofweek(col("date")).alias("dow")).collect()
+        }
+        # Documented contract (Spark-style). SQLite EXTRACT(dow) may differ — catch drift.
+        assert result["sun"] == 1, f"Sunday should be 1, got {result['sun']}"
+        assert result["mon"] == 2, f"Monday should be 2, got {result['mon']}"
 
     def test_hour_function(self, tmp_path):
         """Test hour() function."""
@@ -583,46 +593,71 @@ class TestDateFunctions:
             assert expr.op == "to_date"
 
     def test_current_date_function(self, tmp_path):
-        """Test current_date() function."""
+        """current_date() returns a date-like value near today (allow TZ skew)."""
+        from datetime import date, datetime
+
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
         df = db.createDataFrame([{"id": 1}], pk="id")
         result = df.select(current_date().alias("today")).collect()
-        assert result[0]["today"] is not None
+        today_val = result[0]["today"]
+        if isinstance(today_val, datetime):
+            today_val = today_val.date()
+        elif not isinstance(today_val, date):
+            today_val = date.fromisoformat(str(today_val)[:10])
+        delta_days = (today_val - date.today()).days
+        assert -1 <= delta_days <= 1
 
     def test_current_timestamp_function(self, tmp_path):
-        """Test current_timestamp() function."""
+        """current_timestamp() returns a non-null timestamp near now (allow TZ skew)."""
+        from datetime import datetime, timezone
+
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
         df = db.createDataFrame([{"id": 1}], pk="id")
         result = df.select(current_timestamp().alias("now")).collect()
-        assert result[0]["now"] is not None
+        now_val = result[0]["now"]
+        assert now_val is not None
+        if isinstance(now_val, datetime):
+            # Compare against UTC and local to tolerate SQLite CURRENT_TIMESTAMP timezone
+            import builtins
+
+            utc_now = datetime.now(timezone.utc).replace(tzinfo=None)
+            local_now = datetime.now()
+            naive = now_val.replace(tzinfo=None)
+            skew = builtins.min(
+                builtins.abs((naive - utc_now).total_seconds()),
+                builtins.abs((naive - local_now).total_seconds()),
+            )
+            assert skew < 24 * 3600
+        else:
+            assert str(now_val)
 
     def test_datediff_function(self, tmp_path):
-        """Test datediff() function."""
+        """datediff(end, start) should be calendar day difference (contract: 9 days)."""
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
         df = db.createDataFrame([{"start": "2023-01-01", "end": "2023-01-10"}], pk="start")
         result = df.select(datediff(col("end"), col("start")).alias("diff")).collect()
-        # SQLite datediff may return 0 or different value - just check it's computed
-        assert result[0]["diff"] is not None
-        # If it's 0, that's a SQLite limitation, but the function was called
+        # FIXME: SQLite path historically returned 0 (shared hallucination with weak tests).
+        # Fail loudly if still wrong so the defect cannot hide behind `is not None`.
+        assert int(result[0]["diff"]) == 9
 
     def test_date_add_function(self, tmp_path):
-        """Test date_add() function."""
+        """date_add adds one day."""
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
         df = db.createDataFrame([{"date": "2023-01-01"}], pk="date")
         result = df.select(date_add(col("date"), "1 DAY").alias("next_day")).collect()
-        assert result[0]["next_day"] is not None
+        assert str(result[0]["next_day"])[:10] == "2023-01-02"
 
     def test_date_sub_function(self, tmp_path):
-        """Test date_sub() function."""
+        """date_sub subtracts one day."""
         db_path = tmp_path / "test.db"
         db = connect(f"sqlite:///{db_path}")
         df = db.createDataFrame([{"date": "2023-01-10"}], pk="date")
         result = df.select(date_sub(col("date"), "1 DAY").alias("prev_day")).collect()
-        assert result[0]["prev_day"] is not None
+        assert str(result[0]["prev_day"])[:10] == "2023-01-09"
 
 
 class TestWindowFunctions:

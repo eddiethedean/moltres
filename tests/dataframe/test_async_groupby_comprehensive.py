@@ -137,32 +137,54 @@ class TestAsyncGroupedDataFrame:
         await db.close()
 
     async def test_create_aggregation_from_string(self, tmp_path):
-        """Test _create_aggregation_from_string() method."""
-        db_path = tmp_path / "test.db"
-        db = async_connect(f"sqlite+aiosqlite:///{db_path}")
-
+        """_create_aggregation_from_string maps names to aggregation Column ops."""
         from moltres.dataframe.groupby.async_groupby import AsyncGroupedDataFrame
 
-        # Test various aggregation functions
-        agg_col = AsyncGroupedDataFrame._create_aggregation_from_string("amount", "sum")
-        assert agg_col is not None
+        expected_ops = {
+            "sum": "agg_sum",
+            "avg": "agg_avg",
+            "average": "agg_avg",
+            "min": "agg_min",
+            "max": "agg_max",
+            "count": "agg_count",
+        }
+        for func_name, expected_op in expected_ops.items():
+            agg_col = AsyncGroupedDataFrame._create_aggregation_from_string("amount", func_name)
+            assert agg_col.op == expected_op, f"{func_name} should produce op={expected_op}"
 
-        agg_col = AsyncGroupedDataFrame._create_aggregation_from_string("amount", "avg")
-        assert agg_col is not None
+        # Behavioral: string agg path yields correct totals
+        db_path = tmp_path / "test.db"
+        db = async_connect(f"sqlite+aiosqlite:///{db_path}")
+        from moltres.table.schema import column
 
-        agg_col = AsyncGroupedDataFrame._create_aggregation_from_string("amount", "min")
-        assert agg_col is not None
+        await db.create_table(
+            "sales",
+            [
+                column("id", "INTEGER", primary_key=True),
+                column("category", "TEXT"),
+                column("amount", "REAL"),
+            ],
+        ).collect()
+        df = await db.createDataFrame(
+            [
+                {"category": "A", "amount": 10.0},
+                {"category": "A", "amount": 5.0},
+                {"category": "B", "amount": 7.0},
+            ],
+            auto_pk="id",
+        )
+        await df.write.insertInto("sales")
 
-        agg_col = AsyncGroupedDataFrame._create_aggregation_from_string("amount", "max")
-        assert agg_col is not None
-
-        agg_col = AsyncGroupedDataFrame._create_aggregation_from_string("amount", "count")
-        assert agg_col is not None
-
-        agg_col = AsyncGroupedDataFrame._create_aggregation_from_string(
-            "amount", "average"
-        )  # Alias
-        assert agg_col is not None
+        rows = (
+            await (await db.table("sales"))
+            .select()
+            .group_by("category")
+            .agg({"amount": "sum"})
+            .order_by(col("category"))
+            .collect()
+        )
+        by_cat = {r["category"]: float(r["amount"]) for r in rows}
+        assert by_cat == {"A": 15.0, "B": 7.0}
 
         await db.close()
 
@@ -298,7 +320,16 @@ class TestAsyncPivotedGroupedDataFrame:
         result = await pivoted.agg("amount")
         rows = await result.collect()
 
-        assert len(rows) >= 0  # May be empty depending on pivot implementation
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["category"] == "A"
+        # Pivot columns for active/inactive amounts
+        active_key = next(
+            k for k in row if "active" in str(k).lower() and "inactive" not in str(k).lower()
+        )
+        inactive_key = next(k for k in row if "inactive" in str(k).lower())
+        assert float(row[active_key]) == 10.0
+        assert float(row[inactive_key]) == 5.0
 
         await db.close()
 
@@ -330,16 +361,11 @@ class TestAsyncPivotedGroupedDataFrame:
 
         table = await db.table("sales")
         df2 = table.select()
-        # Provide explicit pivot values
         pivoted = df2.group_by("category").pivot("status", values=["active", "inactive"])
-        # Pivot operations may have complex requirements - just test that it doesn't error on creation
-        try:
-            result = await pivoted.agg(sum_func(col("amount")))
-            rows = await result.collect()
-            assert len(rows) >= 0
-        except (ValueError, NotImplementedError, RuntimeError):
-            # Pivot may not be fully implemented or may have async generator issues - that's okay for coverage
-            pass
+        result = await pivoted.agg(sum_func(col("amount")))
+        rows = await result.collect()
+        assert len(rows) == 1
+        assert rows[0]["category"] == "A"
 
         await db.close()
 
@@ -371,16 +397,11 @@ class TestAsyncPivotedGroupedDataFrame:
 
         table = await db.table("sales")
         df2 = table.select()
-        # Provide explicit pivot values
         pivoted = df2.group_by("category").pivot("status", values=["active", "inactive"])
-        # Pivot operations may have complex requirements - just test that it doesn't error on creation
-        try:
-            result = await pivoted.agg({"amount": "sum"})
-            rows = await result.collect()
-            assert len(rows) >= 0
-        except (ValueError, NotImplementedError):
-            # Pivot may not be fully implemented - that's okay for coverage
-            pass
+        result = await pivoted.agg({"amount": "sum"})
+        rows = await result.collect()
+        assert len(rows) == 1
+        assert rows[0]["category"] == "A"
 
         await db.close()
 

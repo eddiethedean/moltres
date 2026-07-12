@@ -54,13 +54,13 @@ def db(db_path):
     # Insert test data
     from moltres.io.records import Records
 
-    Records(
-        _data=[
+    Records.from_list(
+        [
             {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
             {"id": 2, "name": "Bob", "email": "bob@example.com", "age": 25},
             {"id": 3, "name": "Charlie", "email": "charlie@example.com", "age": 35},
         ],
-        _database=database,
+        database=database,
     ).insert_into("users")
 
     yield database
@@ -87,8 +87,17 @@ moltres_dataframe(df, show_query_info=False)
         at = AppTest.from_string(app_code)
         at.run()
 
-        # Check that dataframe was displayed
+        # Check that dataframe was displayed with expected rows
         assert len(at.dataframe) > 0
+        frame = at.dataframe[0].value
+        # Streamlit may pass pandas DataFrame or similar
+        names = list(frame["name"]) if "name" in getattr(frame, "columns", []) else []
+        if names:
+            assert "Alice" in names
+            assert "Bob" in names
+        else:
+            # Fallback: serialized representation must include seeded names
+            assert "Alice" in str(frame) and "Bob" in str(frame)
 
     def test_moltres_dataframe_with_query_info(self, db, db_path):
         """Test DataFrame display with query information."""

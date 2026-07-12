@@ -265,6 +265,12 @@ class TestDataFrameWriterEdgeCases:
 
     def test_save_parquet_with_compression(self, tmp_path):
         """Test Parquet save with compression."""
+        import os
+
+        if os.environ.get("MOLTRES_SKIP_PANDAS_TESTS", "0") == "1":
+            pytest.skip(
+                "Parquet write requires real pyarrow (disabled under MOLTRES_SKIP_PANDAS_TESTS)"
+            )
         try:
             import pyarrow.parquet as pq  # noqa: F401
         except ImportError:

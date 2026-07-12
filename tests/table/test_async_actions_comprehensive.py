@@ -298,11 +298,14 @@ class TestAsyncMergeMutation:
             handle=table_handle,
             rows=rows,
             on=["id"],
-            when_matched={"name": "updated_name", "age": "updated_age"},
+            when_matched={"name": "updated_name", "age": 99},
         )
 
         count = await mutation.collect()
-        assert count >= 0
+        assert count == 1
+
+        updated = await table_handle.select().collect()
+        assert updated == [{"id": 1, "name": "updated_name", "age": 99}]
 
         await db.close()
 
