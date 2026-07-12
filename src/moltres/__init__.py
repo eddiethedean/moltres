@@ -147,7 +147,7 @@ def _validate_connection_string(dsn: str, is_async: bool = False) -> None:
         )
 
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 __all__ = [
     "AsyncDatabase",

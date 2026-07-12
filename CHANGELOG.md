@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-11
+
+### Added
+
+- **Public API behavioral contracts** – `tests/api/test_public_contracts.py` locks `union`/`unionAll` semantics, `col` vs `column`, CRUD return types, Records preferred path, I/O routing, and the README quick-start pipeline.
+- **Behavioral boundary and set-op tests** – Empty frames, NULL group keys, cross-database union errors, and SQLite-executed union/intersect/except coverage.
+- **Write-path security tests** – Identifier injection coverage for `insert`/`update`/`delete`/`merge` and `saveAsTable`.
+- **Test suite verification report** – `docs/TEST_SUITE_VERIFICATION.md` documents AI-failure-mode findings and confidence assessment.
+
+### Fixed
+
+- **`dayofweek()`** – Spark-style contract (1=Sunday … 7=Saturday) across dialects; SQLite/PostgreSQL no longer return 0-based weekday values.
+- **`datediff()`** – Returns calendar day differences on SQLite (`julianday`), MySQL (`DATEDIFF`), DuckDB (`date_diff`), and PostgreSQL (date subtraction) instead of a broken text subtraction that yielded `0`.
+- **`DataFrameWriter.save_as_table` / `insertInto`** – Validate table identifiers with `quote_identifier` before DDL/DML so malicious names are rejected.
+
+### Changed
+
+- **Test suite hardening** – Strengthened weak merge/pivot/expression asserts; replaced MagicMock-heavy engine fallback theater with real SQLite failure checks; async union tests no longer mask DISTINCT vs ALL with `.distinct()`.
+
 ## [1.1.0] - 2026-07-07
 
 ### Added
@@ -1181,7 +1200,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Joins, aggregations, filtering, sorting
 - Type hints and mypy support
 
-[Unreleased]: https://github.com/eddiethedean/moltres/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/eddiethedean/moltres/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/eddiethedean/moltres/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/eddiethedean/moltres/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/eddiethedean/moltres/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/eddiethedean/moltres/compare/v0.22.0...v1.0.0

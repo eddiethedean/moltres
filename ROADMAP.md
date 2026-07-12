@@ -9,8 +9,8 @@ market positioning review. It complements maintainer policy in
 for 1.x is to become the **obvious choice** for *PySpark-style transforms + SQL pushdown + CRUD +
 async* on traditional RDBMS workloads (PostgreSQL, MySQL, SQLite, DuckDB).
 
-**Current release:** [1.1.0](https://github.com/eddiethedean/moltres/blob/main/CHANGELOG.md) — public API contracts, async CRUD parity, Records
-constructors, optional-export guardrails, canonical I/O documentation.
+**Current release:** [1.1.1](https://github.com/eddiethedean/moltres/blob/main/CHANGELOG.md) — test-suite hardening, `dayofweek`/`datediff` correctness,
+`saveAsTable` identifier validation, and public API behavioral contract tests.
 
 ---
 
